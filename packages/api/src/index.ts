@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerStationRoutes } from "./routes/stations.js";
+import { registerGeneratorRoutes } from "./routes/generators.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -11,6 +12,7 @@ await app.register(websocket);
 app.get("/health", async () => ({ ok: true }));
 
 await registerStationRoutes(app);
+await registerGeneratorRoutes(app);
 await registerJobRoutes(app);
 
 await app.listen({ host: "0.0.0.0", port: PORT });

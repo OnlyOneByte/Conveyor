@@ -1,4 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["packages/*/src", "plugins/*/*/src"]
+  "include": ["packages/*/src", "plugins/*/*/src"],
+  "comment": "web is excluded — it has its own SvelteKit tsconfig + DOM/service-worker libs, checked via `svelte-check` not this bun/node root config.",
+  "exclude": ["packages/web"]
 }

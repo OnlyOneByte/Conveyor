@@ -1,29 +1,24 @@
 import {
   createRegistry,
-  type GeneratorPlugin,
   type SlicerPlugin,
   type TransportPlugin,
 } from "@conveyor/shared";
+import { gridfinity } from "@conveyor/generator-gridfinity";
 
 /**
- * M0: a capability-only view of the registry for pre-flight validation. The API
- * does not load real adapters (no engines in the api image); it only needs the
- * declared capabilities to run validateJob(). M-later: have the worker publish
- * its registered manifests to Redis on boot and hydrate this from there.
+ * Capability + metadata view of the registry. The API runs validateJob() and
+ * serves generator metadata (paramSchema/preview) to the PWA, but never calls a
+ * plugin's generate()/slice()/submit() — those run only in the worker (ADR 0001).
+ * Generator plugins are imported for their schema/preview/outputs (pure data);
+ * slicer/transport capabilities are declared inline (their real adapters live in
+ * the worker image with the engines). M-later: hydrate from worker-published
+ * manifests over Redis on boot.
  */
 export const apiRegistry = createRegistry();
 
-apiRegistry.generators.set("gridfinity", {
-  id: "gridfinity",
-  name: "Gridfinity Bin",
-  version: "0.0.0",
-  stage: "generator",
-  paramSchema: {},
-  outputs: ["stl", "3mf"],
-  generate: () => {
-    throw new Error("api holds a capability-only view; generation runs in the worker");
-  },
-} satisfies GeneratorPlugin);
+// Real generator metadata (paramSchema drives the PWA form). generate() is wired
+// but never invoked in the api process.
+apiRegistry.generators.set(gridfinity.id, gridfinity);
 
 apiRegistry.slicers.set("orca", {
   id: "orca",
