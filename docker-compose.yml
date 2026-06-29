@@ -1,0 +1,65 @@
+name: conveyor
+
+# Conveyor topology. Caddy terminates TLS (PWA service workers require https),
+# api is the REST+WS front door, worker carries the heavy engines, redis is the
+# queue + live status bus. Durable config (Stations/printers/profiles/job history)
+# lives in SQLite on the worker's mounted volume — see docs/DATA-MODEL.md.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+
+  web:
+    build: { context: ., dockerfile: packages/web/Dockerfile }
+    restart: unless-stopped
+    environment:
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://localhost}
+    depends_on: [api]
+
+  api:
+    build: { context: ., dockerfile: packages/api/Dockerfile }
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    depends_on:
+      redis: { condition: service_healthy }
+
+  worker:
+    build: { context: ., dockerfile: packages/worker/Dockerfile }
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DB_PATH=/data/conveyor.db
+    volumes:
+      - ./data:/data                 # job artifacts (*.stl, *.gcode) + sqlite db
+      - ./profiles:/profiles:ro      # locked slicer profiles
+      - ./scad:/scad:ro              # gridfinity-rebuilt-openscad submodule
+    depends_on:
+      redis: { condition: service_healthy }
+    # Printers live on the LAN. Pick ONE reach strategy:
+    #   network_mode: host           # simplest for mDNS/LAN discovery
+    # or keep bridged (default) and store explicit printer IPs in Station config.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redis_data:

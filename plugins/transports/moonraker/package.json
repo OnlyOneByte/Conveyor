@@ -1,0 +1,17 @@
+{
+  "name": "@conveyor/transport-moonraker",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@conveyor/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0"
+  }
+}

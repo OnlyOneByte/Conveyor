@@ -1,0 +1,23 @@
+{
+  "name": "@conveyor/worker",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@conveyor/shared": "workspace:*",
+    "@conveyor/generator-gridfinity": "workspace:*",
+    "@conveyor/slicer-orca": "workspace:*",
+    "@conveyor/transport-moonraker": "workspace:*",
+    "@conveyor/transport-elegoo": "workspace:*",
+    "bullmq": "^5.12.0",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.svelte-kit/
+build/
+*.log
+*.tsbuildinfo
+
+# job artifacts, local db & secrets
+data/
+profiles/**/secrets*
+.env

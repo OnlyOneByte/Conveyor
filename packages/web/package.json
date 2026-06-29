@@ -1,0 +1,11 @@
+{
+  "name": "@conveyor/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'M0 web stub — SvelteKit+Threlte PWA lands in M3'",
+    "typecheck": "echo 'no web TS yet (M3)'",
+    "start": "node server.mjs"
+  }
+}

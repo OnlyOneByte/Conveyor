@@ -1,0 +1,22 @@
+# Auto-HTTPS reverse proxy. PWA service workers REQUIRE https — Caddy uses its
+# internal CA for `localhost`; swap in a real domain + uncomment email for public certs.
+{
+	# email you@example.com
+}
+
+localhost {
+	encode gzip zstd
+
+	# REST + WebSocket → api
+	handle /jobs* {
+		reverse_proxy api:3000
+	}
+	handle /stations* {
+		reverse_proxy api:3000
+	}
+
+	# everything else → the PWA
+	handle {
+		reverse_proxy web:3000
+	}
+}

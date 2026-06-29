@@ -1,0 +1,22 @@
+{
+  "name": "@conveyor/api",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@conveyor/shared": "workspace:*",
+    "fastify": "^4.28.1",
+    "@fastify/websocket": "^10.0.1",
+    "bullmq": "^5.12.0",
+    "ioredis": "^5.4.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0"
+  }
+}
