@@ -1,0 +1,4 @@
+# Personal project — resolve dependencies from the PUBLIC npm registry, not the
+# Amazon-internal CodeArtifact mirror that the global environment defaults to.
+[install]
+registry = "https://registry.npmjs.org"

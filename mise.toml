@@ -1,0 +1,6 @@
+# Project toolchain (mise). Bun is both package manager and runtime — it runs
+# TypeScript directly, so there is no tsc build step. Node 20 is pinned as a
+# compatibility fallback for the api (Fastify/BullMQ under bun's node-compat).
+[tools]
+bun = "1.3.14"
+node = "20"

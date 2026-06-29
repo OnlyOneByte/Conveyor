@@ -3,6 +3,7 @@ import { Redis } from "ioredis";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  JOB_QUEUE,
   StageError,
   type JobRequest,
   type StageCtx,
@@ -19,7 +20,7 @@ const registry = buildRegistry();
 const bus = new StatusBus();
 
 const worker = new Worker<JobRequest>(
-  "conveyor:jobs",
+  JOB_QUEUE,
   async (job) => {
     const jobId = job.id!;
     const req = job.data;

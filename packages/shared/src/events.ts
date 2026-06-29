@@ -17,6 +17,10 @@ export interface JobStatusEvent {
   at: number;
 }
 
+/** BullMQ queue name — shared by the api (producer) and worker (consumer).
+ *  NB: BullMQ forbids ':' in queue names, so this uses a hyphen. */
+export const JOB_QUEUE = "conveyor-jobs";
+
 /** pub/sub channel + snapshot key helpers (single source of truth for both ends). */
 export function jobChannel(jobId: string): string {
   return `job:${jobId}:status`;

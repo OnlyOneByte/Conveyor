@@ -1,0 +1,62 @@
+name: Conveyor CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # Install + typecheck the bun workspace. Fast gate on every push/PR.
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc -p tsconfig.json --noEmit
+
+  # Validate the service images build. Worker is built with the Orca layer disabled
+  # (ORCA_ENABLE=0) so CI stays fast and arch-independent — the engine install is an
+  # x86_64 host concern proven separately (see docs/M1-WORKER-ENGINES.md).
+  docker-build:
+    name: Docker build (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: typecheck
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, worker, web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/${{ matrix.service }}/Dockerfile
+          push: false
+          build-args: |
+            ORCA_ENABLE=0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

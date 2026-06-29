@@ -43,11 +43,15 @@ export const orca: SlicerPlugin = {
 
     // Orca is GUI-first; headless slicing needs a virtual framebuffer (xvfb).
     // Each locked profile bundle supplies printer/filament/process settings.
+    //
+    // ⚠️ M1 SPIKE — verify against `orca --help` inside the image. Orca's CLI has
+    //   historically wanted machine+process joined in ONE --load-settings arg
+    //   ("machine.json;process.json"), with filaments via --load-filaments. The
+    //   repeated-flag form below is the first thing to confirm/correct.
     const args = [
       "--slice", "0",
-      "--load-settings", join(profile.path, "machine.json"),
+      "--load-settings", `${join(profile.path, "machine.json")};${join(profile.path, "process.json")}`,
       "--load-filaments", join(profile.path, "filament.json"),
-      "--load-settings", join(profile.path, "process.json"),
       "--outputdir", ctx.workDir,
       model.path,
     ];

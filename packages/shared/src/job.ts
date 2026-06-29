@@ -21,7 +21,8 @@ export function isTerminal(state: JobState): boolean {
 
 /** What the PWA submits. The station resolves slicer + profile + printer. */
 export interface JobRequest {
-  generator: { id: string; params: unknown };
+  /** params is optional — a generator may take none (e.g. a fixed model). */
+  generator: { id: string; params?: unknown };
   stationId: string;
 }
 

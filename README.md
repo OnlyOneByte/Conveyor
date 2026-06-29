@@ -22,14 +22,26 @@ scad/      gridfinity-rebuilt-openscad (git submodule)
 data/      job artifacts + sqlite db (gitignored)
 ```
 
-## Dev (M0 skeleton)
+## Toolchain
+
+**Bun** is both package manager and runtime — it runs the TypeScript directly, so
+there is no `tsc` build step and no `dist/`. `mise.toml` pins bun + Node 20.
 
 ```bash
-pnpm install
-pnpm -r build          # builds shared → plugins → api/worker in topo order
+bun install
+bun run typecheck      # tsc --noEmit across the workspace
 docker compose up --build
 ```
 
-> **Status: M0 — contracts + skeleton.** The worker's stage calls are stubbed
-> (the real invocations are present as comments). M1 proves OpenSCAD generation +
-> OrcaSlicer headless slicing in the worker image.
+For a no-engines local run (stub mode — no OpenSCAD/Orca needed):
+
+```bash
+CONVEYOR_ENGINE_STUB=1 bun run dev:worker   # in one shell
+CONVEYOR_ENGINE_STUB=1 bun run dev:api      # in another (needs a local redis)
+```
+
+> **Status.** M0 (contracts + skeleton) is **verified**: typechecks clean and the full
+> queue → worker → status-WS pipeline runs end-to-end in stub mode (gridfinity → orca →
+> moonraker/elegoo, live progress events). M1 (real OpenSCAD + OrcaSlicer-headless worker
+> image) is scaffolded but not yet verified green — see `docs/M1-WORKER-ENGINES.md`
+> (OrcaSlicer is x86_64-only; build/verify on an x86_64 host).

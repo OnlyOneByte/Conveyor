@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
@@ -11,6 +12,9 @@ import {
 import { gridfinityParams, type GridfinityParams } from "./params.js";
 
 const SCAD_FILE = process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity.scad";
+
+/** M0 engine-stub: emit a placeholder STL so the pipeline runs without OpenSCAD installed. */
+const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 
 /** Map validated params → OpenSCAD -D assignments. */
 function toScadDefines(p: GridfinityParams): string[] {
@@ -42,6 +46,13 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
     if (!parsed.success) throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
     const out = join(ctx.workDir, "model.stl");
+
+    if (STUB) {
+      ctx.log(`[stub] generate gridfinity ${parsed.data.gridX}x${parsed.data.gridY}`);
+      await writeFile(out, `solid conveyor-stub\nendsolid conveyor-stub\n`);
+      return { path: out, format: "stl", meta: { params: parsed.data, stub: true } };
+    }
+
     const args = ["-o", out, ...toScadDefines(parsed.data), SCAD_FILE];
     ctx.log(`openscad ${args.join(" ")}`);
 
