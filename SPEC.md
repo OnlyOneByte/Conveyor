@@ -69,34 +69,34 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 
 ## 7. v1 scope
 
-- Generators: **Gridfinity** + a Generator SDK & registry.
+- Generators: **Gridfinity** + **Upload STL** (`passthrough`) + a Generator SDK & registry.
 - Slicers: **Orca** (default); pluggability proven by a 2nd adapter (PrusaSlicer CLI).
 - Transports: **Klipper/Moonraker** + **ElegooLink** (the printers on hand).
 - Admin: define Stations, upload locked profiles.
-- User flow: pick generator → configure w/ live preview → pick Station → print → watch live status.
+- User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick Station → print → watch live status.
 - PWA: installable, works on phone.
 
 ## 8. Non-goals (v1)
 
-- Arbitrary user STL upload (revisit as a `passthrough` generator).
+- ~~Arbitrary user STL upload~~ — PROMOTED to v1 (2026-06-29) as the `passthrough` generator + real-mesh viewport (three STLLoader). See §7.
 - Multi-plate / multi-material orchestration.
 - Accounts beyond a shared friends-only auth.
 - Cloud printer modes (e.g. Bambu cloud) — LAN first.
 
 ## 9. Open decisions
 
-- [ ] **Name** — working title `Conveyor` (Stations + Stages vocabulary fits the metaphor).
+- [x] **Name** — RESOLVED: **Conveyor** (confirmed 2026-06-29). Stations + Stages vocabulary fits the metaphor.
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
 - [ ] **Profiles** — hand-authored JSON vs. a small admin UI.
-- [ ] **Auth** — shared password vs. magic links vs. Tailscale-only (no app auth).
+- [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). Opt-in via `CONVEYOR_PASSWORD` (off = open for trusted-LAN/dev); optional `CONVEYOR_ADMIN_PASSWORD` gates `/admin/*` + `/jobs-history` with an elevated role. Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
 - [ ] **Elegoo API** — confirm the local control protocol (SDCP / ElegooLink) via a discovery spike.
 
 ## 10. Milestones
 
-- **M0 — Contracts & skeleton.** monorepo, `shared` schema, stage registries, compose topology.
-- **M1 — Worker spike (highest risk).** OpenSCAD generate + Orca headless slice in one Docker image.
-- **M2 — Transport.** Moonraker submit + live status; then ElegooLink.
-- **M3 — PWA.** dynamic generator form + Threlte live preview + Station picker + WS job status.
-- **M4 — Admin & polish.** Stations + profile upload, PWA installability, auth.
+- **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
+- **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt, default) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
+- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
+- **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + Station picker + WS job status; 3-zone responsive layout.
+- **M4 — Admin & auth.** ✅ SQLite store (bun:sqlite) + job history + admin panel (stations/profiles/printers CRUD) + shared-password auth (HMAC cookie, admin role).
