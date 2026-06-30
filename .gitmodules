@@ -1,0 +1,3 @@
+[submodule "scad/gridfinity-rebuilt-openscad"]
+	path = scad/gridfinity-rebuilt-openscad
+	url = https://github.com/kennetek/gridfinity-rebuilt-openscad

@@ -11,12 +11,27 @@ import {
 } from "@conveyor/shared";
 import { gridfinityParams, type GridfinityParams } from "./params.js";
 
-const SCAD_FILE = process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity.scad";
+// Entry file + variable names verified against gridfinity-rebuilt-openscad @ HEAD
+// (2025-08) by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
+// measured 83.5×125.5mm, exactly the Gridfinity spec. See docs/M1-WORKER-ENGINES.md.
+const SCAD_FILE =
+  process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad";
 
 /** M0 engine-stub: emit a placeholder STL so the pipeline runs without OpenSCAD installed. */
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 
-/** Map validated params → OpenSCAD -D assignments. */
+/**
+ * Map our friendly params → the lib's actual OpenSCAD variables (verified names):
+ *   gridx/gridy/gridz, divx/divy            — direct
+ *   scoop          ∈ [0..1] float           — our bool → 1 (full ramp) or 0
+ *   style_tab      0=Full…5=None            — our labelTab bool → 1 (Auto) or 5 (None)
+ *   magnet_holes   bool                     — was wrongly "enable_magnet"
+ *   include_lip    bool                     — was wrongly "enable_lip"
+ *
+ * Verified-by-render gotcha: the lib asserts magnet_holes is incompatible with
+ * refined_holes (default true), so we must force refined_holes=false whenever
+ * magnets are on, or OpenSCAD aborts with an empty object.
+ */
 function toScadDefines(p: GridfinityParams): string[] {
   const d: Record<string, number | boolean> = {
     gridx: p.gridX,
@@ -24,12 +39,13 @@ function toScadDefines(p: GridfinityParams): string[] {
     gridz: p.heightUnits,
     divx: p.divisionsX,
     divy: p.divisionsY,
-    enable_scoop: p.scoop,
-    enable_label: p.labelTab,
-    enable_magnet: p.magnetHoles,
-    enable_lip: p.stackingLip,
+    scoop: p.scoop ? 1 : 0,
+    style_tab: p.labelTab ? 1 : 5,
+    magnet_holes: p.magnetHoles,
+    refined_holes: p.magnetHoles ? false : true, // mutually exclusive (lib assertion)
+    include_lip: p.stackingLip,
   };
-  return Object.entries(d).flatMap(([k, v]) => ["-D", `${k}=${typeof v === "boolean" ? v : v}`]);
+  return Object.entries(d).flatMap(([k, v]) => ["-D", `${k}=${v}`]);
 }
 
 export const gridfinity: GeneratorPlugin<GridfinityParams> = {
@@ -54,9 +70,12 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
     }
 
     const args = ["-o", out, ...toScadDefines(parsed.data), SCAD_FILE];
-    ctx.log(`openscad ${args.join(" ")}`);
+    // The worker image installs an OpenSCAD nightly at OPENSCAD_BIN (the lib needs
+    // 2023+); fall back to a PATH `openscad` for local/dev use.
+    const bin = process.env.OPENSCAD_BIN ?? "openscad";
+    ctx.log(`${bin} ${args.join(" ")}`);
 
-    await run("openscad", args, ctx);
+    await run(bin, args, ctx);
     return { path: out, format: "stl", meta: { params: parsed.data } };
   },
 };
@@ -71,7 +90,7 @@ function run(cmd: string, args: string[], ctx: StageCtx): Promise<void> {
     child.on("close", (code) =>
       code === 0
         ? resolve()
-        : reject(new StageError("generator", `openscad exited ${code}: ${stderr.slice(-500)}`)),
+        : reject(new StageError("generator", `${cmd} exited ${code}: ${stderr.slice(-500)}`)),
     );
   });
 }
