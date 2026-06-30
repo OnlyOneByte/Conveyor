@@ -114,9 +114,17 @@ knows a `stationId`. (Friends-only deployment; app-level auth is an open decisio
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.
 - Redis snapshots: short TTL after terminal — SQLite is the durable record.
 
-## M0 status
+## Implementation status
 
-`stations`/`printers` are currently in-memory seeds in both `api` (`stations-store.ts`) and
-`worker` (`stations.ts`) with **identical shapes to the tables above**. M2+ replaces both with the
-SQLite-backed store so there's one source of truth; the function signatures (`listStations`,
-`getStation`, `resolveStation`) stay identical, so route/worker code is untouched by the swap.
+**SQLite store SHIPPED (2026-06-29).** Backed by `bun:sqlite` (synchronous, no native build — same
+on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
+(`stations-store.ts`) and `worker` (`stations.ts`) delegate to it, so there is one source of truth.
+The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
+default catalog (the old in-memory seeds) is seeded only when the `stations` table is empty, so
+admin edits survive restarts. The worker resolves real `PrinterTarget`s (incl. secrets) from
+`printers` and writes the settled `Job` row on every terminal state.
+
+Admin CRUD lives behind `/admin/*` (stations/printers/profiles) + `/jobs-history`; printer secrets
+are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New Stations
+are capability-validated (`validateStation`) before persist. The `/admin/*` surface is currently
+**unauthenticated** — it gets gated together when the auth slice lands (SPEC open decision).
