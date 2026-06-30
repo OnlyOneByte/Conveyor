@@ -7,15 +7,32 @@
 localhost {
 	encode gzip zstd
 
-	# REST + WebSocket → api
+	# REST + WebSocket → api (jobs incl. the /jobs/:id/ws upgrade)
 	handle /jobs* {
 		reverse_proxy api:3000
 	}
 	handle /stations* {
 		reverse_proxy api:3000
 	}
+	handle /generators* {
+		reverse_proxy api:3000
+	}
+	handle /uploads* {
+		reverse_proxy api:3000
+	}
+	handle /auth* {
+		reverse_proxy api:3000
+	}
+	handle /jobs-history* {
+		reverse_proxy api:3000
+	}
+	# Only the API endpoints under /admin/* go to the api; the SvelteKit /admin
+	# PAGE itself (exactly "/admin") falls through to the web service below.
+	handle /admin/* {
+		reverse_proxy api:3000
+	}
 
-	# everything else → the PWA
+	# everything else (incl. the /admin page) → the PWA
 	handle {
 		reverse_proxy web:3000
 	}

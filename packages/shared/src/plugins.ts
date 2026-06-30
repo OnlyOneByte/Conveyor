@@ -77,6 +77,9 @@ export interface PrintHandle {
   printerId: string;
   /** transport-specific job reference (filename, task id, …) */
   ref: string;
+  /** device address (host:port / ip) so status()/cancel() can reach it without
+   *  re-resolving the printer. Server-side only — never leaves the worker. */
+  address?: string;
 }
 
 export interface PrintStatus {

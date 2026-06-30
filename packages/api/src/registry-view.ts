@@ -4,6 +4,7 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { gridfinity } from "@conveyor/generator-gridfinity";
+import { passthrough } from "@conveyor/generator-passthrough";
 
 /**
  * Capability + metadata view of the registry. The API runs validateJob() and
@@ -19,6 +20,7 @@ export const apiRegistry = createRegistry();
 // Real generator metadata (paramSchema drives the PWA form). generate() is wired
 // but never invoked in the api process.
 apiRegistry.generators.set(gridfinity.id, gridfinity);
+apiRegistry.generators.set(passthrough.id, passthrough);
 
 apiRegistry.slicers.set("orca", {
   id: "orca",
@@ -28,8 +30,23 @@ apiRegistry.slicers.set("orca", {
   accepts: ["stl", "3mf"],
   gcodeFlavor: "klipper",
   profiles: [
-    { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/klipper-pla-0.2" },
-    { id: "orca/elegoo-pla-0.2", name: "Elegoo PLA 0.2mm", path: "/profiles/elegoo-pla-0.2" },
+    { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/orca-klipper-pla-0.2" },
+  ],
+  slice: () => {
+    throw new Error("api holds a capability-only view; slicing runs in the worker");
+  },
+} satisfies SlicerPlugin);
+
+apiRegistry.slicers.set("prusa", {
+  id: "prusa",
+  name: "PrusaSlicer",
+  version: "0.1.0",
+  stage: "slicer",
+  accepts: ["stl", "3mf", "obj"],
+  gcodeFlavor: "klipper",
+  profiles: [
+    { id: "prusa/klipper-pla-0.2", name: "Klipper PLA 0.2mm (Prusa)", path: "/profiles/prusa-klipper-pla-0.2" },
+    { id: "prusa/marlin-pla-0.2", name: "Marlin PLA 0.2mm (Prusa)", path: "/profiles/prusa-marlin-pla-0.2" },
   ],
   slice: () => {
     throw new Error("api holds a capability-only view; slicing runs in the worker");

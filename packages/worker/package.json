@@ -9,8 +9,10 @@
   },
   "dependencies": {
     "@conveyor/generator-gridfinity": "workspace:*",
+    "@conveyor/generator-passthrough": "workspace:*",
     "@conveyor/shared": "workspace:*",
     "@conveyor/slicer-orca": "workspace:*",
+    "@conveyor/slicer-prusa": "workspace:*",
     "@conveyor/transport-elegoo": "workspace:*",
     "@conveyor/transport-moonraker": "workspace:*",
     "bullmq": "^5.12.0",

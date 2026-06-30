@@ -12,6 +12,12 @@ export default defineConfig({
       "/jobs": { target: API, ws: true },
       "/stations": { target: API },
       "/generators": { target: API },
+      "/uploads": { target: API },
+      "/auth": { target: API },
+      "/jobs-history": { target: API },
+      // NB: trailing slash — proxy only the API endpoints (/admin/stations …);
+      // the SvelteKit /admin PAGE itself is served by the app, not the API.
+      "/admin/": { target: API },
     },
   },
 });
