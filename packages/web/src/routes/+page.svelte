@@ -5,7 +5,9 @@
   import MeshScene from "$lib/components/MeshScene.svelte";
   import SchemaForm from "$lib/components/SchemaForm.svelte";
   import JobStatus from "$lib/components/JobStatus.svelte";
-  import { submitJob, uploadStl, fetchGenerators, fetchStations } from "$lib/api";
+  import { submitJob, uploadStl, fetchGenerators, fetchStations, type StationSummary } from "$lib/api";
+  import RecentJobs from "$lib/components/RecentJobs.svelte";
+  import { rememberJob, updateJobState } from "$lib/recent-jobs";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -107,6 +109,15 @@
           : { id: selectedGen!.id, params };
       const res = await submitJob({ generator, stationId: selectedStationId });
       jobId = res.jobId;
+      // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
+      const station = stations.find((s) => s.id === selectedStationId);
+      rememberJob({
+        jobId: res.jobId,
+        stationName: station?.name ?? selectedStationId,
+        generatorId: generator.id,
+        submittedAt: Date.now(),
+        state: "queued",
+      });
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -114,19 +125,33 @@
     }
   }
 
-  // Friendly chips parsed from a Station's profileId (e.g. orca/klipper-pla-0.2).
-  // Pure presentation — the real material/quality fields land with the SQLite store (M4).
-  function chips(stationName: string): string[] {
+  // Real chips from the structured station summary (flavor/material/quality come
+  // from the bound profile, server-side — no more regex-on-name guessing). Order:
+  // flavor → material → quality, skipping any the station doesn't carry.
+  function chips(s: StationSummary): string[] {
     const out: string[] = [];
-    const lower = stationName.toLowerCase();
-    if (lower.includes("klipper")) out.push("Klipper");
-    if (lower.includes("elegoo")) out.push("Elegoo");
-    for (const m of ["PLA", "PETG", "ABS", "TPU"]) if (lower.includes(m.toLowerCase())) out.push(m);
-    const q = stationName.match(/(\d+\.\d+\s*mm)/i);
-    if (q) out.push(q[1].replace(/\s+/, ""));
+    if (s.gcodeFlavor) out.push(titleCase(s.gcodeFlavor));
+    if (s.material) out.push(s.material);
+    if (s.quality) out.push(s.quality);
     return out;
   }
-  const DOT_COLORS = ["var(--accent)", "#fbbf24", "#a78bfa", "#60a5fa", "#f472b6"];
+  function titleCase(v: string): string {
+    return v.charAt(0).toUpperCase() + v.slice(1);
+  }
+
+  // The preset dot encodes the gcode flavor (what the station actually prints to),
+  // not a random index — same flavor, same color across the list.
+  function dotColor(s: StationSummary): string {
+    switch (s.gcodeFlavor?.toLowerCase()) {
+      case "klipper":
+        return "var(--accent)"; // teal
+      case "marlin":
+      case "marlin2":
+        return "#fbbf24"; // amber
+      default:
+        return "var(--muted)"; // unknown / dangling profile
+    }
+  }
 </script>
 
 <div class="layout">
@@ -160,11 +185,30 @@
     <!-- ① SOURCE -->
     <div class="card">
       <h3><span class="step-n">1</span>Source</h3>
-      <div class="seg">
-        <button class:active={source === "generate"} on:click={() => (source = "generate")}>Generate</button>
-        <button class:active={source === "upload"} on:click={() => (source = "upload")}>Upload STL</button>
+      <div class="seg" role="tablist" aria-label="Model source">
+        <button
+          role="tab"
+          id="tab-generate"
+          aria-selected={source === "generate"}
+          aria-controls="source-panel"
+          tabindex={source === "generate" ? 0 : -1}
+          class:active={source === "generate"}
+          on:click={() => (source = "generate")}>Generate</button>
+        <button
+          role="tab"
+          id="tab-upload"
+          aria-selected={source === "upload"}
+          aria-controls="source-panel"
+          tabindex={source === "upload" ? 0 : -1}
+          class:active={source === "upload"}
+          on:click={() => (source = "upload")}>Upload STL</button>
       </div>
 
+      <div
+        id="source-panel"
+        role="tabpanel"
+        aria-labelledby={source === "generate" ? "tab-generate" : "tab-upload"}
+      >
       {#if source === "generate"}
         <label class="pick">
           <span class="muted">Generator</span>
@@ -198,6 +242,7 @@
           {/if}
         </label>
       {/if}
+      </div>
     </div>
 
     <!-- ② CONFIGURE -->
@@ -215,7 +260,7 @@
       <h3><span class="step-n">3</span>Print at</h3>
       {#if stations.length}
         <div class="presets" role="radiogroup" aria-label="Choose a station">
-          {#each stations as s, i}
+          {#each stations as s}
             <button
               type="button"
               class="preset"
@@ -224,11 +269,11 @@
               aria-checked={s.id === selectedStationId}
               on:click={() => (selectedStationId = s.id)}
             >
-              <span class="dot" style={`background:${DOT_COLORS[i % DOT_COLORS.length]}`} />
+              <span class="dot" style={`background:${dotColor(s)}`} title={s.gcodeFlavor ?? "unknown flavor"} />
               <span class="pmeta">
                 <span class="pn">{s.name}</span>
-                {#if chips(s.name).length}
-                  <span class="chips">{#each chips(s.name) as c}<span class="chip">{c}</span>{/each}</span>
+                {#if chips(s).length}
+                  <span class="chips">{#each chips(s) as c}<span class="chip">{c}</span>{/each}</span>
                 {/if}
               </span>
               <span class="check">✓</span>
@@ -248,9 +293,15 @@
     {#if jobId}
       <div class="card">
         <h3>Job</h3>
-        <JobStatus {jobId} />
+        <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
       </div>
     {/if}
+
+    <!-- ④ RECENT JOBS — persisted per-browser so a refresh keeps them visible -->
+    <div class="card">
+      <h3>Recent jobs</h3>
+      <RecentJobs activeJobId={jobId} onSelect={(id) => (jobId = id)} />
+    </div>
 
     {#if generators.length === 0}
       <div class="card muted">
@@ -274,7 +325,12 @@
   .panel { order: 1; }
   .viewport { order: 2; }
 
-  .viewport { position: relative; height: 60vh; min-height: 360px; padding: 0; overflow: hidden; position: sticky; top: 1rem; }
+  .viewport {
+    position: relative; height: 60vh; min-height: 360px; padding: 0; overflow: hidden; position: sticky; top: 1rem;
+    /* Depth backdrop from the locked mockup — replaces the flat .card surface so
+       the empty state and 3D viewport both sit on a subtle dome of light. */
+    background: radial-gradient(120% 120% at 50% 0%, #1b2230 0%, #0e1116 70%);
+  }
   .badge {
     position: absolute; top: 0.75rem; left: 0.75rem; font-size: 0.75rem;
     background: rgba(94,234,212,0.15); color: var(--accent);

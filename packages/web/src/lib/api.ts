@@ -4,6 +4,14 @@ import type { JobState } from "@conveyor/shared";
 export interface StationSummary {
   id: string;
   name: string;
+  /** slicer engine bound to this station (e.g. "orca", "prusa") */
+  slicerId?: string;
+  /** gcode flavor of the bound profile (e.g. "klipper", "marlin") */
+  gcodeFlavor?: string;
+  /** material parsed from the bound profile (e.g. "PLA", "PETG") */
+  material?: string;
+  /** layer height / quality parsed from the bound profile (e.g. "0.2mm") */
+  quality?: string;
   allowedGenerators?: string[];
 }
 

@@ -11,10 +11,15 @@
   $: group = buildGeometry(params);
   $: radius = boundingRadius(params);
   $: camDist = radius * 2.4;
+
+  // Respect "reduce motion": don't auto-spin for users who opted out. autoRotate
+  // is a render-loop prop (not a CSS animation), so it needs this JS guard.
+  const autoRotate =
+    typeof matchMedia === "undefined" || !matchMedia("(prefers-reduced-motion: reduce)").matches;
 </script>
 
 <T.PerspectiveCamera makeDefault position={[camDist, camDist * 0.8, camDist]} fov={45}>
-  <OrbitControls enableDamping autoRotate autoRotateSpeed={0.6} target={[0, 0, 0]} />
+  <OrbitControls enableDamping {autoRotate} autoRotateSpeed={0.6} target={[0, 0, 0]} />
 </T.PerspectiveCamera>
 
 <T.AmbientLight intensity={0.6} />

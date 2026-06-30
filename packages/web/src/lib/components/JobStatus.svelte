@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { createEventDispatcher, onDestroy } from "svelte";
   import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "$lib/api";
   import type { JobState } from "@conveyor/shared";
 
   export let jobId: string;
+
+  // Bubble every state change up so a parent (e.g. the recent-jobs strip) can
+  // keep its last-known state in sync without owning the socket.
+  const dispatch = createEventDispatcher<{ state: { jobId: string; state: JobState } }>();
 
   const STAGES: { state: JobState; label: string }[] = [
     { state: "queued", label: "Queued" },
@@ -23,9 +27,14 @@
   function connect(id: string) {
     ws?.close();
     // Reconnect-safe: pull the snapshot first, then stream live.
-    fetchJobSnapshot(id).then((s) => { if (s && !evt) evt = s; }).catch(() => {});
+    fetchJobSnapshot(id).then((s) => {
+      if (s && !evt) { evt = s; dispatch("state", { jobId: id, state: s.state }); }
+    }).catch(() => {});
     ws = openJobSocket(id);
-    ws.onmessage = (m) => { evt = JSON.parse(m.data); };
+    ws.onmessage = (m) => {
+      evt = JSON.parse(m.data);
+      if (evt) dispatch("state", { jobId: id, state: evt.state });
+    };
     ws.onerror = () => {};
   }
 

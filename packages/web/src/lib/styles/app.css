@@ -9,7 +9,9 @@
   --accent-dim: #2dd4bf;
   --danger: #f87171;
   --ok: #4ade80;
-  --radius: 10px;
+  --radius: 12px;
+  /* Minimum touch-target size (WCAG 2.5.5 / mobile). Matches the locked mockup. */
+  --tap: 44px;
   color-scheme: dark;
 }
 
@@ -32,6 +34,7 @@ button {
   color: var(--text);
   border-radius: var(--radius);
   padding: 0.5rem 0.9rem;
+  min-height: var(--tap);
   transition: border-color 0.15s, background 0.15s;
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
@@ -51,9 +54,11 @@ input, select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
+  min-height: var(--tap);
 }
-input[type="range"] { padding: 0; }
-input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+/* range/checkbox are direct-manipulation controls; the tap floor doesn't apply. */
+input[type="range"] { padding: 0; min-height: 0; accent-color: var(--accent); }
+input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: 0; accent-color: var(--accent); }
 
 .card {
   background: var(--surface);
@@ -64,3 +69,17 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--acce
 
 .muted { color: var(--muted); }
 .row { display: flex; gap: 0.75rem; align-items: center; }
+
+/* Respect the OS "reduce motion" setting: kill CSS animations/transitions
+   globally. The Threlte viewport autoRotate is guarded separately in JS
+   (it's a render-loop prop, not a CSS animation). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
