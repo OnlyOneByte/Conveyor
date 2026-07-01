@@ -9,3 +9,6 @@ build/
 data/
 profiles/**/secrets*
 .env
+
+# Agent cold-start handoff — local only, never publish
+HANDOFF.md
