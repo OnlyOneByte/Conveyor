@@ -31,6 +31,9 @@ RUN bun install --frozen-lockfile
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 FROM oven/bun:debian
+LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
+      org.opencontainers.image.description="Conveyor worker — OpenSCAD generator + PrusaSlicer/OrcaSlicer engines" \
+      org.opencontainers.image.licenses="MIT"
 # Track the latest OrcaSlicer release by default; pass ORCA_RELEASE=x.y.z to pin a build.
 ARG ORCA_RELEASE=latest
 ARG ORCA_ENABLE=auto

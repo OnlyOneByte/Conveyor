@@ -21,6 +21,9 @@ COPY . .
 RUN cd packages/web && bunx vite build
 
 FROM node:lts-bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
+      org.opencontainers.image.description="Conveyor web — SvelteKit + Threlte PWA" \
+      org.opencontainers.image.licenses="MIT"
 WORKDIR /app/packages/web
 COPY --from=build /app/packages/web/build ./build
 COPY --from=build /app/node_modules /app/node_modules

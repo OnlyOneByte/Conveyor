@@ -19,6 +19,9 @@ COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
 RUN bun install --frozen-lockfile
 
 FROM oven/bun:debian
+LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
+      org.opencontainers.image.description="Conveyor API — REST + WebSocket front door" \
+      org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

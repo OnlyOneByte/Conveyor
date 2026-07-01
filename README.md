@@ -40,6 +40,25 @@ CONVEYOR_ENGINE_STUB=1 bun run dev:worker   # in one shell
 CONVEYOR_ENGINE_STUB=1 bun run dev:api      # in another (needs a local redis)
 ```
 
+## Container images
+
+Prebuilt **multi-arch** (`amd64` + `arm64`) images are published to GHCR on every
+`v*` tag by `.github/workflows/release.yml` (native runners per arch — no QEMU —
+merged into one manifest):
+
+- `ghcr.io/onlyonebyte/conveyor-web`
+- `ghcr.io/onlyonebyte/conveyor-api`
+- `ghcr.io/onlyonebyte/conveyor-worker` (bakes in OpenSCAD + PrusaSlicer/OrcaSlicer)
+
+Tags: `:X.Y.Z`, `:X.Y`, `:latest`, and `:sha-<short>`. To cut a release:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0     # triggers build + publish
+```
+
+A deploy `compose.yml` can then swap the `build:` blocks for `image:` pins — e.g.
+`image: ghcr.io/onlyonebyte/conveyor-worker:latest` — to pull instead of build.
+
 > **Status.** M0 (contracts + skeleton) is **verified**: typechecks clean and the full
 > queue → worker → status-WS pipeline runs end-to-end in stub mode (gridfinity → slicer →
 > moonraker/elegoo, live progress events). M1 (real worker image) is **verified green** on
