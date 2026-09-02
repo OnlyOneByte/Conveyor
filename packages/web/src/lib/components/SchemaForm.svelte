@@ -22,6 +22,8 @@
 
   // Seed defaults from the schema once, when the schema first resolves.
   let seeded = false;
+  let mounted = false;
+  let seedPending = false;
   $: if (root && !seeded) {
     const next: Record<string, unknown> = { ...value };
     for (const [k, p] of Object.entries(schemaProps)) {
@@ -29,7 +31,13 @@
     }
     value = next;
     seeded = true;
-    dispatch("change", value);
+    // A dispatch from a reactive statement can run during component INIT, before the
+    // parent has attached its on:change listener — so this event used to be dropped
+    // and the parent kept its empty params object. Measured effect: printing without
+    // touching the form POSTed `params: {}`, and the job's durable history row
+    // recorded no parameters at all. Defer to onMount when we are not mounted yet.
+    if (mounted) dispatch("change", value);
+    else seedPending = true;
   }
 
   function set(key: string, v: unknown) {
@@ -44,6 +52,11 @@
   let advOpen = false;
   const storeKey = () => `conveyor.form.${persistKey || "default"}.advanced`;
   onMount(() => {
+    mounted = true;
+    if (seedPending) {
+      seedPending = false;
+      dispatch("change", value); // deliver the seeded defaults now the parent is listening
+    }
     try {
       advOpen = localStorage.getItem(storeKey()) === "1";
     } catch {

@@ -130,6 +130,35 @@ Stations are capability-validated (`validateStation`) before persist. Both surfa
 `registerAuthGuard` when `CONVEYOR_PASSWORD` is set, and open when it is not — there is a single
 access tier, so holding the password grants the catalog too.
 
-> The page routes (`/`, `/settings`, `/history`) deliberately share **no prefix** with any API
-> namespace. A page at `/admin` or `/jobs` 404s on direct load, because the proxy and Caddy forward
-> those whole prefixes to the API.
+Full catalog + history surface (2026-09-02):
+
+| Route | Notes |
+| --- | --- |
+| `GET/PUT /catalog/stations`, `DELETE /catalog/stations/:id` | `validateStation` on write |
+| `GET/PUT /catalog/printers`, `DELETE /catalog/printers/:id` | `transportId` validated against the registry; secrets stripped on read |
+| `GET/PUT /catalog/profiles`, `DELETE /catalog/profiles/:id` | |
+| `GET /catalog/transports` | capability metadata; drives the Settings printer form's picker |
+| `GET /jobs-history?limit=` | windowed list, default 50, max 200 |
+| `GET /jobs-history/:id` | one settled job; 404 when absent |
+
+Two integrity rules are enforced in the API rather than the database:
+
+- **Deleting a printer or profile a Station references is refused with 409**, naming the blocking
+  Stations. The `stations` table declares no foreign keys (`PRAGMA foreign_key_list(stations)` is
+  empty even though `PRAGMA foreign_keys` is ON), so SQLite would otherwise delete the row and
+  leave the Station pointing at nothing — visibly fine in Settings, failing only later at submit.
+- **A printer upsert that omits `secrets` keeps the stored value** (`COALESCE` in
+  `dbUpsertPrinter`). Reads strip secrets, so a client editing a printer cannot round-trip them;
+  assigning the incoming value directly used to wipe the credential on any address-only edit.
+  Pass `secrets: {}` to clear deliberately.
+
+Only **terminal** jobs get a `jobs` row (the worker calls `recordTerminal` on done/failed), so
+`/jobs-history` never contains a job in flight. That is why the PWA keeps a per-browser
+localStorage strip on `/history` alongside the durable table, and why a running job links to the
+home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
+
+> The page routes (`/`, `/settings`, `/history`, `/history/<jobId>`) deliberately share **no prefix**
+> with any API namespace. A page at `/admin` or `/jobs` 404s on direct load, because the proxy and
+> Caddy forward those whole prefixes to the API. Note `/history` (page) vs `/jobs-history` (API) are
+> distinct on purpose. Both the vite proxy and Caddy match API namespaces by **prefix**, so
+> sub-paths like `/jobs-history/:id` and `/catalog/printers/:id` need no routing change.
