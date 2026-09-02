@@ -19,6 +19,12 @@ export interface Printer {
   address: string;
   /** parsed from secrets_json; server-side only, never serialized to clients */
   secrets?: Record<string, string>;
+  /**
+   * Generator ids this printer accepts. `undefined` means no restriction — which is
+   * deliberately distinct from `[]`, an empty allowlist that permits nothing. Unlike
+   * `secrets` this IS returned to clients, so a form can round-trip it.
+   */
+  allowedGenerators?: string[];
 }
 
 export interface Profile {
@@ -99,6 +105,13 @@ function migrate(db: Database): void {
     })();
   }
 
+  // printers.allowed_generators_json — a per-printer generator allowlist. Additive and
+  // nullable, so a plain ADD COLUMN suffices; no table rebuild (contrast the jobs
+  // rebuild above, which was forced by a NOT NULL column that had to go).
+  if (!columnsOf(db, "printers").includes("allowed_generators_json")) {
+    db.exec("ALTER TABLE printers ADD COLUMN allowed_generators_json TEXT");
+  }
+
   // Then retire the stations table itself. A SEPARATE guard, not an else of the one
   // above: a database migrated by an earlier build already has printer_id on jobs yet
   // may still carry the stations table, and that case must still be cleaned up.
@@ -143,6 +156,7 @@ interface PrinterRow {
   name: string;
   address: string;
   secrets_json: string | null;
+  allowed_generators_json: string | null;
 }
 
 function rowToPrinter(r: PrinterRow): Printer {
@@ -152,6 +166,11 @@ function rowToPrinter(r: PrinterRow): Printer {
     name: r.name,
     address: r.address,
     secrets: r.secrets_json ? JSON.parse(r.secrets_json) : undefined,
+    // `?? undefined` not `|| undefined`: "[]" parses to [], which is a meaningful
+    // allow-nothing list and must not collapse into "no restriction".
+    allowedGenerators: r.allowed_generators_json
+      ? (JSON.parse(r.allowed_generators_json) as string[])
+      : undefined,
   };
 }
 
@@ -173,14 +192,28 @@ export function dbUpsertPrinter(db: Database, p: Printer): void {
   //   secrets omitted  → keep whatever is stored
   //   secrets {}       → clear them
   //   secrets {...}    → replace them
+  //
+  // allowed_generators_json is assigned DIRECTLY, not COALESCEd, and that asymmetry is
+  // deliberate: unlike secrets it is returned on read, so a client can round-trip it
+  // and "omitted" is an intentional choice meaning "no restriction". COALESCE here
+  // would make an allowlist impossible to remove.
   db.prepare(
-    `INSERT INTO printers (id, transport_id, name, address, secrets_json, created_at)
-     VALUES (?,?,?,?,?,?)
+    `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
+     VALUES (?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        transport_id=excluded.transport_id, name=excluded.name,
        address=excluded.address,
-       secrets_json=COALESCE(excluded.secrets_json, printers.secrets_json)`,
-  ).run(p.id, p.transportId, p.name, p.address, p.secrets ? JSON.stringify(p.secrets) : null, epochMs());
+       secrets_json=COALESCE(excluded.secrets_json, printers.secrets_json),
+       allowed_generators_json=excluded.allowed_generators_json`,
+  ).run(
+    p.id,
+    p.transportId,
+    p.name,
+    p.address,
+    p.secrets ? JSON.stringify(p.secrets) : null,
+    p.allowedGenerators ? JSON.stringify(p.allowedGenerators) : null,
+    epochMs(),
+  );
 }
 
 export function dbDeletePrinter(db: Database, id: string): void {
@@ -238,6 +271,7 @@ export function dbResolveJobTarget(
     profileId: profile.id,
     slicerId: profile.slicerId,
     gcodeFlavor: profile.gcodeFlavor,
+    allowedGenerators: printer.allowedGenerators,
   };
 }
 

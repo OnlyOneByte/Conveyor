@@ -59,8 +59,19 @@
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
   $: if (!selectedGenId && pickableGenerators.length) selectedGenId = pickableGenerators[0].id;
-  $: if (!selectedPrinterId && printers.length) selectedPrinterId = printers[0].id;
-  $: selectedPrinter = printers.find((p) => p.id === selectedPrinterId) ?? null;
+  // The generator actually being submitted — the Upload STL tab submits `passthrough`,
+  // so an allowlist can restrict uploads too.
+  $: activeGeneratorId = source === "upload" ? "passthrough" : selectedGenId;
+
+  // A printer may carry an allowlist of generator ids. undefined = unrestricted;
+  // [] = allows nothing. Same principle as the profile filter: don't offer a printer
+  // the API would refuse.
+  $: eligiblePrinters = printers.filter(
+    (p) => !p.allowedGenerators || p.allowedGenerators.includes(activeGeneratorId),
+  );
+  $: if (eligiblePrinters.length && !eligiblePrinters.some((p) => p.id === selectedPrinterId))
+    selectedPrinterId = eligiblePrinters[0].id;
+  $: selectedPrinter = eligiblePrinters.find((p) => p.id === selectedPrinterId) ?? null;
 
   // A pair is printable when the profile's g-code flavour is one the printer's
   // transport accepts — the same check the API runs, so an unprintable combination
@@ -316,13 +327,19 @@
     <!-- ③ PRINT AT -->
     <div class="card">
       <h3><span class="step-n">3</span>Print at</h3>
-      {#if printers.length && profiles.length}
+      {#if eligiblePrinters.length && profiles.length}
         <label class="pick">
           <span>Printer</span>
           <select bind:value={selectedPrinterId}>
-            {#each printers as p}<option value={p.id}>{p.name} ({p.transportId})</option>{/each}
+            {#each eligiblePrinters as p}<option value={p.id}>{p.name} ({p.transportId})</option>{/each}
           </select>
         </label>
+        {#if eligiblePrinters.length < printers.length}
+          <p class="muted note">
+            {printers.length - eligiblePrinters.length} printer(s) hidden: their generator
+            allowlist excludes <span class="mono">{activeGeneratorId}</span>.
+          </p>
+        {/if}
 
         <span class="subhead">Profile</span>
         {#if compatibleProfiles.length}
@@ -356,6 +373,11 @@
             {acceptedFlavors.length ? acceptedFlavors.join(", ") : "no known flavours"}.
           </p>
         {/if}
+      {:else if printers.length && !eligiblePrinters.length}
+        <p class="muted">
+          No printer accepts <span class="mono">{activeGeneratorId}</span>. Adjust a
+          printer's generator allowlist in Settings.
+        </p>
       {:else}
         <p class="muted">
           {printers.length ? "No profiles registered." : "No printers configured."} Add one in Settings.

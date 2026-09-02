@@ -30,6 +30,8 @@ const printerSchema = z.object({
   name: z.string().min(1).max(200),
   address: z.string().min(1).max(255),
   secrets: z.record(z.string()).optional(),
+  /** omit for no restriction; [] allows nothing */
+  allowedGenerators: z.array(z.string()).optional(),
 });
 
 const profileSchema = z.object({

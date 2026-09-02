@@ -43,6 +43,19 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
   const generator = reg.generators.get(req.generator.id);
   if (!generator) throw new CompatibilityError(`unknown generator: ${req.generator.id}`);
 
+  // Per-printer allowlist. Checked before the capability maths because it is a policy
+  // refusal, not an incompatibility — the pair might slice fine and still be
+  // disallowed. Note `undefined` means unrestricted while `[]` allows nothing, so the
+  // test is on presence, not truthiness of the contents.
+  if (target.allowedGenerators && !target.allowedGenerators.includes(generator.id)) {
+    throw new CompatibilityError(
+      `printer ${target.printerId} does not allow generator ${generator.id}` +
+        (target.allowedGenerators.length
+          ? ` (allows: ${target.allowedGenerators.join(", ")})`
+          : " (its allowlist is empty)"),
+    );
+  }
+
   const slicer = reg.slicers.get(target.slicerId);
   if (!slicer) throw new CompatibilityError(`unknown slicer: ${target.slicerId}`);
 

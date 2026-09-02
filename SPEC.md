@@ -21,7 +21,7 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 
 - **Stage** — one of the three pluggable seams: `Generator`, `Slicer`, `Transport`.
 - **Plugin** — a concrete implementation of a stage (`gridfinity`, `orca`, `moonraker`, `elegoo`).
-- **Printer** — a physical machine, owned by a transport (its `address` plus any secrets).
+- **Printer** — a physical machine, owned by a transport (its `address` plus any secrets), optionally carrying an allowlist of the generators it will accept.
 - **Profile** — a locked slicer bundle, owned by a slicer, declaring the g-code flavour it emits.
   A job names one printer and one profile; the transport comes from the printer and the slicer from
   the profile, so the pair is all the configuration a print needs. (Until 2026-09-02 these were

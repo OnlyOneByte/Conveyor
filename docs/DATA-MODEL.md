@@ -50,7 +50,16 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `name` | text | operator label |
 | `address` | text | host:port / mqtt topic / serial |
 | `secrets_json` | text (encrypted-at-rest) | API keys/tokens; resolved server-side only |
+| `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
+
+> `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
+> form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
+> COALESCEing `secrets_json`. Omitting it on write means "no restriction"; COALESCE
+> would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
+> load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
+> presence-not-truthiness when checking it, and an explicit toggle in the Settings form
+> so a user can see which state they are in.
 
 > **Removed 2026-09-02: the `stations` table.** A Station was an operator-curated,
 > named binding of a printer to a slicer + profile, and it was the only thing end users
@@ -75,6 +84,12 @@ A physical device addressable by a transport. **Secrets live here and never leav
 > slicer's accepted inputs, and `profile.gcode_flavor ∈ transport.acceptsFlavors` for
 > the transport named by `printer.transport_id`. The PWA filters the profile picker by
 > that last rule so an unprintable pair is never offered.
+>
+> Separately, `printer.allowed_generators_json` is a **policy** refusal rather than an
+> incompatibility — the pair may slice perfectly and still be disallowed — so it is
+> checked first and reported distinctly (`printer X does not allow generator Y`). The
+> PWA hides printers whose allowlist excludes the chosen generator, and the Upload STL
+> tab submits `passthrough`, so an allowlist can restrict uploads too.
 
 ### job
 Durable history of a pipeline run. Live state is in Redis; this is the settled record.

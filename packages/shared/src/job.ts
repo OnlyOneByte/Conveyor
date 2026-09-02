@@ -48,6 +48,11 @@ export interface JobTarget {
   slicerId: string;
   /** from the profile row — the flavour THIS profile emits */
   gcodeFlavor: string;
+  /**
+   * From the printer row: generator ids this printer accepts. `undefined` = no
+   * restriction; `[]` = an allowlist that permits nothing.
+   */
+  allowedGenerators?: string[];
 }
 
 /** Durable job record (persisted to SQLite on terminal state). */

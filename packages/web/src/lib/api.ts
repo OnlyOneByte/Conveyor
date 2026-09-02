@@ -110,6 +110,8 @@ export interface CatalogPrinter {
   name: string;
   address: string;
   hasSecrets: boolean;
+  /** generator ids this printer accepts; undefined = no restriction, [] = none */
+  allowedGenerators?: string[];
 }
 export interface CatalogProfile {
   id: string;

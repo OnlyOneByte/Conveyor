@@ -4,6 +4,7 @@
     fetchCatalogPrinters,
     fetchCatalogProfiles,
     fetchCatalogTransports,
+    fetchGenerators,
     savePrinter,
     deletePrinter,
     deleteProfile,
@@ -11,6 +12,7 @@
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
+    type GeneratorSummary,
   } from "$lib/api";
   import { spinPreview, prefersReducedMotion } from "$lib/preferences";
 
@@ -19,15 +21,17 @@
   let printers: CatalogPrinter[] = [];
   let profiles: CatalogProfile[] = [];
   let transports: CatalogTransport[] = [];
+  let generators: GeneratorSummary[] = [];
   let error: string | null = null;
   let loaded = false;
 
   async function reload() {
     try {
-      [printers, profiles, transports] = await Promise.all([
+      [printers, profiles, transports, generators] = await Promise.all([
         fetchCatalogPrinters(),
         fetchCatalogProfiles(),
         fetchCatalogTransports(),
+        fetchGenerators(),
       ]);
     } catch (e) {
       error = (e as Error).message;
@@ -49,6 +53,10 @@
   let ppTransportId = "";
   let ppAddress = "";
   let ppSecret = "";
+  // undefined vs [] is a real distinction, so the UI models it explicitly: the
+  // toggle is "is there an allowlist at all", the set is its contents.
+  let ppRestrict = false;
+  let ppAllowed = new Set<string>();
   let ppError: string | null = null;
   let ppOpen = false;
 
@@ -59,6 +67,8 @@
     ppTransportId = transports[0]?.id ?? "";
     ppAddress = "";
     ppSecret = "";
+    ppRestrict = false;
+    ppAllowed = new Set();
     ppError = null;
   }
 
@@ -71,6 +81,9 @@
     // Never prefilled: reads strip secrets, so there is nothing to prefill WITH.
     // Left blank the stored value is preserved server-side.
     ppSecret = "";
+    // allowedGenerators IS returned on read, so unlike secrets it round-trips.
+    ppRestrict = p.allowedGenerators !== undefined;
+    ppAllowed = new Set(p.allowedGenerators ?? []);
     ppError = null;
     ppOpen = true;
   }
@@ -85,6 +98,8 @@
         address: ppAddress,
         // Omit entirely when blank so the API preserves any stored secret.
         ...(ppSecret.trim() ? { secrets: { apiKey: ppSecret.trim() } } : {}),
+        // Omitted = no restriction. Sent as an array (possibly empty) when restricting.
+        ...(ppRestrict ? { allowedGenerators: [...ppAllowed] } : {}),
       });
       resetPrinter();
       ppOpen = false;
@@ -190,10 +205,10 @@
       <h2>Printers</h2>
       <p class="muted">Physical devices. Secrets are stored server-side and never shown here.</p>
       <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th>Generators</th><th></th></tr></thead>
         <tbody>
           {#each printers as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td class="actions"><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button><button class="ghost small danger" on:click={() => removePrinter(p.id)}>Delete</button></td></tr>
+            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td class="mono">{p.allowedGenerators === undefined ? "all" : (p.allowedGenerators.length ? p.allowedGenerators.join(", ") : "none")}</td><td class="actions"><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button><button class="ghost small danger" on:click={() => removePrinter(p.id)}>Delete</button></td></tr>
           {/each}
         </tbody>
       </table></div>
@@ -222,6 +237,38 @@
             Secrets are write-only — they are never sent back to the browser, so this
             field always starts empty. Leaving it blank keeps whatever is stored.
           </p>
+          <label class="check">
+            <input type="checkbox" bind:checked={ppRestrict} />
+            <span>Restrict which generators can print here</span>
+          </label>
+          {#if ppRestrict}
+            <div class="genlist">
+              {#each generators as g}
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    checked={ppAllowed.has(g.id)}
+                    on:change={(e) => {
+                      // Reassign so Svelte sees the change — mutating a Set in place
+                      // does not trigger reactivity.
+                      const next = new Set(ppAllowed);
+                      if (e.currentTarget.checked) next.add(g.id);
+                      else next.delete(g.id);
+                      ppAllowed = next;
+                    }} />
+                  <span>{g.name} <span class="muted mono">{g.id}</span></span>
+                </label>
+              {/each}
+            </div>
+            {#if ppAllowed.size === 0}
+              <p class="muted note">
+                Nothing selected — this printer will accept no jobs at all. Untick the box
+                above to allow every generator instead.
+              </p>
+            {/if}
+          {:else}
+            <p class="muted note">Unrestricted: every generator may print to this printer.</p>
+          {/if}
           <div class="row-actions">
             <button class="primary" on:click={submitPrinter}
               disabled={!ppId || !ppName || !ppTransportId || !ppAddress}>
@@ -273,6 +320,9 @@
   .row-actions { display: flex; gap: 0.5rem; align-items: center; }
   /* NOT display:flex — that turns the cell into a flex container and breaks table
      column sizing. nowrap keeps the two buttons on one line. */
+  .check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; }
+  .check input { width: auto; min-height: 0; }
+  .genlist { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.15rem 0 0 1.2rem; }
   .actions { white-space: nowrap; text-align: right; }
   .actions button + button { margin-left: 0.35rem; }
   button.danger { color: var(--danger); }

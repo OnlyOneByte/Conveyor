@@ -22,12 +22,14 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 CREATE TABLE IF NOT EXISTS printers (
-  id            TEXT PRIMARY KEY,
-  transport_id  TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  address       TEXT NOT NULL,
-  secrets_json  TEXT,
-  created_at    INTEGER NOT NULL
+  id                       TEXT PRIMARY KEY,
+  transport_id             TEXT NOT NULL,
+  name                     TEXT NOT NULL,
+  address                  TEXT NOT NULL,
+  secrets_json             TEXT,
+  -- JSON array of generator ids this printer will accept; NULL = allow all.
+  allowed_generators_json  TEXT,
+  created_at               INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
