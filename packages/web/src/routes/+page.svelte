@@ -6,7 +6,6 @@
   import SchemaForm from "$lib/components/SchemaForm.svelte";
   import JobStatus from "$lib/components/JobStatus.svelte";
   import { submitJob, uploadStl, fetchGenerators, fetchStations, type StationSummary } from "$lib/api";
-  import RecentJobs from "$lib/components/RecentJobs.svelte";
   import { rememberJob, updateJobState } from "$lib/recent-jobs";
   import type { PageData } from "./$types";
 
@@ -86,7 +85,10 @@
   }
 
   let submitting = false;
-  let jobId: string | null = null;
+  // ?job=<uuid> lets /history's per-browser strip hand a still-running job back to
+  // this live panel — job history only records TERMINAL jobs, so there is nowhere
+  // else to watch one in flight.
+  let jobId: string | null = data.initialJobId ?? null;
   let error: string | null = null;
 
   // Can we submit? Generate needs a generator; Upload needs a finished upload.
@@ -301,12 +303,6 @@
         <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
       </div>
     {/if}
-
-    <!-- ④ RECENT JOBS — persisted per-browser so a refresh keeps them visible -->
-    <div class="card">
-      <h3>Recent jobs</h3>
-      <RecentJobs activeJobId={jobId} onSelect={(id) => (jobId = id)} />
-    </div>
 
     {#if generators.length === 0}
       <div class="card muted">

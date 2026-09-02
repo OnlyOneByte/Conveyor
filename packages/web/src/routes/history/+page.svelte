@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fetchJobHistory, type JobHistoryEntry } from "$lib/api";
+  import RecentJobs from "$lib/components/RecentJobs.svelte";
 
   // The DURABLE, server-side job history (persisted in SQLite by the worker), as
   // opposed to the per-browser strip on the home page — that one is localStorage and
@@ -32,11 +33,26 @@
   </div>
 
   {#if error}<div class="card err">{error}</div>{/if}
+
+  <!-- Per-browser strip, moved here from the home page so job history lives in one
+       place. It is NOT redundant with the table below: the table is the server's
+       durable record and only contains jobs that have FINISHED, so a job in flight
+       appears here and nowhere else. -->
+  <section class="card">
+    <h2>From this browser</h2>
+    <p class="muted">
+      Jobs you submitted here, including any still running. Running jobs link to their
+      live progress; finished ones link to their details.
+    </p>
+    <div class="strip"><RecentJobs /></div>
+  </section>
+
   {#if !loaded}
     <p class="muted">Loading…</p>
   {:else}
     <section class="card">
-      <p class="muted">Every job this server has run, newest first. Click a job id for details.</p>
+      <h2>All jobs on this server</h2>
+      <p class="muted">Every job this server has run once it finished, newest first. Click a job id for details.</p>
       {#if history.length === 0}
         <p class="muted">No jobs yet. Submit one from the app and it will show up here.</p>
       {:else}
@@ -66,6 +82,8 @@
   .page { display: flex; flex-direction: column; gap: 1.25rem; }
   .head { display: flex; align-items: baseline; justify-content: space-between; }
   h1 { margin: 0; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.35rem; }
+  .strip { margin-top: 0.75rem; }
   .navlink { color: var(--accent); text-decoration: none; }
   table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }

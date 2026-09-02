@@ -8,8 +8,11 @@
   // reload reflects the latest state, not the state at submit time. Snapshots
   // live in Redis and may have expired — in that case we keep the last-known
   // state rather than dropping the row.
-  export let activeJobId: string | null = null;
-  export let onSelect: (jobId: string) => void = () => {};
+  //
+  // Each entry is a LINK, and where it points depends on whether the job has
+  // settled. Only terminal jobs get a durable row, so /history/<id> would show
+  // "no settled job" for one still running; those link to the home page's live
+  // status panel instead, which is the only place a running job can be watched.
 
   const TERMINAL = new Set(["done", "failed", "canceled"]);
 
@@ -38,18 +41,19 @@
     if (state === "failed" || state === "canceled") return "bad";
     return "live";
   }
+
+  const isSettled = (state: RecentJob["state"]) => TERMINAL.has(state);
+  const hrefFor = (j: RecentJob) => (isSettled(j.state) ? `/history/${j.jobId}` : `/?job=${j.jobId}`);
 </script>
 
 {#if $recentJobs.length}
   <ul class="recent">
     {#each $recentJobs as j (j.jobId)}
       <li>
-        <button
-          type="button"
+        <a
           class="job"
-          class:active={j.jobId === activeJobId}
-          on:click={() => onSelect(j.jobId)}
-          title={j.jobId}
+          href={hrefFor(j)}
+          title={isSettled(j.state) ? `${j.jobId} — view details` : `${j.jobId} — watch live progress`}
         >
           <span class="state {stateClass(j.state)}">{j.state}</span>
           <span class="meta">
@@ -57,7 +61,8 @@
             <span class="muted">{j.stationName}</span>
           </span>
           <span class="when muted">{relTime(j.submittedAt)}</span>
-        </button>
+          <span class="go muted">{isSettled(j.state) ? "details →" : "watch →"}</span>
+        </a>
       </li>
     {/each}
   </ul>
@@ -70,9 +75,9 @@
   .job {
     display: flex; align-items: center; gap: 0.6rem; width: 100%; text-align: left;
     border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 0.45rem 0.6rem;
+    text-decoration: none; color: inherit;
   }
   .job:hover { border-color: var(--accent-dim); }
-  .job.active { border-color: var(--accent); background: rgba(94, 234, 212, 0.08); }
   .state { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); text-transform: capitalize; flex-shrink: 0; }
   .state.done { color: var(--ok); border-color: var(--ok); }
   .state.bad { color: var(--danger); border-color: var(--danger); }
@@ -80,5 +85,6 @@
   .meta { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
   .gen { font-size: 0.85rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .when { margin-left: auto; font-size: 0.75rem; flex-shrink: 0; }
+  .go { font-size: 0.75rem; flex-shrink: 0; }
   .empty { font-size: 0.85rem; margin: 0; }
 </style>
