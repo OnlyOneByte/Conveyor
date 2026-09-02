@@ -3,11 +3,13 @@
  * single idempotent DDL string so the migration runner can apply it on every
  * boot — `CREATE TABLE IF NOT EXISTS` makes first-run and restart identical.
  *
- * NOTE: despite openDb() setting PRAGMA foreign_keys = ON, this schema declares no
- * FOREIGN KEY constraints — `PRAGMA foreign_key_list(stations)` is empty — so the
- * database does NOT stop you deleting a printer or profile a Station still points at.
- * Referential integrity for those is enforced in the API (see routes/catalog.ts).
- * Money/time columns are epoch-ms integers.
+ * NOTE: this schema declares no FOREIGN KEY constraints despite openDb() setting
+ * PRAGMA foreign_keys = ON, so nothing at the database level ties the tables together.
+ * Nothing needs it any more: a job stores the printer and profile ids it used, and
+ * those are historical facts about a finished run — deleting a printer today must not
+ * rewrite what a job printed on last week. Rows are therefore intentionally
+ * independent, and the job history keeps ids that may no longer resolve (surfaced as
+ * empty rather than invented). Money/time columns are epoch-ms integers.
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS profiles (
@@ -28,22 +30,12 @@ CREATE TABLE IF NOT EXISTS printers (
   created_at    INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS stations (
-  id                       TEXT PRIMARY KEY,
-  name                     TEXT NOT NULL,
-  transport_id             TEXT NOT NULL,
-  printer_id               TEXT NOT NULL,
-  slicer_id                TEXT NOT NULL,
-  profile_id               TEXT NOT NULL,
-  allowed_generators_json  TEXT,
-  created_at               INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS jobs (
   id            TEXT PRIMARY KEY,
   generator_id  TEXT NOT NULL,
   params_json   TEXT,
-  station_id    TEXT NOT NULL,
+  printer_id    TEXT,
+  profile_id    TEXT,
   state         TEXT NOT NULL,
   stage         TEXT,
   error_json    TEXT,

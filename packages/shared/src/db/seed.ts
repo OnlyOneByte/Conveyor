@@ -1,11 +1,9 @@
-import type { Station } from "../station.js";
 import type { Printer, Profile } from "./index.js";
 
 /**
- * The default catalog Conveyor ships with — identical to the M0 in-memory seeds
- * (api/stations-store.ts + worker/stations.ts), now the first-boot rows of the
- * SQLite store. Seeded only when the stations table is empty, so edits made in Settings
- * survive restarts.
+ * The default catalog Conveyor ships with: the printers you can print to and the
+ * slicer profiles you can print with. A job names one of each. Seeded only when the
+ * printers table is empty, so edits made in Settings survive restarts.
  */
 export const DEFAULT_PROFILES: Profile[] = [
   // OrcaSlicer klipper bundle (Creality K1 family leaf exports) — VERIFIED slicing
@@ -21,32 +19,3 @@ export const DEFAULT_PRINTERS: Printer[] = [
   { id: "elegoo-1", transportId: "elegoo", name: "Elegoo Neptune", address: "127.0.0.1" },
 ];
 
-export const DEFAULT_STATIONS: Station[] = [
-  {
-    id: "garage-klipper-pla",
-    name: "Garage Klipper — PLA 0.2mm",
-    transportId: "moonraker",
-    printerId: "klipper-garage",
-    slicerId: "orca",
-    profileId: "orca/klipper-pla-0.2",
-  },
-  {
-    id: "elegoo-pla",
-    name: "Elegoo — PLA 0.2mm",
-    transportId: "elegoo",
-    printerId: "elegoo-1",
-    slicerId: "orca",
-    // Klipper-flavored bundle: modern Elegoo printers (e.g. Centauri) run Klipper,
-    // and the elegoo transport accepts klipper. Swap in a marlin profile from Settings
-    // (e.g. prusa/marlin-pla-0.2) for older Neptune/Marlin boards.
-    profileId: "orca/klipper-pla-0.2",
-  },
-  {
-    id: "garage-klipper-prusa-pla",
-    name: "Garage Klipper — PLA 0.2mm (PrusaSlicer)",
-    transportId: "moonraker",
-    printerId: "klipper-garage",
-    slicerId: "prusa",
-    profileId: "prusa/klipper-pla-0.2",
-  },
-];

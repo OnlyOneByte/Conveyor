@@ -19,11 +19,35 @@ export function isTerminal(state: JobState): boolean {
   return TERMINAL_STATES.includes(state);
 }
 
-/** What the PWA submits. The station resolves slicer + profile + printer. */
+/**
+ * What the PWA submits. A job names the printer to print on and the profile to
+ * slice with — nothing else is needed, because the printer determines the transport
+ * and the profile determines the slicer and the g-code flavour. (This used to be a
+ * single `stationId`: a saved, named (printer, profile) pairing. The pairing was
+ * always fully derivable from the two ids, so the extra concept only added a
+ * catalog object to curate.)
+ */
 export interface JobRequest {
   /** params is optional — a generator may take none (e.g. a fixed model). */
   generator: { id: string; params?: unknown };
-  stationId: string;
+  printerId: string;
+  profileId: string;
+}
+
+/**
+ * A job's print target with everything resolved: the printer and profile the
+ * request named, plus the transport and slicer derived from them. Built by the API
+ * and the worker from the catalog, and handed to validateJob().
+ */
+export interface JobTarget {
+  printerId: string;
+  /** from the printer row */
+  transportId: string;
+  profileId: string;
+  /** from the profile row */
+  slicerId: string;
+  /** from the profile row — the flavour THIS profile emits */
+  gcodeFlavor: string;
 }
 
 /** Durable job record (persisted to SQLite on terminal state). */

@@ -8,12 +8,13 @@ import {
   type JobStatusEvent,
 } from "@conveyor/shared";
 import { jobQueue, redis } from "../queue.js";
-import { getStation } from "../stations-store.js";
+import { openDb, dbResolveJobTarget } from "@conveyor/shared/db";
 import { validateJobRequest } from "../validate.js";
 
 const jobRequestSchema = z.object({
   generator: z.object({ id: z.string(), params: z.unknown() }),
-  stationId: z.string(),
+  printerId: z.string(),
+  profileId: z.string(),
 });
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
@@ -22,11 +23,17 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     const parsed = jobRequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
 
-    const station = await getStation(parsed.data.stationId);
-    if (!station) return reply.code(404).send({ error: "unknown station" });
+    // The pair the request names IS the print target: the printer supplies the
+    // transport, the profile supplies the slicer and g-code flavour.
+    const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
+    if (!target) {
+      return reply
+        .code(404)
+        .send({ error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}` });
+    }
 
     try {
-      validateJobRequest(parsed.data, station); // throws CompatibilityError → 400
+      validateJobRequest(parsed.data, target); // throws CompatibilityError → 400
     } catch (err) {
       return reply.code(400).send({ error: (err as Error).message });
     }

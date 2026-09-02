@@ -1,14 +1,13 @@
 import { Database } from "bun:sqlite";
-import type { Station } from "../station.js";
-import type { Job, JobState } from "../job.js";
+import type { Job, JobState, JobTarget } from "../job.js";
 import type { Stage } from "../plugins.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
-import { DEFAULT_PROFILES, DEFAULT_PRINTERS, DEFAULT_STATIONS } from "./seed.js";
+import { DEFAULT_PROFILES, DEFAULT_PRINTERS } from "./seed.js";
 
 /**
  * Conveyor's durable store, backed by bun:sqlite (synchronous, no native build —
  * works the same on aarch64 and x86_64). Both the API (config reads + job
- * history) and the worker (station resolution + terminal job writes) open the
+ * history) and the worker (print-target resolution + terminal job writes) open the
  * SAME file on the shared /data volume, so there is one source of truth.
  *
  * Process-wide singleton: openDb() is idempotent per path.
@@ -39,16 +38,80 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA_SQL);
+  migrate(db);
   seedDefaults(db);
   singleton = db;
   singletonPath = path;
   return db;
 }
 
+/** Column names of an existing table (empty when the table does not exist). */
+function columnsOf(db: Database, table: string): string[] {
+  return (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+}
+
+/**
+ * Reshape tables that already exist in the wild. SCHEMA_SQL is `CREATE TABLE IF NOT
+ * EXISTS` only, so it CANNOT change a table that is already there — a column added to
+ * the DDL is simply absent from any database created before it, and the first INSERT
+ * naming that column fails at runtime. Each step below is therefore guarded on the
+ * LIVE table shape and is safe to run on every boot.
+ */
+function migrate(db: Database): void {
+  // jobs.station_id → jobs.printer_id + jobs.profile_id
+  //
+  // A full table rebuild rather than ALTER TABLE ADD COLUMN, because station_id was
+  // declared NOT NULL: merely adding the new columns would leave the old one in place
+  // and every future insert would fail the NOT NULL constraint. SQLite cannot drop a
+  // constraint in place, so the 12-step rebuild is the supported route.
+  //
+  // The backfill is lossless: a station WAS exactly the (printer, profile) pair we now
+  // store directly, so its two ids are recoverable for as long as the row exists. A job
+  // whose station was already deleted backfills to NULL — its provenance is genuinely
+  // gone, and that is surfaced as an empty printer/profile rather than invented.
+  if (columnsOf(db, "jobs").includes("station_id")) {
+    const hasStations = columnsOf(db, "stations").length > 0;
+    const lookup = (col: string) =>
+      hasStations ? `(SELECT s.${col} FROM stations s WHERE s.id = j.station_id)` : "NULL";
+    db.transaction(() => {
+      db.exec(`CREATE TABLE jobs_migrated (
+        id            TEXT PRIMARY KEY,
+        generator_id  TEXT NOT NULL,
+        params_json   TEXT,
+        printer_id    TEXT,
+        profile_id    TEXT,
+        state         TEXT NOT NULL,
+        stage         TEXT,
+        error_json    TEXT,
+        model_path    TEXT,
+        gcode_path    TEXT,
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL
+      )`);
+      db.exec(`INSERT INTO jobs_migrated
+        SELECT j.id, j.generator_id, j.params_json,
+               ${lookup("printer_id")}, ${lookup("profile_id")},
+               j.state, j.stage, j.error_json, j.model_path, j.gcode_path,
+               j.created_at, j.updated_at
+        FROM jobs j`);
+      db.exec("DROP TABLE jobs");
+      db.exec("ALTER TABLE jobs_migrated RENAME TO jobs");
+    })();
+  }
+
+  // Then retire the stations table itself. A SEPARATE guard, not an else of the one
+  // above: a database migrated by an earlier build already has printer_id on jobs yet
+  // may still carry the stations table, and that case must still be cleaned up.
+  // Ordering matters — the backfill above reads this table, so it must run first.
+  if (columnsOf(db, "stations").length > 0) {
+    db.exec("DROP TABLE stations");
+  }
+}
+
 /** Seed the default catalog the project shipped with — only when empty, so user
  * edits made in Settings are never clobbered on restart. */
 function seedDefaults(db: Database): void {
-  const count = (db.query("SELECT COUNT(*) AS n FROM stations").get() as { n: number }).n;
+  const count = (db.query("SELECT COUNT(*) AS n FROM printers").get() as { n: number }).n;
   if (count > 0) return;
 
   const now = epochMs();
@@ -58,25 +121,11 @@ function seedDefaults(db: Database): void {
   const insertPrinter = db.prepare(
     "INSERT INTO printers (id, transport_id, name, address, secrets_json, created_at) VALUES (?,?,?,?,?,?)",
   );
-  const insertStation = db.prepare(
-    "INSERT INTO stations (id, name, transport_id, printer_id, slicer_id, profile_id, allowed_generators_json, created_at) VALUES (?,?,?,?,?,?,?,?)",
-  );
 
   const tx = db.transaction(() => {
     for (const p of DEFAULT_PROFILES) insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
     for (const p of DEFAULT_PRINTERS)
       insertPrinter.run(p.id, p.transportId, p.name, p.address, p.secrets ? JSON.stringify(p.secrets) : null, now);
-    for (const s of DEFAULT_STATIONS)
-      insertStation.run(
-        s.id,
-        s.name,
-        s.transportId,
-        s.printerId,
-        s.slicerId,
-        s.profileId,
-        s.allowedGenerators ? JSON.stringify(s.allowedGenerators) : null,
-        now,
-      );
   });
   tx();
 }
@@ -85,62 +134,6 @@ function epochMs(): number {
   return Date.now();
 }
 
-// ─── Stations ────────────────────────────────────────────────────────────────
-
-interface StationRow {
-  id: string;
-  name: string;
-  transport_id: string;
-  printer_id: string;
-  slicer_id: string;
-  profile_id: string;
-  allowed_generators_json: string | null;
-}
-
-function rowToStation(r: StationRow): Station {
-  return {
-    id: r.id,
-    name: r.name,
-    transportId: r.transport_id,
-    printerId: r.printer_id,
-    slicerId: r.slicer_id,
-    profileId: r.profile_id,
-    allowedGenerators: r.allowed_generators_json ? JSON.parse(r.allowed_generators_json) : undefined,
-  };
-}
-
-export function dbListStations(db: Database): Station[] {
-  return (db.query("SELECT * FROM stations ORDER BY name").all() as StationRow[]).map(rowToStation);
-}
-
-export function dbGetStation(db: Database, id: string): Station | undefined {
-  const r = db.query("SELECT * FROM stations WHERE id = ?").get(id) as StationRow | null;
-  return r ? rowToStation(r) : undefined;
-}
-
-export function dbUpsertStation(db: Database, s: Station): void {
-  db.prepare(
-    `INSERT INTO stations (id, name, transport_id, printer_id, slicer_id, profile_id, allowed_generators_json, created_at)
-     VALUES (?,?,?,?,?,?,?,?)
-     ON CONFLICT(id) DO UPDATE SET
-       name=excluded.name, transport_id=excluded.transport_id, printer_id=excluded.printer_id,
-       slicer_id=excluded.slicer_id, profile_id=excluded.profile_id,
-       allowed_generators_json=excluded.allowed_generators_json`,
-  ).run(
-    s.id,
-    s.name,
-    s.transportId,
-    s.printerId,
-    s.slicerId,
-    s.profileId,
-    s.allowedGenerators ? JSON.stringify(s.allowedGenerators) : null,
-    epochMs(),
-  );
-}
-
-export function dbDeleteStation(db: Database, id: string): void {
-  db.prepare("DELETE FROM stations WHERE id = ?").run(id);
-}
 
 // ─── Printers ────────────────────────────────────────────────────────────────
 
@@ -225,13 +218,37 @@ export function dbDeleteProfile(db: Database, id: string): void {
   db.prepare("DELETE FROM profiles WHERE id = ?").run(id);
 }
 
+/**
+ * Resolve the (printer, profile) pair a job names into a full JobTarget, deriving the
+ * transport from the printer and the slicer + g-code flavour from the profile. Returns
+ * null when either id is unknown, so callers can answer 400 rather than enqueue a job
+ * that cannot run. This replaces looking a Station up by id.
+ */
+export function dbResolveJobTarget(
+  db: Database,
+  printerId: string,
+  profileId: string,
+): JobTarget | null {
+  const printer = dbListPrinters(db).find((p) => p.id === printerId);
+  const profile = dbListProfiles(db).find((p) => p.id === profileId);
+  if (!printer || !profile) return null;
+  return {
+    printerId: printer.id,
+    transportId: printer.transportId,
+    profileId: profile.id,
+    slicerId: profile.slicerId,
+    gcodeFlavor: profile.gcodeFlavor,
+  };
+}
+
 // ─── Jobs (durable history) ──────────────────────────────────────────────────
 
 interface JobRow {
   id: string;
   generator_id: string;
   params_json: string | null;
-  station_id: string;
+  printer_id: string | null;
+  profile_id: string | null;
   state: string;
   stage: string | null;
   error_json: string | null;
@@ -244,7 +261,13 @@ interface JobRow {
 function rowToJob(r: JobRow): Job {
   return {
     id: r.id,
-    request: { generator: { id: r.generator_id, params: r.params_json ? JSON.parse(r.params_json) : undefined }, stationId: r.station_id },
+    // printer/profile can be null on a job migrated from a station that had already
+    // been deleted — surfaced as empty rather than fabricated.
+    request: {
+      generator: { id: r.generator_id, params: r.params_json ? JSON.parse(r.params_json) : undefined },
+      printerId: r.printer_id ?? "",
+      profileId: r.profile_id ?? "",
+    },
     state: r.state as JobState,
     stage: (r.stage as Stage) ?? null,
     error: r.error_json ? JSON.parse(r.error_json) : undefined,
@@ -261,7 +284,8 @@ export function dbRecordJob(
     id: string;
     generatorId: string;
     params?: unknown;
-    stationId: string;
+    printerId: string;
+    profileId: string;
     state: JobState;
     stage?: Stage | null;
     error?: { stage: Stage; reason: string };
@@ -271,8 +295,8 @@ export function dbRecordJob(
 ): void {
   const now = epochMs();
   db.prepare(
-    `INSERT INTO jobs (id, generator_id, params_json, station_id, state, stage, error_json, model_path, gcode_path, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        state=excluded.state, stage=excluded.stage, error_json=excluded.error_json,
        model_path=excluded.model_path, gcode_path=excluded.gcode_path, updated_at=excluded.updated_at`,
@@ -280,7 +304,8 @@ export function dbRecordJob(
     job.id,
     job.generatorId,
     job.params !== undefined ? JSON.stringify(job.params) : null,
-    job.stationId,
+    job.printerId,
+    job.profileId,
     job.state,
     job.stage ?? null,
     job.error ? JSON.stringify(job.error) : null,

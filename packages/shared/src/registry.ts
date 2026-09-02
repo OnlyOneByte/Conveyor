@@ -1,6 +1,5 @@
 import type { GeneratorPlugin, SlicerPlugin, TransportPlugin } from "./plugins.js";
-import type { Station } from "./station.js";
-import type { JobRequest } from "./job.js";
+import type { JobRequest, JobTarget } from "./job.js";
 
 /** Startup-populated map of available plugins per stage. */
 export interface Registry {
@@ -32,20 +31,23 @@ function intersects(a: string[], b: string[]): boolean {
  * Pre-flight validation, run in the API before enqueue. Throws CompatibilityError
  * if the resolved generator → slicer → transport chain cannot interoperate, so an
  * incompatible combo fails fast with a 4xx instead of dying mid-pipeline.
+ *
+ * Takes the resolved (printer, profile) target rather than a Station. The checks are
+ * unchanged except that the transport's flavour check now uses the PROFILE's
+ * gcodeFlavor instead of the slicer's. A slicer declares one flavour but can offer
+ * profiles emitting others — `prusa` declares `klipper` yet ships
+ * `prusa/marlin-pla-0.2` — so the slicer-level value was wrong for those profiles,
+ * and disagreed with the check the old validateStation() did on the same pairing.
  */
-export function validateJob(req: JobRequest, station: Station, reg: Registry): void {
+export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): void {
   const generator = reg.generators.get(req.generator.id);
   if (!generator) throw new CompatibilityError(`unknown generator: ${req.generator.id}`);
 
-  const slicer = reg.slicers.get(station.slicerId);
-  if (!slicer) throw new CompatibilityError(`unknown slicer: ${station.slicerId}`);
+  const slicer = reg.slicers.get(target.slicerId);
+  if (!slicer) throw new CompatibilityError(`unknown slicer: ${target.slicerId}`);
 
-  const transport = reg.transports.get(station.transportId);
-  if (!transport) throw new CompatibilityError(`unknown transport: ${station.transportId}`);
-
-  if (station.allowedGenerators && !station.allowedGenerators.includes(generator.id)) {
-    throw new CompatibilityError(`station ${station.id} does not allow generator ${generator.id}`);
-  }
+  const transport = reg.transports.get(target.transportId);
+  if (!transport) throw new CompatibilityError(`unknown transport: ${target.transportId}`);
 
   // generator.outputs ∩ slicer.accepts ≠ ∅
   if (!intersects(generator.outputs, slicer.accepts)) {
@@ -54,14 +56,14 @@ export function validateJob(req: JobRequest, station: Station, reg: Registry): v
     );
   }
 
-  if (!slicer.profiles.some((p) => p.id === station.profileId)) {
-    throw new CompatibilityError(`slicer ${slicer.id} has no profile ${station.profileId}`);
+  if (!slicer.profiles.some((p) => p.id === target.profileId)) {
+    throw new CompatibilityError(`slicer ${slicer.id} has no profile ${target.profileId}`);
   }
 
-  // slicer.gcodeFlavor ∈ transport.acceptsFlavors
-  if (!transport.acceptsFlavors.includes(slicer.gcodeFlavor)) {
+  // the profile's g-code flavour ∈ transport.acceptsFlavors
+  if (!transport.acceptsFlavors.includes(target.gcodeFlavor)) {
     throw new CompatibilityError(
-      `slicer ${slicer.id} emits ${slicer.gcodeFlavor} but transport ${transport.id} accepts [${transport.acceptsFlavors}]`,
+      `profile ${target.profileId} emits ${target.gcodeFlavor} but transport ${transport.id} accepts [${transport.acceptsFlavors}]`,
     );
   }
 }

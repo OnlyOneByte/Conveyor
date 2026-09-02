@@ -2,7 +2,6 @@ import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
 import { registerJobRoutes } from "./routes/jobs.js";
-import { registerStationRoutes } from "./routes/stations.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
@@ -21,7 +20,6 @@ app.get("/health", async () => ({ ok: true }));
 registerAuthGuard(app);
 await registerAuthRoutes(app);
 
-await registerStationRoutes(app);
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app);
 await registerCatalogRoutes(app);

@@ -10,10 +10,9 @@ import {
   type Stage,
   type StageCtx,
 } from "@conveyor/shared";
-import { openDb, dbGetPrinter, dbRecordJob } from "@conveyor/shared/db";
+import { openDb, dbGetPrinter, dbRecordJob, dbResolveJobTarget } from "@conveyor/shared/db";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
-import { resolveStation } from "./stations.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -51,7 +50,12 @@ const worker = new Worker<JobRequest>(
     let gcodePath: string | undefined;
 
     try {
-      const station = await resolveStation(req.stationId);
+      // The (printer, profile) pair the request names, with the transport and slicer
+      // derived from it — what a Station used to hold.
+      const jobTarget = dbResolveJobTarget(openDb(), req.printerId, req.profileId);
+      if (!jobTarget) {
+        throw new StageError("generator", `unknown printer ${req.printerId} or profile ${req.profileId}`);
+      }
 
       // ── Generate ───────────────────────────────────────────────
       stage = "generator";
@@ -66,18 +70,18 @@ const worker = new Worker<JobRequest>(
       stage = "slicer";
       currentState = "slicing";
       await bus.publish(jobId, "slicing", { stage });
-      const slicer = registry.slicers.get(station.slicerId);
-      if (!slicer) throw new StageError("slicer", `unknown slicer ${station.slicerId}`);
-      const gcode = await slicer.slice(model, station.profileId, ctx);
+      const slicer = registry.slicers.get(jobTarget.slicerId);
+      if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
+      const gcode = await slicer.slice(model, jobTarget.profileId, ctx);
       gcodePath = gcode.path;
 
       // ── Transport ──────────────────────────────────────────────
       stage = "transport";
       currentState = "transferring";
       await bus.publish(jobId, "transferring", { stage });
-      const transport = registry.transports.get(station.transportId);
-      if (!transport) throw new StageError("transport", `unknown transport ${station.transportId}`);
-      const target = await resolveTarget(station.printerId, station.transportId);
+      const transport = registry.transports.get(jobTarget.transportId);
+      if (!transport) throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
+      const target = await resolveTarget(jobTarget.printerId, jobTarget.transportId);
       const handle = await transport.submit(gcode, target, ctx);
 
       currentState = "printing";
@@ -132,7 +136,8 @@ function recordTerminal(
       id: jobId,
       generatorId: req.generator.id,
       params: req.generator.params,
-      stationId: req.stationId,
+      printerId: req.printerId,
+      profileId: req.profileId,
       state,
       stage: extra.stage ?? null,
       error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
