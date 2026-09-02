@@ -1,5 +1,5 @@
 /**
- * Admin binds a printer to a slicer profile once; end users only ever choose a
+ * Bound once in Settings: a printer + a slicer profile; end users only ever choose a
  * Station. Every slicing/printer detail is preset, hiding all complexity.
  */
 export interface Station {

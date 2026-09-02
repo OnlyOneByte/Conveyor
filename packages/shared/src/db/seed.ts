@@ -4,7 +4,7 @@ import type { Printer, Profile } from "./index.js";
 /**
  * The default catalog Conveyor ships with — identical to the M0 in-memory seeds
  * (api/stations-store.ts + worker/stations.ts), now the first-boot rows of the
- * SQLite store. Seeded only when the stations table is empty, so admin edits
+ * SQLite store. Seeded only when the stations table is empty, so edits made in Settings
  * survive restarts.
  */
 export const DEFAULT_PROFILES: Profile[] = [
@@ -37,7 +37,7 @@ export const DEFAULT_STATIONS: Station[] = [
     printerId: "elegoo-1",
     slicerId: "orca",
     // Klipper-flavored bundle: modern Elegoo printers (e.g. Centauri) run Klipper,
-    // and the elegoo transport accepts klipper. Admins can swap in a marlin profile
+    // and the elegoo transport accepts klipper. Swap in a marlin profile from Settings
     // (e.g. prusa/marlin-pla-0.2) for older Neptune/Marlin boards.
     profileId: "orca/klipper-pla-0.2",
   },

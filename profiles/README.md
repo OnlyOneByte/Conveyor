@@ -1,6 +1,6 @@
 # Locked slicer profiles
 
-Admin-curated, server-side-only slicer settings. End users never see these — they
+Operator-curated, server-side-only slicer settings. End users never see these — they
 pick a **Station** (`docs/DATA-MODEL.md`), which binds a printer to one profile here.
 
 Mounted **read-only** into the worker at `/profiles`. Referenced by `ProfileRef.path`

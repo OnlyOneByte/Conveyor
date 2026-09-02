@@ -46,7 +46,7 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
 }
 
 /** Seed the default catalog the project shipped with — only when empty, so user
- * edits via the admin panel are never clobbered on restart. */
+ * edits made in Settings are never clobbered on restart. */
 function seedDefaults(db: Database): void {
   const count = (db.query("SELECT COUNT(*) AS n FROM stations").get() as { n: number }).n;
   if (count > 0) return;

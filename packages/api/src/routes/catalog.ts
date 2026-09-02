@@ -15,12 +15,13 @@ import {
 import { validateStation } from "../validate.js";
 
 /**
- * Admin + history surface. The admin (you) manages the durable catalog here;
- * end users never see these routes. Secrets (printer.secrets) are accepted on
- * write but NEVER returned on read — list responses strip them.
+ * Catalog + history surface. This is where the durable catalog (stations, printers,
+ * profiles) is managed; end users never see these routes, they only pick a Station.
+ * Secrets (printer.secrets) are accepted on write but NEVER returned on read —
+ * list responses strip them.
  *
- * NOTE: these routes are unauthenticated until the auth slice lands (SPEC open
- * decision). The whole /admin surface is gated together at that point.
+ * Gated together as one surface by registerAuthGuard when CONVEYOR_PASSWORD is set;
+ * in the default open mode there is no gate at all.
  */
 const stationSchema = z.object({
   id: z.string().min(1).max(128),
@@ -54,7 +55,7 @@ function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boo
   return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
 }
 
-export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
+export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
   // ── Job history (settled records from SQLite) ──
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
@@ -62,9 +63,9 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ── Stations ──
-  app.get("/admin/stations", async () => dbListStations(openDb()));
+  app.get("/catalog/stations", async () => dbListStations(openDb()));
 
-  app.put("/admin/stations", async (req, reply) => {
+  app.put("/catalog/stations", async (req, reply) => {
     const parsed = stationSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
     try {
@@ -76,15 +77,15 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(200).send({ ok: true });
   });
 
-  app.delete<{ Params: { id: string } }>("/admin/stations/:id", async (req, reply) => {
+  app.delete<{ Params: { id: string } }>("/catalog/stations/:id", async (req, reply) => {
     dbDeleteStation(openDb(), req.params.id);
     return reply.code(200).send({ ok: true });
   });
 
   // ── Printers (secrets stripped on read) ──
-  app.get("/admin/printers", async () => dbListPrinters(openDb()).map(publicPrinter));
+  app.get("/catalog/printers", async () => dbListPrinters(openDb()).map(publicPrinter));
 
-  app.put("/admin/printers", async (req, reply) => {
+  app.put("/catalog/printers", async (req, reply) => {
     const parsed = printerSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
     dbUpsertPrinter(openDb(), parsed.data);
@@ -92,9 +93,9 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ── Profiles ──
-  app.get("/admin/profiles", async () => dbListProfiles(openDb()));
+  app.get("/catalog/profiles", async () => dbListProfiles(openDb()));
 
-  app.put("/admin/profiles", async (req, reply) => {
+  app.put("/catalog/profiles", async (req, reply) => {
     const parsed = profileSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
     dbUpsertProfile(openDb(), parsed.data);

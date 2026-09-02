@@ -68,7 +68,7 @@ export interface SlicerPlugin extends PluginManifest {
 
 export interface ProfileRef {
   id: string;                              // "orca/elegoo-pla-0.2"
-  name: string;                            // shown in the admin UI, not to end users
+  name: string;                            // shown in Settings, not to end users
   path: string;                            // path to the locked profile bundle
 }
 ```
@@ -107,7 +107,7 @@ First adapters: **`moonraker`** (Klipper HTTP API) and **`elegoo`** (ElegooLink 
 ## Station — what end users actually pick
 
 ```ts
-// Admin binds a printer to a slicer profile once; users only ever choose a Station.
+// Bound once in Settings: a printer + a slicer profile; users only ever choose a Station.
 export interface Station {
   id: string;
   name: string;                            // "Garage Klipper — PLA 0.2mm"

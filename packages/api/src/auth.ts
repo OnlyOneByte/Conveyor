@@ -13,13 +13,18 @@ import { createHmac, createHash, timingSafeEqual, randomBytes } from "node:crypt
  *    committed. Passwords are compared in constant time (sha256 + timingSafeEqual).
  *
  * Auth is OFF unless CONVEYOR_PASSWORD is set — keeps local dev and a trusted-LAN
- * deployment frictionless (opt-in), with a loud warning when running open. Set a
- * second CONVEYOR_ADMIN_PASSWORD to gate the /admin surface with an elevated role.
+ * deployment frictionless (opt-in), with a loud warning when running open.
+ *
+ * There is deliberately ONE password and no privilege tiers. Conveyor is a
+ * single-household tool: whoever holds the password manages the catalog. The former
+ * two-tier scheme (a second CONVEYOR_ADMIN_PASSWORD granting an elevated role) was
+ * removed because its most likely configuration was silently broken — setting only
+ * CONVEYOR_PASSWORD meant no password could ever grant the elevated role, so
+ * /catalog/* and /jobs-history returned 403 to everyone with no way to recover and
+ * no diagnostic.
  */
-export type Role = "user" | "admin";
 
 const PASSWORD = process.env.CONVEYOR_PASSWORD ?? "";
-const ADMIN_PASSWORD = process.env.CONVEYOR_ADMIN_PASSWORD ?? "";
 const SESSION_TTL_MS = Number(process.env.CONVEYOR_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000); // 12h
 const COOKIE_NAME = "conveyor_session";
 // Secure by default; only disable for local plain-HTTP testing (never in prod).
@@ -53,44 +58,41 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
-/** Returns the granted role for a submitted password, or null if it matches none. */
-export function checkPassword(input: string): Role | null {
-  if (ADMIN_PASSWORD && constantTimeEqual(input, ADMIN_PASSWORD)) return "admin";
-  if (PASSWORD && constantTimeEqual(input, PASSWORD)) return "user";
-  return null;
+/** True when the submitted password matches. Constant-time. */
+export function checkPassword(input: string): boolean {
+  return PASSWORD.length > 0 && constantTimeEqual(input, PASSWORD);
 }
 
 interface TokenPayload {
-  role: Role;
   exp: number; // epoch ms
 }
 
-export function issueToken(role: Role): string {
-  const payload: TokenPayload = { role, exp: Date.now() + SESSION_TTL_MS };
+export function issueToken(): string {
+  const payload: TokenPayload = { exp: Date.now() + SESSION_TTL_MS };
   const data = b64url(JSON.stringify(payload));
   const sig = createHmac("sha256", signingKey).update(data).digest("base64url");
   return `${data}.${sig}`;
 }
 
-/** Verify signature + expiry; returns the role or null. */
-export function verifyToken(token: string | undefined): Role | null {
-  if (!token) return null;
+/** Verify signature + expiry. True means a valid, unexpired session. */
+export function verifyToken(token: string | undefined): boolean {
+  if (!token) return false;
   const dot = token.lastIndexOf(".");
-  if (dot < 0) return null;
+  if (dot < 0) return false;
   const data = token.slice(0, dot);
   const sig = token.slice(dot + 1);
 
   const expected = createHmac("sha256", signingKey).update(data).digest("base64url");
   // Compare as fixed-length sha256 digests so a length mismatch can't short-circuit.
-  if (!constantTimeEqual(sig, expected)) return null;
+  if (!constantTimeEqual(sig, expected)) return false;
 
   try {
     const payload = JSON.parse(Buffer.from(data, "base64url").toString()) as TokenPayload;
-    if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
-    if (payload.role !== "user" && payload.role !== "admin") return null;
-    return payload.role;
+    // Expiry is the only claim now; a cookie minted by the old two-tier scheme still
+    // carries a role field, which is simply ignored rather than invalidated.
+    return typeof payload.exp === "number" && payload.exp >= Date.now();
   } catch {
-    return null;
+    return false;
   }
 }
 

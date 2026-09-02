@@ -12,7 +12,7 @@ export function validateJobRequest(req: JobRequest, station: Station): void {
 }
 
 /**
- * Validate a Station at admin-create time (DATA-MODEL.md invariant): the slicer,
+ * Validate a Station when it is created (DATA-MODEL.md invariant): the slicer,
  * transport and profile must exist and interoperate, so an unprintable Station
  * can never be saved. Mirrors the job-time check but on the config itself.
  */

@@ -30,6 +30,6 @@ thin `inherits`-only wrapper does **not** (fails `-17`/`-51`). See `docs/M1-WORK
 
 Export `machine.json` / `process.json` / `filament.json` from the OrcaSlicer GUI
 (Profile → Export) for your printer, drop them in a new `profiles/orca-<id>/` dir,
-add a `Profile` row in `packages/shared/src/db/seed.ts` (or via the admin panel), and
+add a `Profile` row in `packages/shared/src/db/seed.ts` (or in Settings), and
 point a Station at it. Keep the printer Klipper- or Marlin-flavored to match the
 transport's `acceptsFlavors`.

@@ -1,33 +1,29 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    fetchAdminStations,
-    fetchAdminPrinters,
-    fetchAdminProfiles,
-    fetchJobHistory,
+    fetchCatalogStations,
+    fetchCatalogPrinters,
+    fetchCatalogProfiles,
     saveStation,
     saveProfile,
     deleteStation,
-    type AdminStation,
-    type AdminPrinter,
-    type AdminProfile,
-    type JobHistoryEntry,
+    type CatalogStation,
+    type CatalogPrinter,
+    type CatalogProfile,
   } from "$lib/api";
 
-  let stations: AdminStation[] = [];
-  let printers: AdminPrinter[] = [];
-  let profiles: AdminProfile[] = [];
-  let history: JobHistoryEntry[] = [];
+  let stations: CatalogStation[] = [];
+  let printers: CatalogPrinter[] = [];
+  let profiles: CatalogProfile[] = [];
   let error: string | null = null;
   let loaded = false;
 
   async function reload() {
     try {
-      [stations, printers, profiles, history] = await Promise.all([
-        fetchAdminStations(),
-        fetchAdminPrinters(),
-        fetchAdminProfiles(),
-        fetchJobHistory(),
+      [stations, printers, profiles] = await Promise.all([
+        fetchCatalogStations(),
+        fetchCatalogPrinters(),
+        fetchCatalogProfiles(),
       ]);
     } catch (e) {
       error = (e as Error).message;
@@ -37,7 +33,7 @@
   }
   onMount(reload);
 
-  // New-station form. The admin binds printer + slicer + profile → a pickable Station.
+  // New-station form: binds printer + slicer + profile → a Station users can pick.
   // We only bind the user-chosen fields; slicerId/transportId are derived at save
   // time from the chosen profile/printer (avoids a reactive write-back cycle).
   let nsId = "";
@@ -61,7 +57,7 @@
       nsError = "Choose a printer and a profile.";
       return;
     }
-    const station: AdminStation = {
+    const station: CatalogStation = {
       id: nsId,
       name: nsName,
       transportId: printer.transportId,
@@ -89,7 +85,7 @@
   }
 
   // New-profile form — registers a locked slicer bundle on the /profiles mount.
-  let np: AdminProfile = { id: "", slicerId: "orca", name: "", path: "", gcodeFlavor: "klipper" };
+  let np: CatalogProfile = { id: "", slicerId: "orca", name: "", path: "", gcodeFlavor: "klipper" };
   let npError: string | null = null;
   async function addProfile() {
     npError = null;
@@ -101,15 +97,11 @@
       npError = (e as Error).message;
     }
   }
-
-  function fmtDate(ms: number): string {
-    return new Date(ms).toLocaleString();
-  }
 </script>
 
-<div class="admin">
+<div class="page">
   <div class="head">
-    <h1>Admin</h1>
+    <h1>Settings</h1>
     <a href="/" class="navlink">← Back to app</a>
   </div>
 
@@ -198,32 +190,12 @@
       </table>
     </section>
 
-    <!-- Job history -->
-    <section class="card">
-      <h2>Recent jobs</h2>
-      {#if history.length === 0}
-        <p class="muted">No jobs yet.</p>
-      {:else}
-        <table>
-          <thead><tr><th>When</th><th>Generator</th><th>Station</th><th>State</th></tr></thead>
-          <tbody>
-            {#each history as j}
-              <tr>
-                <td class="muted">{fmtDate(j.createdAt)}</td>
-                <td class="mono">{j.request.generator.id}</td>
-                <td class="mono">{j.request.stationId}</td>
-                <td><span class="state {j.state}">{j.state}</span>{#if j.error}<br /><span class="muted">{j.error.reason}</span>{/if}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </section>
+    <!-- Job history lives on its own page now: /jobs -->
   {/if}
 </div>
 
 <style>
-  .admin { display: flex; flex-direction: column; gap: 1.25rem; }
+  .page { display: flex; flex-direction: column; gap: 1.25rem; }
   .head { display: flex; align-items: baseline; justify-content: space-between; }
   h1 { margin: 0; }
   h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
@@ -239,7 +211,4 @@
   .form input, .form select { padding: 0.45rem 0.6rem; }
   .err { color: var(--danger); }
   .danger { color: var(--danger); }
-  .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
-  .state.done { color: var(--ok); border-color: var(--ok); }
-  .state.failed, .state.canceled { color: var(--danger); border-color: var(--danger); }
 </style>

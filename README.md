@@ -17,7 +17,7 @@ see it render instantly, send it to a printer — no slicer knowledge required.
 ```
 packages/  shared · api · worker · web
 plugins/   generators/* · slicers/* · transports/*
-profiles/  locked slicer profiles (admin-managed; secrets gitignored)
+profiles/  locked slicer profiles (operator-managed; secrets gitignored)
 scad/      gridfinity-rebuilt-openscad (git submodule)
 data/      job artifacts + sqlite db (gitignored)
 ```

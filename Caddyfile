@@ -26,13 +26,14 @@ localhost {
 	handle /jobs-history* {
 		reverse_proxy api:3000
 	}
-	# Only the API endpoints under /admin/* go to the api; the SvelteKit /admin
-	# PAGE itself (exactly "/admin") falls through to the web service below.
-	handle /admin/* {
+	# /catalog/* is the durable-catalog API namespace (stations/printers/profiles).
+	# Page routes deliberately never share a prefix with an API namespace — /admin and
+	# /jobs both caused 404s on direct load when they did.
+	handle /catalog* {
 		reverse_proxy api:3000
 	}
 
-	# everything else (incl. the /admin page) → the PWA
+	# everything else (the PWA and its page routes: /, /settings, /history) → web
 	handle {
 		reverse_proxy web:3000
 	}

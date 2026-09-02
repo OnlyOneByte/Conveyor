@@ -8,13 +8,12 @@ import {
   sessionCookie,
   clearCookie,
   readSessionCookie,
-  type Role,
 } from "../auth.js";
 
 const loginSchema = z.object({ password: z.string().min(1).max(512) });
 
-/** Resolve the caller's role from the session cookie (null = anonymous). */
-function roleOf(req: FastifyRequest): Role | null {
+/** True when the caller presents a valid session cookie. */
+function hasSession(req: FastifyRequest): boolean {
   return verifyToken(readSessionCookie(req.headers.cookie));
 }
 
@@ -22,18 +21,16 @@ function roleOf(req: FastifyRequest): Role | null {
  * Path-based access gate. Mirrors the angryang.dev lesson: the gated-path
  * definition lives in ONE place so a route can't silently fall outside the
  * protected tree. Rules (when auth is enabled):
- *   - /admin/*  and /jobs-history  → require role "admin"
- *   - everything else that mutates/reads app data → require any valid session
  *   - /health and /auth/* are always public (login must be reachable)
+ *   - everything else requires a valid session
+ *
+ * One tier only — holding the password grants the whole app, catalog included. See
+ * auth.ts for why the former elevated role was removed.
  */
 const PUBLIC_PREFIXES = ["/health", "/auth/"];
-const ADMIN_PREFIXES = ["/admin", "/jobs-history"];
 
 function isPublic(url: string): boolean {
   return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p));
-}
-function needsAdmin(url: string): boolean {
-  return ADMIN_PREFIXES.some((p) => url === p || url.startsWith(p));
 }
 
 export function registerAuthGuard(app: FastifyInstance): void {
@@ -42,35 +39,29 @@ export function registerAuthGuard(app: FastifyInstance): void {
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     const url = req.url.split("?")[0];
     if (isPublic(url)) return;
-
-    const role = roleOf(req);
-    if (!role) return reply.code(401).send({ error: "authentication required" });
-    if (needsAdmin(url) && role !== "admin") {
-      return reply.code(403).send({ error: "admin access required" });
-    }
+    if (!hasSession(req)) return reply.code(401).send({ error: "authentication required" });
   });
 }
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
-  // Whether the client must show a login screen, and (cheaply) whether an admin
-  // password is even configured — lets the UI hide the admin entry otherwise.
+  // Whether the client must show a login screen.
   app.get("/auth/status", async (req) => {
-    const role = roleOf(req);
-    return { authEnabled, role: role ?? null, authenticated: !!role };
+    return { authEnabled, authenticated: hasSession(req) };
   });
 
   app.post("/auth/login", async (req, reply) => {
-    if (!authEnabled) return reply.send({ ok: true, role: "user" }); // nothing to log into
+    if (!authEnabled) return reply.send({ ok: true }); // nothing to log into
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "password required" });
 
-    const role = checkPassword(parsed.data.password);
-    if (!role) return reply.code(401).send({ error: "invalid password" });
+    if (!checkPassword(parsed.data.password)) {
+      return reply.code(401).send({ error: "invalid password" });
+    }
 
-    reply.header("set-cookie", sessionCookie(issueToken(role)));
+    reply.header("set-cookie", sessionCookie(issueToken()));
     // Gated responses must not be cached/cross-served (angryang.dev lesson).
     reply.header("cache-control", "private, no-store");
-    return reply.send({ ok: true, role });
+    return reply.send({ ok: true });
   });
 
   app.post("/auth/logout", async (_req, reply) => {

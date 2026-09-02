@@ -2,7 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import { login } from "$lib/api";
 
-  const dispatch = createEventDispatcher<{ authed: { role: string } }>();
+  const dispatch = createEventDispatcher<{ authed: Record<string, never> }>();
 
   let password = "";
   let busy = false;
@@ -13,8 +13,8 @@
     busy = true;
     error = null;
     try {
-      const { role } = await login(password);
-      dispatch("authed", { role });
+      await login(password);
+      dispatch("authed", {});
     } catch (e) {
       error = (e as Error).message;
       password = "";

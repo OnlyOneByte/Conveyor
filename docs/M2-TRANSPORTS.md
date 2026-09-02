@@ -32,7 +32,7 @@ Status mapping (`print_stats.state`): `printing/paused → printing`, `complete 
 falls back to `virtual_sdcard.progress` (both 0..1).
 
 ### Verify on your Klipper
-1. In **Admin → Printers**, set the `klipper-garage` printer `address` to your Moonraker
+1. In **Settings → Printers**, set the `klipper-garage` printer `address` to your Moonraker
    host, e.g. `192.168.1.50:7125` (or a full `http://…` URL).
 2. If your Moonraker requires auth, either add the worker host to `[authorization]
    trusted_clients` in `moonraker.conf`, **or** set `MOONRAKER_API_KEY` on the worker

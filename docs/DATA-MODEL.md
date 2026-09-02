@@ -9,14 +9,14 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 | **SQLite** (file on the `/data` volume) | Durable config + job history: `stations`, `printers`, `profiles`, `jobs` | Self-hosted single-node app; a file DB needs no extra service, backs up by copying one file, and is plenty fast for this scale. |
 | **Redis** | Live job state + status pub/sub (BullMQ queue, `job:<id>` snapshot, `job:<id>:status` channel) | Ephemeral, high-churn, fan-out to many WS clients. Already present for the queue. |
 | **Filesystem** (`/data/<jobId>/`) | Artifacts: `model.stl`, `model.gcode` | Large binaries don't belong in a DB; stages pass `{path}` handles (ADR 0001). |
-| **`/profiles/*`** (read-only mount) | Locked slicer profile **bundles** (Orca machine/filament/process JSON) | Admin-curated, version-controlled outside the app, never user-editable. |
+| **`/profiles/*`** (read-only mount) | Locked slicer profile **bundles** (Orca machine/filament/process JSON) | Curated by the operator, version-controlled outside the app, never user-editable. |
 
 **Rule of thumb:** Redis is the *live* truth for an in-flight job; SQLite is the *durable* truth
 for config and finished jobs. On a terminal state the worker writes the final `Job` row to SQLite;
 the Redis snapshot is allowed to expire.
 
 Recommended driver: `better-sqlite3` (synchronous, simple) with a thin migration runner, or Drizzle
-if we want typed queries (matches the VROOM stack). Decide at M4 when the admin UI lands.
+if we want typed queries (matches the VROOM stack). Decided at M4, when the Settings page landed.
 
 ## Entities
 
@@ -33,7 +33,7 @@ A locked slicer configuration bundle. Rows are a catalog over the `/profiles` mo
 |---|---|---|
 | `id` | text PK | `"orca/klipper-pla-0.2"` |
 | `slicer_id` | text | which slicer plugin owns it (`"orca"`) |
-| `name` | text | admin-facing label |
+| `name` | text | operator-facing label |
 | `path` | text | bundle dir under `/profiles` (read-only) |
 | `gcode_flavor` | text | denormalized for fast capability checks |
 | `created_at` | integer | epoch ms |
@@ -45,7 +45,7 @@ A physical device addressable by a transport. **Secrets live here and never leav
 |---|---|---|
 | `id` | text PK | `"klipper-garage"` |
 | `transport_id` | text | `"moonraker"` \| `"elegoo"` |
-| `name` | text | admin label |
+| `name` | text | operator label |
 | `address` | text | host:port / mqtt topic / serial |
 | `secrets_json` | text (encrypted-at-rest) | API keys/tokens; resolved server-side only |
 | `created_at` | integer | epoch ms |
@@ -66,7 +66,7 @@ The only thing end users pick. Binds a printer to a slicer+profile (see `PLUGINS
 
 > **Invariant** (enforced by `validateJob`, ADR/SEQUENCE): a Station is only valid if
 > `profile.slicer_id == station.slicer_id` and `profile.gcode_flavor ∈ transport.acceptsFlavors`.
-> Validated at Station-create time (admin) *and* pre-flight at job submit.
+> Validated at Station-create time (in Settings) *and* pre-flight at job submit.
 
 ### job
 Durable history of a pipeline run. Live state is in Redis; this is the settled record.
@@ -92,7 +92,7 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 | submit | enqueue + initial snapshot | — | mkdir `/data/<id>` |
 | generating/slicing/transferring/printing | snapshot + publish each transition | — | write `model.stl`, `model.gcode` |
 | terminal (done/failed/canceled) | final snapshot (TTL-expire later) | **insert/append `jobs` row** | keep gcode; cleanup on failure |
-| admin edits station/printer/profile | — | upsert | — |
+| operator edits station/printer/profile | — | upsert | — |
 
 ## Redis keys (single source of truth in `shared/events.ts`)
 
@@ -121,10 +121,15 @@ on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries
 (`stations-store.ts`) and `worker` (`stations.ts`) delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
 default catalog (the old in-memory seeds) is seeded only when the `stations` table is empty, so
-admin edits survive restarts. The worker resolves real `PrinterTarget`s (incl. secrets) from
-`printers` and writes the settled `Job` row on every terminal state.
+edits made in Settings survive restarts. The worker resolves real `PrinterTarget`s (incl. secrets)
+from `printers` and writes the settled `Job` row on every terminal state.
 
-Admin CRUD lives behind `/admin/*` (stations/printers/profiles) + `/jobs-history`; printer secrets
-are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New Stations
-are capability-validated (`validateStation`) before persist. The `/admin/*` surface is currently
-**unauthenticated** — it gets gated together when the auth slice lands (SPEC open decision).
+Catalog CRUD lives behind `/catalog/*` (stations/printers/profiles) + `/jobs-history`; printer
+secrets are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New
+Stations are capability-validated (`validateStation`) before persist. Both surfaces are gated by
+`registerAuthGuard` when `CONVEYOR_PASSWORD` is set, and open when it is not — there is a single
+access tier, so holding the password grants the catalog too.
+
+> The page routes (`/`, `/settings`, `/history`) deliberately share **no prefix** with any API
+> namespace. A page at `/admin` or `/jobs` 404s on direct load, because the proxy and Caddy forward
+> those whole prefixes to the API.

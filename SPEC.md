@@ -21,7 +21,7 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 
 - **Stage** — one of the three pluggable seams: `Generator`, `Slicer`, `Transport`.
 - **Plugin** — a concrete implementation of a stage (`gridfinity`, `orca`, `moonraker`, `elegoo`).
-- **Station** — an admin-curated binding of *a physical printer (transport + target)* to *a slicer + locked profile*. End users pick a Station; every slicing/printer detail is preset for them.
+- **Station** — an operator-curated binding of *a physical printer (transport + target)* to *a slicer + locked profile*. End users pick a Station; every slicing/printer detail is preset for them.
 - **Job** — one trip through the pipeline: `{generator + params} → {slicer + profile} → {transport + printer}`.
 - **Registry** — startup-populated map of available plugins per stage.
 
@@ -62,7 +62,7 @@ The render must feel instant, so we never round-trip the real model on a slider 
 ```
 packages/  shared · web · api · worker
 plugins/   generators/* · slicers/* · transports/*
-profiles/  locked slicer profiles (admin-managed)
+profiles/  locked slicer profiles (operator-managed)
 scad/      gridfinity-rebuilt-openscad (submodule)
 data/      job artifacts (*.stl, *.gcode) — mounted volume
 ```
@@ -72,7 +72,7 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - Generators: **Gridfinity** + **Upload STL** (`passthrough`) + a Generator SDK & registry.
 - Slicers: **Orca** (default); pluggability proven by a 2nd adapter (PrusaSlicer CLI).
 - Transports: **Klipper/Moonraker** + **ElegooLink** (the printers on hand).
-- Admin: define Stations, upload locked profiles.
+- Operator: define Stations, upload locked profiles (in Settings).
 - User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick Station → print → watch live status.
 - PWA: installable, works on phone.
 
@@ -89,8 +89,8 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
-- [ ] **Profiles** — hand-authored JSON vs. a small admin UI.
-- [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). Opt-in via `CONVEYOR_PASSWORD` (off = open for trusted-LAN/dev); optional `CONVEYOR_ADMIN_PASSWORD` gates `/admin/*` + `/jobs-history` with an elevated role. Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
+- [ ] **Profiles** — hand-authored JSON vs. editing them in Settings.
+- [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). Opt-in via `CONVEYOR_PASSWORD` (off = open for trusted-LAN/dev). **One access tier** — holding the password grants the whole app, `/catalog/*` and `/jobs-history` included. (A second `CONVEYOR_ADMIN_PASSWORD` granting an elevated role was removed 2026-09-02: with only `CONVEYOR_PASSWORD` set, no password could ever grant that role, so those two surfaces returned 403 to everyone with no diagnostic.) Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
 - [ ] **Elegoo API** — confirm the local control protocol (SDCP / ElegooLink) via a discovery spike.
 
 ## 10. Milestones
@@ -99,4 +99,4 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt, default) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
 - **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + Station picker + WS job status; 3-zone responsive layout.
-- **M4 — Admin & auth.** ✅ SQLite store (bun:sqlite) + job history + admin panel (stations/profiles/printers CRUD) + shared-password auth (HMAC cookie, admin role).
+- **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (stations/profiles/printers CRUD) + shared-password auth (HMAC cookie, single tier).

@@ -5,7 +5,7 @@ import { registerJobRoutes } from "./routes/jobs.js";
 import { registerStationRoutes } from "./routes/stations.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
-import { registerAdminRoutes } from "./routes/admin.js";
+import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerAuthRoutes, registerAuthGuard } from "./routes/auth.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -24,7 +24,7 @@ await registerAuthRoutes(app);
 await registerStationRoutes(app);
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app);
-await registerAdminRoutes(app);
+await registerCatalogRoutes(app);
 await registerJobRoutes(app);
 
 await app.listen({ host: "0.0.0.0", port: PORT });

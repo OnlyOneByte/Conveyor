@@ -83,7 +83,7 @@ export interface GeneratorPlugin<P = unknown> extends PluginManifest {
 export interface ProfileRef {
   /** "orca/elegoo-pla-0.2" */
   id: string;
-  /** shown in the admin UI, never to end users */
+  /** shown in Settings, never to end users */
   name: string;
   /** path to the locked profile bundle */
   path: string;

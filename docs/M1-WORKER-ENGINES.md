@@ -161,7 +161,7 @@ The engine + CLI + image + a turnkey bundle are all proven (see above). What lan
 Optional follow-up (not a blocker):
 
 3. **More bundles** — add per-printer dirs (`profiles/orca-<id>/`) from the GUI
-   (Profile → Export) and a `Profile` seed row / admin entry. Keep them Klipper- or
+   (Profile → Export) and a `Profile` seed row / Settings entry. Keep them Klipper- or
    Marlin-flavored to match the transport's `acceptsFlavors`. A dedicated Marlin Orca
    bundle would round out the set (prusa already ships one).
 

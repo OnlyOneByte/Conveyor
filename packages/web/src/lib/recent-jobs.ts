@@ -3,11 +3,12 @@ import type { JobState } from "@conveyor/shared";
 
 /**
  * A small client-side memory of jobs this browser has submitted, persisted to
- * localStorage so a page refresh no longer loses job visibility. The durable
- * job history lives in SQLite, but `/jobs-history` is admin-gated — a regular
- * user's main page can't read it — so the user-facing "recent jobs" strip is
- * backed by localStorage here, refreshed from per-job snapshots (Redis) when
- * available and falling back to the last-known state otherwise.
+ * localStorage so a page refresh no longer loses job visibility. This is
+ * deliberately NOT the durable history: that lives in SQLite behind
+ * `/jobs-history` and is surfaced on the /history page. This strip answers a
+ * different question — "what did *I* just send?" — so it is per-browser,
+ * refreshed from per-job snapshots (Redis) when available and falling back to
+ * the last-known state otherwise.
  */
 export interface RecentJob {
   jobId: string;

@@ -94,12 +94,10 @@ export async function fetchJobSnapshot(jobId: string): Promise<JobStatusEvent | 
 }
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
-export type Role = "user" | "admin";
-
+// One tier: holding the password grants the whole app. No roles.
 export interface AuthStatus {
   authEnabled: boolean;
   authenticated: boolean;
-  role: Role | null;
 }
 
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
@@ -108,7 +106,7 @@ export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<Au
   return r.json();
 }
 
-export async function login(password: string): Promise<{ role: Role }> {
+export async function login(password: string): Promise<void> {
   const r = await fetch("/auth/login", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -118,15 +116,14 @@ export async function login(password: string): Promise<{ role: Role }> {
     const err = await r.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? `login failed (${r.status})`);
   }
-  return r.json();
 }
 
 export async function logout(): Promise<void> {
   await fetch("/auth/logout", { method: "POST" });
 }
 
-// ─── Admin ──────────────────────────────────────────────────────────────────
-export interface AdminStation {
+// ─── Catalog (stations / printers / profiles) ───────────────────────────────
+export interface CatalogStation {
   id: string;
   name: string;
   transportId: string;
@@ -135,14 +132,14 @@ export interface AdminStation {
   profileId: string;
   allowedGenerators?: string[];
 }
-export interface AdminPrinter {
+export interface CatalogPrinter {
   id: string;
   transportId: string;
   name: string;
   address: string;
   hasSecrets: boolean;
 }
-export interface AdminProfile {
+export interface CatalogProfile {
   id: string;
   slicerId: string;
   name: string;
@@ -178,17 +175,17 @@ async function putJson(path: string, body: unknown): Promise<void> {
   }
 }
 
-export const fetchAdminStations = (f?: typeof fetch) => getJson<AdminStation[]>("/admin/stations", f);
-export const fetchAdminPrinters = (f?: typeof fetch) => getJson<AdminPrinter[]>("/admin/printers", f);
-export const fetchAdminProfiles = (f?: typeof fetch) => getJson<AdminProfile[]>("/admin/profiles", f);
+export const fetchCatalogStations = (f?: typeof fetch) => getJson<CatalogStation[]>("/catalog/stations", f);
+export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>("/catalog/printers", f);
+export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>("/catalog/profiles", f);
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=50", f);
 
-export const saveStation = (s: AdminStation) => putJson("/admin/stations", s);
-export const savePrinter = (p: Omit<AdminPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
-  putJson("/admin/printers", p);
-export const saveProfile = (p: AdminProfile) => putJson("/admin/profiles", p);
+export const saveStation = (s: CatalogStation) => putJson("/catalog/stations", s);
+export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
+  putJson("/catalog/printers", p);
+export const saveProfile = (p: CatalogProfile) => putJson("/catalog/profiles", p);
 
 export async function deleteStation(id: string): Promise<void> {
-  const r = await fetch(`/admin/stations/${encodeURIComponent(id)}`, { method: "DELETE" });
-  if (!r.ok) throw new Error(`DELETE /admin/stations/${id} ${r.status}`);
+  const r = await fetch(`/catalog/stations/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`DELETE /catalog/stations/${id} ${r.status}`);
 }

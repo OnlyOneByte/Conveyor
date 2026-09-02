@@ -25,9 +25,10 @@ export default defineConfig({
       "/uploads": { target: API },
       "/auth": { target: API },
       "/jobs-history": { target: API },
-      // NB: trailing slash — proxy only the API endpoints (/admin/stations …);
-      // the SvelteKit /admin PAGE itself is served by the app, not the API.
-      "/admin/": { target: API },
+      // /catalog/* is the durable-catalog API namespace (stations/printers/profiles).
+      // Page routes deliberately never share a prefix with an API namespace — /admin and
+      // /jobs both caused 404s on direct load when they did.
+      "/catalog": { target: API },
     },
   },
 });
