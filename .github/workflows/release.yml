@@ -71,7 +71,12 @@ jobs:
           # engines are baked in — unlike ci.yml which disables Orca for a fast gate.
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
+          # mode=min, not max. max exports EVERY intermediate layer to the Actions
+          # cache; the worker image is ~2.25GB with heavy engine layers, and that
+          # export is the leading suspect for the v0.1.0 arm64 job failing inside
+          # this step (which covers build + push + cache export). min keeps the
+          # useful final-layer cache without the multi-GB export.
+          cache-to: type=gha,mode=min,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
 
       - name: Export digest
         run: |
