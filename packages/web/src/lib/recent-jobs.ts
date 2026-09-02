@@ -12,7 +12,8 @@ import type { JobState } from "@conveyor/shared";
  */
 export interface RecentJob {
   jobId: string;
-  stationName: string;
+  /** "Garage Klipper · Klipper PLA 0.2mm" — printer and profile, for display only */
+  targetName: string;
   generatorId: string;
   submittedAt: number;
   /** last-known state; updated as fresh snapshots arrive */

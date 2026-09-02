@@ -57,14 +57,15 @@
         <p class="muted">No jobs yet. Submit one from the app and it will show up here.</p>
       {:else}
         <div class="tablewrap"><table>
-          <thead><tr><th>When</th><th>Job</th><th>Generator</th><th>Station</th><th>State</th></tr></thead>
+          <thead><tr><th>When</th><th>Job</th><th>Generator</th><th>Printer</th><th>Profile</th><th>State</th></tr></thead>
           <tbody>
             {#each history as j}
               <tr>
                 <td class="muted">{fmtDate(j.createdAt)}</td>
                 <td><a class="mono jobid" href={`/history/${j.id}`}>{j.id.slice(0, 8)}</a></td>
                 <td class="mono">{j.request.generator.id}</td>
-                <td class="mono">{j.request.stationId}</td>
+                <td class="mono">{j.request.printerId || "—"}</td>
+                <td class="mono">{j.request.profileId || "—"}</td>
                 <td>
                   <span class="state {j.state}">{j.state}</span>
                   {#if j.error}<br /><span class="muted">{j.error.reason}</span>{/if}

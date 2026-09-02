@@ -58,8 +58,11 @@
         <dt>Finished</dt>
         <dd class="muted">{fmtDate(job.createdAt)}</dd>
 
-        <dt>Station</dt>
-        <dd class="mono">{job.request.stationId}</dd>
+        <dt>Printer</dt>
+        <dd class="mono">{job.request.printerId || "—"}</dd>
+
+        <dt>Profile</dt>
+        <dd class="mono">{job.request.profileId || "—"}</dd>
 
         <dt>Generator</dt>
         <dd class="mono">{job.request.generator.id}</dd>

@@ -1,17 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    fetchCatalogStations,
     fetchCatalogPrinters,
     fetchCatalogProfiles,
     fetchCatalogTransports,
-    saveStation,
     savePrinter,
     deletePrinter,
     deleteProfile,
     saveProfile,
-    deleteStation,
-    type CatalogStation,
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
@@ -20,7 +16,6 @@
 
   const reducedMotion = prefersReducedMotion();
 
-  let stations: CatalogStation[] = [];
   let printers: CatalogPrinter[] = [];
   let profiles: CatalogProfile[] = [];
   let transports: CatalogTransport[] = [];
@@ -29,8 +24,7 @@
 
   async function reload() {
     try {
-      [stations, printers, profiles, transports] = await Promise.all([
-        fetchCatalogStations(),
+      [printers, profiles, transports] = await Promise.all([
         fetchCatalogPrinters(),
         fetchCatalogProfiles(),
         fetchCatalogTransports(),
@@ -45,58 +39,6 @@
 
   // Seed the transport picker once the list arrives, without clobbering an edit.
   $: if (!ppTransportId && transports.length && !editingPrinter) ppTransportId = transports[0].id;
-
-  // New-station form: binds printer + slicer + profile → a Station users can pick.
-  // We only bind the user-chosen fields; slicerId/transportId are derived at save
-  // time from the chosen profile/printer (avoids a reactive write-back cycle).
-  let nsId = "";
-  let nsName = "";
-  let nsPrinterId = "";
-  let nsProfileId = "";
-  let nsError: string | null = null;
-
-  function resetNewStation() {
-    nsId = "";
-    nsName = "";
-    nsPrinterId = "";
-    nsProfileId = "";
-  }
-
-  async function addStation() {
-    nsError = null;
-    const profile = profiles.find((p) => p.id === nsProfileId);
-    const printer = printers.find((p) => p.id === nsPrinterId);
-    if (!profile || !printer) {
-      nsError = "Choose a printer and a profile.";
-      return;
-    }
-    const station: CatalogStation = {
-      id: nsId,
-      name: nsName,
-      transportId: printer.transportId,
-      printerId: printer.id,
-      slicerId: profile.slicerId, // derived → always consistent (API re-validates)
-      profileId: profile.id,
-    };
-    try {
-      await saveStation(station);
-      resetNewStation();
-      await reload();
-    } catch (e) {
-      nsError = (e as Error).message;
-    }
-  }
-
-  async function removeStation(id: string) {
-    if (!confirm(`Delete station "${id}"?`)) return;
-    try {
-      await deleteStation(id);
-      await reload();
-    } catch (e) {
-      error = (e as Error).message;
-    }
-  }
-
 
   // Printer form — doubles as add and edit. `editingPrinter` holds the id being
   // edited (null = adding), because the M2 hardware flow is "change an existing
@@ -152,8 +94,7 @@
     }
   }
 
-  // Printer/profile deletes are refused with 409 when a Station still references the
-  // row; `del()` surfaces that message, so show it verbatim rather than a generic error.
+  // `del()` surfaces the server's error message verbatim rather than a status code.
   async function removePrinter(id: string) {
     if (!confirm(`Delete printer "${id}"?`)) return;
     try {
@@ -218,47 +159,6 @@
         </p>
       {/if}
     </section>
-    <!-- Stations -->
-    <section class="card">
-      <h2>Stations</h2>
-      <p class="muted">What end users pick. Each binds a printer + slicer profile.</p>
-      <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Printer</th><th>Profile</th><th></th></tr></thead>
-        <tbody>
-          {#each stations as s}
-            <tr>
-              <td><strong>{s.name}</strong><br /><span class="muted mono">{s.id}</span></td>
-              <td class="mono">{s.printerId}</td>
-              <td class="mono">{s.profileId}</td>
-              <td><button class="ghost danger" on:click={() => removeStation(s.id)}>Delete</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table></div>
-
-      <details>
-        <summary><span class="caret" aria-hidden="true">▶</span>Add station</summary>
-        <div class="form">
-          <label>ID<input bind:value={nsId} placeholder="garage-petg" /></label>
-          <label>Name<input bind:value={nsName} placeholder="Garage Klipper — PETG 0.2mm" /></label>
-          <label>Printer
-            <select bind:value={nsPrinterId}>
-              <option value="" disabled>— choose —</option>
-              {#each printers as p}<option value={p.id}>{p.name} ({p.transportId})</option>{/each}
-            </select>
-          </label>
-          <label>Profile
-            <select bind:value={nsProfileId}>
-              <option value="" disabled>— choose —</option>
-              {#each profiles as p}<option value={p.id}>{p.name} ({p.gcodeFlavor})</option>{/each}
-            </select>
-          </label>
-          <button class="primary" on:click={addStation} disabled={!nsId || !nsName || !nsPrinterId || !nsProfileId}>Save station</button>
-          {#if nsError}<p class="err">{nsError}</p>{/if}
-        </div>
-      </details>
-    </section>
-
     <!-- Profiles -->
     <section class="card">
       <h2>Profiles</h2>

@@ -1,20 +1,6 @@
 // Thin client over the Conveyor API. Same-origin in prod (Caddy), proxied in dev (vite).
 import type { FormUiHints, JobState } from "@conveyor/shared";
 
-export interface StationSummary {
-  id: string;
-  name: string;
-  /** slicer engine bound to this station (e.g. "orca", "prusa") */
-  slicerId?: string;
-  /** gcode flavor of the bound profile (e.g. "klipper", "marlin") */
-  gcodeFlavor?: string;
-  /** material parsed from the bound profile (e.g. "PLA", "PETG") */
-  material?: string;
-  /** layer height / quality parsed from the bound profile (e.g. "0.2mm") */
-  quality?: string;
-  allowedGenerators?: string[];
-}
-
 export interface GeneratorSummary {
   id: string;
   name: string;
@@ -33,12 +19,6 @@ export interface JobStatusEvent {
   message?: string;
   error?: { stage: string; reason: string };
   at: number;
-}
-
-export async function fetchStations(fetchFn: typeof fetch = fetch): Promise<StationSummary[]> {
-  const r = await fetchFn("/stations");
-  if (!r.ok) throw new Error(`GET /stations ${r.status}`);
-  return r.json();
 }
 
 export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<GeneratorSummary[]> {
@@ -66,7 +46,7 @@ export async function uploadStl(file: File): Promise<UploadResult> {
 }
 
 export async function submitJob(
-  body: { generator: { id: string; params: unknown }; stationId: string },
+  body: { generator: { id: string; params: unknown }; printerId: string; profileId: string },
 ): Promise<{ jobId: string }> {
   const r = await fetch("/jobs", {
     method: "POST",
@@ -122,16 +102,8 @@ export async function logout(): Promise<void> {
   await fetch("/auth/logout", { method: "POST" });
 }
 
-// ─── Catalog (stations / printers / profiles) ───────────────────────────────
-export interface CatalogStation {
-  id: string;
-  name: string;
-  transportId: string;
-  printerId: string;
-  slicerId: string;
-  profileId: string;
-  allowedGenerators?: string[];
-}
+// ─── Catalog (printers / profiles) ──────────────────────────────────────────
+// ─── Catalog (printers / profiles) ──────────────────────────────────────────
 export interface CatalogPrinter {
   id: string;
   transportId: string;
@@ -148,7 +120,8 @@ export interface CatalogProfile {
 }
 export interface JobHistoryEntry {
   id: string;
-  request: { generator: { id: string; params?: unknown }; stationId: string };
+  /** printerId/profileId may be "" on a job migrated from a deleted station */
+  request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
   state: JobState;
   stage?: string | null;
   error?: { stage: string; reason: string };
@@ -175,7 +148,6 @@ async function putJson(path: string, body: unknown): Promise<void> {
   }
 }
 
-export const fetchCatalogStations = (f?: typeof fetch) => getJson<CatalogStation[]>("/catalog/stations", f);
 export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>("/catalog/printers", f);
 export interface CatalogTransport {
   id: string;
@@ -205,15 +177,13 @@ export async function fetchJobHistoryEntry(
   return r.json() as Promise<JobHistoryEntry>;
 }
 
-export const saveStation = (s: CatalogStation) => putJson("/catalog/stations", s);
 export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
   putJson("/catalog/printers", p);
 export const saveProfile = (p: CatalogProfile) => putJson("/catalog/profiles", p);
 
 /**
- * DELETE that surfaces the server's message. Printer/profile deletes are refused with
- * 409 and a body naming the Stations still referencing the row — that text is the
- * whole point, so it must reach the UI rather than being flattened to a status code.
+ * DELETE that surfaces the server's message instead of flattening it to a status code,
+ * so a refusal explains itself in the UI.
  */
 async function del(path: string): Promise<void> {
   const r = await fetch(path, { method: "DELETE" });
@@ -228,6 +198,5 @@ async function del(path: string): Promise<void> {
   throw new Error(detail || `DELETE ${path} ${r.status}`);
 }
 
-export const deleteStation = (id: string) => del(`/catalog/stations/${encodeURIComponent(id)}`);
 export const deletePrinter = (id: string) => del(`/catalog/printers/${encodeURIComponent(id)}`);
 export const deleteProfile = (id: string) => del(`/catalog/profiles/${encodeURIComponent(id)}`);

@@ -5,7 +5,17 @@
   import MeshScene from "$lib/components/MeshScene.svelte";
   import SchemaForm from "$lib/components/SchemaForm.svelte";
   import JobStatus from "$lib/components/JobStatus.svelte";
-  import { submitJob, uploadStl, fetchGenerators, fetchStations, type StationSummary } from "$lib/api";
+  import {
+    submitJob,
+    uploadStl,
+    fetchGenerators,
+    fetchCatalogPrinters,
+    fetchCatalogProfiles,
+    fetchCatalogTransports,
+    type CatalogPrinter,
+    type CatalogProfile,
+    type CatalogTransport,
+  } from "$lib/api";
   import { rememberJob, updateJobState } from "$lib/recent-jobs";
   import type { PageData } from "./$types";
 
@@ -15,16 +25,22 @@
   // layout's auth gate clears, so it can 401 to []. Refetching here (the page is
   // only rendered post-auth) guarantees a populated catalog.
   let generators = data.generators ?? [];
-  let stations = data.stations ?? [];
+  let printers: CatalogPrinter[] = data.printers ?? [];
+  let profiles: CatalogProfile[] = data.profiles ?? [];
+  let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    if (generators.length && stations.length) return;
-    const [g, s] = await Promise.all([
+    if (generators.length && printers.length && profiles.length) return;
+    const [g, pr, pf, tr] = await Promise.all([
       fetchGenerators().catch(() => generators),
-      fetchStations().catch(() => stations),
+      fetchCatalogPrinters().catch(() => printers),
+      fetchCatalogProfiles().catch(() => profiles),
+      fetchCatalogTransports().catch(() => transports),
     ]);
     generators = g;
-    stations = s;
+    printers = pr;
+    profiles = pf;
+    transports = tr;
   });
 
   // Only generators with a config form / preview belong in the "Generate" dropdown.
@@ -36,13 +52,25 @@
   let source: Source = "generate";
 
   let selectedGenId = "";
-  let selectedStationId = "";
+  let selectedPrinterId = "";
+  let selectedProfileId = "";
   let params: Record<string, unknown> = {};
 
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
   $: if (!selectedGenId && pickableGenerators.length) selectedGenId = pickableGenerators[0].id;
-  $: if (!selectedStationId && stations.length) selectedStationId = stations[0].id;
+  $: if (!selectedPrinterId && printers.length) selectedPrinterId = printers[0].id;
+  $: selectedPrinter = printers.find((p) => p.id === selectedPrinterId) ?? null;
+
+  // A pair is printable when the profile's g-code flavour is one the printer's
+  // transport accepts — the same check the API runs, so an unprintable combination
+  // is never offered rather than being rejected at submit.
+  $: acceptedFlavors =
+    transports.find((t) => t.id === selectedPrinter?.transportId)?.acceptsFlavors ?? [];
+  $: compatibleProfiles = profiles.filter((pr) => acceptedFlavors.includes(pr.gcodeFlavor));
+  // Re-default whenever the printer changes and the held profile is no longer valid.
+  $: if (compatibleProfiles.length && !compatibleProfiles.some((pr) => pr.id === selectedProfileId))
+    selectedProfileId = compatibleProfiles[0].id;
 
   $: selectedGen = generators.find((g) => g.id === selectedGenId) ?? null;
 
@@ -93,12 +121,13 @@
 
   // Can we submit? Generate needs a generator; Upload needs a finished upload.
   $: canPrint =
-    !!selectedStationId &&
+    !!selectedPrinterId &&
+    !!selectedProfileId &&
     !submitting &&
     (source === "generate" ? !!selectedGen : !!uploadId && !uploading);
 
   async function print() {
-    if (!selectedStationId) return;
+    if (!selectedPrinterId || !selectedProfileId) return;
     if (source === "generate" && !selectedGen) return;
     if (source === "upload" && !uploadId) return;
     submitting = true;
@@ -109,13 +138,17 @@
         source === "upload"
           ? { id: "passthrough", params: { uploadId, filename: uploadName } }
           : { id: selectedGen!.id, params };
-      const res = await submitJob({ generator, stationId: selectedStationId });
+      const res = await submitJob({
+        generator,
+        printerId: selectedPrinterId,
+        profileId: selectedProfileId,
+      });
       jobId = res.jobId;
       // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
-      const station = stations.find((s) => s.id === selectedStationId);
+      const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,
-        stationName: station?.name ?? selectedStationId,
+        targetName: `${selectedPrinter?.name ?? selectedPrinterId} · ${profile?.name ?? selectedProfileId}`,
         generatorId: generator.id,
         submittedAt: Date.now(),
         state: "queued",
@@ -127,24 +160,42 @@
     }
   }
 
-  // Real chips from the structured station summary (flavor/material/quality come
+  // Real chips from the chosen profile (flavor/material/quality come
   // from the bound profile, server-side — no more regex-on-name guessing). Order:
-  // flavor → material → quality, skipping any the station doesn't carry.
-  function chips(s: StationSummary): string[] {
+  // flavor → material → quality, skipping any the profile doesn't carry.
+  // Material + quality are not stored fields: they are parsed out of the profile
+  // name, which is what the API's deleted station-summary.ts used to do.
+  const MATERIALS = ["PLA", "PETG", "ABS", "TPU", "ASA", "NYLON", "PC"];
+  function parseMaterial(name: string): string | undefined {
+    const upper = name.toUpperCase();
+    // Longest-first so PETG wins over a hypothetical PET; word boundary so
+    // "PLApple" cannot false-positive.
+    for (const m of [...MATERIALS].sort((a, b) => b.length - a.length)) {
+      if (new RegExp(`\\b${m}\\b`).test(upper)) return m;
+    }
+    return undefined;
+  }
+  function parseQuality(name: string): string | undefined {
+    const m = name.match(/(\d+\.\d+)\s*mm/i);
+    return m ? `${m[1]}mm` : undefined;
+  }
+  function chips(pr: CatalogProfile): string[] {
     const out: string[] = [];
-    if (s.gcodeFlavor) out.push(titleCase(s.gcodeFlavor));
-    if (s.material) out.push(s.material);
-    if (s.quality) out.push(s.quality);
+    if (pr.gcodeFlavor) out.push(titleCase(pr.gcodeFlavor));
+    const material = parseMaterial(pr.name);
+    if (material) out.push(material);
+    const quality = parseQuality(pr.name);
+    if (quality) out.push(quality);
     return out;
   }
   function titleCase(v: string): string {
     return v.charAt(0).toUpperCase() + v.slice(1);
   }
 
-  // The preset dot encodes the gcode flavor (what the station actually prints to),
+  // The preset dot encodes the gcode flavor the profile emits,
   // not a random index — same flavor, same color across the list.
-  function dotColor(s: StationSummary): string {
-    switch (s.gcodeFlavor?.toLowerCase()) {
+  function dotColor(pr: CatalogProfile): string {
+    switch (pr.gcodeFlavor?.toLowerCase()) {
       case "klipper":
         return "var(--accent)"; // teal
       case "marlin":
@@ -237,7 +288,7 @@
             <p class="muted">{uploadName}</p>
           {:else if uploadId}
             <p><strong>✓ {uploadName}</strong></p>
-            <p class="muted">Ready to print — choose a station below.</p>
+            <p class="muted">Ready to print — choose a printer and profile below.</p>
           {:else}
             <p><strong>Drop an STL</strong> or click to browse</p>
             <p class="muted">The real mesh renders in the preview.</p>
@@ -265,30 +316,50 @@
     <!-- ③ PRINT AT -->
     <div class="card">
       <h3><span class="step-n">3</span>Print at</h3>
-      {#if stations.length}
-        <div class="presets" role="radiogroup" aria-label="Choose a station">
-          {#each stations as s}
-            <button
-              type="button"
-              class="preset"
-              class:sel={s.id === selectedStationId}
-              role="radio"
-              aria-checked={s.id === selectedStationId}
-              on:click={() => (selectedStationId = s.id)}
-            >
-              <span class="dot" style={`background:${dotColor(s)}`} title={s.gcodeFlavor ?? "unknown flavor"} />
-              <span class="pmeta">
-                <span class="pn">{s.name}</span>
-                {#if chips(s).length}
-                  <span class="chips">{#each chips(s) as c}<span class="chip">{c}</span>{/each}</span>
-                {/if}
-              </span>
-              <span class="check">✓</span>
-            </button>
-          {/each}
-        </div>
+      {#if printers.length && profiles.length}
+        <label class="pick">
+          <span>Printer</span>
+          <select bind:value={selectedPrinterId}>
+            {#each printers as p}<option value={p.id}>{p.name} ({p.transportId})</option>{/each}
+          </select>
+        </label>
+
+        <span class="subhead">Profile</span>
+        {#if compatibleProfiles.length}
+          <div class="presets" role="radiogroup" aria-label="Choose a profile">
+            {#each compatibleProfiles as pr}
+              <button
+                type="button"
+                class="preset"
+                class:sel={pr.id === selectedProfileId}
+                role="radio"
+                aria-checked={pr.id === selectedProfileId}
+                on:click={() => (selectedProfileId = pr.id)}
+              >
+                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"} />
+                <span class="pmeta">
+                  <span class="pn">{pr.name}</span>
+                  {#if chips(pr).length}
+                    <span class="chips">{#each chips(pr) as c}<span class="chip">{c}</span>{/each}</span>
+                  {/if}
+                </span>
+                <span class="check">✓</span>
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <!-- Every profile emits a flavour this printer's transport rejects. Showing
+               them anyway would let you pick a pair the API refuses at submit. -->
+          <p class="muted">
+            No profile is compatible with this printer. Its transport
+            (<span class="mono">{selectedPrinter?.transportId}</span>) accepts
+            {acceptedFlavors.length ? acceptedFlavors.join(", ") : "no known flavours"}.
+          </p>
+        {/if}
       {:else}
-        <p class="muted">No stations configured.</p>
+        <p class="muted">
+          {printers.length ? "No profiles registered." : "No printers configured."} Add one in Settings.
+        </p>
       {/if}
 
       <button class="primary print desktop-print" on:click={print} disabled={!canPrint}>
@@ -363,6 +434,11 @@
   .file-input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 
   /* preset cards */
+  /* NOT a second `.pick` rule: .pick is already defined above for the generator
+     select, so redefining it here silently restyled that one too (and the existing
+     `.pick span` out-specifies any new label class). The printer picker reuses .pick
+     verbatim; only the standalone Profile heading needs its own class. */
+  .subhead { display: block; font-size: 0.85rem; margin: 0.8rem 0 0.35rem; }
   .presets { display: flex; flex-direction: column; gap: 0.6rem; }
   .preset {
     display: flex; align-items: center; gap: 0.7rem; text-align: left; width: 100%;

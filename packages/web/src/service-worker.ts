@@ -22,8 +22,12 @@ self.addEventListener("fetch", (event) => {
   const e = event as FetchEvent;
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  // Never cache API or websocket traffic.
-  if (url.pathname.startsWith("/jobs") || url.pathname.startsWith("/stations")) return;
+  // Never cache API or websocket traffic. Only ASSETS paths are cached below, so this
+  // is belt-and-braces — but the list must name the real API namespaces, or adding a
+  // catalog path to ASSETS later would silently start serving a stale catalog.
+  // ("/jobs" also covers "/jobs-history" by prefix.)
+  const API_PREFIXES = ["/jobs", "/catalog", "/generators", "/uploads", "/auth"];
+  if (API_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) return;
   // Cache-first for precached app-shell assets.
   if (ASSETS.includes(url.pathname)) {
     e.respondWith(caches.match(e.request).then((r) => r ?? fetch(e.request)));

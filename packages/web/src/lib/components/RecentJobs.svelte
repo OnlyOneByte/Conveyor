@@ -58,7 +58,7 @@
           <span class="state {stateClass(j.state)}">{j.state}</span>
           <span class="meta">
             <span class="gen">{j.generatorId}</span>
-            <span class="muted">{j.stationName}</span>
+            <span class="muted">{j.targetName}</span>
           </span>
           <span class="when muted">{relTime(j.submittedAt)}</span>
           <span class="go muted">{isSettled(j.state) ? "details →" : "watch →"}</span>

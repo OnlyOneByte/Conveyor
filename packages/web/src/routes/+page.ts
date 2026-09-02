@@ -1,4 +1,4 @@
-import { fetchGenerators, fetchStations } from "$lib/api";
+import { fetchGenerators, fetchCatalogPrinters, fetchCatalogProfiles, fetchCatalogTransports } from "$lib/api";
 import type { PageLoad } from "./$types";
 
 // Load the catalog the picker + form need. Runs on the client (SPA-style) so the
@@ -6,10 +6,14 @@ import type { PageLoad } from "./$types";
 export const ssr = false;
 
 export const load: PageLoad = async ({ fetch, url }) => {
-  const [generators, stations] = await Promise.all([
+  // A job names a printer and a profile, so the picker needs both catalogs plus the
+  // transports (their acceptsFlavors is what makes a pair printable or not).
+  const [generators, printers, profiles, transports] = await Promise.all([
     fetchGenerators(fetch).catch(() => []),
-    fetchStations(fetch).catch(() => []),
+    fetchCatalogPrinters(fetch).catch(() => []),
+    fetchCatalogProfiles(fetch).catch(() => []),
+    fetchCatalogTransports(fetch).catch(() => []),
   ]);
   // Deep link from /history's strip: watch a job that is still in flight.
-  return { generators, stations, initialJobId: url.searchParams.get("job") };
+  return { generators, printers, profiles, transports, initialJobId: url.searchParams.get("job") };
 };
