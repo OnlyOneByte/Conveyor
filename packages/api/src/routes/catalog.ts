@@ -7,8 +7,10 @@ import {
   dbDeleteStation,
   dbListPrinters,
   dbUpsertPrinter,
+  dbDeletePrinter,
   dbListProfiles,
   dbUpsertProfile,
+  dbDeleteProfile,
   dbListJobs,
   type Printer,
 } from "@conveyor/shared/db";
@@ -55,6 +57,20 @@ function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boo
   return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
 }
 
+/**
+ * Stations reference printers and profiles by id, but the stations table declares NO
+ * foreign keys — `PRAGMA foreign_key_list(stations)` is empty even though
+ * PRAGMA foreign_keys is ON — so SQLite will happily delete a row out from under a
+ * Station. The Station would then point at nothing, still look fine in Settings, and
+ * only blow up later at job submit as a confusing compatibility error. So we refuse
+ * the delete here and name the Stations that are in the way.
+ */
+function referencingStations(field: "printerId" | "profileId", id: string): string[] {
+  return dbListStations(openDb())
+    .filter((st) => st[field] === id)
+    .map((st) => st.name || st.id);
+}
+
 export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
   // ── Job history (settled records from SQLite) ──
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
@@ -98,6 +114,17 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     return reply.code(200).send({ ok: true });
   });
 
+  app.delete<{ Params: { id: string } }>("/catalog/printers/:id", async (req, reply) => {
+    const blockers = referencingStations("printerId", req.params.id);
+    if (blockers.length) {
+      return reply.code(409).send({
+        error: `printer is still used by ${blockers.length} station(s): ${blockers.join(", ")}. Delete or repoint them first.`,
+      });
+    }
+    dbDeletePrinter(openDb(), req.params.id);
+    return reply.code(200).send({ ok: true });
+  });
+
   // ── Transports (capability metadata for the Settings printer form) ──
   app.get("/catalog/transports", async () => listTransports());
 
@@ -108,6 +135,17 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     const parsed = profileSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
     dbUpsertProfile(openDb(), parsed.data);
+    return reply.code(200).send({ ok: true });
+  });
+
+  app.delete<{ Params: { id: string } }>("/catalog/profiles/:id", async (req, reply) => {
+    const blockers = referencingStations("profileId", req.params.id);
+    if (blockers.length) {
+      return reply.code(409).send({
+        error: `profile is still used by ${blockers.length} station(s): ${blockers.join(", ")}. Delete or repoint them first.`,
+      });
+    }
+    dbDeleteProfile(openDb(), req.params.id);
     return reply.code(200).send({ ok: true });
   });
 }

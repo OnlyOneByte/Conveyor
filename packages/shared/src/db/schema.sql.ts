@@ -3,8 +3,11 @@
  * single idempotent DDL string so the migration runner can apply it on every
  * boot — `CREATE TABLE IF NOT EXISTS` makes first-run and restart identical.
  *
- * Foreign keys are declared but PRAGMA foreign_keys is opt-in per-connection
- * (see openDb). Money/time columns are epoch-ms integers.
+ * NOTE: despite openDb() setting PRAGMA foreign_keys = ON, this schema declares no
+ * FOREIGN KEY constraints — `PRAGMA foreign_key_list(stations)` is empty — so the
+ * database does NOT stop you deleting a printer or profile a Station still points at.
+ * Referential integrity for those is enforced in the API (see routes/catalog.ts).
+ * Money/time columns are epoch-ms integers.
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS profiles (

@@ -190,6 +190,10 @@ export function dbUpsertPrinter(db: Database, p: Printer): void {
   ).run(p.id, p.transportId, p.name, p.address, p.secrets ? JSON.stringify(p.secrets) : null, epochMs());
 }
 
+export function dbDeletePrinter(db: Database, id: string): void {
+  db.prepare("DELETE FROM printers WHERE id = ?").run(id);
+}
+
 // ─── Profiles ────────────────────────────────────────────────────────────────
 
 interface ProfileRow {
@@ -215,6 +219,10 @@ export function dbUpsertProfile(db: Database, p: Profile): void {
      ON CONFLICT(id) DO UPDATE SET
        slicer_id=excluded.slicer_id, name=excluded.name, path=excluded.path, gcode_flavor=excluded.gcode_flavor`,
   ).run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, epochMs());
+}
+
+export function dbDeleteProfile(db: Database, id: string): void {
+  db.prepare("DELETE FROM profiles WHERE id = ?").run(id);
 }
 
 // ─── Jobs (durable history) ──────────────────────────────────────────────────

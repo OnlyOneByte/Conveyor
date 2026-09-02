@@ -193,7 +193,24 @@ export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: 
   putJson("/catalog/printers", p);
 export const saveProfile = (p: CatalogProfile) => putJson("/catalog/profiles", p);
 
-export async function deleteStation(id: string): Promise<void> {
-  const r = await fetch(`/catalog/stations/${encodeURIComponent(id)}`, { method: "DELETE" });
-  if (!r.ok) throw new Error(`DELETE /catalog/stations/${id} ${r.status}`);
+/**
+ * DELETE that surfaces the server's message. Printer/profile deletes are refused with
+ * 409 and a body naming the Stations still referencing the row — that text is the
+ * whole point, so it must reach the UI rather than being flattened to a status code.
+ */
+async function del(path: string): Promise<void> {
+  const r = await fetch(path, { method: "DELETE" });
+  if (r.ok) return;
+  let detail = "";
+  try {
+    const body = (await r.json()) as { error?: unknown };
+    if (typeof body.error === "string") detail = body.error;
+  } catch {
+    /* non-JSON body — fall back to the status line */
+  }
+  throw new Error(detail || `DELETE ${path} ${r.status}`);
 }
+
+export const deleteStation = (id: string) => del(`/catalog/stations/${encodeURIComponent(id)}`);
+export const deletePrinter = (id: string) => del(`/catalog/printers/${encodeURIComponent(id)}`);
+export const deleteProfile = (id: string) => del(`/catalog/profiles/${encodeURIComponent(id)}`);

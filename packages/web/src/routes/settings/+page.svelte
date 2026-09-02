@@ -7,6 +7,8 @@
     fetchCatalogTransports,
     saveStation,
     savePrinter,
+    deletePrinter,
+    deleteProfile,
     saveProfile,
     deleteStation,
     type CatalogStation,
@@ -150,6 +152,29 @@
     }
   }
 
+  // Printer/profile deletes are refused with 409 when a Station still references the
+  // row; `del()` surfaces that message, so show it verbatim rather than a generic error.
+  async function removePrinter(id: string) {
+    if (!confirm(`Delete printer "${id}"?`)) return;
+    try {
+      await deletePrinter(id);
+      if (editingPrinter === id) { resetPrinter(); ppOpen = false; }
+      await reload();
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
+  async function removeProfile(id: string) {
+    if (!confirm(`Delete profile "${id}"?`)) return;
+    try {
+      await deleteProfile(id);
+      await reload();
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
   // New-profile form — registers a locked slicer bundle on the /profiles mount.
   let np: CatalogProfile = { id: "", slicerId: "orca", name: "", path: "", gcodeFlavor: "klipper" };
   let npError: string | null = null;
@@ -239,10 +264,10 @@
       <h2>Profiles</h2>
       <p class="muted">Locked slicer bundles on the <span class="mono">/profiles</span> mount.</p>
       <table>
-        <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th></tr></thead>
+        <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th></th></tr></thead>
         <tbody>
           {#each profiles as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.slicerId}</td><td class="mono">{p.gcodeFlavor}</td><td class="mono">{p.path}</td></tr>
+            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.slicerId}</td><td class="mono">{p.gcodeFlavor}</td><td class="mono">{p.path}</td><td class="actions"><button class="ghost small danger" on:click={() => removeProfile(p.id)}>Delete</button></td></tr>
           {/each}
         </tbody>
       </table>
@@ -268,7 +293,7 @@
         <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th></th></tr></thead>
         <tbody>
           {#each printers as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button></td></tr>
+            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td class="actions"><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button><button class="ghost small danger" on:click={() => removePrinter(p.id)}>Delete</button></td></tr>
           {/each}
         </tbody>
       </table>
@@ -336,6 +361,8 @@
   .note { font-size: 0.8rem; margin: 0.5rem 0 0; }
   .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
   .row-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .actions { display: flex; gap: 0.35rem; white-space: nowrap; }
+  button.danger { color: var(--danger); }
   .err { color: var(--danger); }
   .danger { color: var(--danger); }
 </style>
