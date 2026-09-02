@@ -36,16 +36,17 @@
     <p class="muted">Loading…</p>
   {:else}
     <section class="card">
-      <p class="muted">Every job this server has run, newest first.</p>
+      <p class="muted">Every job this server has run, newest first. Click a job id for details.</p>
       {#if history.length === 0}
         <p class="muted">No jobs yet. Submit one from the app and it will show up here.</p>
       {:else}
         <table>
-          <thead><tr><th>When</th><th>Generator</th><th>Station</th><th>State</th></tr></thead>
+          <thead><tr><th>When</th><th>Job</th><th>Generator</th><th>Station</th><th>State</th></tr></thead>
           <tbody>
             {#each history as j}
               <tr>
                 <td class="muted">{fmtDate(j.createdAt)}</td>
+                <td><a class="mono jobid" href={`/history/${j.id}`}>{j.id.slice(0, 8)}</a></td>
                 <td class="mono">{j.request.generator.id}</td>
                 <td class="mono">{j.request.stationId}</td>
                 <td>
@@ -70,6 +71,8 @@
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
+  .jobid { color: var(--accent); text-decoration: none; }
+  .jobid:hover { text-decoration: underline; }
   .err { color: var(--danger); }
   .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
   .state.done { color: var(--ok); border-color: var(--ok); }
