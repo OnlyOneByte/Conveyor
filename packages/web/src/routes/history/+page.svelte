@@ -56,7 +56,7 @@
       {#if history.length === 0}
         <p class="muted">No jobs yet. Submit one from the app and it will show up here.</p>
       {:else}
-        <table>
+        <div class="tablewrap"><table>
           <thead><tr><th>When</th><th>Job</th><th>Generator</th><th>Station</th><th>State</th></tr></thead>
           <tbody>
             {#each history as j}
@@ -72,7 +72,7 @@
               </tr>
             {/each}
           </tbody>
-        </table>
+        </table></div>
       {/if}
     </section>
   {/if}
@@ -85,13 +85,17 @@
   h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.35rem; }
   .strip { margin-top: 0.75rem; }
   .navlink { color: var(--accent); text-decoration: none; }
-  table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+  .tablewrap { margin-top: 0.75rem; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
   .jobid { color: var(--accent); text-decoration: none; }
   .jobid:hover { text-decoration: underline; }
   .err { color: var(--danger); }
+  @media (max-width: 640px) {
+    th, td { padding: 0.4rem 0.4rem; font-size: 0.82rem; }
+  }
   .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
   .state.done { color: var(--ok); border-color: var(--ok); }
   .state.failed, .state.canceled { color: var(--danger); border-color: var(--danger); }

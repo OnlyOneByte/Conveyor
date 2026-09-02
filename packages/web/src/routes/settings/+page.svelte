@@ -222,7 +222,7 @@
     <section class="card">
       <h2>Stations</h2>
       <p class="muted">What end users pick. Each binds a printer + slicer profile.</p>
-      <table>
+      <div class="tablewrap"><table>
         <thead><tr><th>Name</th><th>Printer</th><th>Profile</th><th></th></tr></thead>
         <tbody>
           {#each stations as s}
@@ -234,10 +234,10 @@
             </tr>
           {/each}
         </tbody>
-      </table>
+      </table></div>
 
       <details>
-        <summary>+ Add station</summary>
+        <summary><span class="caret" aria-hidden="true">▶</span>Add station</summary>
         <div class="form">
           <label>ID<input bind:value={nsId} placeholder="garage-petg" /></label>
           <label>Name<input bind:value={nsName} placeholder="Garage Klipper — PETG 0.2mm" /></label>
@@ -263,16 +263,16 @@
     <section class="card">
       <h2>Profiles</h2>
       <p class="muted">Locked slicer bundles on the <span class="mono">/profiles</span> mount.</p>
-      <table>
+      <div class="tablewrap"><table>
         <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th></th></tr></thead>
         <tbody>
           {#each profiles as p}
             <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.slicerId}</td><td class="mono">{p.gcodeFlavor}</td><td class="mono">{p.path}</td><td class="actions"><button class="ghost small danger" on:click={() => removeProfile(p.id)}>Delete</button></td></tr>
           {/each}
         </tbody>
-      </table>
+      </table></div>
       <details>
-        <summary>+ Register profile</summary>
+        <summary><span class="caret" aria-hidden="true">▶</span>Register profile</summary>
         <div class="form">
           <label>ID<input bind:value={np.id} placeholder="orca/klipper-petg-0.2" /></label>
           <label>Name<input bind:value={np.name} placeholder="Klipper PETG 0.2mm" /></label>
@@ -289,17 +289,17 @@
     <section class="card">
       <h2>Printers</h2>
       <p class="muted">Physical devices. Secrets are stored server-side and never shown here.</p>
-      <table>
+      <div class="tablewrap"><table>
         <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th></th></tr></thead>
         <tbody>
           {#each printers as p}
             <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td class="actions"><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button><button class="ghost small danger" on:click={() => removePrinter(p.id)}>Delete</button></td></tr>
           {/each}
         </tbody>
-      </table>
+      </table></div>
 
       <details bind:open={ppOpen}>
-        <summary>{editingPrinter ? `Editing ${editingPrinter}` : "+ Add printer"}</summary>
+        <summary><span class="caret" aria-hidden="true">▶</span>{editingPrinter ? `Editing ${editingPrinter}` : "Add printer"}</summary>
         <div class="form">
           <label>ID
             <input bind:value={ppId} placeholder="klipper-garage" disabled={!!editingPrinter} />
@@ -346,12 +346,22 @@
   h1 { margin: 0; }
   h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
   .navlink { color: var(--accent); text-decoration: none; }
-  table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+  /* Tables carry mono ids/addresses plus an actions column, so they can exceed a
+     narrow card. Without this wrapper the table overflowed the .card outright and
+     the Edit/Delete buttons rendered off-screen, unreachable. */
+  .tablewrap { margin-top: 0.75rem; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
   details { margin-top: 0.85rem; }
-  summary { cursor: pointer; color: var(--accent); }
+  /* Same disclosure affordance as SchemaForm: hide the native triangle and use one
+     rotating caret, so a section no longer shows both a ▶ marker and a literal +. */
+  summary { list-style: none; cursor: pointer; color: var(--accent);
+    display: flex; align-items: center; gap: 0.45rem; min-height: 32px; }
+  summary::-webkit-details-marker { display: none; }
+  .caret { font-size: 0.6rem; transition: transform 0.15s; }
+  details[open] .caret { transform: rotate(90deg); }
   .form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.85rem; max-width: 30rem; }
   .form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
   .form input, .form select { padding: 0.45rem 0.6rem; }
@@ -361,8 +371,14 @@
   .note { font-size: 0.8rem; margin: 0.5rem 0 0; }
   .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
   .row-actions { display: flex; gap: 0.5rem; align-items: center; }
-  .actions { display: flex; gap: 0.35rem; white-space: nowrap; }
+  /* NOT display:flex — that turns the cell into a flex container and breaks table
+     column sizing. nowrap keeps the two buttons on one line. */
+  .actions { white-space: nowrap; text-align: right; }
+  .actions button + button { margin-left: 0.35rem; }
   button.danger { color: var(--danger); }
   .err { color: var(--danger); }
+  @media (max-width: 640px) {
+    th, td { padding: 0.4rem 0.4rem; font-size: 0.82rem; }
+  }
   .danger { color: var(--danger); }
 </style>
