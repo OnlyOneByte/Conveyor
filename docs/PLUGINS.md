@@ -104,18 +104,19 @@ export interface PrintStatus {
 
 First adapters: **`moonraker`** (Klipper HTTP API) and **`elegoo`** (ElegooLink / SDCP).
 
-## Station — what end users actually pick
+## Print target — what end users actually pick
 
 ```ts
-// Bound once in Settings: a printer + a slicer profile; users only ever choose a Station.
-export interface Station {
+// A job names a printer and a profile. The transport comes from the printer and the
+// slicer from the profile, so the pair is the whole print configuration — there is no
+// separate saved binding to curate.
+export interface JobTarget {
   id: string;
   name: string;                            // "Garage Klipper — PLA 0.2mm"
   transportId: string;
   printerId: string;                       // a PrinterTarget.id
   slicerId: string;
   profileId: string;                       // a ProfileRef.id
-  allowedGenerators?: string[];            // optional allowlist per station
 }
 ```
 
@@ -124,7 +125,8 @@ export interface Station {
 ```ts
 export interface JobRequest {
   generator: { id: string; params: unknown };
-  stationId: string;                       // resolves slicer + profile + printer
+  printerId: string;                       // → transport
+  profileId: string;                       // → slicer + gcode flavour
 }
 
 export type JobState =

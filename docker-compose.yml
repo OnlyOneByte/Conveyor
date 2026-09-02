@@ -2,7 +2,7 @@ name: conveyor
 
 # Conveyor topology. Caddy terminates TLS (PWA service workers require https),
 # api is the REST+WS front door, worker carries the heavy engines, redis is the
-# queue + live status bus. Durable config (Stations/printers/profiles/job history)
+# queue + live status bus. Durable config (printers/profiles/job history)
 # lives in SQLite on the worker's mounted volume — see docs/DATA-MODEL.md.
 
 services:
@@ -49,7 +49,7 @@ services:
       redis: { condition: service_healthy }
     # Printers live on the LAN. Pick ONE reach strategy:
     #   network_mode: host           # simplest for mDNS/LAN discovery
-    # or keep bridged (default) and store explicit printer IPs in Station config.
+    # or keep bridged (default) and store explicit printer IPs in the printer's address.
 
   redis:
     image: redis:7-alpine

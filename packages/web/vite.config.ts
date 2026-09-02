@@ -20,12 +20,11 @@ export default defineConfig({
     // Dev: proxy API + WS to the api service so the PWA hits same-origin paths.
     proxy: {
       "/jobs": { target: API, ws: true },
-      "/stations": { target: API },
       "/generators": { target: API },
       "/uploads": { target: API },
       "/auth": { target: API },
       "/jobs-history": { target: API },
-      // /catalog/* is the durable-catalog API namespace (stations/printers/profiles).
+      // /catalog/* is the durable-catalog API namespace (printers/profiles/transports).
       // Page routes deliberately never share a prefix with an API namespace — /admin and
       // /jobs both caused 404s on direct load when they did.
       "/catalog": { target: API },

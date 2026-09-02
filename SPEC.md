@@ -21,7 +21,12 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 
 - **Stage** — one of the three pluggable seams: `Generator`, `Slicer`, `Transport`.
 - **Plugin** — a concrete implementation of a stage (`gridfinity`, `orca`, `moonraker`, `elegoo`).
-- **Station** — an operator-curated binding of *a physical printer (transport + target)* to *a slicer + locked profile*. End users pick a Station; every slicing/printer detail is preset for them.
+- **Printer** — a physical machine, owned by a transport (its `address` plus any secrets).
+- **Profile** — a locked slicer bundle, owned by a slicer, declaring the g-code flavour it emits.
+  A job names one printer and one profile; the transport comes from the printer and the slicer from
+  the profile, so the pair is all the configuration a print needs. (Until 2026-09-02 these were
+  bound together as an operator-curated **Station**. It was always fully derivable from the two ids,
+  so it only added a catalog object to curate — see docs/DATA-MODEL.md.)
 - **Job** — one trip through the pipeline: `{generator + params} → {slicer + profile} → {transport + printer}`.
 - **Registry** — startup-populated map of available plugins per stage.
 
@@ -72,8 +77,8 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - Generators: **Gridfinity** + **Upload STL** (`passthrough`) + a Generator SDK & registry.
 - Slicers: **Orca** (default); pluggability proven by a 2nd adapter (PrusaSlicer CLI).
 - Transports: **Klipper/Moonraker** + **ElegooLink** (the printers on hand).
-- Operator: define Stations, upload locked profiles (in Settings).
-- User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick Station → print → watch live status.
+- Operator: register printers and upload locked profiles (in Settings).
+- User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick a printer + profile → print → watch live status.
 - PWA: installable, works on phone.
 
 ## 8. Non-goals (v1)
@@ -85,7 +90,7 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 
 ## 9. Open decisions
 
-- [x] **Name** — RESOLVED: **Conveyor** (confirmed 2026-06-29). Stations + Stages vocabulary fits the metaphor.
+- [x] **Name** — RESOLVED: **Conveyor** (confirmed 2026-06-29). The Stages vocabulary fits the metaphor.
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
@@ -98,5 +103,5 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
 - **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt, default) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
 - **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
-- **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + Station picker + WS job status; 3-zone responsive layout.
-- **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (stations/profiles/printers CRUD) + shared-password auth (HMAC cookie, single tier).
+- **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
+- **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).

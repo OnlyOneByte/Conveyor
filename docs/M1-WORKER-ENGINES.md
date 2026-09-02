@@ -103,8 +103,8 @@ exports** instead.
 
 `profiles/orca-klipper-pla-0.2/` holds verbatim OrcaSlicer leaf exports for the
 **Creality K1** family (`machine.json` + `process.json` + `filament.json`); their
-`inherits` parents resolve against `ORCA_DATADIR`. The seed binds the `garage-klipper`
-and `elegoo-pla` Stations to `orca/klipper-pla-0.2`.
+`inherits` parents resolve against `ORCA_DATADIR`. The seed ships it as the
+`orca/klipper-pla-0.2` profile, pickable with either seeded printer.
 
 **Full generate→slice E2E in the rebuilt worker image (2026-06-30)** — real
 `buildRegistry()` + `StageCtx`, the actual Dockerfile (downloads the aarch64 AppImage,
@@ -146,12 +146,12 @@ by running both engines in one image:
 - `plugins/slicers/prusa/src/index.ts` — the other verified slicer (apt, no xvfb).
 - `profiles/`, `scad/` — read-only mount points with structure docs.
 
-## Shipping an Orca station: ✅ done (one bundle)
+## Shipping an Orca profile: ✅ done (one bundle)
 
 The engine + CLI + image + a turnkey bundle are all proven (see above). What landed:
 
 1. ✅ **Real Orca profile bundle shipped** — `profiles/orca-klipper-pla-0.2/`
-   (verbatim Creality K1 leaf exports). The seed's two Orca Stations bind to it, and
+   (verbatim Creality K1 leaf exports). The seed ships it as a pickable profile, and
    the full generate→slice E2E ran green in the rebuilt image.
 2. ✅ **Tracks the latest release** — `install-orca.sh` resolves the newest Orca
    AppImage from GitHub's API at build time (no version/checksum pinning). This is a

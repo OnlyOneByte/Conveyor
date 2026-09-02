@@ -13,7 +13,7 @@ Status (2026-06-29):
 
 \* Elegoo file-upload route is the one genuinely-uncertain bit (see below).
 
-All paths run today in `CONVEYOR_ENGINE_STUB=1` mode (verified: both stations flow
+All paths run today in `CONVEYOR_ENGINE_STUB=1` mode (verified: both transports flow
 `transferring → printing(0..1) → done`). Unset the stub to hit real hardware.
 
 ## Moonraker (Klipper) — `plugins/transports/moonraker`
@@ -37,7 +37,7 @@ falls back to `virtual_sdcard.progress` (both 0..1).
 2. If your Moonraker requires auth, either add the worker host to `[authorization]
    trusted_clients` in `moonraker.conf`, **or** set `MOONRAKER_API_KEY` on the worker
    (and store `apiKey` in the printer's secrets for the upload step).
-3. Unset `CONVEYOR_ENGINE_STUB`, submit a gridfinity job to the Garage Klipper station,
+3. Unset `CONVEYOR_ENGINE_STUB`, submit a gridfinity job to the Garage Klipper printer,
    watch the WS stepper. Confirm progress advances and the job ends `done`.
 4. Mid-print, hit cancel (`POST /jobs/:id/cancel`) and confirm the printer stops and the
    job goes `canceled`.
@@ -72,10 +72,10 @@ confirm first.
    method, field name, and whether it chunks. Adjust `uploadGcode()` in `index.ts`.
 2. **Discovery:** run a one-off `discover()` on the worker LAN; confirm your printer's
    `MainboardIP`/`MainboardID` come back. Store `mainboardId` in the printer secrets if
-   it differs from the Station's `printerId`.
+   it differs from the printer's `id`.
 3. **Control:** confirm the WS handshake at `ws://<ip>:3030/websocket` and that a
    STATUS request (`Cmd 0`) returns a frame `parseStatusFrame` accepts.
-4. Unset the stub, submit to the Elegoo station, watch the stepper; then test cancel.
+4. Unset the stub, submit to the Elegoo printer, watch the stepper; then test cancel.
 
 Env: `ELEGOO_WS_PORT` (3030), `ELEGOO_DISCOVERY_PORT` (3000), `ELEGOO_DISCOVERY_MS`,
 `ELEGOO_STATUS_TIMEOUT_MS`.

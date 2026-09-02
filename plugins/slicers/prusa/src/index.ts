@@ -32,7 +32,7 @@ export const prusa: SlicerPlugin = {
   accepts: ["stl", "3mf", "obj"],
   // The emitted flavor is governed by `gcode_flavor` in the loaded config bundle.
   // The default bundles ship klipper-flavored; this declares the adapter's
-  // contract for validateStation (profile.gcode_flavor ∈ transport.acceptsFlavors).
+  // contract for validateJob (profile.gcode_flavor ∈ transport.acceptsFlavors).
   gcodeFlavor: "klipper",
   profiles: PROFILES,
 

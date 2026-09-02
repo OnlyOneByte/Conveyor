@@ -21,7 +21,7 @@ import {
  *   POST /printer/print/start?filename=<name>
  *   GET  /printer/objects/query?print_stats&virtual_sdcard&display_status
  *   POST /printer/print/cancel
- * To test: set a Station's printer address to your Moonraker host (e.g.
+ * To test: set the printer's address to your Moonraker host in Settings (e.g.
  * "192.168.1.50:7125"), unset CONVEYOR_ENGINE_STUB, submit a job, watch the WS
  * stepper. If your instance requires auth, set MOONRAKER_API_KEY (or store
  * printer.secrets.apiKey) — otherwise add the worker host to Moonraker's

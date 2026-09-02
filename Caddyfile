@@ -11,9 +11,6 @@ localhost {
 	handle /jobs* {
 		reverse_proxy api:3000
 	}
-	handle /stations* {
-		reverse_proxy api:3000
-	}
 	handle /generators* {
 		reverse_proxy api:3000
 	}
@@ -26,7 +23,7 @@ localhost {
 	handle /jobs-history* {
 		reverse_proxy api:3000
 	}
-	# /catalog/* is the durable-catalog API namespace (stations/printers/profiles).
+	# /catalog/* is the durable-catalog API namespace (printers/profiles/transports).
 	# Page routes deliberately never share a prefix with an API namespace — /admin and
 	# /jobs both caused 404s on direct load when they did.
 	handle /catalog* {

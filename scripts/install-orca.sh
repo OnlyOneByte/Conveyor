@@ -43,7 +43,7 @@ give_up() {
   echo "[install-orca] WARNING: $reason" >&2
   echo "[install-orca] ORCA_ENABLE=$ENABLE — continuing WITHOUT OrcaSlicer." >&2
   echo "[install-orca] This image can still slice via PrusaSlicer; Orca-profile" >&2
-  echo "[install-orca] stations will fail at the slice stage." >&2
+  echo "[install-orca] jobs will fail at the slice stage." >&2
   mkdir -p /opt/orca
   printf 'OrcaSlicer was NOT installed.\narch=%s release=%s enable=%s\nreason=%s\n' \
     "$ARCH" "$RELEASE" "$ENABLE" "$reason" > /opt/orca/NOT_INSTALLED

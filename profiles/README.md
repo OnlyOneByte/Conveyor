@@ -1,7 +1,7 @@
 # Locked slicer profiles
 
-Operator-curated, server-side-only slicer settings. End users never see these — they
-pick a **Station** (`docs/DATA-MODEL.md`), which binds a printer to one profile here.
+Operator-curated, server-side-only slicer settings. End users never see the settings
+themselves — they pick a printer and one of these profiles (`docs/DATA-MODEL.md`).
 
 Mounted **read-only** into the worker at `/profiles`. Referenced by `ProfileRef.path`
 in each slicer adapter.
@@ -29,4 +29,4 @@ profiles/
 ## M0/M1 status
 
 Empty placeholders. Export real bundles from OrcaSlicer once the M1 image can slice,
-then drop them here and point a Station's `profileId` at the directory.
+then drop them here and point a profile row's `path` at the directory.
