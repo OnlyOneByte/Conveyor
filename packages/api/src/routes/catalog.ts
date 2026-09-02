@@ -12,6 +12,7 @@ import {
   dbUpsertProfile,
   dbDeleteProfile,
   dbListJobs,
+  dbGetJob,
   type Printer,
 } from "@conveyor/shared/db";
 import { validateStation, validatePrinterTransport, listTransports } from "../validate.js";
@@ -76,6 +77,15 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
     return dbListJobs(openDb(), limit);
+  });
+
+  // One settled job, for the /history/[jobId] detail page. 404 is meaningful here:
+  // only terminal jobs are recorded (the worker writes on done/failed), so an
+  // in-flight or unknown id legitimately has no durable row yet.
+  app.get<{ Params: { id: string } }>("/jobs-history/:id", async (req, reply) => {
+    const job = dbGetJob(openDb(), req.params.id);
+    if (!job) return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
+    return job;
   });
 
   // ── Stations ──

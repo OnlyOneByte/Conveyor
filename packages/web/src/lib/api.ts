@@ -188,6 +188,23 @@ export const fetchCatalogTransports = (f?: typeof fetch) =>
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>("/catalog/profiles", f);
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=50", f);
 
+/**
+ * One settled job, or null when there is no such record. Deliberately NOT getJson():
+ * that throws the same generic Error for every non-ok status, and the detail page has
+ * to tell "no job with this id" (render a not-found page) apart from a genuine server
+ * failure (surface the error). Only 404 becomes null; everything else still throws.
+ */
+export async function fetchJobHistoryEntry(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<JobHistoryEntry | null> {
+  const path = `/jobs-history/${encodeURIComponent(id)}`;
+  const r = await fetchFn(path);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  return r.json() as Promise<JobHistoryEntry>;
+}
+
 export const saveStation = (s: CatalogStation) => putJson("/catalog/stations", s);
 export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
   putJson("/catalog/printers", p);

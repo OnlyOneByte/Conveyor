@@ -294,3 +294,13 @@ export function dbRecordJob(
 export function dbListJobs(db: Database, limit = 50): Job[] {
   return (db.query("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?").all(limit) as JobRow[]).map(rowToJob);
 }
+
+/**
+ * One settled job by id. The detail page needs this rather than filtering
+ * dbListJobs(): that list is windowed (50 by default, 200 max), so a deep link to
+ * an older job would resolve to "not found" purely because it fell off the window.
+ */
+export function dbGetJob(db: Database, id: string): Job | null {
+  const row = db.query("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | null;
+  return row ? rowToJob(row) : null;
+}
