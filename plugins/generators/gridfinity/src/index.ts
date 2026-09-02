@@ -28,9 +28,15 @@ const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
  *   magnet_holes   bool                     — was wrongly "enable_magnet"
  *   include_lip    bool                     — was wrongly "enable_lip"
  *
- * Verified-by-render gotcha: the lib asserts magnet_holes is incompatible with
- * refined_holes (default true), so we must force refined_holes=false whenever
- * magnets are on, or OpenSCAD aborts with an empty object.
+ * Verified-by-render gotcha: the lib's script default is `refined_holes = true`, and
+ * it asserts `!refined_hole || (refined_hole && !magnet_hole)` — so magnets and
+ * refined holes cannot both be on, or OpenSCAD aborts with an empty object. We pin
+ * refined_holes=false UNCONDITIONALLY rather than letting it fall back to that
+ * default when magnets are off. "Refined holes" are still magnet pockets (a bore
+ * with a toothpick slit), so restoring the default would make "Magnet holes in
+ * base: off" silently emit a different STYLE of magnet hole instead of none —
+ * disagreeing with both the checkbox label and the preview. Both flags false is a
+ * valid combination and is what actually produces a hole-free base.
  */
 function toScadDefines(p: GridfinityParams): string[] {
   const d: Record<string, number | boolean> = {
@@ -42,7 +48,7 @@ function toScadDefines(p: GridfinityParams): string[] {
     scoop: p.scoop ? 1 : 0,
     style_tab: p.labelTab ? 1 : 5,
     magnet_holes: p.magnetHoles,
-    refined_holes: p.magnetHoles ? false : true, // mutually exclusive (lib assertion)
+    refined_holes: false,
     include_lip: p.stackingLip,
   };
   return Object.entries(d).flatMap(([k, v]) => ["-D", `${k}=${v}`]);
