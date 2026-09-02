@@ -23,12 +23,53 @@ export interface PreviewDescriptor {
   module: string;
 }
 
+// ─── Form presentation hints ─────────────────────────────────────────────────
+// The PWA renders the config form straight from paramSchema (ADR: dynamic forms,
+// zero per-generator UI code). These OPTIONAL hints let a generator say how its
+// fields should be grouped and which are advanced, WITHOUT the form component
+// learning any generator-specific field names. A generator that omits them renders
+// as a flat list of controls exactly as before.
+
+/** Preferred control for a field. Omitted → inferred from the JSON Schema type. */
+export type FormControl = "stepper" | "slider" | "checkbox";
+
+export interface FormGroup {
+  /** Heading above the group. Omit for an unlabelled cluster. */
+  title?: string;
+  /** Field keys, in render order. */
+  fields: string[];
+  /**
+   * pair  → two controls on one row separated by "×"
+   * stack → one control per row (default)
+   * grid  → two-column grid, for compact booleans
+   */
+  layout?: "pair" | "stack" | "grid";
+}
+
+export interface FormUiHints {
+  /** Primary groups — always visible. */
+  groups?: FormGroup[];
+  /** Everything else, behind a disclosure. */
+  advanced?: { title: string; groups: FormGroup[] };
+  /** Per-field control override. */
+  controls?: Record<string, FormControl>;
+  /**
+   * Millimetres that one unit of a field represents. Drives the live size readout
+   * beside a group heading, e.g. gridfinity's 42mm footprint / 7mm height units.
+   */
+  unitMm?: Record<string, number>;
+  /** Small static legend rendered under the primary groups. */
+  note?: string;
+}
+
 // ─── Stage 1: Generator ──────────────────────────────────────────────────────
 
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
   /** Zod-derived JSON Schema → the PWA renders the config form from this. */
   paramSchema: JSONSchema7;
+  /** optional grouping/advanced/control hints for that generated form */
+  ui?: FormUiHints;
   /** optional procedural-preview descriptor for the client-side fast viewport */
   preview?: PreviewDescriptor;
   /** model format(s) this generator can emit, e.g. ["stl", "3mf"] */

@@ -10,6 +10,7 @@ export async function registerGeneratorRoutes(app: FastifyInstance): Promise<voi
       id: g.id,
       name: g.name,
       paramSchema: g.paramSchema,
+      ui: g.ui,
       preview: g.preview,
       outputs: g.outputs,
     }));

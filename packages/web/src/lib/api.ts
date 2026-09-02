@@ -1,5 +1,5 @@
 // Thin client over the Conveyor API. Same-origin in prod (Caddy), proxied in dev (vite).
-import type { JobState } from "@conveyor/shared";
+import type { FormUiHints, JobState } from "@conveyor/shared";
 
 export interface StationSummary {
   id: string;
@@ -19,6 +19,8 @@ export interface GeneratorSummary {
   id: string;
   name: string;
   paramSchema: Record<string, unknown>;
+  /** optional grouping / advanced / control hints for the generated form */
+  ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
 }

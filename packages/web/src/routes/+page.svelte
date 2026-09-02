@@ -250,7 +250,12 @@
       <div class="card">
         <h3><span class="step-n">2</span>Configure</h3>
         {#if selectedGen}
-          <SchemaForm schema={selectedGen.paramSchema} on:change={(e) => (params = e.detail)} />
+          <SchemaForm
+            schema={selectedGen.paramSchema}
+            ui={selectedGen.ui ?? null}
+            persistKey={selectedGen.id}
+            on:change={(e) => (params = e.detail)}
+          />
         {/if}
       </div>
     {/if}

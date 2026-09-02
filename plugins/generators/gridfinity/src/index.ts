@@ -55,6 +55,29 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   stage: "generator",
   outputs: ["stl"],
   paramSchema: zodToJsonSchema(gridfinityParams, "GridfinityParams") as JSONSchema7,
+  // Presentation only — the schema above stays the source of truth for validation.
+  // Footprint and height are what people actually set; everything else is a detail,
+  // so it lives behind a disclosure. unitMm drives the live millimetre readout
+  // (a bin's real size is the number you measure a drawer against).
+  ui: {
+    groups: [
+      { title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" },
+      { title: "Height", fields: ["heightUnits"], layout: "stack" },
+    ],
+    advanced: {
+      title: "More options",
+      groups: [
+        { title: "Compartments", fields: ["divisionsX", "divisionsY"], layout: "pair" },
+        { fields: ["scoop", "labelTab", "magnetHoles", "stackingLip"], layout: "grid" },
+      ],
+    },
+    controls: {
+      gridX: "stepper", gridY: "stepper", heightUnits: "stepper",
+      divisionsX: "stepper", divisionsY: "stepper",
+    },
+    unitMm: { gridX: 42, gridY: 42, heightUnits: 7 },
+    note: "1u = 42 mm footprint · 7 mm height",
+  },
   preview: { kind: "procedural", module: "gridfinity" }, // client builds geometry from params
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
