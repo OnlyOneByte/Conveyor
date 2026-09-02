@@ -1,7 +1,7 @@
 <script lang="ts">
   import { T } from "@threlte/core";
   import { OrbitControls } from "@threlte/extras";
-  import { buildGeometry, boundingRadius, type GridfinityPreviewParams } from "$lib/previews/gridfinity";
+  import { buildGeometry, boundingRadius, binHeight, type GridfinityPreviewParams } from "$lib/previews/gridfinity";
 
   // The current params object — drives a reactive geometry rebuild (sub-ms).
   export let params: Partial<GridfinityPreviewParams> = {};
@@ -11,6 +11,10 @@
   $: group = buildGeometry(params);
   $: radius = boundingRadius(params);
   $: camDist = radius * 2.4;
+  // buildGeometry recenters the bin on the origin, so its underside sits at -h/2.
+  // The grid is a GROUND plane, so it belongs there — not at -radius (the bounding
+  // sphere), which left it floating tens of mm below the model.
+  $: groundY = -binHeight(params) / 2;
 
   // Respect "reduce motion": don't auto-spin for users who opted out. autoRotate
   // is a render-loop prop (not a CSS animation), so it needs this JS guard.
@@ -30,4 +34,4 @@
 <T is={group} />
 
 <!-- Ground grid for scale reference -->
-<T.GridHelper args={[420, 10, 0x2d333b, 0x1f262e]} position={[0, -radius, 0]} />
+<T.GridHelper args={[420, 10, 0x2d333b, 0x1f262e]} position={[0, groundY, 0]} />
