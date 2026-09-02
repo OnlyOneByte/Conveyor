@@ -13,7 +13,7 @@ export const gridfinityParams = z.object({
   divisionsY: z.number().int().min(1).max(10).default(1).describe("Compartments deep"),
   scoop: z.boolean().default(false).describe("Front scoop ramp"),
   labelTab: z.boolean().default(false).describe("Label tab"),
-  magnetHoles: z.boolean().default(true).describe("Magnet holes in base"),
+  magnetHoles: z.boolean().default(false).describe("Magnet holes in base"),
   stackingLip: z.boolean().default(true).describe("Stacking lip"),
 });
 

@@ -11,6 +11,9 @@
     type CatalogPrinter,
     type CatalogProfile,
   } from "$lib/api";
+  import { spinPreview, prefersReducedMotion } from "$lib/preferences";
+
+  const reducedMotion = prefersReducedMotion();
 
   let stations: CatalogStation[] = [];
   let printers: CatalogPrinter[] = [];
@@ -109,6 +112,24 @@
   {#if !loaded}
     <p class="muted">Loading…</p>
   {:else}
+    <!-- Preferences -->
+    <section class="card">
+      <h2>Preferences</h2>
+      <p class="muted">How this browser displays things. Stored on this device only.</p>
+      <label class="pref">
+        <input
+          type="checkbox"
+          checked={$spinPreview}
+          on:change={(e) => spinPreview.set(e.currentTarget.checked)}
+        />
+        <span>Spin the 3D preview automatically</span>
+      </label>
+      {#if reducedMotion}
+        <p class="muted note">
+          Your system is set to reduce motion, so the preview stays still even with this on.
+        </p>
+      {/if}
+    </section>
     <!-- Stations -->
     <section class="card">
       <h2>Stations</h2>
@@ -209,6 +230,10 @@
   .form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.85rem; max-width: 30rem; }
   .form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
   .form input, .form select { padding: 0.45rem 0.6rem; }
+  .pref { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;
+    cursor: pointer; margin-top: 0.75rem; }
+  .pref input { margin: 0; }
+  .note { font-size: 0.8rem; margin: 0.5rem 0 0; }
   .err { color: var(--danger); }
   .danger { color: var(--danger); }
 </style>

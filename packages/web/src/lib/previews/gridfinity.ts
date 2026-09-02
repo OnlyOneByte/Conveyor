@@ -79,7 +79,7 @@ export interface GridfinityPreviewParams {
 const DEFAULTS: GridfinityPreviewParams = {
   gridX: 2, gridY: 3, heightUnits: 6,
   divisionsX: 1, divisionsY: 1,
-  scoop: false, labelTab: false, magnetHoles: true, stackingLip: true,
+  scoop: false, labelTab: false, magnetHoles: false, stackingLip: true,
 };
 
 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2dd4bf, roughness: 0.6, metalness: 0.05 });

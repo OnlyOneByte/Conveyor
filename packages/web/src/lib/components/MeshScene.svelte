@@ -1,6 +1,7 @@
 <script lang="ts">
   import { T } from "@threlte/core";
   import { OrbitControls } from "@threlte/extras";
+  import { spinPreview, prefersReducedMotion } from "$lib/preferences";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
@@ -31,10 +32,11 @@
 
   $: camDist = radius * 2.6;
 
-  // Respect "reduce motion": don't auto-spin for users who opted out. autoRotate
-  // is a render-loop prop (not a CSS animation), so it needs this JS guard.
-  const autoRotate =
-    typeof matchMedia === "undefined" || !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Auto-spin is opt-in (Settings → Preferences) and off by default. Users who asked
+  // the OS for reduced motion never get it: autoRotate is a render-loop prop, not a
+  // CSS animation, so app.css's @media guard cannot cover it.
+  const reducedMotion = prefersReducedMotion();
+  $: autoRotate = $spinPreview && !reducedMotion;
 </script>
 
 <T.PerspectiveCamera makeDefault position={[camDist, camDist * 0.8, camDist]} fov={45}>
