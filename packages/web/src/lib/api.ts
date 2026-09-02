@@ -177,6 +177,14 @@ async function putJson(path: string, body: unknown): Promise<void> {
 
 export const fetchCatalogStations = (f?: typeof fetch) => getJson<CatalogStation[]>("/catalog/stations", f);
 export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>("/catalog/printers", f);
+export interface CatalogTransport {
+  id: string;
+  name: string;
+  acceptsFlavors: string[];
+}
+
+export const fetchCatalogTransports = (f?: typeof fetch) =>
+  getJson<CatalogTransport[]>("/catalog/transports", f);
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>("/catalog/profiles", f);
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=50", f);
 

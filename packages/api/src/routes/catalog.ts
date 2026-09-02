@@ -12,7 +12,7 @@ import {
   dbListJobs,
   type Printer,
 } from "@conveyor/shared/db";
-import { validateStation } from "../validate.js";
+import { validateStation, validatePrinterTransport, listTransports } from "../validate.js";
 
 /**
  * Catalog + history surface. This is where the durable catalog (stations, printers,
@@ -88,9 +88,18 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.put("/catalog/printers", async (req, reply) => {
     const parsed = printerSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+    try {
+      validatePrinterTransport(parsed.data.transportId);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+    // Omitting `secrets` preserves the stored value (see dbUpsertPrinter).
     dbUpsertPrinter(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });
+
+  // ── Transports (capability metadata for the Settings printer form) ──
+  app.get("/catalog/transports", async () => listTransports());
 
   // ── Profiles ──
   app.get("/catalog/profiles", async () => dbListProfiles(openDb()));

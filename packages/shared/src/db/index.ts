@@ -172,12 +172,21 @@ export function dbListPrinters(db: Database): Printer[] {
 }
 
 export function dbUpsertPrinter(db: Database, p: Printer): void {
+  // NOTE the COALESCE on secrets_json. Reads strip secrets (only `hasSecrets` is
+  // returned), so a client editing a printer CANNOT round-trip them — it can only
+  // send new ones or none. Assigning excluded.secrets_json directly therefore wiped
+  // the stored credential every time someone changed, say, just the address.
+  // Semantics now:
+  //   secrets omitted  → keep whatever is stored
+  //   secrets {}       → clear them
+  //   secrets {...}    → replace them
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, created_at)
      VALUES (?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        transport_id=excluded.transport_id, name=excluded.name,
-       address=excluded.address, secrets_json=excluded.secrets_json`,
+       address=excluded.address,
+       secrets_json=COALESCE(excluded.secrets_json, printers.secrets_json)`,
   ).run(p.id, p.transportId, p.name, p.address, p.secrets ? JSON.stringify(p.secrets) : null, epochMs());
 }
 

@@ -4,12 +4,15 @@
     fetchCatalogStations,
     fetchCatalogPrinters,
     fetchCatalogProfiles,
+    fetchCatalogTransports,
     saveStation,
+    savePrinter,
     saveProfile,
     deleteStation,
     type CatalogStation,
     type CatalogPrinter,
     type CatalogProfile,
+    type CatalogTransport,
   } from "$lib/api";
   import { spinPreview, prefersReducedMotion } from "$lib/preferences";
 
@@ -18,15 +21,17 @@
   let stations: CatalogStation[] = [];
   let printers: CatalogPrinter[] = [];
   let profiles: CatalogProfile[] = [];
+  let transports: CatalogTransport[] = [];
   let error: string | null = null;
   let loaded = false;
 
   async function reload() {
     try {
-      [stations, printers, profiles] = await Promise.all([
+      [stations, printers, profiles, transports] = await Promise.all([
         fetchCatalogStations(),
         fetchCatalogPrinters(),
         fetchCatalogProfiles(),
+        fetchCatalogTransports(),
       ]);
     } catch (e) {
       error = (e as Error).message;
@@ -35,6 +40,9 @@
     }
   }
   onMount(reload);
+
+  // Seed the transport picker once the list arrives, without clobbering an edit.
+  $: if (!ppTransportId && transports.length && !editingPrinter) ppTransportId = transports[0].id;
 
   // New-station form: binds printer + slicer + profile → a Station users can pick.
   // We only bind the user-chosen fields; slicerId/transportId are derived at save
@@ -84,6 +92,61 @@
       await reload();
     } catch (e) {
       error = (e as Error).message;
+    }
+  }
+
+
+  // Printer form — doubles as add and edit. `editingPrinter` holds the id being
+  // edited (null = adding), because the M2 hardware flow is "change an existing
+  // printer's address", not "create one".
+  let editingPrinter: string | null = null;
+  let ppId = "";
+  let ppName = "";
+  let ppTransportId = "";
+  let ppAddress = "";
+  let ppSecret = "";
+  let ppError: string | null = null;
+  let ppOpen = false;
+
+  function resetPrinter() {
+    editingPrinter = null;
+    ppId = "";
+    ppName = "";
+    ppTransportId = transports[0]?.id ?? "";
+    ppAddress = "";
+    ppSecret = "";
+    ppError = null;
+  }
+
+  function editPrinter(p: CatalogPrinter) {
+    editingPrinter = p.id;
+    ppId = p.id;
+    ppName = p.name;
+    ppTransportId = p.transportId;
+    ppAddress = p.address;
+    // Never prefilled: reads strip secrets, so there is nothing to prefill WITH.
+    // Left blank the stored value is preserved server-side.
+    ppSecret = "";
+    ppError = null;
+    ppOpen = true;
+  }
+
+  async function submitPrinter() {
+    ppError = null;
+    try {
+      await savePrinter({
+        id: ppId,
+        name: ppName,
+        transportId: ppTransportId,
+        address: ppAddress,
+        // Omit entirely when blank so the API preserves any stored secret.
+        ...(ppSecret.trim() ? { secrets: { apiKey: ppSecret.trim() } } : {}),
+      });
+      resetPrinter();
+      ppOpen = false;
+      await reload();
+    } catch (e) {
+      ppError = (e as Error).message;
     }
   }
 
@@ -202,13 +265,50 @@
       <h2>Printers</h2>
       <p class="muted">Physical devices. Secrets are stored server-side and never shown here.</p>
       <table>
-        <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th></tr></thead>
+        <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th></th></tr></thead>
         <tbody>
           {#each printers as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td></tr>
+            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button></td></tr>
           {/each}
         </tbody>
       </table>
+
+      <details bind:open={ppOpen}>
+        <summary>{editingPrinter ? `Editing ${editingPrinter}` : "+ Add printer"}</summary>
+        <div class="form">
+          <label>ID
+            <input bind:value={ppId} placeholder="klipper-garage" disabled={!!editingPrinter} />
+          </label>
+          <label>Name<input bind:value={ppName} placeholder="Garage Klipper" /></label>
+          <label>Transport
+            <select bind:value={ppTransportId}>
+              <option value="" disabled>— choose —</option>
+              {#each transports as t}<option value={t.id}>{t.name} ({t.id})</option>{/each}
+            </select>
+          </label>
+          <label>Address
+            <input bind:value={ppAddress} placeholder="192.168.1.50:7125" />
+          </label>
+          <label>API key / secret
+            <input type="password" bind:value={ppSecret} autocomplete="off"
+              placeholder={editingPrinter ? "leave blank to keep the stored secret" : "optional"} />
+          </label>
+          <p class="muted note">
+            Secrets are write-only — they are never sent back to the browser, so this
+            field always starts empty. Leaving it blank keeps whatever is stored.
+          </p>
+          <div class="row-actions">
+            <button class="primary" on:click={submitPrinter}
+              disabled={!ppId || !ppName || !ppTransportId || !ppAddress}>
+              {editingPrinter ? "Save changes" : "Add printer"}
+            </button>
+            {#if editingPrinter}
+              <button class="ghost" on:click={() => { resetPrinter(); ppOpen = false; }}>Cancel</button>
+            {/if}
+          </div>
+          {#if ppError}<p class="err">{ppError}</p>{/if}
+        </div>
+      </details>
     </section>
 
     <!-- Job history lives on its own page now: /jobs -->
@@ -234,6 +334,8 @@
     cursor: pointer; margin-top: 0.75rem; }
   .pref input { margin: 0; }
   .note { font-size: 0.8rem; margin: 0.5rem 0 0; }
+  .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+  .row-actions { display: flex; gap: 0.5rem; align-items: center; }
   .err { color: var(--danger); }
   .danger { color: var(--danger); }
 </style>
