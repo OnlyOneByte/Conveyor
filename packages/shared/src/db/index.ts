@@ -269,6 +269,8 @@ export function dbResolveJobTarget(
     printerId: printer.id,
     transportId: printer.transportId,
     profileId: profile.id,
+    profileName: profile.name,
+    profilePath: profile.path,
     slicerId: profile.slicerId,
     gcodeFlavor: profile.gcodeFlavor,
     allowedGenerators: printer.allowedGenerators,

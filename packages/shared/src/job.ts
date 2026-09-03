@@ -44,6 +44,10 @@ export interface JobTarget {
   /** from the printer row */
   transportId: string;
   profileId: string;
+  /** from the profile row; passed to the slicer adapter at runtime */
+  profileName: string;
+  /** bundled path now; may point at a per-job materialized directory later */
+  profilePath: string;
   /** from the profile row */
   slicerId: string;
   /** from the profile row — the flavour THIS profile emits */

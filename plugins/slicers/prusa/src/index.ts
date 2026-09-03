@@ -14,9 +14,10 @@ import {
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const PRUSA_BIN = process.env.PRUSA_BIN ?? "prusa-slicer";
 
-// Locked, server-side profiles. Bundles live under /profiles (mounted read-only).
-// A PrusaSlicer profile bundle is a directory of `.ini` config file(s) exported
-// from the PrusaSlicer GUI (Config → Export Config). Verified 2026-06-30:
+// Bundled server-side defaults advertised by this plugin. Runtime profiles are
+// resolved from SQLite by the worker and passed to slice() as a ProfileRef; they do
+// not need to appear here. Prusa bundles remain read-only in this editor's first
+// version. A bundle is one or more exported `.ini` files. Verified 2026-06-30:
 // `prusa-slicer --load config.ini -g --output model.gcode model.stl` slices
 // headlessly (NO xvfb) on Debian trixie / arm64 — see docs/M1-WORKER-ENGINES.md.
 const PROFILES: ProfileRef[] = [
@@ -36,16 +37,13 @@ export const prusa: SlicerPlugin = {
   gcodeFlavor: "klipper",
   profiles: PROFILES,
 
-  async slice(model: ModelArtifact, profileId: string, ctx: StageCtx): Promise<GcodeArtifact> {
-    const profile = PROFILES.find((p) => p.id === profileId);
-    if (!profile) throw new StageError("slicer", `unknown profile ${profileId}`);
-
+  async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");
 
     if (STUB) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
       await writeFile(out, `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`);
-      return { path: out, format: "gcode", meta: { profileId, stub: true } };
+      return { path: out, format: "gcode", meta: { profileId: profile.id, stub: true } };
     }
 
     // PrusaSlicer's CLI is genuinely headless — no virtual framebuffer needed
@@ -61,7 +59,7 @@ export const prusa: SlicerPlugin = {
     ctx.log(`${PRUSA_BIN} ${args.join(" ")}`);
     await run(PRUSA_BIN, args, ctx);
 
-    return { path: out, format: "gcode", meta: { profileId } };
+    return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },
 };
 

@@ -18,11 +18,13 @@ const ORCA_BIN = process.env.ORCA_BIN ?? "orca-slicer";
 // own resources/profiles, or an override). Verified required 2026-06-30.
 const ORCA_DATADIR = process.env.ORCA_DATADIR ?? "/opt/orca/squashfs-root/resources/profiles";
 
-// Locked, server-side profiles. Bundles live under /profiles (mounted read-only).
-// Each is a directory of OrcaSlicer leaf exports (machine.json / process.json /
-// filament.json) whose `inherits` chains resolve against ORCA_DATADIR. The
-// klipper bundle (Creality K1 family) is VERIFIED 2026-06-30 — sliced a cube to
-// real klipper gcode (302 layers) in the worker image. See docs/M1-WORKER-ENGINES.md.
+// Bundled server-side defaults advertised by this plugin. Runtime profiles are
+// resolved from SQLite by the worker and passed to slice() as a ProfileRef; they do
+// not need to appear here. Bundles under /profiles remain mounted read-only.
+// Each Orca bundle is machine.json / process.json / filament.json whose `inherits`
+// chains resolve against ORCA_DATADIR. The klipper bundle (Creality K1 family) is
+// VERIFIED 2026-06-30 — sliced a cube to real klipper gcode (302 layers). See
+// docs/M1-WORKER-ENGINES.md.
 const PROFILES: ProfileRef[] = [
   { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/orca-klipper-pla-0.2" },
 ];
@@ -36,16 +38,13 @@ export const orca: SlicerPlugin = {
   gcodeFlavor: "klipper",
   profiles: PROFILES,
 
-  async slice(model: ModelArtifact, profileId: string, ctx: StageCtx): Promise<GcodeArtifact> {
-    const profile = PROFILES.find((p) => p.id === profileId);
-    if (!profile) throw new StageError("slicer", `unknown profile ${profileId}`);
-
+  async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");
 
     if (STUB) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
       await writeFile(out, `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`);
-      return { path: out, format: "gcode", meta: { profileId, stub: true } };
+      return { path: out, format: "gcode", meta: { profileId: profile.id, stub: true } };
     }
 
     // Orca is GUI-first; headless slicing needs a virtual framebuffer (xvfb).
@@ -73,7 +72,7 @@ export const orca: SlicerPlugin = {
     // Orca writes per-plate files (plate_1.gcode for a single-plate slice).
     // Normalize to model.gcode so the transport stage has a stable path.
     await copyFile(join(ctx.workDir, "plate_1.gcode"), out);
-    return { path: out, format: "gcode", meta: { profileId } };
+    return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },
 };
 

@@ -69,9 +69,10 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
     );
   }
 
-  if (!slicer.profiles.some((p) => p.id === target.profileId)) {
-    throw new CompatibilityError(`slicer ${slicer.id} has no profile ${target.profileId}`);
-  }
+  // The profile row has already been resolved from SQLite and its slicerId selected
+  // the adapter above. `slicer.profiles` is only the plugin's list of bundled
+  // defaults, not an allowlist: edited/duplicated runtime profiles are valid without
+  // being compiled into the adapter.
 
   // the profile's g-code flavour ∈ transport.acceptsFlavors
   if (!transport.acceptsFlavors.includes(target.gcodeFlavor)) {

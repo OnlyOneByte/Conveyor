@@ -72,7 +72,15 @@ const worker = new Worker<JobRequest>(
       await bus.publish(jobId, "slicing", { stage });
       const slicer = registry.slicers.get(jobTarget.slicerId);
       if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
-      const gcode = await slicer.slice(model, jobTarget.profileId, ctx);
+      const gcode = await slicer.slice(
+        model,
+        {
+          id: jobTarget.profileId,
+          name: jobTarget.profileName,
+          path: jobTarget.profilePath,
+        },
+        ctx,
+      );
       gcodePath = gcode.path;
 
       // ── Transport ──────────────────────────────────────────────

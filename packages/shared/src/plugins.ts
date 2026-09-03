@@ -85,7 +85,7 @@ export interface ProfileRef {
   id: string;
   /** shown in Settings, never to end users */
   name: string;
-  /** path to the locked profile bundle */
+  /** bundled or per-job materialized profile directory */
   path: string;
 }
 
@@ -95,9 +95,15 @@ export interface SlicerPlugin extends PluginManifest {
   accepts: string[];
   /** emitted flavor, e.g. "marlin" | "klipper" */
   gcodeFlavor: string;
-  /** curated, locked, server-side only */
+  /** Bundled defaults advertised by the plugin; not an allowlist for runtime profiles. */
   profiles: ProfileRef[];
-  slice(model: ModelArtifact, profileId: string, ctx: StageCtx): Promise<GcodeArtifact>;
+  /**
+   * Slice with a profile already resolved by the worker. Adapters consume its path;
+   * they do not own profile persistence or look IDs up in a hardcoded list. This is
+   * what lets the worker materialize edited JSON into a per-job directory and pass
+   * that directory to Orca without coupling the plugin to SQLite.
+   */
+  slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
 // ─── Stage 3: Transport ──────────────────────────────────────────────────────
