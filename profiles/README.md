@@ -1,10 +1,16 @@
-# Locked slicer profiles
+# Slicer profiles
 
-Operator-curated, server-side-only slicer settings. End users never see the settings
-themselves — they pick a printer and one of these profiles (`docs/DATA-MODEL.md`).
+Operator-curated slicer settings. End users never see the settings themselves — they
+pick a printer and one of these profiles (`docs/DATA-MODEL.md`).
 
 Mounted **read-only** into the worker at `/profiles`. Referenced by `ProfileRef.path`
-in each slicer adapter.
+in each slicer adapter. These files are the **defaults**: for Orca profiles you can edit
+the raw `machine`/`process`/`filament` JSON directly in the app (Settings → a profile
+row → **Edit JSON**), and that edit — stored in SQLite, not here — takes precedence at
+slice time. **Reset** in the same editor discards the edit and falls back to the file on
+this mount, so keep these bundles as the known-good baseline. Exporting fresh bundles
+from OrcaSlicer is therefore optional — only needed to change the *default* or to seed a
+brand-new profile.
 
 ## Layout (OrcaSlicer)
 

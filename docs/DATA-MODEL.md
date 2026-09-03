@@ -9,7 +9,7 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 | **SQLite** (file on the `/data` volume) | Durable config + job history: `printers`, `profiles`, `jobs` | Self-hosted single-node app; a file DB needs no extra service, backs up by copying one file, and is plenty fast for this scale. |
 | **Redis** | Live job state + status pub/sub (BullMQ queue, `job:<id>` snapshot, `job:<id>:status` channel) | Ephemeral, high-churn, fan-out to many WS clients. Already present for the queue. |
 | **Filesystem** (`/data/<jobId>/`) | Artifacts: `model.stl`, `model.gcode` | Large binaries don't belong in a DB; stages pass `{path}` handles (ADR 0001). |
-| **`/profiles/*`** (read-only mount) | Locked slicer profile **bundles** (Orca machine/filament/process JSON) | Curated by the operator, version-controlled outside the app, never user-editable. |
+| **`/profiles/*`** (read-only mount) | Bundled slicer profile **defaults** (Orca machine/filament/process JSON) | Curated by the operator, version-controlled outside the app, mounted read-only. These are the *defaults* and the reset target; a user's edits live in SQLite (below), never on this mount. |
 
 **Rule of thumb:** Redis is the *live* truth for an in-flight job; SQLite is the *durable* truth
 for config and finished jobs. On a terminal state the worker writes the final `Job` row to SQLite;
@@ -29,16 +29,52 @@ transport comes from the printer and the slicer + g-code flavour from the profil
 the pair is the whole print configuration.
 
 ### profile
-A locked slicer configuration bundle. Rows are a catalog over the `/profiles` mount.
+A slicer configuration bundle. Rows are a catalog over the `/profiles` mount, with
+optional per-profile edited JSON overriding the bundled files.
 
 | column | type | notes |
 |---|---|---|
 | `id` | text PK | `"orca/klipper-pla-0.2"` |
 | `slicer_id` | text | which slicer plugin owns it (`"orca"`) |
 | `name` | text | operator-facing label |
-| `path` | text | bundle dir under `/profiles` (read-only) |
+| `path` | text | bundle dir under `/profiles` (read-only defaults / reset target) |
 | `gcode_flavor` | text | denormalized for fast capability checks |
+| `orca_machine_json` | text null | edited Orca machine JSON; `NULL` = use the bundled file |
+| `orca_process_json` | text null | edited Orca process JSON; `NULL` = use the bundled file |
+| `orca_filament_json` | text null | edited Orca filament JSON; `NULL` = use the bundled file |
 | `created_at` | integer | epoch ms |
+
+> **Source semantics — bundled vs edited.** For each of the three Orca documents,
+> `NULL` means "fall back to the bundled `/profiles` file"; a non-NULL value is the
+> operator's edit and takes precedence at slice time. The three columns move together:
+> `dbGetOrcaProfileDocuments` returns `null` when all three are NULL (a pristine
+> bundled profile) and throws on a partial set (a would-be half-edited profile is never
+> valid). Editing is Orca-only — Prusa INI profiles have no edit columns and the content
+> routes 409 for them.
+>
+> **Routes** (`packages/api/src/routes/catalog.ts`):
+> `GET /catalog/profiles/:id/content` returns the effective documents plus a per-document
+> source badge (`bundled` | `edited`); `PUT` saves an edit (server-validated); `DELETE`
+> resets to bundled (validates the bundled files before clearing the override, so a reset
+> never lands on an unslice-able bundle). The bundled-file reader
+> (`packages/api/src/profile-content.ts`) canonicalizes and containment-checks the path
+> under `CONVEYOR_PROFILES_ROOT` and only reads the three allowlisted filenames — no
+> request-supplied path ever reaches the filesystem.
+>
+> **Limits** (`packages/shared/src/profile.ts`): each document ≤ 256 KiB
+> (`MAX_ORCA_DOCUMENT_BYTES`), the three combined ≤ 768 KiB (`MAX_ORCA_CONTENT_BYTES`);
+> each must parse as a JSON object. `validateOrcaProfileDocuments` is the single shared
+> validator — the API save path and the worker both call it, so the client's `JSON.parse`
+> is a UX nicety, never the gate.
+>
+> **Materialization** (`packages/worker/src/profile.ts`): when a job names an edited
+> profile, `resolveProfileForSlice` writes the three documents into a per-job
+> `<workDir>/profile/` dir (dir `0700`, files `0600`, fixed filenames, `flag:"wx"`) and
+> hands the slicer that path, cleaning it up in a `finally`. A pristine (all-NULL) or
+> Prusa profile keeps its bundled `path` unchanged.
+>
+> **Backup.** Edits live in SQLite, so they are captured by a DB file backup; the
+> `/profiles` mount is immutable and needs no separate backup beyond its version control.
 
 ### printer
 A physical device addressable by a transport. **Secrets live here and never leave the server.**

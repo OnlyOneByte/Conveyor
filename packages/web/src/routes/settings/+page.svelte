@@ -344,7 +344,7 @@
     <!-- Profiles -->
     <section class="card">
       <h2>Profiles</h2>
-      <p class="muted">Locked slicer bundles on the <span class="mono">/profiles</span> mount.</p>
+      <p class="muted">Slicer bundles on the <span class="mono">/profiles</span> mount. Orca JSON is editable here.</p>
       <div class="tablewrap"><table>
         <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th>Source</th><th></th></tr></thead>
         <tbody>

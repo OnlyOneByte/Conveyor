@@ -22,9 +22,11 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 - **Stage** — one of the three pluggable seams: `Generator`, `Slicer`, `Transport`.
 - **Plugin** — a concrete implementation of a stage (`gridfinity`, `orca`, `moonraker`, `elegoo`).
 - **Printer** — a physical machine, owned by a transport (its `address` plus any secrets), optionally carrying an allowlist of the generators it will accept.
-- **Profile** — a locked slicer bundle, owned by a slicer, declaring the g-code flavour it emits.
+- **Profile** — a slicer settings bundle, owned by a slicer, declaring the g-code flavour it emits.
   A job names one printer and one profile; the transport comes from the printer and the slicer from
-  the profile, so the pair is all the configuration a print needs. (Until 2026-09-02 these were
+  the profile, so the pair is all the configuration a print needs. Orca profiles ship as a bundled
+  `/profiles` default whose raw `machine`/`process`/`filament` JSON the operator can edit in Settings
+  (the edit lives in SQLite; the bundle is the reset target). (Until 2026-09-02 these were
   bound together as an operator-curated **Station**. It was always fully derivable from the two ids,
   so it only added a catalog object to curate — see docs/DATA-MODEL.md.)
 - **Job** — one trip through the pipeline: `{generator + params} → {slicer + profile} → {transport + printer}`.
@@ -94,7 +96,7 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
-- [ ] **Profiles** — hand-authored JSON vs. editing them in Settings.
+- [x] **Profiles** — RESOLVED (2026-09-03): **edit the raw Orca JSON in Settings.** A profile's `machine`/`process`/`filament` JSON is editable directly in the Settings page (raw text, one tab each), not a curated per-setting UI. Bundled `/profiles` files are the read-only defaults and the reset target; edits are stored in SQLite (`orca_{machine,process,filament}_json` on `profiles`) and materialized to a per-job dir at slice time. The server validates on save (client `JSON.parse` is UX only). Prusa INI profiles stay read-only in this version. See `docs/DATA-MODEL.md`.
 - [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). Opt-in via `CONVEYOR_PASSWORD` (off = open for trusted-LAN/dev). **One access tier** — holding the password grants the whole app, `/catalog/*` and `/jobs-history` included. (A second `CONVEYOR_ADMIN_PASSWORD` granting an elevated role was removed 2026-09-02: with only `CONVEYOR_PASSWORD` set, no password could ever grant that role, so those two surfaces returned 403 to everyone with no diagnostic.) Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
 - [ ] **Elegoo API** — confirm the local control protocol (SDCP / ElegooLink) via a discovery spike.
 

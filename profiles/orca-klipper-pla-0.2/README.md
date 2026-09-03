@@ -33,3 +33,24 @@ Export `machine.json` / `process.json` / `filament.json` from the OrcaSlicer GUI
 add a `Profile` row in `packages/shared/src/db/seed.ts` (or in Settings). Its
 `gcodeFlavor` must be one the target printer's transport lists in
 `acceptsFlavors`, or the pair is refused at submit (and the PWA will not offer it).
+
+## Editing the JSON in-app
+
+You can also tweak these three documents directly in the app (Settings → the profile
+row → **Edit JSON**) without re-exporting. The edit is stored in the database and
+overrides the bundled file above until you **Reset**. When you edit, *you* own the
+correctness the GUI would otherwise guarantee:
+
+- **`inherits`** — leaf presets inherit vendor system parents resolved at slice time
+  against `ORCA_DATADIR`. Keep the `inherits` key (and its exact parent name) intact, or
+  the slice loses every inherited setting.
+- **Machine dimensions** — bed size, origin, and nozzle diameter must match the real
+  printer; a mismatch slices happily but prints wrong.
+- **`gcode_flavor`** — must stay consistent with the profile row's `gcodeFlavor` and the
+  target transport's `acceptsFlavors`, or the pair becomes unprintable.
+- **Start/end G-code** — retained verbatim; a Klipper printer needs its relative-E and
+  homing sequence (see the normative-check note above) or Orca rejects the slice.
+
+The server validates that each document parses as a JSON object and stays within the
+size limits, but it does **not** re-run OrcaSlicer's semantic checks on save — a
+malformed-but-parseable profile only surfaces when a job actually slices.
