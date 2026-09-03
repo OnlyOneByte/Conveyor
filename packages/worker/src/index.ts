@@ -13,6 +13,7 @@ import {
 import { openDb, dbGetPrinter, dbRecordJob, dbResolveJobTarget } from "@conveyor/shared/db";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
+import { resolveProfileForSlice } from "./profile.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -72,15 +73,17 @@ const worker = new Worker<JobRequest>(
       await bus.publish(jobId, "slicing", { stage });
       const slicer = registry.slicers.get(jobTarget.slicerId);
       if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
-      const gcode = await slicer.slice(
-        model,
-        {
-          id: jobTarget.profileId,
-          name: jobTarget.profileName,
-          path: jobTarget.profilePath,
-        },
-        ctx,
-      );
+      const profileForSlice = await resolveProfileForSlice(jobTarget, workDir);
+      ctx.log(`profile ${jobTarget.profileId}: ${profileForSlice.source}`);
+      const gcode = await slicer
+        .slice(model, profileForSlice.profile, ctx)
+        .finally(async () => {
+          // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
+          // best-effort and must not turn a successful slice into a failed print.
+          await profileForSlice.cleanup().catch((error) =>
+            ctx.log(`warning: failed to clean materialized profile: ${(error as Error).message}`),
+          );
+        });
       gcodePath = gcode.path;
 
       // ── Transport ──────────────────────────────────────────────

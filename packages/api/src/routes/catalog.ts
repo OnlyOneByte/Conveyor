@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { MAX_ORCA_CONTENT_BYTES } from "@conveyor/shared";
 import { z } from "zod";
 import {
   openDb,
@@ -18,7 +19,6 @@ import {
 } from "@conveyor/shared/db";
 import { validatePrinterTransport, listTransports } from "../validate.js";
 import {
-  MAX_ORCA_CONTENT_BYTES,
   ProfileContentError,
   readBundledOrcaDocuments,
   validateOrcaDocuments,

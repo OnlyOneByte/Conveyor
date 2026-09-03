@@ -2,14 +2,13 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  MAX_ORCA_DOCUMENT_BYTES,
   ORCA_PROFILE_DOCUMENT_NAMES,
+  OrcaProfileValidationError,
+  validateOrcaProfileDocuments,
   type OrcaProfileDocumentName,
   type OrcaProfileDocuments,
 } from "@conveyor/shared";
-
-/** Generous relative to the shipped bundle (~14 KiB total), bounded against DoS. */
-export const MAX_ORCA_DOCUMENT_BYTES = 256 * 1024;
-export const MAX_ORCA_CONTENT_BYTES = MAX_ORCA_DOCUMENT_BYTES * 3;
 
 /**
  * Logical profile paths in SQLite remain `/profiles/<bundle>` in every environment.
@@ -101,38 +100,14 @@ export async function readBundledOrcaDocuments(path: string): Promise<OrcaProfil
   return { machine, process, filament };
 }
 
-/**
- * Parse and structurally validate every document. Content is deliberately not
- * sanitized or rewritten: validated text is persisted verbatim for the raw editor.
- */
+/** Translate shared validation errors into this API surface's typed 400 error. */
 export function validateOrcaDocuments(documents: OrcaProfileDocuments): void {
-  let total = 0;
-  for (const name of ORCA_PROFILE_DOCUMENT_NAMES) {
-    const text = documents[name];
-    const bytes = Buffer.byteLength(text, "utf8");
-    total += bytes;
-    if (bytes > MAX_ORCA_DOCUMENT_BYTES) {
-      throw new ProfileContentError(`${name}.json exceeds the 256 KiB limit`);
+  try {
+    validateOrcaProfileDocuments(documents);
+  } catch (error) {
+    if (error instanceof OrcaProfileValidationError) {
+      throw new ProfileContentError(error.message);
     }
-
-    let value: unknown;
-    try {
-      value = JSON.parse(text);
-    } catch (error) {
-      const detail = error instanceof SyntaxError ? error.message : "invalid JSON";
-      throw new ProfileContentError(`${name}.json: ${detail}`);
-    }
-    if (value === null || typeof value !== "object" || Array.isArray(value)) {
-      throw new ProfileContentError(`${name}.json must contain a JSON object`);
-    }
-    const declaredType = (value as Record<string, unknown>).type;
-    if (declaredType !== undefined && declaredType !== name) {
-      throw new ProfileContentError(
-        `${name}.json has type ${JSON.stringify(declaredType)}; expected ${JSON.stringify(name)}`,
-      );
-    }
-  }
-  if (total > MAX_ORCA_CONTENT_BYTES) {
-    throw new ProfileContentError("combined Orca profile content exceeds the 768 KiB limit");
+    throw error;
   }
 }
