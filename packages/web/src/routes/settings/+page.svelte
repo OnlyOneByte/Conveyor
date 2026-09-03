@@ -5,6 +5,9 @@
     fetchCatalogProfiles,
     fetchCatalogTransports,
     fetchGenerators,
+    fetchOrcaProfileContent,
+    saveOrcaProfileContent,
+    resetOrcaProfileContent,
     savePrinter,
     deletePrinter,
     deleteProfile,
@@ -13,6 +16,7 @@
     type CatalogProfile,
     type CatalogTransport,
     type GeneratorSummary,
+    type OrcaProfileContent,
   } from "$lib/api";
   import { spinPreview, prefersReducedMotion } from "$lib/preferences";
 
@@ -39,7 +43,16 @@
       loaded = true;
     }
   }
-  onMount(reload);
+  onMount(() => {
+    void reload();
+    const warnUnsaved = (event: BeforeUnloadEvent) => {
+      if (!profileEditorDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnUnsaved);
+    return () => window.removeEventListener("beforeunload", warnUnsaved);
+  });
 
   // Seed the transport picker once the list arrives, without clobbering an edit.
   $: if (!ppTransportId && transports.length && !editingPrinter) ppTransportId = transports[0].id;
@@ -125,9 +138,163 @@
     if (!confirm(`Delete profile "${id}"?`)) return;
     try {
       await deleteProfile(id);
+      if (editingProfile?.id === id) resetProfileEditor();
       await reload();
     } catch (e) {
       error = (e as Error).message;
+    }
+  }
+
+  // ── Raw Orca JSON editor ──────────────────────────────────────────────────
+  const ORCA_DOCUMENT_NAMES = ["machine", "process", "filament"] as const;
+  type OrcaDocumentName = (typeof ORCA_DOCUMENT_NAMES)[number];
+  type OrcaDocuments = OrcaProfileContent["documents"];
+  const emptyOrcaDocuments = (): OrcaDocuments => ({ machine: "", process: "", filament: "" });
+
+  let editingProfile: CatalogProfile | null = null;
+  let profileContentSource: OrcaProfileContent["source"] | null = null;
+  let activeDocument: OrcaDocumentName = "machine";
+  let profileDocuments: OrcaDocuments = emptyOrcaDocuments();
+  let originalProfileDocuments: OrcaDocuments = emptyOrcaDocuments();
+  let profileEditorBusy = false;
+  let profileEditorError: string | null = null;
+
+  $: profileEditorDirty =
+    editingProfile !== null &&
+    ORCA_DOCUMENT_NAMES.some((name) => profileDocuments[name] !== originalProfileDocuments[name]);
+
+  function resetProfileEditor() {
+    editingProfile = null;
+    profileContentSource = null;
+    activeDocument = "machine";
+    profileDocuments = emptyOrcaDocuments();
+    originalProfileDocuments = emptyOrcaDocuments();
+    profileEditorBusy = false;
+    profileEditorError = null;
+  }
+
+  function parseEditorDocument(name: OrcaDocumentName, text: string): unknown {
+    let value: unknown;
+    try {
+      value = JSON.parse(text);
+    } catch (error) {
+      let message = (error as Error).message;
+      if (!/line\s+\d+/i.test(message)) {
+        const position = message.match(/position\s+(\d+)/i);
+        if (position) {
+          const offset = Number(position[1]);
+          const before = text.slice(0, offset);
+          const line = before.split("\n").length;
+          const column = offset - before.lastIndexOf("\n");
+          message += ` (line ${line}, column ${column})`;
+        }
+      }
+      throw new Error(`${name}.json: ${message}`);
+    }
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`${name}.json must contain a JSON object`);
+    }
+    const declaredType = (value as Record<string, unknown>).type;
+    if (declaredType !== undefined && declaredType !== name) {
+      throw new Error(
+        `${name}.json has type ${JSON.stringify(declaredType)}; expected ${JSON.stringify(name)}`,
+      );
+    }
+    return value;
+  }
+
+  function validateEditorDocuments(): void {
+    for (const name of ORCA_DOCUMENT_NAMES) parseEditorDocument(name, profileDocuments[name]);
+  }
+
+  function setActiveDocumentText(text: string) {
+    profileDocuments = { ...profileDocuments, [activeDocument]: text };
+    profileEditorError = null;
+  }
+
+  function formatActiveDocument() {
+    try {
+      const value = parseEditorDocument(activeDocument, profileDocuments[activeDocument]);
+      profileDocuments = {
+        ...profileDocuments,
+        [activeDocument]: `${JSON.stringify(value, null, 2)}\n`,
+      };
+      profileEditorError = null;
+    } catch (error) {
+      profileEditorError = (error as Error).message;
+    }
+  }
+
+  async function openProfileEditor(profile: CatalogProfile) {
+    if (profile.slicerId !== "orca") return;
+    if (profileEditorDirty && !confirm("Discard unsaved profile JSON changes?")) return;
+
+    editingProfile = profile;
+    profileContentSource = null;
+    activeDocument = "machine";
+    profileDocuments = emptyOrcaDocuments();
+    originalProfileDocuments = emptyOrcaDocuments();
+    profileEditorError = null;
+    profileEditorBusy = true;
+    try {
+      const content = await fetchOrcaProfileContent(profile.id);
+      profileContentSource = content.source;
+      profileDocuments = { ...content.documents };
+      originalProfileDocuments = { ...content.documents };
+    } catch (error) {
+      profileEditorError = (error as Error).message;
+    } finally {
+      profileEditorBusy = false;
+    }
+  }
+
+  function closeProfileEditor() {
+    if (profileEditorDirty && !confirm("Discard unsaved profile JSON changes?")) return;
+    resetProfileEditor();
+  }
+
+  async function saveProfileDocuments() {
+    if (!editingProfile) return;
+    profileEditorError = null;
+    try {
+      validateEditorDocuments(); // UX only; the API repeats authoritative validation.
+    } catch (error) {
+      profileEditorError = (error as Error).message;
+      return;
+    }
+
+    profileEditorBusy = true;
+    try {
+      await saveOrcaProfileContent(editingProfile.id, profileDocuments);
+      originalProfileDocuments = { ...profileDocuments };
+      profileContentSource = "edited";
+      editingProfile = { ...editingProfile, hasEditableContent: true };
+      await reload();
+    } catch (error) {
+      profileEditorError = (error as Error).message;
+    } finally {
+      profileEditorBusy = false;
+    }
+  }
+
+  async function resetProfileDocuments() {
+    if (!editingProfile) return;
+    if (!confirm(`Reset "${editingProfile.name}" to its bundled Orca JSON? Your edits will be lost.`)) return;
+
+    profileEditorError = null;
+    profileEditorBusy = true;
+    try {
+      await resetOrcaProfileContent(editingProfile.id);
+      const content = await fetchOrcaProfileContent(editingProfile.id);
+      profileContentSource = content.source;
+      profileDocuments = { ...content.documents };
+      originalProfileDocuments = { ...content.documents };
+      editingProfile = { ...editingProfile, hasEditableContent: false };
+      await reload();
+    } catch (error) {
+      profileEditorError = (error as Error).message;
+    } finally {
+      profileEditorBusy = false;
     }
   }
 
@@ -179,13 +346,94 @@
       <h2>Profiles</h2>
       <p class="muted">Locked slicer bundles on the <span class="mono">/profiles</span> mount.</p>
       <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th>Source</th><th></th></tr></thead>
         <tbody>
           {#each profiles as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.slicerId}</td><td class="mono">{p.gcodeFlavor}</td><td class="mono">{p.path}</td><td class="actions"><button class="ghost small danger" on:click={() => removeProfile(p.id)}>Delete</button></td></tr>
+            <tr>
+              <td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td>
+              <td class="mono">{p.slicerId}</td>
+              <td class="mono">{p.gcodeFlavor}</td>
+              <td class="mono">{p.path}</td>
+              <td>
+                {#if p.slicerId === "orca"}
+                  <span class="source" class:edited={p.hasEditableContent}>
+                    {p.hasEditableContent ? "edited" : "bundled"}
+                  </span>
+                {:else}
+                  <span class="source readonly">read-only</span>
+                {/if}
+              </td>
+              <td class="actions">
+                {#if p.slicerId === "orca"}
+                  <button class="ghost small" on:click={() => openProfileEditor(p)}>Edit JSON</button>
+                {:else}
+                  <span class="muted readonly-note" title="Prusa INI editing is not supported yet">INI only</span>
+                {/if}
+                <button class="ghost small danger" on:click={() => removeProfile(p.id)}>Delete</button>
+              </td>
+            </tr>
           {/each}
         </tbody>
       </table></div>
+
+      {#if editingProfile}
+        <div class="profile-editor">
+          <div class="editor-head">
+            <div>
+              <strong>Edit Orca JSON</strong>
+              <div class="muted mono">{editingProfile.id}</div>
+            </div>
+            <div class="editor-state">
+              {#if profileContentSource}
+                <span class="source" class:edited={profileContentSource === "edited"}>{profileContentSource}</span>
+              {/if}
+              {#if profileEditorDirty}<span class="unsaved">unsaved changes</span>{/if}
+            </div>
+          </div>
+
+          <div class="editor-tabs" role="tablist" aria-label="Orca profile documents">
+            {#each ORCA_DOCUMENT_NAMES as name}
+              <button
+                type="button"
+                class="tab"
+                class:active={activeDocument === name}
+                role="tab"
+                aria-selected={activeDocument === name}
+                on:click={() => (activeDocument = name)}
+              >{name}.json</button>
+            {/each}
+          </div>
+
+          {#if profileEditorBusy && !profileContentSource}
+            <p class="muted">Loading profile JSON…</p>
+          {:else}
+            <textarea
+              class="json-editor"
+              aria-label={`${activeDocument}.json editor`}
+              spellcheck="false"
+              value={profileDocuments[activeDocument]}
+              on:input={(event) => setActiveDocumentText(event.currentTarget.value)}
+            ></textarea>
+          {/if}
+
+          {#if profileEditorError}<p class="err editor-error">{profileEditorError}</p>{/if}
+          <div class="editor-actions">
+            <button class="ghost" on:click={formatActiveDocument} disabled={profileEditorBusy}>Format JSON</button>
+            <button class="primary" on:click={saveProfileDocuments} disabled={profileEditorBusy || !profileEditorDirty}>
+              {profileEditorBusy ? "Saving…" : "Save JSON"}
+            </button>
+            <button class="ghost" on:click={closeProfileEditor} disabled={profileEditorBusy}>Cancel</button>
+            {#if profileContentSource === "edited"}
+              <button class="ghost danger reset" on:click={resetProfileDocuments} disabled={profileEditorBusy}>
+                Reset to bundled version
+              </button>
+            {/if}
+          </div>
+          <p class="muted note">
+            Client parsing is for immediate feedback. The API validates all three files again before saving.
+          </p>
+        </div>
+      {/if}
       <details>
         <summary><span class="caret" aria-hidden="true">▶</span>Register profile</summary>
         <div class="form">
@@ -323,6 +571,32 @@
   .check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; }
   .check input { width: auto; min-height: 0; }
   .genlist { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.15rem 0 0 1.2rem; }
+  .source { display: inline-block; padding: 0.1rem 0.42rem; border: 1px solid var(--border);
+    border-radius: 99px; color: var(--muted); font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.04em; }
+  .source.edited { color: var(--accent); border-color: var(--accent); }
+  .source.readonly { text-transform: none; }
+  .readonly-note { font-size: 0.72rem; vertical-align: middle; }
+  .profile-editor { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+  .editor-head { display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; margin-bottom: 0.75rem; }
+  .editor-state { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+    justify-content: flex-end; }
+  .unsaved { color: var(--accent); font-size: 0.78rem; }
+  .editor-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); }
+  .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--muted); padding: 0.45rem 0.65rem;
+    font-family: ui-monospace, monospace; font-size: 0.78rem; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .json-editor { box-sizing: border-box; width: 100%; min-height: 28rem; margin-top: 0.65rem;
+    resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem;
+    background: var(--bg); color: var(--text); font-family: ui-monospace, monospace;
+    font-size: 0.78rem; line-height: 1.45; tab-size: 2; white-space: pre; }
+  .json-editor:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .editor-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    margin-top: 0.65rem; }
+  .editor-actions .reset { margin-left: auto; }
+  .editor-error { white-space: pre-wrap; margin: 0.55rem 0 0; }
   .actions { white-space: nowrap; text-align: right; }
   .actions button + button { margin-left: 0.35rem; }
   button.danger { color: var(--danger); }

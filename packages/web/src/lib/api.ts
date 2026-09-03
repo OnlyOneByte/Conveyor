@@ -1,5 +1,10 @@
 // Thin client over the Conveyor API. Same-origin in prod (Caddy), proxied in dev (vite).
-import type { FormUiHints, JobState } from "@conveyor/shared";
+import type {
+  FormUiHints,
+  JobState,
+  OrcaEditableProfile,
+  OrcaProfileDocuments,
+} from "@conveyor/shared";
 
 export interface GeneratorSummary {
   id: string;
@@ -103,7 +108,6 @@ export async function logout(): Promise<void> {
 }
 
 // ─── Catalog (printers / profiles) ──────────────────────────────────────────
-// ─── Catalog (printers / profiles) ──────────────────────────────────────────
 export interface CatalogPrinter {
   id: string;
   transportId: string;
@@ -119,6 +123,11 @@ export interface CatalogProfile {
   name: string;
   path: string;
   gcodeFlavor: string;
+  hasEditableContent?: boolean;
+}
+
+export interface OrcaProfileContent extends OrcaEditableProfile {
+  source: "bundled" | "edited";
 }
 export interface JobHistoryEntry {
   id: string;
@@ -160,6 +169,26 @@ export interface CatalogTransport {
 export const fetchCatalogTransports = (f?: typeof fetch) =>
   getJson<CatalogTransport[]>("/catalog/transports", f);
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>("/catalog/profiles", f);
+
+export async function fetchOrcaProfileContent(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<OrcaProfileContent> {
+  const path = `/catalog/profiles/${encodeURIComponent(id)}/content`;
+  const r = await fetchFn(path);
+  if (!r.ok) {
+    const body = (await r.json().catch(() => ({}))) as { error?: unknown };
+    throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);
+  }
+  return r.json() as Promise<OrcaProfileContent>;
+}
+
+export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocuments) =>
+  putJson(`/catalog/profiles/${encodeURIComponent(id)}/content`, {
+    format: "orca-json",
+    documents,
+  });
+
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=50", f);
 
 /**
@@ -202,3 +231,6 @@ async function del(path: string): Promise<void> {
 
 export const deletePrinter = (id: string) => del(`/catalog/printers/${encodeURIComponent(id)}`);
 export const deleteProfile = (id: string) => del(`/catalog/profiles/${encodeURIComponent(id)}`);
+
+export const resetOrcaProfileContent = (id: string) =>
+  del(`/catalog/profiles/${encodeURIComponent(id)}/content`);
