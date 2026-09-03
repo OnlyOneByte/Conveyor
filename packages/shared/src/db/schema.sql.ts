@@ -13,12 +13,17 @@
  */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS profiles (
-  id            TEXT PRIMARY KEY,
-  slicer_id     TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  path          TEXT NOT NULL,
-  gcode_flavor  TEXT NOT NULL,
-  created_at    INTEGER NOT NULL
+  id                  TEXT PRIMARY KEY,
+  slicer_id           TEXT NOT NULL,
+  name                TEXT NOT NULL,
+  path                TEXT NOT NULL,
+  gcode_flavor        TEXT NOT NULL,
+  -- Optional raw Orca documents. All three are written/cleared atomically;
+  -- NULL falls back to the immutable files under the bundled profile path.
+  orca_machine_json   TEXT,
+  orca_process_json   TEXT,
+  orca_filament_json  TEXT,
+  created_at          INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS printers (

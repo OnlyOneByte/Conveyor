@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { Job, JobState, JobTarget } from "../job.js";
 import type { Stage } from "../plugins.js";
+import type { OrcaProfileDocuments } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PROFILES, DEFAULT_PRINTERS } from "./seed.js";
 
@@ -33,6 +34,8 @@ export interface Profile {
   name: string;
   path: string;
   gcodeFlavor: string;
+  /** True when all three editable Orca documents are stored in SQLite. */
+  hasEditableContent?: boolean;
 }
 
 let singleton: Database | null = null;
@@ -110,6 +113,14 @@ function migrate(db: Database): void {
   // rebuild above, which was forced by a NOT NULL column that had to go).
   if (!columnsOf(db, "printers").includes("allowed_generators_json")) {
     db.exec("ALTER TABLE printers ADD COLUMN allowed_generators_json TEXT");
+  }
+
+  // profiles.orca_*_json — optional raw Orca editor documents. They are additive,
+  // nullable columns: all NULL means "read the immutable bundled files". Saving and
+  // resetting updates all three together, so a normal row is never partially edited.
+  const profileColumns = new Set(columnsOf(db, "profiles"));
+  for (const column of ["orca_machine_json", "orca_process_json", "orca_filament_json"]) {
+    if (!profileColumns.has(column)) db.exec(`ALTER TABLE profiles ADD COLUMN ${column} TEXT`);
   }
 
   // Then retire the stations table itself. A SEPARATE guard, not an else of the one
@@ -228,14 +239,88 @@ interface ProfileRow {
   name: string;
   path: string;
   gcode_flavor: string;
+  orca_machine_json: string | null;
+  orca_process_json: string | null;
+  orca_filament_json: string | null;
 }
 
 function rowToProfile(r: ProfileRow): Profile {
-  return { id: r.id, slicerId: r.slicer_id, name: r.name, path: r.path, gcodeFlavor: r.gcode_flavor };
+  const edited =
+    r.orca_machine_json !== null &&
+    r.orca_process_json !== null &&
+    r.orca_filament_json !== null;
+  return {
+    id: r.id,
+    slicerId: r.slicer_id,
+    name: r.name,
+    path: r.path,
+    gcodeFlavor: r.gcode_flavor,
+    ...(edited ? { hasEditableContent: true } : {}),
+  };
 }
 
 export function dbListProfiles(db: Database): Profile[] {
   return (db.query("SELECT * FROM profiles ORDER BY name").all() as ProfileRow[]).map(rowToProfile);
+}
+
+export function dbGetProfile(db: Database, id: string): Profile | null {
+  const row = db.query("SELECT * FROM profiles WHERE id = ?").get(id) as ProfileRow | null;
+  return row ? rowToProfile(row) : null;
+}
+
+interface OrcaDocumentsRow {
+  orca_machine_json: string | null;
+  orca_process_json: string | null;
+  orca_filament_json: string | null;
+}
+
+/**
+ * Return the stored editable Orca documents, or null when this profile still uses
+ * its immutable bundled files. Partial state is an integrity error: save/reset update
+ * all three columns in one statement, so silently mixing DB and bundled content would
+ * hide corruption and make a slice irreproducible.
+ */
+export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfileDocuments | null {
+  const row = db
+    .query("SELECT orca_machine_json, orca_process_json, orca_filament_json FROM profiles WHERE id = ?")
+    .get(id) as OrcaDocumentsRow | null;
+  if (!row) return null;
+  const values = [row.orca_machine_json, row.orca_process_json, row.orca_filament_json];
+  if (values.every((v) => v === null)) return null;
+  if (values.some((v) => v === null)) throw new Error(`profile ${id} has incomplete Orca content`);
+  return {
+    machine: row.orca_machine_json!,
+    process: row.orca_process_json!,
+    filament: row.orca_filament_json!,
+  };
+}
+
+/** Atomically replace all three editable documents. False means no such profile. */
+export function dbSaveOrcaProfileDocuments(
+  db: Database,
+  id: string,
+  documents: OrcaProfileDocuments,
+): boolean {
+  const result = db
+    .prepare(
+      `UPDATE profiles
+       SET orca_machine_json = ?, orca_process_json = ?, orca_filament_json = ?
+       WHERE id = ?`,
+    )
+    .run(documents.machine, documents.process, documents.filament, id);
+  return result.changes > 0;
+}
+
+/** Atomically return a profile to its immutable bundled files. */
+export function dbResetOrcaProfileDocuments(db: Database, id: string): boolean {
+  const result = db
+    .prepare(
+      `UPDATE profiles
+       SET orca_machine_json = NULL, orca_process_json = NULL, orca_filament_json = NULL
+       WHERE id = ?`,
+    )
+    .run(id);
+  return result.changes > 0;
 }
 
 export function dbUpsertProfile(db: Database, p: Profile): void {
