@@ -8,6 +8,9 @@
     fetchOrcaProfileContent,
     saveOrcaProfileContent,
     resetOrcaProfileContent,
+    fetchPrusaProfileContent,
+    savePrusaProfileContent,
+    resetPrusaProfileContent,
     savePrinter,
     deletePrinter,
     deleteProfile,
@@ -17,7 +20,9 @@
     type CatalogTransport,
     type GeneratorSummary,
     type OrcaProfileContent,
+    type PrusaProfileContent,
   } from "$lib/api";
+  import { slicerFormat } from "@conveyor/shared";
   import { spinPreview, prefersReducedMotion } from "$lib/preferences";
 
   const reducedMotion = prefersReducedMotion();
@@ -46,7 +51,7 @@
   onMount(() => {
     void reload();
     const warnUnsaved = (event: BeforeUnloadEvent) => {
-      if (!profileEditorDirty) return;
+      if (!profileEditorDirty && !prusaEditorDirty) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -139,6 +144,7 @@
     try {
       await deleteProfile(id);
       if (editingProfile?.id === id) resetProfileEditor();
+      if (editingPrusa?.id === id) resetPrusaEditor();
       await reload();
     } catch (e) {
       error = (e as Error).message;
@@ -298,6 +304,96 @@
     }
   }
 
+  // ── Raw Prusa config.ini editor ───────────────────────────────────────────
+  // A Prusa profile edits ONE document (config.ini), so this editor is a single
+  // textarea rather than the Orca tab set. Same open/dirty/save/reset/confirm shape.
+  let editingPrusa: CatalogProfile | null = null;
+  let prusaContentSource: PrusaProfileContent["source"] | null = null;
+  let prusaConfig = "";
+  let originalPrusaConfig = "";
+  let prusaEditorBusy = false;
+  let prusaEditorError: string | null = null;
+
+  $: prusaEditorDirty = editingPrusa !== null && prusaConfig !== originalPrusaConfig;
+
+  function resetPrusaEditor() {
+    editingPrusa = null;
+    prusaContentSource = null;
+    prusaConfig = "";
+    originalPrusaConfig = "";
+    prusaEditorBusy = false;
+    prusaEditorError = null;
+  }
+
+  async function openPrusaEditor(profile: CatalogProfile) {
+    if (prusaEditorDirty && !confirm("Discard unsaved config.ini changes?")) return;
+    editingPrusa = profile;
+    prusaContentSource = null;
+    prusaConfig = "";
+    originalPrusaConfig = "";
+    prusaEditorError = null;
+    prusaEditorBusy = true;
+    try {
+      const content = await fetchPrusaProfileContent(profile.id);
+      prusaContentSource = content.source;
+      prusaConfig = content.document.config;
+      originalPrusaConfig = content.document.config;
+    } catch (error) {
+      prusaEditorError = (error as Error).message;
+    } finally {
+      prusaEditorBusy = false;
+    }
+  }
+
+  function closePrusaEditor() {
+    if (prusaEditorDirty && !confirm("Discard unsaved config.ini changes?")) return;
+    resetPrusaEditor();
+  }
+
+  async function savePrusaConfig() {
+    if (!editingPrusa) return;
+    prusaEditorError = null;
+    prusaEditorBusy = true;
+    try {
+      await savePrusaProfileContent(editingPrusa.id, { config: prusaConfig });
+      originalPrusaConfig = prusaConfig;
+      prusaContentSource = "edited";
+      editingPrusa = { ...editingPrusa, hasEditableContent: true };
+      await reload();
+    } catch (error) {
+      prusaEditorError = (error as Error).message;
+    } finally {
+      prusaEditorBusy = false;
+    }
+  }
+
+  async function resetPrusaConfig() {
+    if (!editingPrusa) return;
+    if (!confirm(`Reset "${editingPrusa.name}" to its bundled config.ini? Your edits will be lost.`)) return;
+    prusaEditorError = null;
+    prusaEditorBusy = true;
+    try {
+      await resetPrusaProfileContent(editingPrusa.id);
+      const content = await fetchPrusaProfileContent(editingPrusa.id);
+      prusaContentSource = content.source;
+      prusaConfig = content.document.config;
+      originalPrusaConfig = content.document.config;
+      editingPrusa = { ...editingPrusa, hasEditableContent: false };
+      await reload();
+    } catch (error) {
+      prusaEditorError = (error as Error).message;
+    } finally {
+      prusaEditorBusy = false;
+    }
+  }
+
+  /** Route a row's Edit action to the editor for its slicer's format. */
+  function editProfile(profile: CatalogProfile) {
+    const format = slicerFormat(profile.slicerId);
+    if (format === "orca-json") void openProfileEditor(profile);
+    else if (format === "prusa-ini") void openPrusaEditor(profile);
+  }
+
   // New-profile form — registers a locked slicer bundle on the /profiles mount.
   let np: CatalogProfile = { id: "", slicerId: "orca", name: "", path: "", gcodeFlavor: "klipper" };
   let npError: string | null = null;
@@ -344,7 +440,7 @@
     <!-- Profiles -->
     <section class="card">
       <h2>Profiles</h2>
-      <p class="muted">Slicer bundles on the <span class="mono">/profiles</span> mount. Orca JSON is editable here.</p>
+      <p class="muted">Slicer bundles on the <span class="mono">/profiles</span> mount. Orca JSON and Prusa config.ini are editable here.</p>
       <div class="tablewrap"><table>
         <thead><tr><th>Name</th><th>Slicer</th><th>Flavor</th><th>Path</th><th>Source</th><th></th></tr></thead>
         <tbody>
@@ -355,7 +451,7 @@
               <td class="mono">{p.gcodeFlavor}</td>
               <td class="mono">{p.path}</td>
               <td>
-                {#if p.slicerId === "orca"}
+                {#if slicerFormat(p.slicerId)}
                   <span class="source" class:edited={p.hasEditableContent}>
                     {p.hasEditableContent ? "edited" : "bundled"}
                   </span>
@@ -364,10 +460,12 @@
                 {/if}
               </td>
               <td class="actions">
-                {#if p.slicerId === "orca"}
-                  <button class="ghost small" on:click={() => openProfileEditor(p)}>Edit JSON</button>
+                {#if slicerFormat(p.slicerId) === "orca-json"}
+                  <button class="ghost small" on:click={() => editProfile(p)}>Edit JSON</button>
+                {:else if slicerFormat(p.slicerId) === "prusa-ini"}
+                  <button class="ghost small" on:click={() => editProfile(p)}>Edit INI</button>
                 {:else}
-                  <span class="muted readonly-note" title="Prusa INI editing is not supported yet">INI only</span>
+                  <span class="muted readonly-note" title="Editing is not supported for this slicer">read-only</span>
                 {/if}
                 <button class="ghost small danger" on:click={() => removeProfile(p.id)}>Delete</button>
               </td>
@@ -431,6 +529,51 @@
           </div>
           <p class="muted note">
             Client parsing is for immediate feedback. The API validates all three files again before saving.
+          </p>
+        </div>
+      {/if}
+      {#if editingPrusa}
+        <div class="profile-editor">
+          <div class="editor-head">
+            <div>
+              <strong>Edit config.ini</strong>
+              <div class="muted mono">{editingPrusa.id}</div>
+            </div>
+            <div class="editor-state">
+              {#if prusaContentSource}
+                <span class="source" class:edited={prusaContentSource === "edited"}>{prusaContentSource}</span>
+              {/if}
+              {#if prusaEditorDirty}<span class="unsaved">unsaved changes</span>{/if}
+            </div>
+          </div>
+
+          {#if prusaEditorBusy && !prusaContentSource}
+            <p class="muted">Loading config.ini…</p>
+          {:else}
+            <textarea
+              class="json-editor"
+              aria-label="config.ini editor"
+              spellcheck="false"
+              value={prusaConfig}
+              on:input={(event) => { prusaConfig = event.currentTarget.value; prusaEditorError = null; }}
+            ></textarea>
+          {/if}
+
+          {#if prusaEditorError}<p class="err editor-error">{prusaEditorError}</p>{/if}
+          <div class="editor-actions">
+            <button class="primary" on:click={savePrusaConfig} disabled={prusaEditorBusy || !prusaEditorDirty}>
+              {prusaEditorBusy ? "Saving…" : "Save config.ini"}
+            </button>
+            <button class="ghost" on:click={closePrusaEditor} disabled={prusaEditorBusy}>Cancel</button>
+            {#if prusaContentSource === "edited"}
+              <button class="ghost danger reset" on:click={resetPrusaConfig} disabled={prusaEditorBusy}>
+                Reset to bundled version
+              </button>
+            {/if}
+          </div>
+          <p class="muted note">
+            The API validates the config before saving (size + basic structure). PrusaSlicer is the
+            final judge of correctness — a parseable-but-wrong config only fails when a job slices.
           </p>
         </div>
       {/if}

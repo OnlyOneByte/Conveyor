@@ -4,6 +4,7 @@ import type {
   JobState,
   OrcaEditableProfile,
   OrcaProfileDocuments,
+  PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
 
@@ -157,6 +158,13 @@ export interface CatalogProfile {
 export interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
+
+/** Response of GET /catalog/profiles/:id/content for a Prusa (prusa-ini) profile. */
+export interface PrusaProfileContent {
+  format: "prusa-ini";
+  source: "bundled" | "edited";
+  document: PrusaProfileDocument;
+}
 export interface JobHistoryEntry {
   id: string;
   /** printerId/profileId may be "" on a job migrated from a deleted station */
@@ -218,6 +226,25 @@ export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocumen
     documents,
   });
 
+export async function fetchPrusaProfileContent(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<PrusaProfileContent> {
+  const path = `/catalog/profiles/${encodeURIComponent(id)}/content`;
+  const r = await fetchFn(path);
+  if (!r.ok) {
+    const body = (await r.json().catch(() => ({}))) as { error?: unknown };
+    throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);
+  }
+  return r.json() as Promise<PrusaProfileContent>;
+}
+
+export const savePrusaProfileContent = (id: string, document: PrusaProfileDocument) =>
+  putJson(`/catalog/profiles/${encodeURIComponent(id)}/content`, {
+    format: "prusa-ini",
+    document,
+  });
+
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=200", f);
 
 /**
@@ -262,4 +289,8 @@ export const deletePrinter = (id: string) => del(`/catalog/printers/${encodeURIC
 export const deleteProfile = (id: string) => del(`/catalog/profiles/${encodeURIComponent(id)}`);
 
 export const resetOrcaProfileContent = (id: string) =>
+  del(`/catalog/profiles/${encodeURIComponent(id)}/content`);
+
+/** The reset DELETE is format-agnostic (same URL); Prusa reuses it under a clear name. */
+export const resetPrusaProfileContent = (id: string) =>
   del(`/catalog/profiles/${encodeURIComponent(id)}/content`);
