@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { MAX_ORCA_CONTENT_BYTES } from "@conveyor/shared";
+import { MAX_ORCA_CONTENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES, slicerFormat } from "@conveyor/shared";
 import { z } from "zod";
 import {
   openDb,
@@ -12,6 +12,9 @@ import {
   dbGetOrcaProfileDocuments,
   dbSaveOrcaProfileDocuments,
   dbResetOrcaProfileDocuments,
+  dbGetPrusaProfileContent,
+  dbSavePrusaProfileContent,
+  dbResetPrusaProfileContent,
   dbUpsertProfile,
   dbDeleteProfile,
   dbListJobs,
@@ -24,6 +27,8 @@ import {
   ProfileContentError,
   readBundledOrcaDocuments,
   validateOrcaDocuments,
+  readBundledPrusaConfig,
+  validatePrusaContent,
 } from "../profile-content.js";
 
 /**
@@ -68,6 +73,15 @@ const orcaContentSchema = z
   .object({
     format: z.literal("orca-json"),
     documents: orcaDocumentsSchema,
+  })
+  .strict();
+
+const prusaContentSchema = z
+  .object({
+    format: z.literal("prusa-ini"),
+    // Byte limit + structure enforced by validatePrusaContent; Fastify's bodyLimit
+    // rejects grossly oversized requests before this schema.
+    document: z.object({ config: z.string() }).strict(),
   })
   .strict();
 
@@ -147,54 +161,72 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   });
 
   /**
-   * Fetch the raw editor documents. Stored content wins; otherwise read the three
-   * fixed filenames from the immutable bundled profile directory.
+   * Fetch the raw editor documents. Stored content wins; otherwise read the bundled
+   * profile. Dispatches on the profile's slicer format — Orca serves three JSON
+   * documents, Prusa serves one config.ini; a slicer with no editable format 409s.
    */
   app.get<{ Params: { id: string } }>("/catalog/profiles/:id/content", async (req, reply) => {
     const db = openDb();
     const profile = dbGetProfile(db, req.params.id);
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-    if (profile.slicerId !== "orca") {
-      return reply.code(409).send({ error: "raw profile editing currently supports Orca profiles only" });
+    const format = slicerFormat(profile.slicerId);
+    if (format === null) {
+      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {
-      const edited = dbGetOrcaProfileDocuments(db, profile.id);
-      if (edited) return { format: "orca-json" as const, source: "edited" as const, documents: edited };
-
-      const documents = await readBundledOrcaDocuments(profile.path);
-      try {
-        validateOrcaDocuments(documents);
-      } catch (error) {
-        if (error instanceof ProfileContentError) {
-          throw new ProfileContentError(`bundled ${error.message}`, 409);
+      if (format === "orca-json") {
+        const edited = dbGetOrcaProfileDocuments(db, profile.id);
+        if (edited) return { format: "orca-json" as const, source: "edited" as const, documents: edited };
+        const documents = await readBundledOrcaDocuments(profile.path);
+        try {
+          validateOrcaDocuments(documents);
+        } catch (error) {
+          if (error instanceof ProfileContentError) throw new ProfileContentError(`bundled ${error.message}`, 409);
+          throw error;
         }
-        throw error;
+        return { format: "orca-json" as const, source: "bundled" as const, documents };
       }
-      return { format: "orca-json" as const, source: "bundled" as const, documents };
+      // prusa-ini
+      const edited = dbGetPrusaProfileContent(db, profile.id);
+      if (edited) return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
+      const document = await readBundledPrusaConfig(profile.path);
+      return { format: "prusa-ini" as const, source: "bundled" as const, document };
     } catch (error) {
       return sendProfileContentError(reply, error);
     }
   });
 
-  /** Persist validated raw text verbatim. JSON encoding can expand strings, so the
-   * parser limit is twice the post-parse 768 KiB content cap. */
+  /** Persist validated raw text verbatim. bodyLimit covers the larger of the two
+   * formats (Orca's 768 KiB post-parse content, doubled for JSON string expansion,
+   * vs Prusa's 512 KiB config). */
   app.put<{ Params: { id: string } }>(
     "/catalog/profiles/:id/content",
-    { bodyLimit: MAX_ORCA_CONTENT_BYTES * 2 },
+    { bodyLimit: Math.max(MAX_ORCA_CONTENT_BYTES * 2, MAX_PRUSA_DOCUMENT_BYTES * 2) },
     async (req, reply) => {
-      const parsed = orcaContentSchema.safeParse(req.body);
-      if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
       const db = openDb();
       const profile = dbGetProfile(db, req.params.id);
       if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-      if (profile.slicerId !== "orca") {
-        return reply.code(409).send({ error: "raw profile editing currently supports Orca profiles only" });
+      const format = slicerFormat(profile.slicerId);
+      if (format === null) {
+        return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
       }
 
       try {
-        validateOrcaDocuments(parsed.data.documents);
-        if (!dbSaveOrcaProfileDocuments(db, profile.id, parsed.data.documents)) {
+        if (format === "orca-json") {
+          const parsed = orcaContentSchema.safeParse(req.body);
+          if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+          validateOrcaDocuments(parsed.data.documents);
+          if (!dbSaveOrcaProfileDocuments(db, profile.id, parsed.data.documents)) {
+            return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
+          }
+          return reply.code(200).send({ ok: true, source: "edited" });
+        }
+        // prusa-ini
+        const parsed = prusaContentSchema.safeParse(req.body);
+        if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+        validatePrusaContent(parsed.data.document);
+        if (!dbSavePrusaProfileContent(db, profile.id, parsed.data.document)) {
           return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
         }
         return reply.code(200).send({ ok: true, source: "edited" });
@@ -209,14 +241,24 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     const db = openDb();
     const profile = dbGetProfile(db, req.params.id);
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-    if (profile.slicerId !== "orca") {
-      return reply.code(409).send({ error: "raw profile editing currently supports Orca profiles only" });
+    const format = slicerFormat(profile.slicerId);
+    if (format === null) {
+      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {
-      const bundled = await readBundledOrcaDocuments(profile.path);
-      validateOrcaDocuments(bundled);
-      if (!dbResetOrcaProfileDocuments(db, profile.id)) {
+      if (format === "orca-json") {
+        const bundled = await readBundledOrcaDocuments(profile.path);
+        validateOrcaDocuments(bundled);
+        if (!dbResetOrcaProfileDocuments(db, profile.id)) {
+          return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
+        }
+        return reply.code(200).send({ ok: true, source: "bundled" });
+      }
+      // prusa-ini: prove the bundled config is readable + valid before clearing.
+      const bundled = await readBundledPrusaConfig(profile.path);
+      validatePrusaContent(bundled);
+      if (!dbResetPrusaProfileContent(db, profile.id)) {
         return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
       }
       return reply.code(200).send({ ok: true, source: "bundled" });

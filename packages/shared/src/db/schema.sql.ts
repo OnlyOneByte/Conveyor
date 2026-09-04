@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   orca_machine_json   TEXT,
   orca_process_json   TEXT,
   orca_filament_json  TEXT,
+  -- Optional raw Prusa config.ini. NULL falls back to the bundled config.
+  prusa_ini           TEXT,
   created_at          INTEGER NOT NULL
 );
 

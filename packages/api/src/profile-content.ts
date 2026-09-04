@@ -1,13 +1,17 @@
-import { readFile, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   MAX_ORCA_DOCUMENT_BYTES,
+  MAX_PRUSA_DOCUMENT_BYTES,
   ORCA_PROFILE_DOCUMENT_NAMES,
   OrcaProfileValidationError,
+  PrusaProfileValidationError,
   validateOrcaProfileDocuments,
+  validatePrusaProfileContent,
   type OrcaProfileDocumentName,
   type OrcaProfileDocuments,
+  type PrusaProfileDocument,
 } from "@conveyor/shared";
 
 /**
@@ -106,6 +110,61 @@ export function validateOrcaDocuments(documents: OrcaProfileDocuments): void {
     validateOrcaProfileDocuments(documents);
   } catch (error) {
     if (error instanceof OrcaProfileValidationError) {
+      throw new ProfileContentError(error.message);
+    }
+    throw error;
+  }
+}
+
+// ─── Prusa config.ini (bundled read + validation) ────────────────────────────
+
+/**
+ * Read the bundled Prusa `config.ini` for editing. Prefers `config.ini`; otherwise
+ * the first `.ini` alphabetically — matching the slicer adapter's `loadConfigs`
+ * preference, but surfaced as ONE editable document (a multi-`.ini` split stays a
+ * bundled-only detail). The directory is canonicalized + containment-checked exactly
+ * like the Orca reader, and only a `.ini` filename discovered by listing the trusted
+ * bundle dir is opened — no request-supplied filename ever reaches the filesystem.
+ */
+export async function readBundledPrusaConfig(path: string): Promise<PrusaProfileDocument> {
+  const { root, directory } = await bundledDirectory(path);
+  let entries: string[];
+  try {
+    entries = await readdir(directory);
+  } catch {
+    throw new ProfileContentError("bundled Prusa profile directory is unavailable", 404);
+  }
+  const inis = entries.filter((f) => f.toLowerCase().endsWith(".ini")).sort();
+  const chosen = inis.includes("config.ini") ? "config.ini" : inis[0];
+  if (!chosen) throw new ProfileContentError("bundled Prusa profile has no .ini config", 404);
+
+  try {
+    const file = await realpath(join(directory, chosen));
+    if (!isWithin(root, file)) {
+      throw new ProfileContentError("Prusa config escapes the bundled profile root", 409);
+    }
+    const info = await stat(file);
+    if (!info.isFile()) throw new ProfileContentError("bundled Prusa config is not a file", 409);
+    if (info.size > MAX_PRUSA_DOCUMENT_BYTES) {
+      throw new ProfileContentError("bundled config.ini exceeds the 512 KiB limit");
+    }
+    const text = await readFile(file, "utf8");
+    if (Buffer.byteLength(text, "utf8") > MAX_PRUSA_DOCUMENT_BYTES) {
+      throw new ProfileContentError("bundled config.ini exceeds the 512 KiB limit");
+    }
+    return { config: text };
+  } catch (error) {
+    if (error instanceof ProfileContentError) throw error;
+    throw new ProfileContentError("bundled Prusa config is unavailable", 404);
+  }
+}
+
+/** Translate the shared Prusa validation error into this surface's typed 400. */
+export function validatePrusaContent(document: PrusaProfileDocument): void {
+  try {
+    validatePrusaProfileContent(document);
+  } catch (error) {
+    if (error instanceof PrusaProfileValidationError) {
       throw new ProfileContentError(error.message);
     }
     throw error;

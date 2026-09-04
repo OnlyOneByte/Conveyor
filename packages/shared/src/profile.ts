@@ -67,3 +67,83 @@ export interface OrcaEditableProfile {
   format: "orca-json";
   documents: OrcaProfileDocuments;
 }
+
+// ─── Prusa INI editable profile ──────────────────────────────────────────────
+
+/**
+ * A Prusa profile bundle is edited as a single `config.ini` document. Kept as raw
+ * text (not a parsed map) for the same reason as Orca: this is a raw editor, so key
+ * order and comments survive a save/reload cycle. The API validates before storing;
+ * the worker writes the validated text verbatim to a per-job `config.ini`.
+ */
+export interface PrusaProfileDocument {
+  config: string;
+}
+
+export const PRUSA_PROFILE_DOCUMENT_NAME = "config" as const;
+/** PrusaSlicer configs run larger than Orca leaves (full printer+filament+print). */
+export const MAX_PRUSA_DOCUMENT_BYTES = 512 * 1024;
+
+export class PrusaProfileValidationError extends Error {}
+
+/**
+ * Shared trust-boundary validation for a Prusa `config.ini` (SAX-04/SAX-10): the API
+ * runs it before persistence and the worker runs it again before writing the file, so
+ * a direct DB edit cannot bypass the invariant. Text is never normalized — the exact
+ * validated bytes are stored and materialized.
+ *
+ * INI is a permissive format, so the checks are structural rather than a full parse:
+ * bounded size, no NUL/control bytes (rejects binary and log/CRLF-injection tricks),
+ * and at least one `key = value` line so an empty or junk blob is refused. PrusaSlicer
+ * itself is the ultimate arbiter of semantic validity — a parseable-but-wrong config
+ * only surfaces when a job actually slices, exactly as for Orca.
+ */
+export function validatePrusaProfileContent(document: PrusaProfileDocument): void {
+  const text = document.config;
+  const bytes = new TextEncoder().encode(text).byteLength;
+  if (bytes > MAX_PRUSA_DOCUMENT_BYTES) {
+    throw new PrusaProfileValidationError("config.ini exceeds the 512 KiB limit");
+  }
+  // Reject NUL and C0 control bytes other than tab/newline/carriage-return. This
+  // blocks binary blobs and control-character injection while leaving normal INI
+  // (which is ASCII/UTF-8 text with comments and CRLF or LF line endings) untouched.
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text)) {
+    throw new PrusaProfileValidationError("config.ini contains control characters");
+  }
+  // Structural floor: at least one `key = value` assignment on a non-comment line.
+  // (PrusaSlicer configs are flat key=value; section headers are optional.)
+  const hasAssignment = text
+    .split(/\r?\n/)
+    .some((line) => {
+      const t = line.trim();
+      if (!t || t.startsWith("#") || t.startsWith(";") || t.startsWith("[")) return false;
+      const eq = t.indexOf("=");
+      return eq > 0; // a key before the '='
+    });
+  if (!hasAssignment) {
+    throw new PrusaProfileValidationError("config.ini has no key = value settings");
+  }
+}
+
+// ─── Format routing ──────────────────────────────────────────────────────────
+
+/** The editable-content format a slicer's profiles use. */
+export type SlicerProfileFormat = "orca-json" | "prusa-ini";
+
+/**
+ * Which editable format a slicer's profiles use — the single source of truth shared
+ * by the API (route dispatch), the worker (materialization), and the web client (which
+ * editor to open). A slicer with no editable format returns `null` (read-only in the
+ * editor). Add a slicer's format here to make its profiles editable everywhere at once.
+ */
+export function slicerFormat(slicerId: string): SlicerProfileFormat | null {
+  switch (slicerId) {
+    case "orca":
+      return "orca-json";
+    case "prusa":
+      return "prusa-ini";
+    default:
+      return null;
+  }
+}

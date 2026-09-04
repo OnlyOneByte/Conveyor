@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
-import type { OrcaProfileDocuments } from "../profile.js";
+import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PROFILES, DEFAULT_PRINTERS } from "./seed.js";
 
@@ -122,6 +122,9 @@ function migrate(db: Database): void {
   for (const column of ["orca_machine_json", "orca_process_json", "orca_filament_json"]) {
     if (!profileColumns.has(column)) db.exec(`ALTER TABLE profiles ADD COLUMN ${column} TEXT`);
   }
+  // profiles.prusa_ini — optional raw Prusa config.ini. Additive, nullable; NULL
+  // reads the bundled config. Same fallback semantics as the orca_* columns.
+  if (!profileColumns.has("prusa_ini")) db.exec("ALTER TABLE profiles ADD COLUMN prusa_ini TEXT");
 
   // jobs.timings_json — per-stage wall-clock captured by the worker. Additive and
   // nullable (NULL on a pre-timing row); a plain ADD COLUMN suffices.
@@ -248,20 +251,24 @@ interface ProfileRow {
   orca_machine_json: string | null;
   orca_process_json: string | null;
   orca_filament_json: string | null;
+  prusa_ini: string | null;
 }
 
 function rowToProfile(r: ProfileRow): Profile {
-  const edited =
+  // "Has an edit" is per-slicer: all three Orca docs present, or the Prusa config
+  // present. A profile is editable-content when either holds.
+  const orcaEdited =
     r.orca_machine_json !== null &&
     r.orca_process_json !== null &&
     r.orca_filament_json !== null;
+  const prusaEdited = r.prusa_ini !== null;
   return {
     id: r.id,
     slicerId: r.slicer_id,
     name: r.name,
     path: r.path,
     gcodeFlavor: r.gcode_flavor,
-    ...(edited ? { hasEditableContent: true } : {}),
+    ...(orcaEdited || prusaEdited ? { hasEditableContent: true } : {}),
   };
 }
 
@@ -326,6 +333,30 @@ export function dbResetOrcaProfileDocuments(db: Database, id: string): boolean {
        WHERE id = ?`,
     )
     .run(id);
+  return result.changes > 0;
+}
+
+/**
+ * Return the stored editable Prusa config.ini, or null when this profile still uses
+ * its bundled config. Single column, so no partial-state concern (unlike Orca's three).
+ */
+export function dbGetPrusaProfileContent(db: Database, id: string): PrusaProfileDocument | null {
+  const row = db.query("SELECT prusa_ini FROM profiles WHERE id = ?").get(id) as
+    | { prusa_ini: string | null }
+    | null;
+  if (!row || row.prusa_ini === null) return null;
+  return { config: row.prusa_ini };
+}
+
+/** Replace the editable config.ini. False means no such profile. */
+export function dbSavePrusaProfileContent(db: Database, id: string, document: PrusaProfileDocument): boolean {
+  const result = db.prepare("UPDATE profiles SET prusa_ini = ? WHERE id = ?").run(document.config, id);
+  return result.changes > 0;
+}
+
+/** Return a Prusa profile to its bundled config. False means no such profile. */
+export function dbResetPrusaProfileContent(db: Database, id: string): boolean {
+  const result = db.prepare("UPDATE profiles SET prusa_ini = NULL WHERE id = ?").run(id);
   return result.changes > 0;
 }
 
