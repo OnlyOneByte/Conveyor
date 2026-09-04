@@ -5,10 +5,12 @@ import { join } from "node:path";
 import {
   JOB_QUEUE,
   StageError,
+  computeStageTimings,
   type JobRequest,
   type PrinterTarget,
   type Stage,
   type StageCtx,
+  type StageTiming,
 } from "@conveyor/shared";
 import { openDb, dbGetPrinter, dbRecordJob, dbResolveJobTarget } from "@conveyor/shared/db";
 import { buildRegistry } from "./registry.js";
@@ -49,6 +51,14 @@ const worker = new Worker<JobRequest>(
     // Artifact paths captured as stages complete, persisted to the job history.
     let modelPath: string | undefined;
     let gcodePath: string | undefined;
+    // Stage-enter timestamps in entry order. Each stage-enter appends one; the live
+    // events carry the timings-so-far (final stage open), and the terminal record
+    // closes the last stage with the settle time.
+    const stageEnters: { stage: Stage; at: number }[] = [];
+    const enterStage = (s: Stage): StageTiming[] => {
+      stageEnters.push({ stage: s, at: Date.now() });
+      return computeStageTimings(stageEnters);
+    };
 
     try {
       // The (printer, profile) pair the request names, with the transport and slicer
@@ -61,7 +71,7 @@ const worker = new Worker<JobRequest>(
       // ── Generate ───────────────────────────────────────────────
       stage = "generator";
       currentState = "generating";
-      await bus.publish(jobId, "generating", { stage });
+      await bus.publish(jobId, "generating", { stage, timings: enterStage("generator") });
       const generator = registry.generators.get(req.generator.id);
       if (!generator) throw new StageError("generator", `unknown generator ${req.generator.id}`);
       const model = await generator.generate(req.generator.params, ctx);
@@ -70,7 +80,7 @@ const worker = new Worker<JobRequest>(
       // ── Slice ──────────────────────────────────────────────────
       stage = "slicer";
       currentState = "slicing";
-      await bus.publish(jobId, "slicing", { stage });
+      await bus.publish(jobId, "slicing", { stage, timings: enterStage("slicer") });
       const slicer = registry.slicers.get(jobTarget.slicerId);
       if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
       const profileForSlice = await resolveProfileForSlice(jobTarget, workDir);
@@ -89,7 +99,7 @@ const worker = new Worker<JobRequest>(
       // ── Transport ──────────────────────────────────────────────
       stage = "transport";
       currentState = "transferring";
-      await bus.publish(jobId, "transferring", { stage });
+      await bus.publish(jobId, "transferring", { stage, timings: enterStage("transport") });
       const transport = registry.transports.get(jobTarget.transportId);
       if (!transport) throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
       const target = await resolveTarget(jobTarget.printerId, jobTarget.transportId);
@@ -98,7 +108,12 @@ const worker = new Worker<JobRequest>(
       currentState = "printing";
       for await (const status of transport.status(handle)) {
         if (status.state === "printing") {
-          await bus.publish(jobId, "printing", { stage, progress: status.progress, message: status.message });
+          await bus.publish(jobId, "printing", {
+            stage,
+            progress: status.progress,
+            message: status.message,
+            timings: computeStageTimings(stageEnters),
+          });
         } else if (status.state === "done") {
           break;
         } else if (status.state === "failed" || status.state === "canceled") {
@@ -106,16 +121,22 @@ const worker = new Worker<JobRequest>(
         }
       }
 
-      await bus.publish(jobId, "done", { stage });
+      const doneTimings = computeStageTimings(stageEnters, Date.now());
+      await bus.publish(jobId, "done", { stage, timings: doneTimings });
       // Durable history: settled record lives in SQLite (Redis snapshot expires).
-      recordTerminal(jobId, req, "done", { modelPath, gcodePath });
+      recordTerminal(jobId, req, "done", { modelPath, gcodePath, timings: doneTimings });
     } catch (err) {
       const se =
         err instanceof StageError
           ? err
           : new StageError(stage, (err as Error).message, { cause: err });
-      await bus.publish(jobId, "failed", { stage: se.stage, error: { stage: se.stage, reason: se.reason } });
-      recordTerminal(jobId, req, "failed", { stage: se.stage, reason: se.reason });
+      const failTimings = computeStageTimings(stageEnters, Date.now());
+      await bus.publish(jobId, "failed", {
+        stage: se.stage,
+        error: { stage: se.stage, reason: se.reason },
+        timings: failTimings,
+      });
+      recordTerminal(jobId, req, "failed", { stage: se.stage, reason: se.reason, timings: failTimings });
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
       throw se;
     } finally {
@@ -140,7 +161,7 @@ function recordTerminal(
   jobId: string,
   req: JobRequest,
   state: "done" | "failed",
-  extra: { modelPath?: string; gcodePath?: string; stage?: Stage; reason?: string },
+  extra: { modelPath?: string; gcodePath?: string; stage?: Stage; reason?: string; timings?: StageTiming[] },
 ): void {
   try {
     dbRecordJob(openDb(), {
@@ -154,6 +175,7 @@ function recordTerminal(
       error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
       modelPath: extra.modelPath,
       gcodePath: extra.gcodePath,
+      timings: extra.timings,
     });
   } catch (e) {
     console.error(`[${jobId}] failed to record job history:`, (e as Error).message);
