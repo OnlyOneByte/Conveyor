@@ -107,3 +107,10 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
 - **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).
+- **M5 — Observability & convenience.** ✅ (2026-09-04) Raw Orca JSON profile editor (`v0.1.2`); a `/monitor` tab (live active jobs with per-stage timings + cancel, per-printer TCP reachability, auto-refresh); `/history` state-filter chips + text filter + auto-refresh; job-detail STL/gcode downloads, a per-stage timings section, and a Run again button. API: `GET /jobs/active`, `GET /catalog/printers/:id/reachable`, `GET /jobs/:id/artifact/:kind` (containment-guarded). Shipped in `v0.1.3`.
+
+## 11. Deferred / backlog
+
+- **Prusa INI profile editing** — the M5 editor is Orca-JSON only; Prusa profiles are read-only (the content routes 409 for them, no Edit button). Adding it is a distinct arc: a `prusa-ini` editable format + INI validator in `shared`, DB storage, format-aware content routes + worker materialization, and a UI editor path. The `OrcaEditableProfile.format` tag was added with this in mind.
+- **Hardware transport verification** — Moonraker and ElegooLink SDCP are protocol-complete but unproven against a physical printer (see M2 and the Elegoo open decision). The Elegoo adapter has two flagged VERIFY-ON-HARDWARE points (file-upload route, START_PRINT payload) that only a packet capture against a real device can resolve. `docs/M2-TRANSPORTS.md` holds the runbook.
+- **History paging past 200** — `/history` filters client-side over the API's max window (`limit=200`); a deeper archive would need a server-side cursor on `GET /jobs-history`.

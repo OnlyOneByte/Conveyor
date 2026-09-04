@@ -81,7 +81,13 @@
   /** Milliseconds spent in the job's currently-open stage (the last timing entry). */
   function currentStageElapsed(j: JobStatusEvent): number | null {
     const open = j.timings?.find((t) => t.durationMs === undefined);
-    return open ? Math.max(0, now - open.enteredAt) : null;
+    if (!open) return null;
+    const ms = now - open.enteredAt;
+    // Sanity clamp: a real worker stamps enteredAt with Date.now(), so an elapsed
+    // over ~24h (or negative) means a bad/clock-skewed timestamp, not a day-long
+    // stage — suppress it rather than render a nonsensical counter.
+    if (ms < 0 || ms > 24 * 60 * 60 * 1000) return null;
+    return ms;
   }
 
   function fmtDuration(ms: number): string {
