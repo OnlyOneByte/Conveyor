@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   error_json    TEXT,
   model_path    TEXT,
   gcode_path    TEXT,
+  -- JSON array of {stage, enteredAt, durationMs} captured as the worker ran; NULL for
+  -- pre-timing rows and for jobs that failed before entering any stage.
+  timings_json  TEXT,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
 );

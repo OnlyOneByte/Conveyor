@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { Job, JobState, JobTarget } from "../job.js";
+import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import type { OrcaProfileDocuments } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
@@ -121,6 +121,12 @@ function migrate(db: Database): void {
   const profileColumns = new Set(columnsOf(db, "profiles"));
   for (const column of ["orca_machine_json", "orca_process_json", "orca_filament_json"]) {
     if (!profileColumns.has(column)) db.exec(`ALTER TABLE profiles ADD COLUMN ${column} TEXT`);
+  }
+
+  // jobs.timings_json — per-stage wall-clock captured by the worker. Additive and
+  // nullable (NULL on a pre-timing row); a plain ADD COLUMN suffices.
+  if (!columnsOf(db, "jobs").includes("timings_json")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN timings_json TEXT");
   }
 
   // Then retire the stations table itself. A SEPARATE guard, not an else of the one
@@ -375,6 +381,7 @@ interface JobRow {
   error_json: string | null;
   model_path: string | null;
   gcode_path: string | null;
+  timings_json: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -393,6 +400,7 @@ function rowToJob(r: JobRow): Job {
     stage: (r.stage as Stage) ?? null,
     error: r.error_json ? JSON.parse(r.error_json) : undefined,
     artifacts: { model: r.model_path ?? undefined, gcode: r.gcode_path ?? undefined },
+    timings: r.timings_json ? (JSON.parse(r.timings_json) as StageTiming[]) : undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -412,15 +420,17 @@ export function dbRecordJob(
     error?: { stage: Stage; reason: string };
     modelPath?: string;
     gcodePath?: string;
+    timings?: StageTiming[];
   },
 ): void {
   const now = epochMs();
   db.prepare(
-    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, timings_json, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        state=excluded.state, stage=excluded.stage, error_json=excluded.error_json,
-       model_path=excluded.model_path, gcode_path=excluded.gcode_path, updated_at=excluded.updated_at`,
+       model_path=excluded.model_path, gcode_path=excluded.gcode_path,
+       timings_json=excluded.timings_json, updated_at=excluded.updated_at`,
   ).run(
     job.id,
     job.generatorId,
@@ -432,6 +442,7 @@ export function dbRecordJob(
     job.error ? JSON.stringify(job.error) : null,
     job.modelPath ?? null,
     job.gcodePath ?? null,
+    job.timings && job.timings.length ? JSON.stringify(job.timings) : null,
     now,
     now,
   );

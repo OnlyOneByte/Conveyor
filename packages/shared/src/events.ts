@@ -1,4 +1,5 @@
 import type { JobState } from "./job.js";
+import type { StageTiming } from "./job.js";
 import type { Stage } from "./plugins.js";
 
 /**
@@ -13,6 +14,12 @@ export interface JobStatusEvent {
   progress?: number;
   message?: string;
   error?: { stage: Stage; reason: string };
+  /**
+   * Per-stage wall-clock so far (open final stage while running). Present on live
+   * events once the worker has entered its first stage; a monitoring view reads it
+   * to show "3m in slicing" without waiting for the job to settle.
+   */
+  timings?: StageTiming[];
   /** epoch ms */
   at: number;
 }
@@ -29,3 +36,12 @@ export function jobChannel(jobId: string): string {
 export function jobSnapshotKey(jobId: string): string {
   return `job:${jobId}`;
 }
+
+/**
+ * A Redis set of the job ids that are currently in flight. The worker adds an id
+ * when it starts a job and removes it on any terminal state; the API reads the set
+ * (then each job's snapshot) to answer GET /jobs/active without scanning keys.
+ * A set (not a key scan) keeps the read O(active jobs), and a stale id simply
+ * resolves to a terminal snapshot the API filters out.
+ */
+export const ACTIVE_JOBS_KEY = "jobs:active";

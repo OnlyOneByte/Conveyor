@@ -69,6 +69,40 @@ export interface Job {
   message?: string;
   error?: { stage: Stage; reason: string };
   artifacts?: { model?: string; gcode?: string };
+  /** Per-stage wall-clock, captured as the worker enters each stage. */
+  timings?: StageTiming[];
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * One pipeline stage's wall-clock span. `enteredAt` is stamped when the worker
+ * begins the stage; `durationMs` is filled once the NEXT stage starts (or the job
+ * settles), so an in-flight stage has `enteredAt` set and `durationMs` undefined.
+ */
+export interface StageTiming {
+  stage: Stage;
+  /** epoch ms the stage began */
+  enteredAt: number;
+  /** ms spent in the stage; undefined while the stage is still running */
+  durationMs?: number;
+}
+
+/**
+ * Fold an ordered list of stage-enter timestamps into StageTimings. `settledAt`
+ * closes the final stage (a terminal job); omit it to leave the last stage open
+ * (still running). Input must be in entry order — the worker records it that way.
+ */
+export function computeStageTimings(
+  enters: { stage: Stage; at: number }[],
+  settledAt?: number,
+): StageTiming[] {
+  return enters.map((e, i) => {
+    const end = i + 1 < enters.length ? enters[i + 1].at : settledAt;
+    return {
+      stage: e.stage,
+      enteredAt: e.at,
+      durationMs: end === undefined ? undefined : Math.max(0, end - e.at),
+    };
+  });
 }
