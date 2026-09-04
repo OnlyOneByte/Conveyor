@@ -6,6 +6,7 @@ import {
   dbListPrinters,
   dbUpsertPrinter,
   dbDeletePrinter,
+  dbGetPrinter,
   dbListProfiles,
   dbGetProfile,
   dbGetOrcaProfileDocuments,
@@ -18,6 +19,7 @@ import {
   type Printer,
 } from "@conveyor/shared/db";
 import { validatePrinterTransport, listTransports } from "../validate.js";
+import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
   readBundledOrcaDocuments,
@@ -118,6 +120,17 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.delete<{ Params: { id: string } }>("/catalog/printers/:id", async (req, reply) => {
     dbDeletePrinter(openDb(), req.params.id);
     return reply.code(200).send({ ok: true });
+  });
+
+  // Liveness probe: TCP-connect the printer's address. A monitoring view calls this
+  // to show reachability without a transport-specific health call or any secret.
+  // 404 for an unknown printer; otherwise 200 with the probe result (reachable may
+  // be false — that is a successful probe of an offline printer, not an error).
+  app.get<{ Params: { id: string } }>("/catalog/printers/:id/reachable", async (req, reply) => {
+    const printer = dbGetPrinter(openDb(), req.params.id);
+    if (!printer) return reply.code(404).send({ error: `unknown printer ${req.params.id}` });
+    const result = await probePrinter(printer.address, printer.transportId);
+    return reply.send(result);
   });
 
   // ── Transports (capability metadata for the Settings printer form) ──
