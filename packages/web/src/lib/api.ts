@@ -4,6 +4,7 @@ import type {
   JobState,
   OrcaEditableProfile,
   OrcaProfileDocuments,
+  StageTiming,
 } from "@conveyor/shared";
 
 export interface GeneratorSummary {
@@ -23,6 +24,8 @@ export interface JobStatusEvent {
   progress?: number;
   message?: string;
   error?: { stage: string; reason: string };
+  /** per-stage wall-clock so far; final stage open while running */
+  timings?: StageTiming[];
   at: number;
 }
 
@@ -77,6 +80,31 @@ export async function fetchJobSnapshot(jobId: string): Promise<JobStatusEvent | 
   if (!r.ok) throw new Error(`GET /jobs/${jobId} ${r.status}`);
   return r.json();
 }
+
+/** In-flight jobs (the worker's active set → each live snapshot), newest-first. */
+export async function fetchActiveJobs(fetchFn: typeof fetch = fetch): Promise<JobStatusEvent[]> {
+  const r = await fetchFn("/jobs/active");
+  if (!r.ok) throw new Error(`GET /jobs/active ${r.status}`);
+  return r.json();
+}
+
+/** Cancel a running/queued job (best-effort; the worker observes it cooperatively). */
+export async function cancelJob(jobId: string): Promise<void> {
+  const r = await fetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
+  if (!r.ok) throw new Error(`POST /jobs/${jobId}/cancel ${r.status}`);
+}
+
+export interface PrinterReachable {
+  reachable: boolean;
+  latencyMs?: number;
+  host: string;
+  port: number;
+  reason?: string;
+}
+
+/** TCP-connect liveness probe for one printer. */
+export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
+  getJson<PrinterReachable>(`/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
 // One tier: holding the password grants the whole app. No roles.
@@ -137,6 +165,7 @@ export interface JobHistoryEntry {
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
+  timings?: StageTiming[];
   createdAt: number;
   updatedAt: number;
 }
@@ -189,7 +218,7 @@ export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocumen
     documents,
   });
 
-export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=50", f);
+export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=200", f);
 
 /**
  * One settled job, or null when there is no such record. Deliberately NOT getJson():

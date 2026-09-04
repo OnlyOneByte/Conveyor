@@ -47,6 +47,18 @@
       <!-- Route is /history, not /jobs: the API owns the /jobs* namespace (submit,
            status, WS upgrade) and both the vite proxy and Caddy forward that whole
            prefix, so a page there would 404 on direct load. -->
+      <a href="/monitor" class="iconlink" aria-label="Monitor" title="Monitor">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+          <path
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 12h4l2.5-7 5 14 2.5-7H21"
+          />
+        </svg>
+      </a>
       <a href="/history" class="iconlink" aria-label="Job history" title="Job history">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
           <path

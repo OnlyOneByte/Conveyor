@@ -17,6 +17,8 @@
     type CatalogTransport,
   } from "$lib/api";
   import { rememberJob, updateJobState } from "$lib/recent-jobs";
+  import { takeRerun } from "$lib/rerun";
+  import { page } from "$app/stores";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -30,17 +32,34 @@
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    if (generators.length && printers.length && profiles.length) return;
-    const [g, pr, pf, tr] = await Promise.all([
-      fetchGenerators().catch(() => generators),
-      fetchCatalogPrinters().catch(() => printers),
-      fetchCatalogProfiles().catch(() => profiles),
-      fetchCatalogTransports().catch(() => transports),
-    ]);
-    generators = g;
-    printers = pr;
-    profiles = pf;
-    transports = tr;
+    if (!(generators.length && printers.length && profiles.length)) {
+      const [g, pr, pf, tr] = await Promise.all([
+        fetchGenerators().catch(() => generators),
+        fetchCatalogPrinters().catch(() => printers),
+        fetchCatalogProfiles().catch(() => profiles),
+        fetchCatalogTransports().catch(() => transports),
+      ]);
+      generators = g;
+      printers = pr;
+      profiles = pf;
+      transports = tr;
+    }
+
+    // "Run again" handoff: the job-detail page stashed a prior job's request and sent
+    // us here with ?rerun=1. Apply it AFTER the catalog is loaded so these selections
+    // win over the reactive defaults (which only fill empty selections). The referenced
+    // ids may no longer exist (a deleted printer/profile) — set them anyway; the
+    // eligibility filters below fall back to a valid default and the user just re-picks.
+    if ($page.url.searchParams.get("rerun")) {
+      const r = takeRerun();
+      if (r) {
+        source = "generate";
+        selectedGenId = r.generatorId;
+        selectedPrinterId = r.printerId;
+        selectedProfileId = r.profileId;
+        if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
+      }
+    }
   });
 
   // Only generators with a config form / preview belong in the "Generate" dropdown.
@@ -318,6 +337,7 @@
             schema={selectedGen.paramSchema}
             ui={selectedGen.ui ?? null}
             persistKey={selectedGen.id}
+            value={params}
             on:change={(e) => (params = e.detail)}
           />
         {/if}

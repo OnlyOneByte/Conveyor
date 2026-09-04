@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { stashRerun } from "$lib/rerun";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -26,6 +28,37 @@
       // selectable text either way, so this is a convenience, not the mechanism.
     }
   }
+
+  /**
+   * Re-run this job: stash its request and go to the home page, which reads the stash
+   * and pre-fills the submit form. It does NOT auto-submit — the user reviews (and can
+   * tweak) params first. A passthrough (uploaded STL) job cannot be re-run this way:
+   * its "params" reference an uploadId that no longer exists, so the button is hidden.
+   */
+  async function runAgain() {
+    if (!job) return;
+    stashRerun({
+      generatorId: job.request.generator.id,
+      params: job.request.generator.params,
+      printerId: job.request.printerId,
+      profileId: job.request.profileId,
+    });
+    await goto("/?rerun=1");
+  }
+
+  // Human duration for a persisted per-stage timing.
+  function fmtDuration(ms: number): string {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return rem ? `${m}m ${rem}s` : `${m}m`;
+  }
+  const STAGE_LABEL: Record<string, string> = {
+    generator: "Generating",
+    slicer: "Slicing",
+    transport: "Transferring",
+  };
 </script>
 
 <div class="page">
@@ -38,6 +71,11 @@
     <div class="idrow">
       <span class="mono id">{data.jobId}</span>
       <button class="ghost small" on:click={copyId}>{copied ? "Copied" : "Copy id"}</button>
+      {#if job && job.request.generator.id !== "passthrough" && job.request.printerId && job.request.profileId}
+        <button class="primary small" on:click={runAgain} title="Pre-fill the submit form with this job's settings">
+          Run again
+        </button>
+      {/if}
     </div>
 
     {#if !job}
@@ -75,20 +113,37 @@
         </div>
       {/if}
 
+      {#if job.timings && job.timings.length}
+        <h2>Timings</h2>
+        <dl class="facts">
+          {#each job.timings as t}
+            <dt>{STAGE_LABEL[t.stage] ?? t.stage}</dt>
+            <dd class="muted">{t.durationMs === undefined ? "—" : fmtDuration(t.durationMs)}</dd>
+          {/each}
+        </dl>
+      {/if}
+
       <h2>Parameters</h2>
       <pre class="mono block">{fmtParams(job.request.generator.params)}</pre>
 
       <h2>Artifacts</h2>
       {#if job.artifacts?.model || job.artifacts?.gcode}
-        <dl class="facts">
+        <div class="downloads">
           {#if job.artifacts.model}
-            <dt>Model</dt><dd class="mono wrap">{job.artifacts.model}</dd>
+            <a class="dl" href={`/jobs/${encodeURIComponent(data.jobId)}/artifact/model`} download>
+              ↓ Model (STL)
+            </a>
           {/if}
           {#if job.artifacts.gcode}
-            <dt>G-code</dt><dd class="mono wrap">{job.artifacts.gcode}</dd>
+            <a class="dl" href={`/jobs/${encodeURIComponent(data.jobId)}/artifact/gcode`} download>
+              ↓ G-code
+            </a>
           {/if}
-        </dl>
-        <p class="muted note">Paths on the server's data volume, not download links.</p>
+        </div>
+        <p class="muted note">
+          Downloads stream from the server's data volume. If a file has been reclaimed the
+          link returns "no longer on disk".
+        </p>
       {:else}
         <p class="muted">None recorded — the run did not get far enough to produce files.</p>
       {/if}
@@ -105,6 +160,19 @@
   .idrow { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
   .id { font-size: 0.9rem; word-break: break-all; }
   .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
+  .primary {
+    background: var(--accent); color: var(--bg); border: 1px solid var(--accent);
+    border-radius: var(--radius); cursor: pointer; font-weight: 600;
+  }
+  .primary:hover { background: var(--accent-hover, var(--accent)); }
+  .downloads { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
+  .dl {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.35rem 0.7rem; border-radius: var(--radius);
+    border: 1px solid var(--accent); color: var(--accent); text-decoration: none;
+    font-size: 0.85rem; transition: background 0.15s;
+  }
+  .dl:hover { background: var(--surface-2); }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
   .wrap { word-break: break-all; }
   .notfound { margin: 0.9rem 0 0; }
