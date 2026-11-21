@@ -23,16 +23,10 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
 | [M2-TRANSPORTS.md](M2-TRANSPORTS.md) | Moonraker and Elegoo transports |
 | [SLICER-PROFILES.md](SLICER-PROFILES.md) | How edited slicer profiles are validated |
+| [modules/shared.md](modules/shared.md) | `packages/shared`: the why behind its types, validation and SQLite store |
+| [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
 | [ui-mockup.html](ui-mockup.html) | The original UI mockup |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
-
-## Modules
-
-What used to be code comments: invariants, reasons and gotchas, one page per package.
-
-| Page | Covers |
-|---|---|
-| [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
 
 ## Decisions
 
