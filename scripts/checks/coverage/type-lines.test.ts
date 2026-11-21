@@ -79,14 +79,26 @@ describe("typeOnlyLines", () => {
     expect(lines("export type Done = () =>\n  void;\n")).toEqual([1, 2]);
   });
 
+  test("drops a line holding only a void annotation", () => {
+    const source = [
+      "export function run(",
+      "  done:",
+      "    void,",
+      "): number {",
+      "  return 1;",
+      "}",
+      "",
+    ].join("\n");
+    expect(lines(source)).toEqual([3]);
+  });
+
   test("drops every line a multi-line template literal type spans", () => {
-    const alias =
-      "export type Route = `/jobs/${string}\n/printers/${number}\n/end`;\nexport const a = 1;\n";
+    const alias = `export type Route = \`/jobs/\${string}\n/printers/\${number}\n/end\`;\nexport const a = 1;\n`;
     expect(lines(alias)).toEqual([1, 2, 3]);
     const parameter = [
       "export function go(",
-      "  route: `/jobs/${string}",
-      "/printers/${number}",
+      `  route: \`/jobs/\${string}`,
+      `/printers/\${number}`,
       "/end`,",
       "): string {",
       "  return route;",
