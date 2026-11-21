@@ -18,7 +18,7 @@ bun compare.ts --before /tmp/visual/before --after /tmp/visual/after
 - The api and worker run from source. The api gets `CONVEYOR_HOST=127.0.0.1`. Its default stays `0.0.0.0`, which compose sets explicitly.
 - The web app is built with `vite build` and served with `vite preview` on `127.0.0.1`, reusing the dev proxy config. Dev mode is not used: its lazy dependency optimisation reloads pages mid-scene.
 - Auth is off and the database lives in a temp directory, so every run starts clean.
-- On SIGINT, SIGTERM or an uncaught error the stack tears itself down once: it kills the api, worker and web processes, removes the Redis container and deletes the temp directory, then exits with 130, 143 or 1. A child still running 5 s after SIGTERM gets SIGKILL. A second signal during teardown exits at once. If any cleanup fails, such as `docker rm -f`, the run prints why and exits 1. The teardown lives in `teardown.ts`.
+- On SIGINT, SIGTERM or an uncaught error the stack tears itself down once: it kills the api, worker and web processes, removes the Redis container and deletes the temp directory, then exits with 130, 143 or 1. A child still running 5 s after SIGTERM gets SIGKILL. A second signal during teardown exits at once and prints what it may leave behind: the Redis container id, with the `docker rm -f` command that removes it, and the temp directory. If any cleanup fails, such as `docker rm -f`, the run prints why and exits 1. The teardown lives in `teardown.ts`.
 
 Pass `--url http://127.0.0.1:5173` to shoot an app you already run. `--only home,settings` limits the scenes, and `--verbose` streams service logs to stderr.
 
