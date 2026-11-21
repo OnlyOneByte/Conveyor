@@ -1,8 +1,9 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { serializeBaseline, totals } from "./comments/baseline";
-import { BASELINE_PATH, checkRatchet } from "./comments/ratchet";
+import { areaWrites, BASELINE_DIR, readAreas } from "./comments/areas";
+import { totals } from "./comments/baseline";
+import { checkRatchet } from "./comments/ratchet";
 import { commentLines, languageOf } from "./comments/tally";
 import { measure, type Tree, treeAt, workingTree } from "./comments/tree";
 
@@ -23,7 +24,11 @@ const update = (tree: Tree) => {
     return 1;
   }
   const current = measure(tree);
-  writeFileSync(join(ROOT, BASELINE_PATH), serializeBaseline(current));
+  mkdirSync(join(ROOT, BASELINE_DIR), { recursive: true });
+  for (const [path, text] of areaWrites(current, tree)) {
+    writeFileSync(join(ROOT, path), text);
+    console.log(`wrote ${path}`);
+  }
   const sum = totals(current);
   console.log(`wrote baseline: ${sum.comments} comment lines, ${sum.suppressions} suppressions`);
   return 0;
@@ -38,7 +43,7 @@ const check = (tree: Tree, baseRef: string) => {
   const { errors } = checkRatchet({
     current,
     present: new Set(tree.list()),
-    committed: tree.read(BASELINE_PATH),
+    committed: readAreas(tree),
     base: treeAt(ROOT, baseRef),
   });
   for (const error of errors) console.error(error);

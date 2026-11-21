@@ -51,12 +51,12 @@ Instead of a comment, in order: rename the symbol, extract a named function, enc
 test whose name states the rule, or write it in `docs/modules/<module>.md`.
 
 **How the ratchet works.** `scripts/checks/comments.ts` counts comment lines and suppressions per file and
-compares each file with the base branch's `scripts/checks/comments-baseline.json`. The `no-comments` check:
+compares each file with the base branch's `scripts/checks/comments/baseline/<area>.json` files (one per area: `api`, `worker`, `shared`, `web`, `plugins`, `repo`). The `no-comments` check:
 
 | You did | Result |
 |---|---|
 | Added a comment to any file | `added: …` and the check fails |
-| Removed comments | `baseline … is stale`: run `bun run check:comments:update` and commit the JSON |
+| Removed comments | `baseline … is stale`: run `bun run check:comments:update` and commit the area files it rewrites |
 | Raised a number in the baseline by hand | `baseline raised: …` and the check fails |
 
 Counts only go down. The target is 0 everywhere; then the check switches to `--strict`.
@@ -196,7 +196,7 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
-`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR
+`merge.sh` exempts `scripts/checks/comments/baseline/{api,worker,shared,web,plugins,repo}.json` and `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR
 that only lowers a baseline is not held. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that
