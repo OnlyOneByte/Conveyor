@@ -1,16 +1,3 @@
-/**
- * SQLite schema for Conveyor's durable store (docs/DATA-MODEL.md). Kept as a
- * single idempotent DDL string so the migration runner can apply it on every
- * boot — `CREATE TABLE IF NOT EXISTS` makes first-run and restart identical.
- *
- * NOTE: this schema declares no FOREIGN KEY constraints despite openDb() setting
- * PRAGMA foreign_keys = ON, so nothing at the database level ties the tables together.
- * Nothing needs it any more: a job stores the printer and profile ids it used, and
- * those are historical facts about a finished run — deleting a printer today must not
- * rewrite what a job printed on last week. Rows are therefore intentionally
- * independent, and the job history keeps ids that may no longer resolve (surfaced as
- * empty rather than invented). Money/time columns are epoch-ms integers.
- */
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS profiles (
   id                  TEXT PRIMARY KEY,
@@ -18,12 +5,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   name                TEXT NOT NULL,
   path                TEXT NOT NULL,
   gcode_flavor        TEXT NOT NULL,
-  -- Optional raw Orca documents. All three are written/cleared atomically;
-  -- NULL falls back to the immutable files under the bundled profile path.
   orca_machine_json   TEXT,
   orca_process_json   TEXT,
   orca_filament_json  TEXT,
-  -- Optional raw Prusa config.ini. NULL falls back to the bundled config.
   prusa_ini           TEXT,
   created_at          INTEGER NOT NULL
 );
@@ -34,7 +18,6 @@ CREATE TABLE IF NOT EXISTS printers (
   name                     TEXT NOT NULL,
   address                  TEXT NOT NULL,
   secrets_json             TEXT,
-  -- JSON array of generator ids this printer will accept; NULL = allow all.
   allowed_generators_json  TEXT,
   created_at               INTEGER NOT NULL
 );
@@ -50,8 +33,6 @@ CREATE TABLE IF NOT EXISTS jobs (
   error_json    TEXT,
   model_path    TEXT,
   gcode_path    TEXT,
-  -- JSON array of {stage, enteredAt, durationMs} captured as the worker ran; NULL for
-  -- pre-timing rows and for jobs that failed before entering any stage.
   timings_json  TEXT,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
