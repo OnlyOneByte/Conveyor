@@ -1,16 +1,15 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
-  BASELINE_PATH,
+  BASELINE_DIR,
+  baselineWrites,
   checkRatchet,
   parseBaseline,
-  raisedBaseline,
-  serializeBaseline,
   updateRefusal,
 } from "./ratchet";
-import { ROOT, readBase, readOrNull, runSweep, sources } from "./runner";
+import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
 import {
   mergeCoverage,
   nonBlankLines,
@@ -64,10 +63,11 @@ function update(summary: Summary): number {
     console.error(refusal);
     return 1;
   }
-  const path = join(ROOT, BASELINE_PATH);
-  const committed = parseBaseline(readOrNull(path) ?? "");
-  writeFileSync(path, serializeBaseline(raisedBaseline(percents(summary), committed)));
-  console.log(`wrote ${BASELINE_PATH}`);
+  mkdirSync(join(ROOT, BASELINE_DIR), { recursive: true });
+  for (const [path, text] of baselineWrites(percents(summary), readCommitted())) {
+    writeFileSync(join(ROOT, path), text);
+    console.log(`wrote ${path}`);
+  }
   return 0;
 }
 
@@ -79,12 +79,12 @@ function check(summary: Summary, ref: string): number {
   }
   const { errors } = checkRatchet({
     current: percents(summary),
-    committed: readOrNull(join(ROOT, BASELINE_PATH)),
+    committed: readCommitted(),
     base: base.baseline,
     baseHasChecker: base.hasChecker,
   });
   for (const error of errors) console.error(error);
-  if (base.baseline === null && !base.hasChecker) {
+  if (parseBaseline(base.baseline) === null && !base.hasChecker) {
     console.log(
       `base ${ref} predates the coverage checker; bootstrapping from the committed baseline`,
     );

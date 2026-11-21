@@ -2,8 +2,14 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Coverage, parseLcov } from "./lcov";
-import { BASELINE_PATH, CHECKER_PATH } from "./ratchet";
-import { isSource, SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
+import {
+  type BaselineTexts,
+  baselinePath,
+  CHECKER_PATH,
+  LEGACY_BASELINE_PATH,
+  legacyTexts,
+} from "./ratchet";
+import { isSource, PACKAGES, SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
 
 export const ROOT = join(import.meta.dir, "..", "..", "..");
 
@@ -72,8 +78,22 @@ export function runSweep(files: string[]): Sweep {
   }
 }
 
+const baselineTexts = (read: (path: string) => string | null): BaselineTexts =>
+  Object.fromEntries(PACKAGES.map((name) => [name, read(baselinePath(name))]));
+
+export const readCommitted = (root = ROOT) => baselineTexts((path) => readOrNull(join(root, path)));
+
+function readBaseTexts(ref: string, root: string): BaselineTexts | Error {
+  const show = (path: string) => git(root, ["show", `${ref}:${path}`]);
+  const texts = baselineTexts(show);
+  if (Object.values(texts).some((text) => text !== null)) return texts;
+  const legacy = show(LEGACY_BASELINE_PATH);
+  if (legacy === null) return texts;
+  return legacyTexts(legacy) ?? new Error(`base ${LEGACY_BASELINE_PATH} is not a valid baseline`);
+}
+
 export interface Base {
-  baseline: string | null;
+  baseline: BaselineTexts;
   hasChecker: boolean;
 }
 
@@ -81,8 +101,10 @@ export function readBase(ref: string, root = ROOT): Base | Error {
   if (git(root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) === null) {
     return new Error(`base ref ${ref} does not resolve; fetch it first`);
   }
+  const baseline = readBaseTexts(ref, root);
+  if (baseline instanceof Error) return baseline;
   return {
-    baseline: git(root, ["show", `${ref}:${BASELINE_PATH}`]),
+    baseline,
     hasChecker: git(root, ["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
   };
 }
