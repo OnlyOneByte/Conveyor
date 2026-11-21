@@ -19,7 +19,8 @@ export const req: JobRequest = { generator: { id: "gen" }, printerId: "p1", prof
 
 export function waitForAbort(signal: AbortSignal): Promise<never> {
   return new Promise((_, reject) => {
-    signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    if (signal.aborted) reject(new Error("aborted"));
+    else signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
   });
 }
 
@@ -36,6 +37,7 @@ export interface HarnessOptions {
   handleFor?: (target: PrinterTarget, ref: string) => PrintHandle;
   cancelRequested?: () => Promise<boolean>;
   cancelPollMs?: number;
+  streamCloseMs?: number;
 }
 
 export interface Harness {
@@ -156,7 +158,14 @@ export function harness(opts: HarnessOptions = {}): Harness {
     run: async () => {
       const workDir = await mkdtemp(join(tmpdir(), "conveyor-pipeline-"));
       return runJob(
-        { jobId: "job-1", req, workDir, controller: h.controller, cancelPollMs: opts.cancelPollMs },
+        {
+          jobId: "job-1",
+          req,
+          workDir,
+          controller: h.controller,
+          cancelPollMs: opts.cancelPollMs,
+          streamCloseMs: opts.streamCloseMs,
+        },
         deps,
       );
     },

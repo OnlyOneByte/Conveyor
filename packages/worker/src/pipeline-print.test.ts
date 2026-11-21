@@ -19,6 +19,7 @@ describe("runJob cancel while printing", () => {
 
   test("a status stream that ignores the signal still stops the printer", async () => {
     const h = harness({
+      streamCloseMs: 20,
       status: async function* () {
         yield { state: "printing", progress: 0.2 };
         setTimeout(() => h.controller.abort(), 5);
@@ -28,6 +29,7 @@ describe("runJob cancel while printing", () => {
     expect(await h.run()).toBe("canceled");
     expect(h.cancels).toHaveLength(1);
     expect(h.records[0].state).toBe("canceled");
+    expect(h.events.at(-1)?.message).toContain("did not close cleanly: timed out after 20 ms");
   });
 
   test("the durable flag is polled mid-print when the pub/sub message is lost", async () => {
@@ -35,14 +37,51 @@ describe("runJob cancel while printing", () => {
     const h = harness({
       cancelPollMs: 5,
       cancelRequested: async () => flag,
-      status: async function* () {
+      status: async function* (_handle, signal) {
         yield { state: "printing", progress: 0.3 };
         flag = true;
-        await never();
+        if (signal) await waitForAbort(signal);
       },
     });
     expect(await h.run()).toBe("canceled");
     expect(h.cancels).toHaveLength(1);
+  });
+
+  test("a failing cancel-flag poll settles the job failed with the reason", async () => {
+    let broken = false;
+    const h = harness({
+      cancelPollMs: 5,
+      cancelRequested: async () => {
+        if (broken) throw new Error("redis down");
+        return false;
+      },
+      status: async function* (_handle, signal) {
+        yield { state: "printing", progress: 0.3 };
+        broken = true;
+        if (signal) await waitForAbort(signal);
+      },
+    });
+    await expect(h.run()).rejects.toThrow("cancel-flag poll failed: redis down");
+    expect(h.records[0]).toEqual({
+      state: "failed",
+      reason: "cancel-flag poll failed: redis down",
+    });
+    expect(h.cancels).toHaveLength(0);
+  });
+
+  test("a status stream whose close rejects settles failed", async () => {
+    const h = harness({
+      status: () => ({
+        [Symbol.asyncIterator]: () => ({
+          next: async () => ({ done: false, value: { state: "done" } }),
+          return: async () => {
+            throw new Error("socket reset");
+          },
+        }),
+      }),
+    });
+    await expect(h.run()).rejects.toThrow("did not close cleanly: socket reset");
+    expect(h.records[0].state).toBe("failed");
   });
 
   test("a print that reports done before the cancel is processed stays done", async () => {

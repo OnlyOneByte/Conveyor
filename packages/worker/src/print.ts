@@ -9,9 +9,25 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { checkpoint, enterStage, type PrintAttempt, type Run, race } from "./run.js";
+import {
+  checkpoint,
+  enterStage,
+  failRun,
+  messageOf,
+  type PrintAttempt,
+  type Run,
+  race,
+} from "./run.js";
 
 const DEFAULT_CANCEL_POLL_MS = 2000;
+const DEFAULT_STREAM_CLOSE_MS = 5000;
+
+export class StreamCloseError extends StageError {
+  constructor(reason: string) {
+    super("transport", `status stream did not close cleanly: ${reason}`);
+    this.name = "StreamCloseError";
+  }
+}
 
 export type PrintOutcome = "done" | "canceled";
 
@@ -39,7 +55,8 @@ function pollCancelFlag(run: Run): () => void {
   const timer = setInterval(() => {
     void run.deps.cancelRequested().then(
       (requested) => requested && run.opts.controller.abort(),
-      () => {},
+      (err: unknown) =>
+        failRun(run, new StageError("transport", `cancel-flag poll failed: ${messageOf(err)}`)),
     );
   }, run.opts.cancelPollMs ?? DEFAULT_CANCEL_POLL_MS);
   return () => clearInterval(timer);
@@ -61,13 +78,32 @@ async function handleStatus(run: Run, status: PrintStatus): Promise<PrintOutcome
   return undefined;
 }
 
+async function closeStream(run: Run, statuses: AsyncIterator<PrintStatus>): Promise<void> {
+  if (!statuses.return) return;
+  const ms = run.opts.streamCloseMs ?? DEFAULT_STREAM_CLOSE_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const failure = await Promise.race([
+    statuses.return().then(
+      () => undefined,
+      (err: unknown) => messageOf(err),
+    ),
+    new Promise<string>((resolve) => {
+      timer = setTimeout(() => resolve(`timed out after ${ms} ms`), ms);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (failure !== undefined) throw new StreamCloseError(failure);
+}
+
 async function watchPrint(
   run: Run,
   transport: TransportPlugin,
   handle: PrintHandle,
 ): Promise<PrintOutcome> {
   const stopPolling = pollCancelFlag(run);
-  const statuses = transport.status(handle, run.signal)[Symbol.asyncIterator]();
+  const closing = new AbortController();
+  const signal = AbortSignal.any([run.signal, closing.signal]);
+  const statuses = transport.status(handle, signal)[Symbol.asyncIterator]();
   try {
     while (true) {
       const next = await race(run, statuses.next());
@@ -78,7 +114,8 @@ async function watchPrint(
     }
   } finally {
     stopPolling();
-    void statuses.return?.()?.catch(() => {});
+    closing.abort();
+    await closeStream(run, statuses);
   }
 }
 

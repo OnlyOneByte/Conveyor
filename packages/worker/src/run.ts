@@ -9,6 +9,7 @@ import {
   type Registry,
   type Stage,
   type StageCtx,
+  type StageError,
   type StageTiming,
   type TransportPlugin,
 } from "@conveyor/shared";
@@ -50,6 +51,7 @@ export interface RunJobOptions {
   workDir: string;
   controller: AbortController;
   cancelPollMs?: number;
+  streamCloseMs?: number;
 }
 
 export class JobCanceledError extends Error {
@@ -71,7 +73,7 @@ export interface Run {
   opts: RunJobOptions;
   deps: PipelineDeps;
   signal: AbortSignal;
-  aborted: Promise<never>;
+  halt: AbortController;
   ctx: StageCtx;
   stage: Stage;
   state: JobState;
@@ -85,13 +87,12 @@ export function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function abortPromise(signal: AbortSignal): Promise<never> {
-  const p = new Promise<never>((_, reject) => {
-    if (signal.aborted) reject(new JobCanceledError());
-    else signal.addEventListener("abort", () => reject(new JobCanceledError()), { once: true });
-  });
-  p.catch(() => {});
-  return p;
+function haltOn(signal: AbortSignal): AbortController {
+  const halt = new AbortController();
+  const cancel = () => halt.abort(new JobCanceledError());
+  if (signal.aborted) cancel();
+  else signal.addEventListener("abort", cancel, { once: true });
+  return halt;
 }
 
 export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
@@ -100,7 +101,7 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
     opts,
     deps,
     signal,
-    aborted: abortPromise(signal),
+    halt: haltOn(signal),
     stage: "generator",
     state: "generating",
     enters: [],
@@ -116,8 +117,18 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
   return run;
 }
 
+export function failRun(run: Run, err: StageError): void {
+  if (!run.halt.signal.aborted) run.halt.abort(err);
+}
+
 export function race<T>(run: Run, p: Promise<T>): Promise<T> {
-  return Promise.race([p, run.aborted]);
+  const halt = run.halt.signal;
+  return new Promise<T>((resolve, reject) => {
+    const onHalt = () => reject(halt.reason);
+    p.then(resolve, reject).finally(() => halt.removeEventListener("abort", onHalt));
+    if (halt.aborted) onHalt();
+    else halt.addEventListener("abort", onHalt, { once: true });
+  });
 }
 
 export async function checkpoint(run: Run): Promise<void> {

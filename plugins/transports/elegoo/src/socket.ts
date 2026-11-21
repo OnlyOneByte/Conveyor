@@ -43,9 +43,7 @@ export function sendCommand(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        ws.close();
-      } catch {}
+      ws.close();
       if (err) reject(err);
       else resolve();
     };
@@ -120,7 +118,5 @@ export async function* streamStatus(
     if (queue.length === 0) await new Promise<void>((r) => (wake = r));
     for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
   }
-  try {
-    ws.close();
-  } catch {}
+  ws.close();
 }
