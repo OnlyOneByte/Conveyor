@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { epochMs } from "../db/epoch-ms.js";
 import type { JobRequest, JobState } from "../job.js";
+import { appendEvent } from "./event-log.js";
 
 export const IN_FLIGHT_STATES = ["generating", "slicing", "transferring", "printing"] as const;
 export const IN_FLIGHT_SQL = IN_FLIGHT_STATES.map((state) => `'${state}'`).join(", ");
@@ -45,13 +46,15 @@ export function enqueueJob(
   job: { id: string; request: JobRequest },
   timing: QueueTiming = DEFAULT_TIMING,
 ): void {
-  const at = timing.now();
   const { generator, printerId, profileId } = job.request;
   const params = generator.params === undefined ? null : JSON.stringify(generator.params);
-  db.query(
-    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, run_after, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?)`,
-  ).run(job.id, generator.id, params, printerId, profileId, at, at, at);
+  inImmediate(db, timing.now, (at) => {
+    db.query(
+      `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, run_after, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?)`,
+    ).run(job.id, generator.id, params, printerId, profileId, at, at, at);
+    appendEvent(db, { jobId: job.id, state: "queued", at });
+  });
 }
 
 interface ClaimRow {
