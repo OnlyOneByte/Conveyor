@@ -38,6 +38,12 @@ If `check:coverage` says a package is 0.5 or more above the committed baseline, 
 `bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json`. If it says `dropped below
 base`, add the tests that cover what you changed.
 
+The coverage denominator is every `.ts`/`.js` file in `packages/api`, `worker`, `shared` and `plugins/*/*`.
+Only real tests leave it: a `*.test.ts` or `*.spec.ts` file that calls `test`, `it` or `describe`, and the
+declared helper folder `packages/shared/test/helpers/`. A module named `*.spec.ts` or kept in a `test/` folder
+still counts. The sweep that maps never-imported files fails an import that hangs for 30 s; set
+`CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
+
 ## The PR flow
 
 1. **Issue.** Find or open the issue the change answers.

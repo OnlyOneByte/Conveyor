@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import type { Coverage } from "./lcov";
 import {
+  DEFAULT_SWEEP_TIMEOUT_MS,
+  isSource,
+  isTestFile,
   mergeCoverage,
   nonBlankLines,
   packageOf,
   percents,
+  SWEEP_TIMEOUT_ENV,
   summarize,
   sweepErrors,
+  sweepTimeoutMs,
+  TEST_HELPER_DIRS,
 } from "./summary";
 
 describe("sweepErrors", () => {
@@ -31,23 +37,71 @@ const lcov = (entries: Record<string, [number, number][]>): Coverage =>
 describe("coverage merge", () => {
   test("classifies only package sources", () => {
     expect(packageOf("packages/api/src/routes/jobs.ts")).toBe("api");
-    expect(packageOf("packages/api/src/auth.test.ts")).toBeNull();
     expect(packageOf("packages/web/src/app.ts")).toBeNull();
-    expect(packageOf("packages/shared/test/helpers/db.ts")).toBeNull();
     expect(packageOf("plugins/slicers/orca/src/index.ts")).toBe("plugins");
-    expect(packageOf("plugins/slicers/orca/src/index.test.ts")).toBeNull();
     expect(packageOf("packages/plugins/src/x.ts")).toBeNull();
-  });
-
-  test("a file moved out of src or renamed to spec style keeps or leaves the metric honestly", () => {
     expect(packageOf("packages/api/lib/moved.ts")).toBe("api");
     expect(packageOf("plugins/slicers/orca/lib/index.ts")).toBe("plugins");
-    expect(packageOf("packages/api/src/auth.spec.ts")).toBeNull();
-    expect(packageOf("plugins/slicers/orca/test/fake.ts")).toBeNull();
     expect(packageOf("packages/api/src/types.d.ts")).toBeNull();
     expect(packageOf("packages/api/src/data.json")).toBeNull();
   });
+});
 
+const MODULE = "export const total = (items: number[]) => items.length;\n";
+
+const SUITE = 'import { test } from "bun:test";\ntest("adds", () => {});\n';
+
+describe("isSource", () => {
+  test("a spec or test file that calls test, it or describe is a test, not source", () => {
+    expect(isSource("packages/api/src/auth.test.ts", () => SUITE)).toBe(false);
+    expect(isSource("packages/api/src/auth.spec.ts", () => SUITE)).toBe(false);
+    expect(
+      isSource("plugins/slicers/orca/src/index.spec.ts", () => "it('slices', () => {});\n"),
+    ).toBe(false);
+    expect(
+      isSource("packages/worker/src/run.test.ts", () => "describe.each([1])('x', () => {});\n"),
+    ).toBe(false);
+  });
+
+  test("a module named like a spec but without test calls counts", () => {
+    expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
+    expect(
+      isSource("packages/api/src/submit.spec.ts", () => "export const submit = () => split();\n"),
+    ).toBe(true);
+  });
+
+  test("a module in a package test folder outside the declared helpers counts", () => {
+    expect(isSource("plugins/slicers/orca/test/fake.ts", () => MODULE)).toBe(true);
+    expect(isSource("packages/api/test/server.ts", () => MODULE)).toBe(true);
+  });
+
+  test("the declared test helper folder is excluded whatever it contains", () => {
+    expect(TEST_HELPER_DIRS).toEqual(["packages/shared/test/helpers/"]);
+    expect(isSource("packages/shared/test/helpers/db.ts", () => MODULE)).toBe(false);
+    expect(isTestFile("packages/shared/test/helpers/db.ts", MODULE)).toBe(true);
+  });
+});
+
+describe("sweepTimeoutMs", () => {
+  test("defaults to thirty seconds", () => {
+    expect(DEFAULT_SWEEP_TIMEOUT_MS).toBe(30_000);
+    expect(sweepTimeoutMs({})).toBe(30_000);
+    expect(sweepTimeoutMs({ [SWEEP_TIMEOUT_ENV]: "" })).toBe(30_000);
+  });
+
+  test("reads a positive millisecond count from the environment", () => {
+    expect(SWEEP_TIMEOUT_ENV).toBe("CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS");
+    expect(sweepTimeoutMs({ [SWEEP_TIMEOUT_ENV]: "5000" })).toBe(5000);
+  });
+
+  test("rejects a value that is not a positive integer", () => {
+    for (const raw of ["0", "-1", "1.5", "soon"]) {
+      expect(sweepTimeoutMs({ [SWEEP_TIMEOUT_ENV]: raw })).toBeInstanceOf(Error);
+    }
+  });
+});
+
+describe("coverage totals", () => {
   const A = "packages/api/src/a.ts";
   const B = "packages/api/src/b.ts";
   const C = "packages/worker/src/c.ts";

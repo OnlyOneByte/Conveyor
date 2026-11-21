@@ -1,9 +1,13 @@
 import { mock, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
+import { SWEEP_ENV, SWEEP_REPORT_ENV, sweepTimeoutMs } from "./summary";
 
 const ROOT = join(import.meta.dir, "..", "..", "..");
+
+const timeoutMs = sweepTimeoutMs(process.env);
+
+if (timeoutMs instanceof Error) throw timeoutMs;
 
 function target() {
   return undefined;
@@ -41,14 +45,18 @@ process.exit = (code?: number | string | null) => {
   throw new ExitDuringImport(`process.exit(${String(code)}) during import`);
 };
 
-test("loads every source file so coverage can map its lines", async () => {
-  const failed: string[] = [];
-  for (const file of files) {
-    await import(resolve(ROOT, file)).catch((error: unknown) => {
-      console.error(`sweep could not load ${file}: ${String(error)}`);
-      failed.push(file);
-    });
-  }
-  const report = process.env[SWEEP_REPORT_ENV];
-  if (report) writeFileSync(report, JSON.stringify({ completed: true, failed }));
-}, 120_000);
+test(
+  "loads every source file so coverage can map its lines",
+  async () => {
+    const failed: string[] = [];
+    for (const file of files) {
+      await import(resolve(ROOT, file)).catch((error: unknown) => {
+        console.error(`sweep could not load ${file}: ${String(error)}`);
+        failed.push(file);
+      });
+    }
+    const report = process.env[SWEEP_REPORT_ENV];
+    if (report) writeFileSync(report, JSON.stringify({ completed: true, failed }));
+  },
+  timeoutMs,
+);

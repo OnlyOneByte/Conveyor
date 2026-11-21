@@ -8,11 +8,19 @@ export const PACKAGES = ["api", "worker", "shared", "plugins"] as const;
 
 export type PackageName = (typeof PACKAGES)[number];
 
+export const SWEEP_TIMEOUT_ENV = "CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS";
+
+export const DEFAULT_SWEEP_TIMEOUT_MS = 30_000;
+
 const CODE = /\.(ts|tsx|mts|cts|js|mjs)$/;
 
-const NOT_SOURCE = /(\.(test|spec)\.[^.]+$|\.d\.ts$)/;
+const DECLARATION = /\.d\.ts$/;
 
-const TEST_HELPERS = /^(packages\/[^/]+|plugins\/[^/]+\/[^/]+)\/test\//;
+const TEST_NAME = /\.(test|spec)\.ts$/;
+
+const TEST_CALL = /\b(test|it|describe)(\.\w+)*\s*\(/;
+
+export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/"];
 
 const asPackage = (name: string | undefined): PackageName | null =>
   PACKAGES.find((known) => known === name) ?? null;
@@ -24,11 +32,24 @@ const rawPackageOf = (path: string): PackageName | null => {
 };
 
 export function packageOf(path: string): PackageName | null {
-  if (!CODE.test(path) || NOT_SOURCE.test(path) || TEST_HELPERS.test(path)) return null;
+  if (!CODE.test(path) || DECLARATION.test(path)) return null;
   return rawPackageOf(path);
 }
 
-export const isSource = (path: string) => packageOf(path) !== null;
+export const isTestFile = (path: string, text: string) =>
+  TEST_HELPER_DIRS.some((dir) => path.startsWith(dir)) ||
+  (TEST_NAME.test(path) && TEST_CALL.test(text));
+
+export const isSource = (path: string, read: () => string) =>
+  packageOf(path) !== null && !isTestFile(path, read());
+
+export function sweepTimeoutMs(env: Record<string, string | undefined>): number | Error {
+  const raw = env[SWEEP_TIMEOUT_ENV];
+  if (raw === undefined || raw === "") return DEFAULT_SWEEP_TIMEOUT_MS;
+  const value = Number(raw);
+  if (Number.isInteger(value) && value > 0) return value;
+  return new Error(`${SWEEP_TIMEOUT_ENV} must be a positive integer of milliseconds, got ${raw}`);
+}
 
 export interface MergeInput {
   sources: string[];

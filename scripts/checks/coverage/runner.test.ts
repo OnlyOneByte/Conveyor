@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { BASELINE_PATH, CHECKER_PATH } from "./ratchet";
-import { readBase, runSweep } from "./runner";
+import { readBase, runSweep, sources } from "./runner";
+import { SWEEP_TIMEOUT_ENV } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
 
@@ -38,6 +39,24 @@ describe("runSweep", () => {
       const killer = fixture("killer.ts", 'process.kill(process.pid, "SIGKILL");\n');
       const sweep = runSweep([killer]);
       expect(sweep.completed).toBe(false);
+    },
+    SLOW,
+  );
+
+  test(
+    "a hanging import fails the sweep once the configured timeout passes",
+    () => {
+      const hangs = fixture("hangs.ts", "await new Promise(() => {});\n");
+      const previous = process.env[SWEEP_TIMEOUT_ENV];
+      process.env[SWEEP_TIMEOUT_ENV] = "500";
+      const started = performance.now();
+      try {
+        expect(runSweep([hangs]).completed).toBe(false);
+      } finally {
+        if (previous === undefined) delete process.env[SWEEP_TIMEOUT_ENV];
+        else process.env[SWEEP_TIMEOUT_ENV] = previous;
+      }
+      expect(performance.now() - started).toBeLessThan(SLOW / 2);
     },
     SLOW,
   );
@@ -85,5 +104,27 @@ describe("readBase", () => {
   test("an unresolvable base ref is an error", () => {
     const root = repo({ "README.md": "x\n" });
     expect(readBase("no-such-ref", root)).toBeInstanceOf(Error);
+  });
+});
+
+describe("sources", () => {
+  test("lists non-test spec and test-folder modules, not suites or declared helpers", () => {
+    const suite = 'import { test } from "bun:test";\ntest("x", () => {});\n';
+    const module = "export const one = 1;\n";
+    const root = repo({
+      "packages/api/src/app.ts": module,
+      "packages/api/src/app.test.ts": suite,
+      "packages/api/src/openapi.spec.ts": module,
+      "packages/api/src/routes.spec.ts": suite,
+      "packages/api/test/server.ts": module,
+      "packages/shared/test/helpers/db.ts": module,
+      "plugins/slicers/orca/test/fake.ts": module,
+    });
+    expect(sources(root).sort()).toEqual([
+      "packages/api/src/app.ts",
+      "packages/api/src/openapi.spec.ts",
+      "packages/api/test/server.ts",
+      "plugins/slicers/orca/test/fake.ts",
+    ]);
   });
 });

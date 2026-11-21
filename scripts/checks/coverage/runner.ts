@@ -17,7 +17,9 @@ const git = (root: string, args: string[]) => {
 export const readOrNull = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : null);
 
 export const sources = (root = ROOT) =>
-  (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "").split("\0").filter(isSource);
+  (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
+    .split("\0")
+    .filter((path) => isSource(path, () => readOrNull(join(root, path)) ?? ""));
 
 export interface Sweep {
   coverage: Coverage;
