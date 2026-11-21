@@ -73,6 +73,11 @@ describe("svelte comments", () => {
     expect(svelte("<!-- svelte-ignore a11y-autofocus -->\n<input autofocus />\n")).toEqual([]);
   });
 
+  test("ignores markers in string expressions and CSS content", () => {
+    const src = '<p>{"// no"}</p>\n<style>\n  p::after { content: "/* */"; }\n</style>\n';
+    expect(svelte(src)).toEqual([]);
+  });
+
   test("counts JS comments inside markup expressions only", () => {
     const src = [
       "<button",
