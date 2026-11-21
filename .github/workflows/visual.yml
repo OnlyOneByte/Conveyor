@@ -1,0 +1,168 @@
+name: Visual evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/web/**"
+      - "tools/visual/**"
+      - ".github/workflows/visual.yml"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: visual-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: visual
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      OUT: ${{ github.workspace }}/visual-out
+      SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          path: head
+          persist-credentials: false
+
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: base
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-visual-${{ runner.os }}-${{ hashFiles('head/bun.lock', 'base/bun.lock', 'head/tools/visual/bun.lock') }}
+          restore-keys: bun-visual-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          (cd head && bun install --frozen-lockfile)
+          (cd base && bun install --frozen-lockfile)
+          (cd head/tools/visual && bun install --frozen-lockfile)
+
+      - name: Typecheck and test visual tooling
+        working-directory: head/tools/visual
+        run: |
+          bun run typecheck
+          bun test
+
+      - name: Install Chromium
+        working-directory: head/tools/visual
+        run: bunx playwright install --with-deps chromium
+
+      - name: Capture base
+        id: before
+        continue-on-error: true
+        run: bun head/tools/visual/capture.ts --root base --out "$OUT/before"
+
+      - name: Capture head
+        id: after
+        continue-on-error: true
+        run: bun head/tools/visual/capture.ts --root head --out "$OUT/after"
+
+      - name: Publish to pr-assets
+        id: publish
+        if: env.SAME_REPO == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/assets"
+          mkdir -p "$dir" && cd "$dir"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          remote="https://github.com/$REPO.git"
+          stage() {
+            if git -c http.extraheader="$auth" fetch -q --depth 1 "$remote" pr-assets 2>/dev/null; then
+              git checkout -q -B pr-assets FETCH_HEAD
+            else
+              git checkout -q --orphan pr-assets
+              git rm -rq --cached . 2>/dev/null || true
+            fi
+            rm -rf "pr-$PR"
+            mkdir -p "pr-$PR"
+            for side in before after; do
+              if [ -d "$OUT/$side" ]; then cp -r "$OUT/$side" "pr-$PR/$side"; fi
+            done
+            git add -A "pr-$PR"
+            git commit -q --allow-empty -m "pr-$PR: ${BASE_SHA::7} -> ${HEAD_SHA::7}"
+          }
+          for attempt in 1 2 3 4 5; do
+            stage
+            if git -c http.extraheader="$auth" push -q "$remote" HEAD:refs/heads/pr-assets; then
+              echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep $((attempt * 3))
+          done
+          exit 1
+
+      - name: Build comparison
+        env:
+          REPO: ${{ github.repository }}
+          ASSETS_SHA: ${{ steps.publish.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${ASSETS_SHA:-}" ]; then
+            raw="https://raw.githubusercontent.com/$REPO/$ASSETS_SHA/pr-$PR"
+            args+=(--before-url "$raw/before" --after-url "$raw/after")
+          fi
+          footer="base \`${BASE_SHA::7}\` (capture: ${{ steps.before.outcome }}) → head \`${HEAD_SHA::7}\` (capture: ${{ steps.after.outcome }}) · stub mode · [run]($RUN_URL)"
+          bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \
+            --title "Visual changes" --footer "$footer" --out "$OUT/comment.md" "${args[@]}"
+          cat "$OUT/comment.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post sticky comment
+        if: env.SAME_REPO == 'true' && steps.publish.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- conveyor-visual -->"))) | .id' | head -n1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$OUT/comment.md" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$OUT/comment.md" > /dev/null
+          fi
+
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-pr-${{ env.PR }}
+          path: ${{ env.OUT }}
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Require head capture
+        if: steps.after.outcome != 'success'
+        run: |
+          echo "::error::Head capture failed; see the Capture head step and the visual artifact."
+          exit 1
