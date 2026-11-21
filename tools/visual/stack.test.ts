@@ -20,4 +20,14 @@ describe("stackEnv", () => {
     expect(env.CONVEYOR_AUTH).toBe("disabled");
     expect(env.CONVEYOR_HOST).toBe("127.0.0.1");
   });
+
+  test("points REDIS_URL at the stack's own Redis even when the runner sets one", () => {
+    const env = stackEnv({ REDIS_URL: "redis://prod.example:6379" }, opts);
+    expect(env.REDIS_URL).toBe("redis://127.0.0.1:6379");
+  });
+
+  test("pins the engines to stub mode", () => {
+    const env = stackEnv({ CONVEYOR_ENGINE_STUB: "0" }, opts);
+    expect(env.CONVEYOR_ENGINE_STUB).toBe("1");
+  });
 });

@@ -43,7 +43,6 @@ async function waitHttp(url: string, timeoutMs: number, proc?: Subprocess): Prom
 }
 
 async function startRedis(log: Log): Promise<{ url: string; stop: () => Promise<void> }> {
-  if (process.env.REDIS_URL) return { url: process.env.REDIS_URL, stop: async () => {} };
   const port = await freePort();
   const run = Bun.spawnSync([
     "docker",
