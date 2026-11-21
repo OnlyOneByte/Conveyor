@@ -30,7 +30,7 @@ Work from a fresh `origin/main`. Every item is checked or written down as a find
 6. **Rules vs CI.** The check table in `AGENTS.md` matches the job names in `.github/workflows/ci.yml`, and
    each `[CI]` tag points at a check that really enforces it. A `[review]` rule that is now enforced becomes
    `[CI]`.
-7. **Rules vs rubric.** `AGENTS.md` limits and conventions agree with the reviewer's `RUBRIC.md`.
+7. **Rules vs rubric.** `AGENTS.md` limits and conventions agree with [review-rubric.md](review-rubric.md), and that page is still a verbatim copy of the reviewer kit's `RUBRIC.md`.
 8. **ADRs.** Every merged decision with alternatives since the last audit (new dependency, pattern or major
    upgrade) has an ADR, and superseded ADRs say so in their status line.
 9. **Modules.** Every package has a `docs/modules/<package>.md` once that section exists, and prose moved out

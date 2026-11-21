@@ -8,6 +8,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 |---|---|
 | [../AGENTS.md](../AGENTS.md) | Engineering rules for every contributor, human or agent |
 | [contributing.md](contributing.md) | Setup, local checks and the PR flow |
+| [review-rubric.md](review-rubric.md) | The adversarial reviewer's rubric and severity levels |
 | [architecture.md](architecture.md) | The system as built today: services, packages, a job's trip |
 | [self-hosting.md](self-hosting.md) | Install, upgrade, backup and troubleshooting |
 
@@ -22,6 +23,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
 | [M2-TRANSPORTS.md](M2-TRANSPORTS.md) | Moonraker and Elegoo transports |
 | [ui-mockup.html](ui-mockup.html) | The original UI mockup |
+| [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 
 ## Decisions
 
@@ -33,6 +35,7 @@ experiment) gets one. Take the next free number.
 |---|---|
 | [0001](adr/0001-plugin-isolation.md) | Plugins are in-process adapters; engines run out of process |
 | [0002](adr/0002-dual-model-preview.md) | Procedural client preview plus an exact server model |
+| [0003](adr/0003-visual-evidence.md) | Visual evidence captured automatically for UI pull requests |
 
 ## Keeping docs true
 

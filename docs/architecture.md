@@ -39,6 +39,7 @@ flowchart LR
 | `plugins/generators/*` | shared | `gridfinity` (OpenSCAD over the `scad/` submodule), `passthrough` (uploaded STL) |
 | `plugins/slicers/*` | shared | `orca`, `prusa` (headless CLIs) |
 | `plugins/transports/*` | shared | `moonraker` (Klipper HTTP), `elegoo` (LAN discovery + WebSocket) |
+| `tools/visual` | standalone | Captures screenshots and GIFs of the stub-mode stack for UI PRs ([ADR 0003](adr/0003-visual-evidence.md)) |
 
 Contracts are in [PLUGINS.md](PLUGINS.md).
 

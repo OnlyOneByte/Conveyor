@@ -44,12 +44,14 @@ commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the 
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
 6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments` and the three Docker builds.
-7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`. Fix or rebut every `[S0]` and
+7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`, following
+   [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
    `[S1]` finding, then push; the reviewer re-reviews the new head.
-8. **Merge.** Squash auto-merge lands the PR once every required check and the review status are green on
+8. **Merge.** The merge tooling squash-merges once every required check and the review status are green on
    the same head. `do-not-merge` stops it; `large-ok` (owner only) allows a diff over 800 lines.
 
 ## Changing the rules
 
-Edit `AGENTS.md`, `biome.json`, `tsconfig*.json` or `scripts/checks/**` in its own PR. CODEOWNERS routes it
-to the owner. A rule can get stricter in any PR; it gets looser only with the owner's approval.
+Guardrail paths (`.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
+`biome.jsonc`, `tsconfig*.json`, `bunfig.toml`) change in their own PR. The merge tooling holds such a PR
+until it has had at least 2 adversarial review rounds; GitHub itself does not enforce this.
