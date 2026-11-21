@@ -4,22 +4,45 @@ function columnsOf(db: Database, table: string): string[] {
   return (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
 }
 
-function indexAndTriggerSqlOf(db: Database, table: string): string[] {
+interface SchemaObject {
+  type: "index" | "trigger";
+  name: string;
+  sql: string;
+}
+
+const NAMES_STATION_ID = /\bstation_id\b/i;
+
+function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
   return db
-    .query<{ sql: string }, [string]>(
-      "SELECT sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND tbl_name = ? AND sql IS NOT NULL ORDER BY type = 'trigger'",
+    .query<SchemaObject, [string]>(
+      "SELECT type, name, sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND tbl_name = ? AND sql IS NOT NULL ORDER BY type = 'trigger'",
     )
-    .all(table)
-    .map((row) => row.sql);
+    .all(table);
+}
+
+function isStationTrigger(object: SchemaObject): boolean {
+  return object.type === "trigger" && NAMES_STATION_ID.test(object.sql);
+}
+
+function droppedTriggerKey(name: string): string {
+  return `dropped_trigger:${name}`;
+}
+
+function warnDroppedTrigger(name: string): void {
+  console.warn(
+    `migration dropped trigger ${name} on jobs: it references jobs.station_id, which the migration removes; its SQL is kept in meta under ${droppedTriggerKey(name)}`,
+  );
 }
 
 export function migrate(db: Database): void {
+  db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+
   if (columnsOf(db, "jobs").includes("station_id")) {
     const hasStations = columnsOf(db, "stations").length > 0;
     const stationColumnOrNull = (col: string) =>
       hasStations ? `(SELECT s.${col} FROM stations s WHERE s.id = j.station_id)` : "NULL";
-    db.transaction(() => {
-      const dependents = indexAndTriggerSqlOf(db, "jobs");
+    const droppedTriggers = db.transaction(() => {
+      const dependents = indexesAndTriggersOf(db, "jobs");
       db.exec(`CREATE TABLE jobs_migrated (
         id            TEXT PRIMARY KEY,
         generator_id  TEXT NOT NULL,
@@ -42,8 +65,16 @@ export function migrate(db: Database): void {
         FROM jobs j`);
       db.exec("DROP TABLE jobs");
       db.exec("ALTER TABLE jobs_migrated RENAME TO jobs");
-      for (const sql of dependents) db.exec(sql);
+      const stationTriggers = dependents.filter(isStationTrigger);
+      for (const object of dependents.filter((dependent) => !isStationTrigger(dependent))) {
+        db.exec(object.sql);
+      }
+      const keepSql = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
+      for (const trigger of stationTriggers)
+        keepSql.run(droppedTriggerKey(trigger.name), trigger.sql);
+      return stationTriggers;
     })();
+    for (const trigger of droppedTriggers) warnDroppedTrigger(trigger.name);
   }
 
   if (!columnsOf(db, "printers").includes("allowed_generators_json")) {
@@ -67,6 +98,4 @@ export function migrate(db: Database): void {
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");
   }
-
-  db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 }
