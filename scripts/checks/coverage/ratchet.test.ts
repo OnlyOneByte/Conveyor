@@ -1,16 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import {
-  BASELINE_PATH,
+  BASELINE_DIR,
+  type BaselineTexts,
+  baselinePath,
+  baselineWrites,
   CHECKER_PATH,
   checkRatchet,
+  legacyTexts,
   type Percents,
   parseBaseline,
   raisedBaseline,
-  serializeBaseline,
+  serializePercent,
   updateRefusal,
 } from "./ratchet";
 
-const json = (lines: Percents) => serializeBaseline({ lines });
+const json = (lines: Percents): BaselineTexts =>
+  Object.fromEntries(Object.entries(lines).map(([name, value]) => [name, serializePercent(value)]));
 
 const all = (value: number): Percents => ({
   api: value,
@@ -29,8 +34,8 @@ interface Case {
 const run = ({ current, committed, base, baseHasChecker }: Case) =>
   checkRatchet({
     current,
-    committed: committed === null ? null : json(committed ?? current),
-    base: base === null || base === undefined ? null : json(base),
+    committed: committed === null ? {} : json(committed ?? current),
+    base: base === null || base === undefined ? {} : json(base),
     baseHasChecker: baseHasChecker ?? (base !== null && base !== undefined),
   });
 
@@ -83,13 +88,13 @@ describe("checkRatchet", () => {
   test("fails when the base has the checker but its baseline is missing", () => {
     const { errors } = run({ current: all(1), base: null, baseHasChecker: true });
     expect(errors).toEqual([
-      `base has ${CHECKER_PATH} but no ${BASELINE_PATH}; refusing to bootstrap`,
+      `base has ${CHECKER_PATH} but no ${BASELINE_DIR}/; refusing to bootstrap`,
     ]);
   });
 
   test("fails without a committed baseline", () => {
     expect(run({ current: all(1), committed: null }).errors).toEqual([
-      `${BASELINE_PATH} is missing`,
+      `${BASELINE_DIR}/ is missing`,
     ]);
   });
 
@@ -97,16 +102,16 @@ describe("checkRatchet", () => {
     const result = checkRatchet({
       current: all(1),
       committed: json(all(1)),
-      base: "{}",
+      base: { ...json(all(1)), api: "{}" },
       baseHasChecker: true,
     });
-    expect(result.errors).toEqual([`base ${BASELINE_PATH} is not a valid baseline`]);
+    expect(result.errors).toEqual([`base ${baselinePath("api")} is not a valid baseline`]);
   });
 
   test("fails when a package is missing from the committed baseline", () => {
     const committed = { api: 10, worker: 10, shared: 10 };
     const { errors } = run({ current: all(10), committed, base: null });
-    expect(errors).toEqual([`plugins: ${BASELINE_PATH} has no entry`]);
+    expect(errors).toEqual([`plugins: ${baselinePath("plugins")} is missing`]);
   });
 
   test("fails when coverage rises half a point above an unraised baseline", () => {
@@ -136,14 +141,47 @@ describe("updateRefusal", () => {
 });
 
 describe("baseline files", () => {
-  test("round-trip and reject out-of-range values", () => {
-    expect(parseBaseline(json(all(12.345)))).toEqual({ lines: all(12.35) });
-    expect(parseBaseline('{"lines":{"api":101}}')).toBeNull();
-    expect(parseBaseline("not json")).toBeNull();
+  test("each package lives in its own file holding one number", () => {
+    expect(baselinePath("api")).toBe("scripts/checks/coverage/baseline/api.json");
+    expect(serializePercent(12.345)).toBe("12.35\n");
+    expect(parseBaseline({ api: "12.35\n", worker: null })).toEqual({ lines: { api: 12.35 } });
+    expect(parseBaseline({ api: null })).toBeNull();
+  });
+
+  test("reject a file that is not a percent", () => {
+    for (const text of ["101", "-1", '"40"', '{"lines":{"api":40}}', "not json"]) {
+      expect(parseBaseline({ api: text })).toBe(`${baselinePath("api")} is not a valid baseline`);
+    }
+  });
+
+  test("a legacy single-file baseline splits into per-package texts", () => {
+    const legacy = JSON.stringify({ lines: { api: 35.51, worker: 79, shared: 82.69 } });
+    expect(legacyTexts(legacy)).toEqual({
+      api: "35.51\n",
+      worker: "79\n",
+      shared: "82.69\n",
+      plugins: null,
+    });
+    expect(legacyTexts('{"lines":{"api":101}}')).toBeNull();
+    expect(legacyTexts("not json")).toBeNull();
   });
 
   test("an update only ever raises the floor", () => {
     const committed = { lines: { ...all(10), api: 50 } };
     expect(raisedBaseline(all(20), committed)).toEqual({ lines: { ...all(20), api: 50 } });
+  });
+
+  test("an update rewrites only the files of packages whose floor rose", () => {
+    const committed = json(all(40));
+    expect(baselineWrites({ ...all(40), shared: 45, api: 30 }, committed)).toEqual([
+      [baselinePath("shared"), "45\n"],
+    ]);
+    expect(baselineWrites(all(40), committed)).toEqual([]);
+  });
+
+  test("an update writes every package when no baseline exists yet", () => {
+    expect(baselineWrites(all(12), {}).map(([path]) => path)).toEqual(
+      ["api", "worker", "shared", "plugins"].map(baselinePath),
+    );
   });
 });

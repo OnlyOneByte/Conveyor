@@ -51,20 +51,12 @@ const MODULE = "export const total = (items: number[]) => items.length;\n";
 
 const IMPORT = 'import { describe, it, test } from "bun:test";\n';
 
-const EXPECT_ONLY = 'import { expect } from "bun:test";\n';
-
 const SUITE = `${IMPORT}test("adds", () => {});\n`;
 
 describe("isSource", () => {
-  test("a spec or test file that imports bun:test and calls test, it or describe is a test", () => {
+  test("a spec or test file that imports bun:test is a test", () => {
     expect(isSource("packages/api/src/auth.test.ts", () => SUITE)).toBe(false);
     expect(isSource("packages/api/src/auth.spec.ts", () => SUITE)).toBe(false);
-    expect(
-      isSource(
-        "plugins/slicers/orca/src/index.spec.ts",
-        () => `${IMPORT}it('slices', () => {});\n`,
-      ),
-    ).toBe(false);
     expect(
       isSource(
         "packages/worker/src/run.test.ts",
@@ -79,31 +71,29 @@ describe("isSource", () => {
     }
   });
 
-  test("a spec-named module that mentions test( in text but never imports bun:test counts", () => {
+  test("a suite that calls bun:test through an alias or a namespace is a test", () => {
+    const suites = [
+      'import { test as check } from "bun:test";\ncheck("x", () => {});\n',
+      'import * as bt from "bun:test";\nbt.test("x", () => {});\n',
+      'import "bun:test";\n',
+      'const { test: t } = require("bun:test");\nt("x", () => {});\n',
+      'const bt = await import("bun:test");\nbt.it("x", () => {});\n',
+    ];
+    for (const text of suites) {
+      expect(isSource("packages/api/src/inflate.test.ts", () => text)).toBe(false);
+    }
+  });
+
+  test("a spec-named module that never imports bun:test counts", () => {
+    expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
     expect(
       isSource(
         "packages/api/src/hint.spec.ts",
-        () => 'export const hint = "call test(x) first";\n',
+        () => 'export const hint = "call test(x) first, see bun:test";\n',
       ),
     ).toBe(true);
     expect(
       isSource("packages/api/src/view.spec.ts", () => "const test = (n: number) => n;\ntest(2);\n"),
-    ).toBe(true);
-  });
-
-  test("a module named like a spec but without test calls counts", () => {
-    expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
-    expect(
-      isSource(
-        "packages/api/src/submit.spec.ts",
-        () => `${EXPECT_ONLY}export const submit = () => split();\n`,
-      ),
-    ).toBe(true);
-    expect(
-      isSource(
-        "packages/api/src/match.spec.ts",
-        () => `${EXPECT_ONLY}export const isId = (v: string) => ID.test(v);\n`,
-      ),
     ).toBe(true);
   });
 

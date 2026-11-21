@@ -154,7 +154,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `lint` | `bun run lint` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
-| `test` | `bun run test:coverage && bun run check:coverage`; after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json` |
+| `test` | `bun run test:coverage && bun run check:coverage`; after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
@@ -196,7 +196,7 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
-`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline.json`, so a PR
+`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline/*.json`, so a PR
 that only lowers a baseline is not held. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that

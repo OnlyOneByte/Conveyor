@@ -1,12 +1,18 @@
 import { PACKAGES, round2 } from "./summary";
 
-export const BASELINE_PATH = "scripts/checks/coverage/baseline.json";
+export const BASELINE_DIR = "scripts/checks/coverage/baseline";
+
+export const LEGACY_BASELINE_PATH = "scripts/checks/coverage/baseline.json";
+
+export const baselinePath = (name: string) => `${BASELINE_DIR}/${name}.json`;
 
 export const CHECKER_PATH = "scripts/checks/coverage/main.ts";
 
 export const TOLERANCE = 0.5;
 
 export type Percents = Record<string, number>;
+
+export type BaselineTexts = Record<string, string | null>;
 
 export interface CoverageBaseline {
   lines: Percents;
@@ -18,25 +24,41 @@ const isPercent = (value: unknown): value is number =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const isCoverageBaseline = (value: unknown): value is CoverageBaseline =>
-  isRecord(value) && isRecord(value.lines) && Object.values(value.lines).every(isPercent);
-
-export function parseBaseline(text: string): CoverageBaseline | null {
+const parseJson = (text: string): unknown => {
   try {
-    const value: unknown = JSON.parse(text);
-    return isCoverageBaseline(value) ? value : null;
+    return JSON.parse(text);
   } catch {
-    return null;
+    return undefined;
   }
+};
+
+export function parseBaseline(texts: BaselineTexts): CoverageBaseline | string | null {
+  const present = Object.entries(texts).filter(
+    (entry): entry is [string, string] => entry[1] !== null,
+  );
+  if (present.length === 0) return null;
+  const lines: Percents = {};
+  for (const [name, text] of present) {
+    const value = parseJson(text);
+    if (!isPercent(value)) return `${baselinePath(name)} is not a valid baseline`;
+    lines[name] = value;
+  }
+  return { lines };
 }
 
-export function serializeBaseline(baseline: CoverageBaseline): string {
-  const lines = Object.fromEntries(
-    Object.entries(baseline.lines)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, value]) => [name, round2(value)]),
+export const serializePercent = (value: number) => `${JSON.stringify(round2(value))}\n`;
+
+export function legacyTexts(text: string): BaselineTexts | null {
+  const value = parseJson(text);
+  if (!isRecord(value) || !isRecord(value.lines)) return null;
+  const lines = value.lines;
+  if (!Object.values(lines).every(isPercent)) return null;
+  return Object.fromEntries(
+    PACKAGES.map((name) => {
+      const percent = lines[name];
+      return [name, isPercent(percent) ? serializePercent(percent) : null];
+    }),
   );
-  return `${JSON.stringify({ lines }, null, 2)}\n`;
 }
 
 export function raisedBaseline(current: Percents, committed: CoverageBaseline | null) {
@@ -47,10 +69,19 @@ export function raisedBaseline(current: Percents, committed: CoverageBaseline | 
   return { lines };
 }
 
+export function baselineWrites(current: Percents, committed: BaselineTexts): [string, string][] {
+  const parsed = parseBaseline(committed);
+  const raised = raisedBaseline(current, typeof parsed === "string" ? null : parsed);
+  return PACKAGES.flatMap((name): [string, string][] => {
+    const text = serializePercent(raised.lines[name] ?? 0);
+    return text === committed[name] ? [] : [[baselinePath(name), text]];
+  });
+}
+
 export interface RatchetInput {
   current: Percents;
-  committed: string | null;
-  base: string | null;
+  committed: BaselineTexts;
+  base: BaselineTexts;
   baseHasChecker: boolean;
 }
 
@@ -65,15 +96,15 @@ interface Loaded {
 }
 
 function load(input: RatchetInput): Loaded | string {
-  if (input.committed === null) return `${BASELINE_PATH} is missing`;
   const committed = parseBaseline(input.committed);
-  if (committed === null) return `${BASELINE_PATH} is not a valid baseline`;
-  if (input.base === null && input.baseHasChecker) {
-    return `base has ${CHECKER_PATH} but no ${BASELINE_PATH}; refusing to bootstrap`;
-  }
-  if (input.base === null) return { committed, allowed: committed, bootstrap: true };
+  if (committed === null) return `${BASELINE_DIR}/ is missing`;
+  if (typeof committed === "string") return committed;
   const allowed = parseBaseline(input.base);
-  if (allowed === null) return `base ${BASELINE_PATH} is not a valid baseline`;
+  if (allowed === null && input.baseHasChecker) {
+    return `base has ${CHECKER_PATH} but no ${BASELINE_DIR}/; refusing to bootstrap`;
+  }
+  if (allowed === null) return { committed, allowed: committed, bootstrap: true };
+  if (typeof allowed === "string") return `base ${allowed}`;
   return { committed, allowed, bootstrap: false };
 }
 
@@ -82,7 +113,7 @@ const fmt = (value: number) => `${round2(value).toFixed(2)}%`;
 function packageErrors(name: string, current: number, loaded: Loaded): string[] {
   const floor = loaded.allowed.lines[name] ?? 0;
   const claimed = loaded.committed.lines[name];
-  if (claimed === undefined) return [`${name}: ${BASELINE_PATH} has no entry`];
+  if (claimed === undefined) return [`${name}: ${baselinePath(name)} is missing`];
   if (!loaded.bootstrap && round2(current) < round2(floor - TOLERANCE)) {
     return [`${name}: line coverage ${fmt(current)} dropped below base ${fmt(floor)}`];
   }
