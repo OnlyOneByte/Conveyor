@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:41145",
+  "url": "http://127.0.0.1:33727",
   "warnings": [],
   "results": [
     {
@@ -53,15 +53,17 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 608092,
+      "gifBytes": 607948,
       "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
-      "warnings": [],
+      "warnings": [
+        "final stage not reached in 12 s, see #52"
+      ],
       "png": "job-progress-390.png",
-      "gifBytes": 368786,
+      "gifBytes": 2840139,
       "gif": "job-progress-390.gif"
     },
     {
