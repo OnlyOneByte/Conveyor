@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PrintNotStartedError } from "@conveyor/shared";
 import { harness, states, waitForAbort } from "./pipeline-harness";
 
@@ -117,5 +120,39 @@ describe("runJob cancel during submit", () => {
     await expect(h.run()).rejects.toThrow("did not confirm the stop");
     expect(h.records[0].state).toBe("failed");
     expect(h.records[0].reason).toContain("elegoo cmd 130 timed out");
+  });
+});
+
+describe("runJob settlement errors", () => {
+  test("a profile cleanup failure is reported on the finished job", async () => {
+    const h = harness({
+      profileCleanup: async () => {
+        throw new Error("EBUSY");
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(h.events.at(-1)).toEqual({
+      state: "done",
+      message: "materialized profile not removed: EBUSY",
+      reason: undefined,
+    });
+  });
+
+  test("a history write failure after a finished print rejects and keeps the work dir", async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "conveyor-pipeline-"));
+    await writeFile(join(workDir, "model.gcode"), "G28\n");
+    const h = harness({
+      workDir,
+      record: () => {
+        throw new Error("database is locked");
+      },
+    });
+    try {
+      await expect(h.run()).rejects.toThrow("database is locked");
+      expect(states(h)).not.toContain("failed");
+      expect(await readFile(join(workDir, "model.gcode"), "utf8")).toBe("G28\n");
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
   });
 });

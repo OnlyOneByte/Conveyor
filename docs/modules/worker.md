@@ -30,6 +30,21 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
 
 Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 
+## index.ts
+
+- A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
+  `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
+  parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
+- A job history write that fails is not swallowed: the error rejects the BullMQ job, which marks it failed.
+
+## pipeline.ts
+
+- Settlement runs outside the stage `try`, so an error while settling a finished or printer-canceled job
+  (such as the history write) propagates as is. It is not re-settled as `failed`, and the finished job's work
+  directory is kept.
+- A materialized profile that cannot be removed after slicing does not fail the job; it is added to the
+  job's notes, which appear in the terminal status message.
+
 ## profile.ts
 
 `resolveProfileForSlice` returns the profile directory a slicer adapter should read.
@@ -45,6 +60,8 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
   behind. `rm` removes a symlink rather than following it. The directory is then recreated with mode `0700`.
 - The Prusa directory holds only `config.ini`, so the slicer's config loader sees exactly one config and no
   bundled `.ini` leaks in beside the edit.
+- When validating or writing fails, the partial directory is removed. If that removal also fails, the
+  `StageError` reason ends with `; partial profile not removed: <error>`.
 
 ## registry.ts
 
