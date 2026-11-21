@@ -96,13 +96,16 @@ async function settleQueuedCancel(
   run: Run,
   queue: QueueHooks,
   stopError?: string,
+  message?: string,
 ): Promise<TerminalState> {
   await cleanup(run);
   const failure = await writeHistory(run, {
     state: stopError === undefined ? "canceled" : "failed",
+    stage: stopError === undefined ? run.stage : "transport",
     modelPath: run.modelPath,
     gcodePath: run.gcodePath,
-    notes: noted(run, stopError),
+    notes: noted(run, stopError ?? message),
+    timings: computeStageTimings(run.enters, Date.now()),
   });
   const state = await queue.settleCancel(stopError === undefined);
   if (failure) throw failure;
@@ -110,7 +113,7 @@ async function settleQueuedCancel(
 }
 
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
-  if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue);
+  if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue, undefined, message);
   await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
   const failure = await recordThenPublish(
