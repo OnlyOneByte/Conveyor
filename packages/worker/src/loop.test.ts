@@ -184,6 +184,21 @@ describe("the sqlite queue worker", () => {
     expect(events("recent")).toBe(1);
   });
 
+  test("stop() clears the prune timer", async () => {
+    setup();
+    const { worker } = start({}, { pruneMs: 20, retentionMs: 60_000 });
+    await worker.stop();
+    enqueue("old");
+    db.query("UPDATE jobs SET state = 'done', updated_at = ? WHERE id = 'old'").run(
+      Date.now() - 120_000,
+    );
+    await Bun.sleep(100);
+    expect(
+      db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM job_events WHERE job_id = 'old'").get()
+        ?.n,
+    ).toBe(1);
+  });
+
   test("a cancel during a long engine run ends it within a tick", async () => {
     setup();
     enqueue("a");

@@ -11,6 +11,9 @@ describe("queueMode", () => {
 
   test("refuses sqlite until CONVEYOR_QUEUE_UNSTABLE=1 is set", () => {
     expect(() => queueMode({ CONVEYOR_QUEUE: "sqlite" })).toThrow("CONVEYOR_QUEUE_UNSTABLE=1");
+    expect(() => queueMode({ CONVEYOR_QUEUE: "sqlite", CONVEYOR_QUEUE_UNSTABLE: "" })).toThrow(
+      "CONVEYOR_QUEUE_UNSTABLE=1",
+    );
     expect(queueMode({ CONVEYOR_QUEUE: "sqlite", CONVEYOR_QUEUE_UNSTABLE: "1" })).toBe("sqlite");
   });
 
@@ -23,12 +26,13 @@ describe("the compose file", () => {
   const compose = readFileSync(join(import.meta.dir, "../../../docker-compose.yml"), "utf8");
   const service = (name: string) =>
     compose.split(/\n {2}(?=\w[\w-]*:\n)/).find((s) => s.startsWith(`${name}:`));
+  const passed = (name: string, fallback: string) => `- ${name}=\${${name}:-${fallback}}`;
 
   test.each(["api", "worker"])(
     "passes the one CONVEYOR_QUEUE value, redis by default, to %s",
     (name) => {
-      expect(service(name)).toContain("- CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}");
-      expect(service(name)).toContain("- CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}");
+      expect(service(name)).toContain(passed("CONVEYOR_QUEUE", "redis"));
+      expect(service(name)).toContain(passed("CONVEYOR_QUEUE_UNSTABLE", ""));
     },
   );
 });
