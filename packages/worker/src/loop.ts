@@ -6,8 +6,10 @@ import {
   type ClaimedJob,
   claimJob,
   DEFAULT_TIMING,
+  EVENT_RETENTION_MS,
   isCancelRequested,
   type Lease,
+  pruneEvents,
   type QueueTiming,
   reapExpired,
   releaseLease,
@@ -32,6 +34,8 @@ export interface QueueWorkerOptions {
   busyRetryMs?: number;
   busyMarginMs?: number;
   reapMs?: number;
+  pruneMs?: number;
+  retentionMs?: number;
   progressFlushMs?: number;
 }
 
@@ -189,9 +193,19 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       o.base.log(`reap failed: ${String(err)}`);
     }
   };
+  const prune = () => {
+    try {
+      const pruned = pruneEvents(o.db, timing, o.retentionMs ?? EVENT_RETENTION_MS);
+      if (pruned > 0) o.base.log(`pruned ${pruned} events of long-settled jobs`);
+    } catch (err) {
+      o.base.log(`event prune failed: ${String(err)}`);
+    }
+  };
   const claimTimer = setInterval(pump, o.claimIdleMs ?? 1000);
   const reapTimer = setInterval(reap, o.reapMs ?? 10_000);
+  const pruneTimer = setInterval(prune, o.pruneMs ?? 60 * 60 * 1000);
   reap();
+  prune();
   pump();
 
   return {
@@ -199,6 +213,7 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       stopping = true;
       clearInterval(claimTimer);
       clearInterval(reapTimer);
+      clearInterval(pruneTimer);
       const jobs = [...running.values()];
       for (const job of jobs) {
         job.released = true;
