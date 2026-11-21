@@ -21,16 +21,16 @@ async function stopPrinter(run: Run): Promise<string | undefined> {
 }
 
 function noted(run: Run, text?: string): string | undefined {
-  if (!run.closeNote) return text;
-  return text ? `${text}; ${run.closeNote}` : run.closeNote;
+  const parts = text ? [text, ...run.notes] : run.notes;
+  return parts.length ? parts.join("; ") : undefined;
 }
 
 async function cleanup(run: Run): Promise<void> {
-  await rm(run.opts.workDir, { recursive: true, force: true }).catch((err: unknown) =>
-    run.ctx.log(
-      `job ${run.opts.jobId}: failed to remove work dir ${run.opts.workDir}: ${messageOf(err)}`,
-    ),
+  const failure = await rm(run.opts.workDir, { recursive: true, force: true }).then(
+    () => undefined,
+    (err: unknown) => `work dir not removed: ${messageOf(err)}`,
   );
+  if (failure) run.notes.push(failure);
 }
 
 export async function settleDone(run: Run): Promise<TerminalState> {
@@ -50,6 +50,7 @@ export async function settleDone(run: Run): Promise<TerminalState> {
 }
 
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
+  await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
   await run.deps.publish(run.opts.jobId, "canceled", {
     stage: run.stage,
@@ -59,13 +60,14 @@ export async function settleCanceled(run: Run, message?: string): Promise<Termin
   run.deps.record(run.opts.jobId, run.opts.req, {
     state: "canceled",
     stage: run.stage,
+    reason: noted(run),
     timings,
   });
-  await cleanup(run);
   return "canceled";
 }
 
 async function settleFailed(run: Run, se: StageError): Promise<never> {
+  await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
   const reason = noted(run, se.reason) ?? se.reason;
   await run.deps.publish(run.opts.jobId, "failed", {
@@ -79,7 +81,6 @@ async function settleFailed(run: Run, se: StageError): Promise<never> {
     reason,
     timings,
   });
-  await cleanup(run);
   throw se;
 }
 

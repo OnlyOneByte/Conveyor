@@ -38,6 +38,7 @@ export interface HarnessOptions {
   cancelRequested?: () => Promise<boolean>;
   cancelPollMs?: number;
   streamCloseMs?: number;
+  workDir?: string;
 }
 
 export interface Harness {
@@ -156,7 +157,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
     submits: 0,
     generated: 0,
     run: async () => {
-      const workDir = await mkdtemp(join(tmpdir(), "conveyor-pipeline-"));
+      const workDir = opts.workDir ?? (await mkdtemp(join(tmpdir(), "conveyor-pipeline-")));
       return runJob(
         {
           jobId: "job-1",

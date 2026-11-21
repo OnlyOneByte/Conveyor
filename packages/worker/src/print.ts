@@ -111,9 +111,10 @@ async function watchPrint(
   } finally {
     stopPolling();
     closing.abort();
-    run.closeNote = await closeStream(run, statuses);
-    if (run.closeNote) {
-      run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${run.closeNote}`);
+    const closeNote = await closeStream(run, statuses);
+    if (closeNote) {
+      run.notes.push(closeNote);
+      run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${closeNote}`);
     }
   }
 }

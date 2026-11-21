@@ -81,7 +81,7 @@ export interface Run {
   modelPath?: string;
   gcodePath?: string;
   print?: PrintAttempt;
-  closeNote?: string;
+  notes: string[];
 }
 
 export function messageOf(err: unknown): string {
@@ -106,6 +106,7 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
     stage: "generator",
     state: "generating",
     enters: [],
+    notes: [],
     ctx: {
       jobId: opts.jobId,
       workDir: opts.workDir,
