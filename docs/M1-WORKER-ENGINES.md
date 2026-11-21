@@ -139,7 +139,9 @@ by running both engines in one image:
 - `scripts/install-orca.sh` — resolves the Linux AppImage asset for this arch from
   GitHub's release API (latest by default; `ORCA_RELEASE=x.y.z` to pin a build),
   downloads + `--appimage-extract`s to `/opt/orca/AppRun`. Discovering the asset URL
-  from the API is more robust than guessing filenames (which vary by release).
+  from the API is more robust than guessing filenames (which vary by release). It
+  parses the release JSON with `grep` and `sed` because the worker image does not
+  install `jq`.
 - `plugins/slicers/orca/src/index.ts` — real path runs
   `xvfb-run -a $ORCA_BIN --datadir … --load-settings … --load-filaments … --slice 0
   --outputdir …` and normalizes `plate_1.gcode` → `model.gcode`.
