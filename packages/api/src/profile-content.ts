@@ -15,11 +15,6 @@ import {
   validatePrusaProfileContent,
 } from "@conveyor/shared";
 
-/**
- * Logical profile paths in SQLite remain `/profiles/<bundle>` in every environment.
- * The actual readable root is injected in containers and defaults to the repository's
- * profiles/ directory in local development.
- */
 const defaultProfilesRoot = fileURLToPath(new URL("../../../profiles", import.meta.url));
 const profilesRoot = resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
 const LOGICAL_PREFIX = "/profiles/";
@@ -38,11 +33,6 @@ function isWithin(root: string, candidate: string): boolean {
   return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
 
-/**
- * Map a logical DB path to a canonical directory beneath the configured, server-owned
- * profile root. The request never supplies a filename: the only filenames opened are
- * the three constants below. realpath checks also contain symlinks.
- */
 async function bundledDirectory(logicalPath: string): Promise<{ root: string; directory: string }> {
   if (!logicalPath.startsWith(LOGICAL_PREFIX)) {
     throw new ProfileContentError("profile does not reference a bundled /profiles path", 409);
@@ -99,7 +89,6 @@ export async function readBundledOrcaDocuments(path: string): Promise<OrcaProfil
   return { machine, process, filament };
 }
 
-/** Translate shared validation errors into this API surface's typed 400 error. */
 export function validateOrcaDocuments(documents: OrcaProfileDocuments): void {
   try {
     validateOrcaProfileDocuments(documents);
@@ -111,16 +100,6 @@ export function validateOrcaDocuments(documents: OrcaProfileDocuments): void {
   }
 }
 
-// ─── Prusa config.ini (bundled read + validation) ────────────────────────────
-
-/**
- * Read the bundled Prusa `config.ini` for editing. Prefers `config.ini`; otherwise
- * the first `.ini` alphabetically — matching the slicer adapter's `loadConfigs`
- * preference, but surfaced as ONE editable document (a multi-`.ini` split stays a
- * bundled-only detail). The directory is canonicalized + containment-checked exactly
- * like the Orca reader, and only a `.ini` filename discovered by listing the trusted
- * bundle dir is opened — no request-supplied filename ever reaches the filesystem.
- */
 export async function readBundledPrusaConfig(path: string): Promise<PrusaProfileDocument> {
   const { root, directory } = await bundledDirectory(path);
   let entries: string[];
@@ -154,7 +133,6 @@ export async function readBundledPrusaConfig(path: string): Promise<PrusaProfile
   }
 }
 
-/** Translate the shared Prusa validation error into this surface's typed 400. */
 export function validatePrusaContent(document: PrusaProfileDocument): void {
   try {
     validatePrusaProfileContent(document);

@@ -26,6 +26,14 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [ui-mockup.html](ui-mockup.html) | The original UI mockup |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 
+## Modules
+
+What used to be code comments: invariants, reasons and gotchas, one page per package.
+
+| Page | Covers |
+|---|---|
+| [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
+
 ## Decisions
 
 Architecture decision records live in [adr/](adr/), numbered `NNNN-title.md`, each with context, decision and
