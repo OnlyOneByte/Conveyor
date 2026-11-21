@@ -115,8 +115,8 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 ## 7. Testing
 
 - The suite passes. [CI: `test`]
-- Test every exported function in `shared` and the worker pipeline, every HTTP route (inject requests, no
-  real port), every plugin against recorded fixtures (no real printer), and every key UI flow end to end in
+- Test every exported function in `shared` and the worker pipeline, every HTTP route (Fastify `inject`, or a
+  listener on `127.0.0.1:0` driven with `fetch` where `inject` misbehaves under Bun), every plugin against recorded fixtures (no real printer), and every key UI flow end to end in
   stub mode (`CONVEYOR_ENGINE_STUB=1`). Don't test framework internals, trivial getters or generated CSS. [review]
 - Names state behaviour: `test("claim skips printers that already have a running job")`. [review]
 - Assert outputs and side effects. `toBeDefined()`, "does not throw" alone, and snapshots of logic are fake
@@ -156,7 +156,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
 | `test` | `bun test --coverage` |
 | `no-comments` | `bun run check:comments` |
-| `Docker build (api / worker / web)` | `docker build -f packages/<service>/Dockerfile .` |
+| `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
 
 Review may start before CI is green. Merge needs both: every required check and the review status green on
@@ -194,8 +194,10 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 ## 12. Guardrail paths
 
-Guardrail paths: `.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
-`biome.jsonc`, `tsconfig*.json` and `bunfig.toml`. A guardrail-path PR needs a passing adversarial review from
+Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
+`biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
+`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline.json`, so a PR
+that only lowers a baseline is not held. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that
 independent pass. Keep guardrail changes in their own PR.

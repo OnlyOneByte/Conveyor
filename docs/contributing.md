@@ -52,8 +52,9 @@ commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the 
 
 ## Changing the rules
 
-Guardrail paths (`.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
-`biome.jsonc`, `tsconfig*.json`, `bunfig.toml`) change in their own PR. A guardrail-path PR needs a passing
+Guardrail paths (`.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`,
+`biome.json`, `biome.jsonc`, `tsconfig*.json`, `bunfig.toml` at any depth) change in their own PR. A PR that
+only lowers `scripts/checks/comments-baseline.json` or `scripts/checks/coverage/baseline.json` is exempt. A guardrail-path PR needs a passing
 adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
 tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
 after that independent pass.

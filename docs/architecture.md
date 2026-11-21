@@ -50,7 +50,7 @@ Contracts are in [PLUGINS.md](PLUGINS.md).
    BullMQ and answers `202 { jobId }`. The PWA opens `/jobs/:id/ws`.
 3. The worker claims the job and publishes `generating`, `slicing`, `transferring`, then printer progress.
    Artifacts land in `/data/<jobId>/` and pass between stages as path handles.
-4. On a terminal state the worker writes the job row to SQLite; the Redis snapshot may expire.
+4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until something deletes it.
 5. `POST /jobs/:id/cancel` cancels; `GET /jobs/:id/artifact/:kind` downloads the STL or g-code.
 
 Full sequence with failure paths: [SEQUENCE.md](SEQUENCE.md).
