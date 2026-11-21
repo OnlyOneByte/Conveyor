@@ -74,7 +74,7 @@ confirm first.
    `MainboardIP`/`MainboardID` come back. Store `mainboardId` in the printer secrets if
    it differs from the printer's `id`.
 3. **Control:** confirm the WS handshake at `ws://<ip>:3030/websocket` and that a
-   STATUS request (`Cmd 0`) returns a frame `parseStatusFrame` accepts.
+   STATUS request (`Cmd 0`) returns a frame `parsePushFrame` accepts.
 4. Unset the stub, submit to the Elegoo printer, watch the stepper; then test cancel.
 
 Env: `ELEGOO_WS_PORT` (3030), `ELEGOO_DISCOVERY_PORT` (3000), `ELEGOO_DISCOVERY_MS`,

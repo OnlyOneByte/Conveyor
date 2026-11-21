@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { type PrintStatus, StageError } from "@conveyor/shared";
+import { AckFrame, decodeFrame } from "./frames.js";
 import {
   buildCommand,
   exhaustive,
-  malformed,
-  parseStatusFrame,
+  parsePushFrame,
+  type SdcpPush,
   type SdcpRead,
   type SdcpStatusFrame,
 } from "./sdcp.js";
 
 export const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const COMMAND_TIMEOUT_MS = 15000;
+export const MAX_BAD_STATUS_FRAMES = 3;
 
 export interface SdcpCommand {
   mainboardId: string;
@@ -27,14 +29,12 @@ function nowMs(): number {
 }
 
 export function ackCode(raw: string, requestId: string): SdcpRead<number> {
-  try {
-    const j = JSON.parse(raw);
-    const ackId = j?.Data?.RequestID ?? j?.Data?.Data?.RequestID;
-    if (ackId !== requestId) return { kind: "other", reason: "not an ack for this request" };
-    return { kind: "frame", frame: j?.Data?.Data?.Ack ?? j?.Data?.Ack ?? 0 };
-  } catch (e) {
-    return malformed(raw, e);
-  }
+  const decoded = decodeFrame(AckFrame, raw);
+  if (decoded.kind === "malformed") return decoded;
+  const data = decoded.value.Data;
+  const ackId = data?.RequestID ?? data?.Data?.RequestID;
+  if (ackId !== requestId) return { kind: "other", reason: "not an ack for this request" };
+  return { kind: "frame", frame: data?.Data?.Ack ?? data?.Ack ?? 0 };
 }
 
 export function sendCommand(
@@ -91,7 +91,23 @@ export function sendCommand(
   });
 }
 
-export function toPrintStatus(frame: SdcpStatusFrame): PrintStatus | undefined {
+export function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | undefined {
+  switch (push.kind) {
+    case "error":
+      if (printing)
+        return {
+          ...printing,
+          message: `printer reported SDCP error ${push.errorCode} while printing`,
+        };
+      return { state: "failed", message: `printer reported SDCP error ${push.errorCode}` };
+    case "status":
+      return printStatusOf(push.status);
+    default:
+      return exhaustive(push);
+  }
+}
+
+function printStatusOf(frame: SdcpStatusFrame): PrintStatus | undefined {
   const sub = frame.printStatus;
   if (sub === 9) return { state: "done", progress: 1 };
   if (sub === 8) return { state: "canceled", message: "stopped on printer" };
@@ -99,6 +115,12 @@ export function toPrintStatus(frame: SdcpStatusFrame): PrintStatus | undefined {
     return { state: "printing", progress: frame.progress };
   }
   return undefined;
+}
+
+function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
+  if (read.kind === "malformed") return count + 1;
+  if (read.kind === "frame" && read.frame.kind === "status") return 0;
+  return count;
 }
 
 export async function* streamStatus(
@@ -110,6 +132,8 @@ export async function* streamStatus(
   let wake: (() => void) | null = null;
   let closed = false;
   let failure: StageError | null = null;
+  let badFrames = 0;
+  let printing: PrintStatus | undefined;
   const notify = () => {
     wake?.();
     wake = null;
@@ -121,16 +145,22 @@ export async function* streamStatus(
 
   const ws = new WebSocket(socketUrl(address));
   ws.onmessage = (ev) => {
-    const read = parseStatusFrame(String(ev.data));
+    const read = parsePushFrame(String(ev.data));
+    badFrames = badCountAfter(read, badFrames);
     switch (read.kind) {
       case "other":
         return;
       case "malformed":
-        failure = new StageError("transport", `elegoo status from ${address}: ${read.reason}`);
+        if (badFrames < MAX_BAD_STATUS_FRAMES) return;
+        failure = new StageError(
+          "transport",
+          `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
+        );
         return stop();
       case "frame": {
-        const status = toPrintStatus(read.frame);
+        const status = toPrintStatus(read.frame, printing);
         if (!status) return;
+        if (status.state === "printing") printing = status;
         queue.push(status);
         return notify();
       }
