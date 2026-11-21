@@ -129,6 +129,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
             : undefined;
         if (exitCode !== null) resolve(exitCode);
         const child: StackChild = {
+          pid: 4000 + fake.children.length,
           exitCode,
           exited: promise,
           stdout: closedStream(),
@@ -187,7 +188,7 @@ describe("bootStack teardown wiring", () => {
     expect(fake.sleeps).toEqual([5000, 5000, 5000, 5000]);
   });
 
-  test("a forced exit names the Redis container and temp dir it may leave behind", async () => {
+  test("a forced exit names the running children, the Redis container and the temp dir", async () => {
     const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
     const stack = await bootStack("/repo", () => {}, fake.deps);
     const errors = spyOn(console, "error").mockImplementation(() => {});
@@ -197,6 +198,9 @@ describe("bootStack teardown wiring", () => {
       expect(fake.exits).toEqual([130]);
       const message = String(errors.mock.calls[0]?.[0]);
       expect(message).toContain("Redis container cid-1 (remove it with: docker rm -f cid-1)");
+      expect(message).toContain("api process 4001 (kill it with: kill -9 4001)");
+      expect(message).toContain("web process 4004");
+      expect(message).not.toContain("build process");
       expect(message).toContain(`temp directory ${fake.dataDirs[0]}`);
     } finally {
       await stack.stop();

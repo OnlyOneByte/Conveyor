@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Subprocess } from "bun";
 
 const FAKE_DOCKER = `#!/bin/sh
 case "$1" in
@@ -11,8 +12,15 @@ case "$1" in
 esac
 `;
 
-const HANGING_API = `await Bun.write(\`\${process.env.VISUAL_TEST_MARKERS}/api.pid\`, String(process.pid));
-setInterval(() => {}, 60000);
+const ORPHANED_API_EXIT_MS = 20000;
+
+const HANGING_API = `const parent = process.ppid;
+const watchesParent = process.env.VISUAL_TEST_API_WATCHES_PARENT === "1";
+setInterval(() => {
+  if (watchesParent && process.ppid !== parent) process.exit(0);
+}, 100);
+setTimeout(() => process.exit(0), ${ORPHANED_API_EXIT_MS});
+await Bun.write(\`\${process.env.VISUAL_TEST_MARKERS}/api.pid\`, String(process.pid));
 `;
 
 const scratch: string[] = [];
@@ -38,14 +46,16 @@ async function fixture() {
   return { base, ...dirs };
 }
 
-async function waitForFile(path: string, timeoutMs: number): Promise<string> {
+type Dirs = Awaited<ReturnType<typeof fixture>>;
+
+async function waitFor<T>(read: () => Promise<T | undefined>, what: string, timeoutMs: number) {
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {
-    const text = await readFile(path, "utf8").catch(() => "");
-    if (text) return text;
+    const value = await read();
+    if (value !== undefined) return value;
     await Bun.sleep(50);
   }
-  throw new Error(`${path} did not appear within ${timeoutMs} ms`);
+  throw new Error(`${what} within ${timeoutMs} ms`);
 }
 
 function isAlive(pid: number): boolean {
@@ -57,11 +67,17 @@ function isAlive(pid: number): boolean {
   }
 }
 
-test("SIGINT to a real capture.ts run stops the api, removes the container and the temp dir, and exits 130", async () => {
-  const dirs = await fixture();
-  const capture = Bun.spawn({
+function killIfAlive(pid: number): void {
+  if (isAlive(pid)) process.kill(pid, "SIGKILL");
+}
+
+function startCapture(
+  dirs: Dirs,
+  apiWatchesParent: boolean,
+): Subprocess<"ignore", "ignore", "pipe"> {
+  return Bun.spawn({
     cmd: [
-      "bun",
+      process.execPath,
       join(import.meta.dir, "capture.ts"),
       "--root",
       dirs.root,
@@ -74,19 +90,77 @@ test("SIGINT to a real capture.ts run stops the api, removes the container and t
       PATH: `${dirs.bin}:${process.env.PATH ?? ""}`,
       TMPDIR: dirs.temp,
       VISUAL_TEST_MARKERS: dirs.markers,
+      VISUAL_TEST_API_WATCHES_PARENT: apiWatchesParent ? "1" : "0",
     },
+    stdin: "ignore",
     stdout: "ignore",
     stderr: "pipe",
   });
+}
+
+async function withBootingCapture(
+  dirs: Dirs,
+  options: { apiWatchesParent: boolean },
+  body: (capture: Subprocess<"ignore", "ignore", "pipe">, apiPid: number) => Promise<void>,
+): Promise<number> {
+  const capture = startCapture(dirs, options.apiWatchesParent);
+  let apiPid = 0;
   try {
-    const apiPid = Number(await waitForFile(join(dirs.markers, "api.pid"), 15000));
+    const pidText = await waitFor(
+      () => readFile(join(dirs.markers, "api.pid"), "utf8").catch(() => undefined),
+      "the fake api did not write its pid",
+      15000,
+    );
+    apiPid = Number(pidText);
+    await body(capture, apiPid);
+  } finally {
+    capture.kill("SIGKILL");
+    if (apiPid > 0) killIfAlive(apiPid);
+  }
+  return apiPid;
+}
+
+async function waitUntilDead(pid: number, timeoutMs: number): Promise<void> {
+  await waitFor(async () => (isAlive(pid) ? undefined : true), `pid ${pid} still ran`, timeoutMs);
+}
+
+test("SIGINT to a real capture.ts run stops the api, removes the container and the temp dir, and exits 130", async () => {
+  const dirs = await fixture();
+  await withBootingCapture(dirs, { apiWatchesParent: true }, async (capture, apiPid) => {
     expect(await readdir(dirs.temp)).toHaveLength(1);
     capture.kill("SIGINT");
     expect(await capture.exited).toBe(130);
     expect(await readFile(join(dirs.markers, "docker-rm"), "utf8")).toBe("fake-redis-id\n");
     expect(isAlive(apiPid)).toBe(false);
     expect(await readdir(dirs.temp)).toEqual([]);
-  } finally {
+  });
+}, 30000);
+
+test("a failing assertion mid-run kills the api even when it does not watch its parent", async () => {
+  const dirs = await fixture();
+  let apiPid = 0;
+  const run = withBootingCapture(dirs, { apiWatchesParent: false }, async (_capture, pid) => {
+    apiPid = pid;
+    throw new Error("simulated assertion failure");
+  });
+  await expect(run).rejects.toThrow("simulated assertion failure");
+  await waitUntilDead(apiPid, 5000);
+}, 30000);
+
+test("the fake api exits by itself once its parent is gone", async () => {
+  const dirs = await fixture();
+  const capture = startCapture(dirs, true);
+  const pidText = await waitFor(
+    () => readFile(join(dirs.markers, "api.pid"), "utf8").catch(() => undefined),
+    "the fake api did not write its pid",
+    15000,
+  );
+  const apiPid = Number(pidText);
+  try {
     capture.kill("SIGKILL");
+    await capture.exited;
+    await waitUntilDead(apiPid, 5000);
+  } finally {
+    killIfAlive(apiPid);
   }
 }, 30000);

@@ -20,6 +20,7 @@ export interface Stack {
 type Log = (line: string) => void;
 
 export interface StackChild extends ChildHandle {
+  pid: number;
   exitCode: number | null;
   exited: Promise<number>;
   stdout: ReadableStream<Uint8Array>;
@@ -151,13 +152,17 @@ export async function bootStack(
 ): Promise<Stack> {
   const handles: StackHandles = { children: [], cleanups: [] };
   const leftovers: string[] = [];
+  const running = new Map<number, string>();
   const teardown = createTeardown(handles, { killAfterMs: KILL_AFTER_MS, sleep: deps.sleep });
   const detach = tearDownOnExit({
     events: deps.events,
     teardown,
     exit: deps.exit,
     report: (reason) => console.error(reason),
-    leftovers: () => leftovers,
+    leftovers: () => [
+      ...[...running].map(([pid, name]) => `${name} process ${pid} (kill it with: kill -9 ${pid})`),
+      ...leftovers,
+    ],
   });
   const stop = async () => {
     try {
@@ -177,6 +182,8 @@ export async function bootStack(
     const launch = (name: string, cmd: string[], cwd: string) => {
       const proc = deps.spawn({ cmd, cwd, env });
       handles.children.push(proc);
+      running.set(proc.pid, name);
+      proc.exited.then(() => running.delete(proc.pid));
       pipeLines(name, proc.stdout, log).catch((err) =>
         log(`[${name}] stdout closed: ${messageOf(err)}`),
       );
