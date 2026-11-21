@@ -18,6 +18,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 |---|---|
 | [../SPEC.md](../SPEC.md) | Product spec, vocabulary and milestones |
 | [PLUGINS.md](PLUGINS.md) | Generator, Slicer and Transport contracts |
+| [modules/plugins.md](modules/plugins.md) | Why the bundled plugins work the way they do: engine flags, protocol quirks, unverified hardware paths |
 | [SEQUENCE.md](SEQUENCE.md) | A job's trip through the pipeline, with failure paths |
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite, Redis and filesystem storage |
 | [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
