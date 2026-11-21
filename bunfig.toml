@@ -2,3 +2,6 @@
 # Amazon-internal CodeArtifact mirror that the global environment defaults to.
 [install]
 registry = "https://registry.npmjs.org"
+
+[test]
+pathIgnorePatterns = ["tools/visual/**"]
