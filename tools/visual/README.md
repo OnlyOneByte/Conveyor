@@ -15,7 +15,7 @@ bun compare.ts --before /tmp/visual/before --after /tmp/visual/after
 `capture.ts` boots the whole stack from `--root` (default: this checkout) in stub mode:
 
 - Redis always runs in Docker on a random `127.0.0.1` port. A `REDIS_URL` in your shell is ignored, so the stack never touches another Redis.
-- The api and worker run from source. The api gets `CONVEYOR_HOST=127.0.0.1`. Its default stays `0.0.0.0`, which compose sets explicitly.
+- The api and worker run from source. The api gets `CONVEYOR_HOST=127.0.0.1`. Its code default is `127.0.0.1`; the api image sets `0.0.0.0` for the compose network, where the caddy publish is the boundary.
 - The web app is built with `vite build` and served with `vite preview` on `127.0.0.1`, reusing the dev proxy config. Dev mode is not used: its lazy dependency optimisation reloads pages mid-scene.
 - Auth is off and the database lives in a temp directory, so every run starts clean.
 - On SIGINT, SIGTERM or an uncaught error the stack tears itself down once: it kills the api, worker and web processes, removes the Redis container and deletes the temp directory, then exits with 130, 143 or 1. A child still running 5 s after SIGTERM gets SIGKILL. A second signal during teardown exits at once and prints what it may leave behind: each child process still running, with its pid; the Redis container id, with the `docker rm -f` command that removes it; and the temp directory. If any cleanup fails, such as `docker rm -f`, the run prints why and exits 1. The teardown lives in `teardown.ts`.

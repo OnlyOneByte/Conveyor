@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS printers (
   address                  TEXT NOT NULL,
   secrets_json             TEXT,
   allowed_generators_json  TEXT,
-  created_at               INTEGER NOT NULL
+  created_at               INTEGER NOT NULL,
+  hold_job_id              TEXT,
+  hold_reason              TEXT,
+  hold_at                  INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS jobs (

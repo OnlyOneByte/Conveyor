@@ -90,6 +90,30 @@ Before you expose Conveyor beyond the host:
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
+| `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
+
+## Releasing a held printer
+
+When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
+the job. It fails that job with "check the printer before releasing it" and holds the printer, so no other
+job is sent to it. Check the printer, stop or remove anything it should not be printing, then release the
+hold. Until the UI has a button for it, release it from a shell. With authentication on (the default), log
+in first; the session cookie goes in a private temporary file:
+
+```sh
+jar=$(mktemp)
+read -rs CONVEYOR_PW
+printf '{"password":"%s"}' "$CONVEYOR_PW" |
+  curl -fsS -c "$jar" -H 'content-type: application/json' --data-binary @- https://localhost/auth/login
+curl -fsS -b "$jar" -H 'content-type: application/json' -d '{"confirm":true}' \
+  https://localhost/catalog/printers/<printer-id>/release
+rm -f "$jar"; unset CONVEYOR_PW
+```
+
+`read -rs` keeps the password out of the shell history and the process list. A password containing `"` or
+`\` must be JSON-escaped in the first command. With `CONVEYOR_AUTH=disabled`, only the second `curl` is
+needed, without `-b "$jar"`. Replace `localhost` with your domain if you changed the Caddyfile; for its local
+certificate, add `-k` or trust Caddy's root.
 
 ## Local development without Docker
 
