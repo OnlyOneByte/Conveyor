@@ -5,6 +5,7 @@ import {
   buildCommand,
   exhaustive,
   parsePushFrame,
+  SDCP_CMD,
   type SdcpPush,
   type SdcpRead,
   type SdcpStatusFrame,
@@ -13,6 +14,12 @@ import {
 export const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const COMMAND_TIMEOUT_MS = 15000;
 export const MAX_BAD_STATUS_FRAMES = 3;
+
+export interface StatusStream {
+  address: string;
+  mainboardId: string;
+  idleTimeoutMs: number;
+}
 
 export interface SdcpCommand {
   mainboardId: string;
@@ -124,8 +131,7 @@ function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
 }
 
 export async function* streamStatus(
-  address: string,
-  timeoutMs: number,
+  { address, mainboardId, idleTimeoutMs }: StatusStream,
   signal?: AbortSignal,
 ): AsyncIterable<PrintStatus> {
   const queue: PrintStatus[] = [];
@@ -134,6 +140,8 @@ export async function* streamStatus(
   let failure: StageError | null = null;
   let badFrames = 0;
   let printing: PrintStatus | undefined;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let refreshTimer: ReturnType<typeof setInterval> | undefined;
   const notify = () => {
     wake?.();
     wake = null;
@@ -142,8 +150,32 @@ export async function* streamStatus(
     closed = true;
     notify();
   };
+  const fail = (error: StageError) => {
+    failure = error;
+    stop();
+  };
+  const restartIdleTimer = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(
+      () =>
+        fail(
+          new StageError(
+            "transport",
+            `elegoo status from ${address}: no print status for ${idleTimeoutMs} ms`,
+          ),
+        ),
+      idleTimeoutMs,
+    );
+  };
 
   const ws = new WebSocket(socketUrl(address));
+  const requestStatus = () =>
+    ws.send(
+      buildCommand(mainboardId, SDCP_CMD.STATUS, {}, randomUUID(), Math.floor(nowMs() / 1000)),
+    );
+  ws.onopen = () => {
+    refreshTimer = setInterval(requestStatus, idleTimeoutMs / 2);
+  };
   ws.onmessage = (ev) => {
     const read = parsePushFrame(String(ev.data));
     badFrames = badCountAfter(read, badFrames);
@@ -152,15 +184,17 @@ export async function* streamStatus(
         return;
       case "malformed":
         if (badFrames < MAX_BAD_STATUS_FRAMES) return;
-        failure = new StageError(
-          "transport",
-          `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
+        return fail(
+          new StageError(
+            "transport",
+            `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
+          ),
         );
-        return stop();
       case "frame": {
         const status = toPrintStatus(read.frame, printing);
         if (!status) return;
         if (status.state === "printing") printing = status;
+        if (read.frame.kind === "status") restartIdleTimer();
         queue.push(status);
         return notify();
       }
@@ -171,12 +205,18 @@ export async function* streamStatus(
   ws.onclose = stop;
   ws.onerror = stop;
   signal?.addEventListener("abort", stop, { once: true });
+  restartIdleTimer();
 
-  const deadline = nowMs() + timeoutMs;
-  while (!closed && !signal?.aborted && nowMs() < deadline) {
-    if (queue.length === 0) await new Promise<void>((r) => (wake = r));
-    for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
+  try {
+    while (!closed && !signal?.aborted) {
+      if (queue.length === 0) await new Promise<void>((r) => (wake = r));
+      for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
+    }
+  } finally {
+    clearTimeout(idleTimer);
+    clearInterval(refreshTimer);
+    signal?.removeEventListener("abort", stop);
+    ws.close();
   }
-  ws.close();
   if (failure) throw failure;
 }
