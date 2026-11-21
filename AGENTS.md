@@ -116,10 +116,10 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 ## 8. Commits, branches and PRs
 
 - **Titles** are Conventional Commits; squash merge uses the PR title. [review]
-  `^(feat|fix|refactor|perf|test|docs|build|ci|chore|revert)(\((web|api|engine|queue|db|core|plugins|infra|guard|docs|deps)\))?!?: \S.{0,70}$`
-  Imperative, lower-case after the colon, no trailing period, at most 72 characters. Today's packages map to
-  scopes as: `shared` → `core`, `worker` → `engine`, `scripts/checks` → `guard`. Breaking changes carry `!` and a
-  `BREAKING CHANGE:` line in the body.
+  `^(feat|fix|refactor|perf|test|docs|build|ci|chore|revert)(\((web|api|worker|shared|engine|queue|db|core|plugins|infra|guard|tools|docs|deps)\))?!?: \S.{0,70}$`
+  Imperative, lower-case after the colon, no trailing period, at most 72 characters. Use the real package
+  name as the scope (`web`, `api`, `worker`, `shared`, `plugins`); `guard` is `scripts/checks`, `tools` is
+  `tools/`. Breaking changes carry `!` and a `BREAKING CHANGE:` line in the body.
 - **Branches**: `<type>/<slug>` or `<type>/<issue>-<slug>` (`feat/42-sqlite-queue`). Never push to `main`.
 - **Issue first.** Every PR names one issue on its own line: `Closes #N`, or `Part of #N` when it stays open.
 - **Template**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md` with real content. An empty section
