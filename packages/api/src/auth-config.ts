@@ -1,4 +1,6 @@
 export const MIN_SECRET_LENGTH = 32;
+export const MIN_PASSWORD_LENGTH = 12;
+export const MAX_PASSWORD_LENGTH = 512;
 
 export type AuthConfig =
   | { enabled: true; password: string; secret: string }
@@ -34,9 +36,14 @@ export function resolveAuthConfig(env: Env, randomSecret: () => string): AuthCon
       `[auth] refusing to start: ${missing.join(" and ")} not set. Set both in .env, or set CONVEYOR_AUTH=disabled to run without a login. ${SETUP_HINT}`,
     );
   }
-  if (secret.length < MIN_SECRET_LENGTH) {
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
     throw new AuthConfigError(
-      `[auth] refusing to start: CONVEYOR_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters (try \`openssl rand -hex 32\`). ${SETUP_HINT}`,
+      `[auth] refusing to start: CONVEYOR_PASSWORD must be ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters, got ${password.length}. ${SETUP_HINT}`,
+    );
+  }
+  if (secret.trim().length < MIN_SECRET_LENGTH) {
+    throw new AuthConfigError(
+      `[auth] refusing to start: CONVEYOR_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters, not counting leading or trailing whitespace (try \`openssl rand -hex 32\`). ${SETUP_HINT}`,
     );
   }
   return { enabled: true, password, secret };

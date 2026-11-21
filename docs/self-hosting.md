@@ -13,11 +13,15 @@ Conveyor runs as a Docker Compose stack: Caddy (TLS and routing), `web` (the PWA
 2. Set a password and a signing secret in `.env`:
 
    ```sh
-   CONVEYOR_PASSWORD=choose-a-long-passphrase
-   CONVEYOR_AUTH_SECRET=$(openssl rand -hex 32)
+   CONVEYOR_PASSWORD='choose-a-long-passphrase'
+   CONVEYOR_AUTH_SECRET='paste-the-output-of-openssl-rand-hex-32'
    ```
 
-   Paste the generated hex string into the file rather than the command. `CONVEYOR_AUTH_SECRET` must be at least 32 characters and should stay the same across restarts: it signs session cookies, so changing it logs everyone out.
+   Generate the secret with `openssl rand -hex 32` and paste the output; `.env` does not run commands.
+
+   - `CONVEYOR_PASSWORD` must be 12 to 512 characters. 512 is also the longest password the login form accepts.
+   - `CONVEYOR_AUTH_SECRET` must be at least 32 characters, not counting leading or trailing whitespace. Keep it the same across restarts: it signs session cookies, so changing it logs everyone out.
+   - Wrap each value in single quotes. Compose interpolates `$` in unquoted and double-quoted `.env` values, so `pa$$w$ord` would reach the API as `pa$$w`. Inside single quotes every character is literal. A value that itself contains a single quote cannot be single-quoted; pick another value.
 
 3. Start the stack:
 
@@ -59,7 +63,10 @@ To expose Conveyor deliberately, set `CONVEYOR_BIND` in `.env` to the host addre
 | --- | --- |
 | This machine only (default) | `CONVEYOR_BIND=127.0.0.1` |
 | One LAN interface | `CONVEYOR_BIND=192.168.1.20` (the host's LAN address) |
-| Every interface | `CONVEYOR_BIND=0.0.0.0` |
+| One IPv6 interface | `CONVEYOR_BIND=[fd00::20]` (in square brackets) |
+| Every IPv4 interface | `CONVEYOR_BIND=0.0.0.0` |
+
+Write an IPv6 address in square brackets. The published port reads as `<host>:<port>:<container port>`, and brackets keep the address's own colons apart from those separators. It is the form Docker documents for IPv6 port publishing.
 
 Then recreate the proxy:
 
@@ -78,12 +85,11 @@ Before you expose Conveyor beyond the host:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `CONVEYOR_PASSWORD` | none, required | Shared login password. |
-| `CONVEYOR_AUTH_SECRET` | none, required | HMAC key for session cookies, 32 characters or more. |
+| `CONVEYOR_PASSWORD` | none, required | Shared login password, 12 to 512 characters. |
+| `CONVEYOR_AUTH_SECRET` | none, required | HMAC key for session cookies, 32 characters or more after trimming whitespace. |
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
-| `ORCA_VERSION` | `2.1.1` | OrcaSlicer version baked into the worker image. |
 
 ## Local development without Docker
 
