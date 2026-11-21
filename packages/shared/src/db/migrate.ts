@@ -12,6 +12,21 @@ interface SchemaObject {
 
 const NAMES_STATION_SCHEMA = /\b(?:stations|station_id)\b/i;
 
+const QUEUE_COLUMNS = [
+  ["progress", "REAL"],
+  ["message", "TEXT"],
+  ["attempts", "INTEGER NOT NULL DEFAULT 0"],
+  ["max_attempts", "INTEGER NOT NULL DEFAULT 3"],
+  ["run_after", "INTEGER NOT NULL DEFAULT 0"],
+  ["lease_owner", "TEXT"],
+  ["lease_token", "INTEGER NOT NULL DEFAULT 0"],
+  ["lease_until", "INTEGER"],
+  ["cancel_requested_at", "INTEGER"],
+  ["submit_started_at", "INTEGER"],
+  ["submitted_at", "INTEGER"],
+  ["print_handle_json", "TEXT"],
+] as const;
+
 function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
   return db
     .query<SchemaObject, [string]>(
@@ -94,6 +109,13 @@ export function migrate(db: Database): void {
   if (!columnsOf(db, "jobs").includes("notes")) {
     db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
   }
+
+  const jobColumns = new Set(columnsOf(db, "jobs"));
+  for (const [column, type] of QUEUE_COLUMNS) {
+    if (!jobColumns.has(column)) db.exec(`ALTER TABLE jobs ADD COLUMN ${column} ${type}`);
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs (state, run_after, created_at)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_lease ON jobs (state, lease_until)");
 
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");
