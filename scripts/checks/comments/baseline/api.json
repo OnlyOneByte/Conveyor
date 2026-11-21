@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/api/src/routes/jobs.ts": {
-      "comments": 17,
+      "comments": 8,
       "suppressions": 0
     }
   }

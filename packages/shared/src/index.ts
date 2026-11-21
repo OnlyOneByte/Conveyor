@@ -5,5 +5,6 @@ export * from "./exhaustive.js";
 export * from "./job.js";
 export * from "./plugins.js";
 export * from "./profile.js";
+export * from "./queue-mode.js";
 export * from "./registry.js";
 export * from "./status.js";
