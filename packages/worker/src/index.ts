@@ -84,5 +84,6 @@ function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): 
     modelPath: extra.modelPath,
     gcodePath: extra.gcodePath,
     timings: extra.timings,
+    notes: extra.notes,
   });
 }

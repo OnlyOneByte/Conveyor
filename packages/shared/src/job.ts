@@ -49,6 +49,7 @@ export interface Job {
   error?: { stage: Stage; reason: string };
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
+  notes?: string;
   createdAt: number;
   updatedAt: number;
 }
