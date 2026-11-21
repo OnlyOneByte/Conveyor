@@ -93,10 +93,26 @@ registered in. Requests whose path (query string removed) starts with an entry i
 
 - Reachability is a TCP connect to `host:port`: the common denominator across transports, needing no
   transport-specific health call and no printer secret. It is a liveness signal, not "ready to print".
-- Accepted addresses: `http(s)://host:port/path`, `host:port`, `[ipv6]:port` and a bare host. Without a port,
-  an `https` URL uses 443; otherwise the transport default applies (Moonraker 80 for its HTTP API, Elegoo
-  3030 for SDCP), then 80.
-- `parseAddress` returns `null` instead of throwing; `probePrinter` then reports `unparseable address`.
+- Accepted addresses:
+  - a URL, `http(s)://host:port/path`, including `http://[fe80::1]:7125/`;
+  - an IPv4 address or hostname, with or without `:port`;
+  - a bracketed IPv6 address, with or without `:port` (`[fe80::1]:3030`, `[fe80::1]`);
+  - a bare IPv6 address, zone included (`fe80::1`, `fe80::1%eth0`).
+- A bare IPv6 address never carries a port: `fe80::1:3030` is the IPv6 address `fe80::1:3030`, so a port needs
+  brackets.
+- Without a port, an `https` URL uses 443. Otherwise the transport default applies (Moonraker 80 for its HTTP
+  API, Elegoo 3030 for SDCP), then 80. IPv6 hosts are returned without brackets.
+- `parseAddress` never throws. It returns `{ kind: "parsed", host, port }`, or `{ kind: "invalid", reason }`
+  for anything ambiguous or malformed. That covers:
+  - an empty address;
+  - more than one colon without brackets that isn't a valid IPv6 address (`fe80::1::2`, `10.0.0.5:3030:1`);
+  - brackets that don't hold an IPv6 address (`[10.0.0.5]:3030`);
+  - a port outside 1–65535, or one that isn't a number;
+  - a dotted number that isn't IPv4 (`10.0.0.256`);
+  - a host with characters a hostname can't have;
+  - a URL that doesn't parse.
+- The reason quotes the address and says what to change. `probePrinter` reports it as
+  `unparseable address "<address>": <why>`.
   `probePrinter` always resolves, with `latencyMs` on success and the socket error code or `timeout` as
   `reason` on failure.
 
