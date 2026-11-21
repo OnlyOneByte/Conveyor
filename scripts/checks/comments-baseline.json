@@ -113,7 +113,7 @@
       "suppressions": 0
     },
     "packages/shared/src/profile.ts": {
-      "comments": 51,
+      "comments": 50,
       "suppressions": 0
     },
     "packages/shared/src/registry.ts": {

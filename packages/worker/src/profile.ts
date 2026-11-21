@@ -1,5 +1,5 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import {
   isBundledProfilePath,
   type JobTarget,
@@ -22,6 +22,27 @@ export interface ProfileForSlice {
 
 const noCleanup = async () => {};
 
+async function bundledDirectory(target: JobTarget): Promise<string> {
+  if (!isBundledProfilePath(target.profilePath)) {
+    throw new StageError("slicer", `profile ${target.profileId} has an invalid bundled path`);
+  }
+  let root: string;
+  let directory: string;
+  try {
+    root = await realpath(resolve(process.env.CONVEYOR_PROFILES_ROOT ?? "/profiles"));
+    directory = await realpath(join(root, basename(target.profilePath)));
+  } catch (error) {
+    throw new StageError("slicer", `bundled profile ${target.profileId} is unavailable`, {
+      cause: error,
+    });
+  }
+  const rel = relative(root, directory);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new StageError("slicer", `profile ${target.profileId} escapes the bundled profile root`);
+  }
+  return directory;
+}
+
 /**
  * Resolve the actual profile directory an adapter should consume.
  *
@@ -40,12 +61,8 @@ export async function resolveProfileForSlice(
   const bundled: ProfileRef = {
     id: target.profileId,
     name: target.profileName,
-    path: target.profilePath,
+    path: await bundledDirectory(target),
   };
-
-  if (!isBundledProfilePath(target.profilePath)) {
-    throw new StageError("slicer", `profile ${target.profileId} has an invalid bundled path`);
-  }
 
   const format = slicerFormat(target.slicerId);
   const directory = join(workDir, "profile");

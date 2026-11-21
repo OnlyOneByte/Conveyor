@@ -129,7 +129,6 @@ export function validatePrusaProfileContent(document: PrusaProfileDocument): voi
   if (hasDisallowedControlChar(text)) {
     throw new PrusaProfileValidationError("config.ini contains control characters");
   }
-  // Every non-comment line is a `key = value` assignment with an allowlisted key.
   // (PrusaSlicer configs are flat key=value; section headers are optional.)
   let assignments = 0;
   for (const [index, line] of text.split(/\r?\n/).entries()) {
