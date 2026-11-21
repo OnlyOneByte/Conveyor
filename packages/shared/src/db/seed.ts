@@ -1,4 +1,5 @@
-import type { Printer, Profile } from "./index.js";
+import type { Printer } from "./printers.js";
+import type { Profile } from "./profiles.js";
 
 export const DEFAULT_PROFILES: Profile[] = [
   {

@@ -228,6 +228,18 @@ Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the sam
 The API (config reads, job history) and the worker (print-target resolution, terminal job writes) open the
 same file on the shared `/data` volume. `openDb()` is a process-wide singleton, idempotent per path.
 
+`db/index.ts` holds `openDb()` and seeding, and re-exports the queries, which live one table per module:
+
+| Module | Holds |
+|---|---|
+| `db/printers.ts` | `Printer` and the printer queries |
+| `db/profiles.ts` | `Profile` and the profile and profile-content queries |
+| `db/jobs.ts` | `dbResolveJobTarget` and the job queries |
+| `db/migrate.ts` | `migrate()`, see [Migrations](#migrations) |
+| `db/epoch-ms.ts` | `epochMs()`, the one clock every write reads |
+
+Callers import from `@conveyor/shared/db` only; the module split is not part of the public surface.
+
 ### Printers and profiles
 
 `Printer.secrets` is parsed from `secrets_json`, is server-side only and is never serialized to clients.
@@ -278,8 +290,9 @@ shape and safe on every boot.
    `NOT NULL`: adding columns would leave it in place and every later insert would fail. SQLite cannot drop
    a constraint in place, so the rebuild is the supported route. The backfill is lossless, since a station
    was exactly the (printer, profile) pair; a job whose station was already deleted backfills to `NULL`.
-   Dropping the old table drops its indexes, so the rebuild reads every `jobs` index definition first and
-   recreates each one in the same transaction; `idx_jobs_created_at` never goes missing.
+   Dropping the old table drops its indexes and triggers, so the rebuild reads every `jobs` index and
+   trigger definition first and recreates each one in the same transaction, indexes before triggers;
+   `idx_jobs_created_at` never goes missing.
 2. **`printers.allowed_generators_json`.** Additive and nullable, so `ADD COLUMN`.
 3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
    files.
