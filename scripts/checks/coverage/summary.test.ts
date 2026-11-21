@@ -68,6 +68,12 @@ describe("isSource", () => {
     expect(
       isSource("packages/api/src/submit.spec.ts", () => "export const submit = () => split();\n"),
     ).toBe(true);
+    expect(
+      isSource(
+        "packages/api/src/match.spec.ts",
+        () => "export const isId = (v: string) => ID.test(v);\n",
+      ),
+    ).toBe(true);
   });
 
   test("a module in a package test folder outside the declared helpers counts", () => {

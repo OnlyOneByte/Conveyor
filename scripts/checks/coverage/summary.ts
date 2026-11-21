@@ -18,7 +18,7 @@ const DECLARATION = /\.d\.ts$/;
 
 const TEST_NAME = /\.(test|spec)\.ts$/;
 
-const TEST_CALL = /\b(test|it|describe)(\.\w+)*\s*\(/;
+const TEST_CALL = /(?<![\w.$])(test|it|describe)(\.\w+)*\s*\(/;
 
 export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/"];
 
