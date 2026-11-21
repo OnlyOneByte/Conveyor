@@ -383,8 +383,14 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
   script's terminal guard. An event is appended only when the write is accepted, so a refused write
   leaves no trace. An identical repeated write is accepted and appends a second event; coalescing repeats
   is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
-- `appendEvent` is shared by `enqueueJob` (the first `queued` event) and the reaper (`queued` on a requeue,
-  `failed` with its error). Orphaning a job changes no state and records no event.
+- `appendEvent` is shared by every write that changes a job's state outside `writeStatus`:
+  - `enqueueJob` records the first `queued` event;
+  - `claimJob` records `generating` for a queued job (a resumed orphan keeps its state and records nothing);
+  - `releaseLease` and the reaper record `queued` on a requeue;
+  - the reaper records `failed`, with its error.
+
+  A requeue also clears `stage`, `progress` and `message`, so a snapshot read after it matches the `queued`
+  event a live tail just delivered.
 - `readSnapshot` returns the row as a `JobStatusEvent` together with the job's highest event `seq`, read in
   one statement. One statement sees one committed state, so a live tail that starts after that cursor
   neither misses nor repeats an event.
