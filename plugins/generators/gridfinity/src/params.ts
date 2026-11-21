@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-/**
- * Gridfinity bin parameters. This Zod schema is the single source of truth:
- * the worker validates against it, and the PWA renders the config form from its
- * JSON-Schema projection — zero per-generator UI code.
- */
 export const gridfinityParams = z.object({
   gridX: z.number().int().min(1).max(20).default(2).describe("Width in 42mm units"),
   gridY: z.number().int().min(1).max(20).default(3).describe("Depth in 42mm units"),

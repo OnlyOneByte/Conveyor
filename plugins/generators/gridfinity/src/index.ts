@@ -11,33 +11,11 @@ import {
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { type GridfinityParams, gridfinityParams } from "./params.js";
 
-// Entry file + variable names verified against gridfinity-rebuilt-openscad @ HEAD
-// (2025-08) by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
-// measured 83.5×125.5mm, exactly the Gridfinity spec. See docs/M1-WORKER-ENGINES.md.
 const SCAD_FILE =
   process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad";
 
-/** M0 engine-stub: emit a placeholder STL so the pipeline runs without OpenSCAD installed. */
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 
-/**
- * Map our friendly params → the lib's actual OpenSCAD variables (verified names):
- *   gridx/gridy/gridz, divx/divy            — direct
- *   scoop          ∈ [0..1] float           — our bool → 1 (full ramp) or 0
- *   style_tab      0=Full…5=None            — our labelTab bool → 1 (Auto) or 5 (None)
- *   magnet_holes   bool                     — was wrongly "enable_magnet"
- *   include_lip    bool                     — was wrongly "enable_lip"
- *
- * Verified-by-render gotcha: the lib's script default is `refined_holes = true`, and
- * it asserts `!refined_hole || (refined_hole && !magnet_hole)` — so magnets and
- * refined holes cannot both be on, or OpenSCAD aborts with an empty object. We pin
- * refined_holes=false UNCONDITIONALLY rather than letting it fall back to that
- * default when magnets are off. "Refined holes" are still magnet pockets (a bore
- * with a toothpick slit), so restoring the default would make "Magnet holes in
- * base: off" silently emit a different STYLE of magnet hole instead of none —
- * disagreeing with both the checkbox label and the preview. Both flags false is a
- * valid combination and is what actually produces a hole-free base.
- */
 function toScadDefines(p: GridfinityParams): string[] {
   const d: Record<string, number | boolean> = {
     gridx: p.gridX,
@@ -61,10 +39,6 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   stage: "generator",
   outputs: ["stl"],
   paramSchema: zodToJsonSchema(gridfinityParams, "GridfinityParams") as JSONSchema7,
-  // Presentation only — the schema above stays the source of truth for validation.
-  // Footprint and height are what people actually set; everything else is a detail,
-  // so it lives behind a disclosure. unitMm drives the live millimetre readout
-  // (a bin's real size is the number you measure a drawer against).
   ui: {
     groups: [
       { title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" },
@@ -87,7 +61,7 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
     unitMm: { gridX: 42, gridY: 42, heightUnits: 7 },
     note: "1u = 42 mm footprint · 7 mm height",
   },
-  preview: { kind: "procedural", module: "gridfinity" }, // client builds geometry from params
+  preview: { kind: "procedural", module: "gridfinity" },
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = gridfinityParams.safeParse(rawParams);
@@ -103,8 +77,6 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
     }
 
     const args = ["-o", out, ...toScadDefines(parsed.data), SCAD_FILE];
-    // The worker image installs an OpenSCAD nightly at OPENSCAD_BIN (the lib needs
-    // 2023+); fall back to a PATH `openscad` for local/dev use.
     const bin = process.env.OPENSCAD_BIN ?? "openscad";
     ctx.log(`${bin} ${args.join(" ")}`);
 
@@ -113,7 +85,6 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   },
 };
 
-/** Spawn an engine subprocess; the worker supervises timeout/cancel via ctx.signal. */
 function run(cmd: string, args: string[], ctx: StageCtx): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { signal: ctx.signal });

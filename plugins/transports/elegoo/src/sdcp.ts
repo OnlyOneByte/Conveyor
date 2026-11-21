@@ -1,31 +1,12 @@
-/**
- * SDCP (Smart Device Control Protocol) primitives for Elegoo printers.
- *
- * Reference: ELEGOO/Chitu SDCP V3.0.0
- *   https://github.com/cbd-tech/SDCP-Smart-Device-Control-Protocol-V3.0.0
- *
- * Transport shape:
- *   - Discovery: UDP broadcast "M99999" to :3000; each printer replies with a
- *     JSON datagram describing itself (MainboardIP, MainboardID, …).
- *   - Control:   WebSocket ws://<ip>:3030/websocket — JSON request/response +
- *     pushed status/attribute/error topics.
- *   - Files:     HTTP upload to the mainboard (the exact route/chunking differs
- *     between resin and FDM lines — flagged in index.ts as the spike's #1 risk).
- *
- * ⚠️ Written from the published spec, NOT yet verified against hardware.
- */
-
-/** SDCP request command codes (subset we use). */
 export const SDCP_CMD = {
-  STATUS: 0, // request a status refresh
-  ATTRIBUTES: 1, // request device attributes
+  STATUS: 0,
+  ATTRIBUTES: 1,
   START_PRINT: 128,
   PAUSE_PRINT: 129,
   STOP_PRINT: 130,
   RESUME_PRINT: 131,
 } as const;
 
-/** PrintInfo.Status enum (the print sub-state). */
 export const SDCP_PRINT_STATUS: Record<number, string> = {
   0: "idle",
   1: "homing",
@@ -38,7 +19,7 @@ export const SDCP_PRINT_STATUS: Record<number, string> = {
   8: "stopped",
   9: "complete",
   10: "filechecking",
-  13: "printing", // FDM lines report a generic "printing" sub-state
+  13: "printing",
 } as const;
 
 export interface SdcpDiscovery {
@@ -51,7 +32,6 @@ export interface SdcpDiscovery {
   firmwareVersion?: string;
 }
 
-/** Parse a discovery datagram (printers reply to the "M99999" broadcast). */
 export function parseDiscovery(buf: string): SdcpDiscovery | null {
   try {
     const j = JSON.parse(buf);
@@ -73,7 +53,6 @@ export function parseDiscovery(buf: string): SdcpDiscovery | null {
   }
 }
 
-/** Build an SDCP request frame for the device WebSocket. */
 export function buildCommand(
   mainboardId: string,
   cmd: number,
@@ -89,24 +68,20 @@ export function buildCommand(
       RequestID: requestId,
       MainboardID: mainboardId,
       TimeStamp: timestamp,
-      From: 0, // 0 = local PC/app
+      From: 0,
     },
     Topic: `sdcp/request/${mainboardId}`,
   });
 }
 
 export interface SdcpStatusFrame {
-  /** machine-level status array (1 = printing, 2 = transferring) */
   currentStatus: number[];
-  /** print sub-status enum (see SDCP_PRINT_STATUS) */
   printStatus: number | null;
-  /** 0..1 */
   progress: number;
   currentLayer: number | null;
   totalLayer: number | null;
 }
 
-/** Extract the status fields from a pushed `sdcp/status/<id>` frame. */
 export function parseStatusFrame(buf: string): SdcpStatusFrame | null {
   try {
     const j = JSON.parse(buf);
@@ -119,8 +94,6 @@ export function parseStatusFrame(buf: string): SdcpStatusFrame | null {
       : status.CurrentStatus != null
         ? [status.CurrentStatus]
         : [];
-    // PrintInfo.Progress is a 0..100 percentage on most firmware; normalize. If
-    // absent, derive from layer counts.
     let progress = 0;
     if (typeof pi.Progress === "number")
       progress = pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
