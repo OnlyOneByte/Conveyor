@@ -3,17 +3,10 @@ import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
 
-/**
- * The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/` (see
- * packages/worker/src/index.ts). The API resolves the SAME root so a download can be
- * containment-checked against it. Both default to `/data` in the container and can be
- * overridden together in local/dev via DATA_DIR.
- */
 const DATA_DIR = resolve(process.env.DATA_DIR ?? "/data");
 
 export type ArtifactKind = "model" | "gcode";
 
-/** Suggested filename + content type per artifact kind. */
 const KIND_META: Record<ArtifactKind, { filename: string; contentType: string }> = {
   model: { filename: "model.stl", contentType: "model/stl" },
   gcode: { filename: "model.gcode", contentType: "text/x.gcode" },
@@ -29,7 +22,6 @@ export class ArtifactError extends Error {
 }
 
 export interface ResolvedArtifact {
-  /** canonical, containment-checked absolute path safe to stream */
   path: string;
   filename: string;
   contentType: string;
@@ -41,13 +33,6 @@ function isWithin(root: string, candidate: string): boolean {
   return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
 
-/**
- * Resolve a job's artifact to a safe, streamable path. The path comes from the job's
- * OWN durable record (never from the request), must sit under `${DATA_DIR}/<jobId>/`
- * after realpath (so a symlink cannot escape), and must still exist on disk. A failed
- * run that never produced the file, or a reaped work dir, yields a 404/410 — the
- * request-supplied surface is only the opaque jobId and the fixed kind enum.
- */
 export async function resolveJobArtifact(
   jobId: string,
   kind: ArtifactKind,
@@ -63,12 +48,9 @@ export async function resolveJobArtifact(
   try {
     canonical = await realpath(resolve(stored));
   } catch {
-    // Recorded, but the file is gone (work dir reaped / volume changed).
     throw new ArtifactError(`the ${kind} artifact for job ${jobId} is no longer on disk`, 410);
   }
 
-  // Containment: the canonical file must live under this job's own work dir. Realpath
-  // the root too so a symlinked DATA_DIR compares correctly.
   let canonicalRoot: string;
   try {
     canonicalRoot = await realpath(jobRoot);
@@ -92,7 +74,6 @@ export async function resolveJobArtifact(
   };
 }
 
-/** Open a read stream for a resolved artifact (separated so routes stay thin). */
 export function openArtifactStream(path: string): ReturnType<typeof createReadStream> {
   return createReadStream(path);
 }

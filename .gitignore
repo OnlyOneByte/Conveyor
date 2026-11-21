@@ -5,6 +5,7 @@ build/
 *.log
 *.tsbuildinfo
 /coverage/
+packages/shared/test/sweep-probe-*/
 
 # job artifacts, local db & secrets
 data/

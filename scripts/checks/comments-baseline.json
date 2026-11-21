@@ -1,59 +1,7 @@
 {
   "files": {
-    "packages/api/Dockerfile": {
-      "comments": 5,
-      "suppressions": 0
-    },
-    "packages/api/src/artifact-download.ts": {
-      "comments": 19,
-      "suppressions": 0
-    },
-    "packages/api/src/auth.ts": {
-      "comments": 10,
-      "suppressions": 0
-    },
-    "packages/api/src/index.ts": {
-      "comments": 1,
-      "suppressions": 0
-    },
-    "packages/api/src/printer-probe.ts": {
-      "comments": 23,
-      "suppressions": 0
-    },
-    "packages/api/src/profile-content.ts": {
-      "comments": 21,
-      "suppressions": 0
-    },
-    "packages/api/src/queue.ts": {
-      "comments": 2,
-      "suppressions": 0
-    },
-    "packages/api/src/registry-view.ts": {
-      "comments": 11,
-      "suppressions": 0
-    },
-    "packages/api/src/routes/auth.ts": {
-      "comments": 15,
-      "suppressions": 0
-    },
-    "packages/api/src/routes/catalog.ts": {
-      "comments": 40,
-      "suppressions": 0
-    },
-    "packages/api/src/routes/generators.ts": {
-      "comments": 3,
-      "suppressions": 0
-    },
     "packages/api/src/routes/jobs.ts": {
       "comments": 17,
-      "suppressions": 0
-    },
-    "packages/api/src/routes/uploads.ts": {
-      "comments": 11,
-      "suppressions": 0
-    },
-    "packages/api/src/validate.ts": {
-      "comments": 12,
       "suppressions": 0
     },
     "packages/web/Dockerfile": {

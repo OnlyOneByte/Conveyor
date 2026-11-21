@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { BASELINE_PATH, CHECKER_PATH } from "./ratchet";
-import { readBase, runSweep } from "./runner";
+import { ROOT, readBase, readOrNull, runSweep, sources } from "./runner";
+import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
 
@@ -16,6 +17,17 @@ const fixture = (name: string, source: string) => {
 };
 
 const SLOW = 60_000;
+
+const withSweepTimeout = <T>(value: string, run: () => T): T => {
+  const previous = process.env[SWEEP_TIMEOUT_ENV];
+  process.env[SWEEP_TIMEOUT_ENV] = value;
+  try {
+    return run();
+  } finally {
+    if (previous === undefined) delete process.env[SWEEP_TIMEOUT_ENV];
+    else process.env[SWEEP_TIMEOUT_ENV] = previous;
+  }
+};
 
 describe("runSweep", () => {
   test(
@@ -38,6 +50,55 @@ describe("runSweep", () => {
       const killer = fixture("killer.ts", 'process.kill(process.pid, "SIGKILL");\n');
       const sweep = runSweep([killer]);
       expect(sweep.completed).toBe(false);
+    },
+    SLOW,
+  );
+
+  test(
+    "a hanging import fails the sweep once the configured timeout passes",
+    () => {
+      const hangs = fixture("hangs.ts", "await new Promise(() => {});\n");
+      const started = performance.now();
+      expect(withSweepTimeout("500", () => runSweep([hangs])).completed).toBe(false);
+      expect(performance.now() - started).toBeLessThan(SLOW / 2);
+    },
+    SLOW,
+  );
+
+  test(
+    "an invalid timeout fails the sweep instead of running it unbounded",
+    () => {
+      const ok = fixture("valid.ts", "export const two = () => 2;\n");
+      expect(withSweepTimeout("soon", () => runSweep([ok])).completed).toBe(false);
+    },
+    SLOW,
+  );
+
+  test(
+    "a non-test spec module and a test-folder module are mapped by the sweep and counted",
+    () => {
+      const dir = mkdtempSync(join(ROOT, "packages", "shared", "test", "sweep-probe-"));
+      try {
+        const module = "export const double = (n: number) => n * 2;\n";
+        writeFileSync(join(dir, "double.spec.ts"), module);
+        writeFileSync(join(dir, "fake.ts"), module);
+        const paths = ["double.spec.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
+        for (const path of paths) {
+          expect(isSource(path, () => readOrNull(join(ROOT, path)) ?? "")).toBe(true);
+        }
+        const sweep = runSweep(paths);
+        expect(sweep.completed).toBe(true);
+        const merged = mergeCoverage({
+          sources: paths,
+          measured: new Map(),
+          sweep: sweep.coverage,
+          fallback: () => new Map(),
+        });
+        expect(merged.estimated).toEqual([]);
+        expect(summarize(merged.coverage).shared).toEqual({ found: 2, hit: 0 });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     },
     SLOW,
   );
@@ -85,5 +146,27 @@ describe("readBase", () => {
   test("an unresolvable base ref is an error", () => {
     const root = repo({ "README.md": "x\n" });
     expect(readBase("no-such-ref", root)).toBeInstanceOf(Error);
+  });
+});
+
+describe("sources", () => {
+  test("lists non-test spec and test-folder modules, not suites or declared helpers", () => {
+    const suite = 'import { test } from "bun:test";\ntest("x", () => {});\n';
+    const module = "export const one = 1;\n";
+    const root = repo({
+      "packages/api/src/app.ts": module,
+      "packages/api/src/app.test.ts": suite,
+      "packages/api/src/openapi.spec.ts": module,
+      "packages/api/src/routes.spec.ts": suite,
+      "packages/api/test/server.ts": module,
+      "packages/shared/test/helpers/db.ts": module,
+      "plugins/slicers/orca/test/fake.ts": module,
+    });
+    expect(sources(root).sort()).toEqual([
+      "packages/api/src/app.ts",
+      "packages/api/src/openapi.spec.ts",
+      "packages/api/test/server.ts",
+      "plugins/slicers/orca/test/fake.ts",
+    ]);
   });
 });
