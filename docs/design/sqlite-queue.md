@@ -13,9 +13,10 @@ database the api and worker already share (`/data/conveyor.db`, WAL mode). Redis
 
 Three outcomes:
 
-1. **A worker restart never sends g-code twice (#5).** The queue records the moment a print was submitted,
-   together with the printer handle. A reclaimed job that was already submitted resumes watching the print;
-   it never runs `submit()` again.
+1. **No code path sends g-code twice (#5).** The queue records a durable *intent* before `submit()` and a
+   durable *marker* after it. A job with neither is safe to rerun. A job with the marker is resumed. A job
+   with only the intent has an unknown outcome: it fails with "check the printer" and holds that printer
+   until an operator releases it. It is never rerun.
 2. **Self-hosting loses the `redis` container and, in the last PR, the separate `worker` container.**
    Compose goes from five services (caddy, web, api, worker, redis) to three (caddy, web, conveyor). It
    reaches one plus Caddy once the UI rewrite serves the SPA from the app process, which is outside this
@@ -38,10 +39,13 @@ Three outcomes:
 
 Goals:
 
-- Exactly one `submit()` per job, across crashes, restarts and upgrades.
-- Cancel behaves as it does today, including the HTTP codes the web client relies on.
+- At most one `submit()` per job, across crashes, restarts, upgrades and stalls. When the queue cannot know
+  whether the printer received a job, it stops and asks a person; it never guesses "no".
+- Cancel behaves as it does today, including the HTTP codes the web client relies on and killing a running
+  engine promptly.
 - The web client keeps working unchanged: same routes, same `JobStatusEvent` frames on the WebSocket.
-- At most one running job per printer.
+- At most one job per printer between "start sending" and "print finished". Jobs for a busy printer may
+  still generate and slice ahead.
 - The queue is testable with an injected clock and no network.
 
 Non-goals:
@@ -49,7 +53,7 @@ Non-goals:
 - Multiple hosts. SQLite over NFS is unsafe; the queue supports several processes on one host sharing a local
   volume, and nothing more.
 - Retrying a job whose pipeline failed. A `StageError` is terminal today and stays terminal. Retries cover
-  only a lost worker.
+  only a lost worker, and only before the submit intent.
 - Priorities, scheduled jobs and job dependencies. Nothing uses them.
 - Moving the live channel from WebSocket to SSE. That belongs to the UI rewrite; the event log here supports
   both.
@@ -59,7 +63,7 @@ Non-goals:
 
 The queue extends the existing `jobs` table rather than adding a parallel one. Today a row is written only
 when a job settles; from now on it is inserted at enqueue and updated through the job's life. A migration
-step, guarded on the live table shape like the existing ones in `db/migrate.ts`, adds these columns:
+step, guarded on the live table shape like the existing ones in `db/migrate.ts`, adds:
 
 ```sql
 ALTER TABLE jobs ADD COLUMN progress            REAL;
@@ -71,12 +75,18 @@ ALTER TABLE jobs ADD COLUMN lease_owner         TEXT;
 ALTER TABLE jobs ADD COLUMN lease_token         INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE jobs ADD COLUMN lease_until         INTEGER;
 ALTER TABLE jobs ADD COLUMN cancel_requested_at INTEGER;
+ALTER TABLE jobs ADD COLUMN submit_started_at   INTEGER;
 ALTER TABLE jobs ADD COLUMN submitted_at        INTEGER;
 ALTER TABLE jobs ADD COLUMN print_handle_json   TEXT;
 
+ALTER TABLE printers ADD COLUMN hold_job_id TEXT;
+ALTER TABLE printers ADD COLUMN hold_reason TEXT;
+ALTER TABLE printers ADD COLUMN hold_at     INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_jobs_claim  ON jobs (state, run_after, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_lease  ON jobs (state, lease_until);
-CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs (printer_id) WHERE state IN ('generating', 'slicing', 'transferring', 'printing');
+CREATE INDEX IF NOT EXISTS idx_jobs_printer_live ON jobs (printer_id, state)
+  WHERE state IN ('generating', 'slicing', 'transferring', 'printing');
 
 CREATE TABLE IF NOT EXISTS job_events (
   seq    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,12 +98,15 @@ CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events (job_id, seq);
 ```
 
 - `state` keeps the existing `JobState` union: `queued`, `generating`, `slicing`, `transferring`, `printing`,
-  `done`, `failed`, `canceled`. A job is *running* when its state is one of the four in-flight states. No new
-  state is added.
+  `done`, `failed`, `canceled`. No state is added. A job is *preparing* in `generating` or `slicing` and
+  *on the printer* in `transferring` or `printing`.
+- `submit_started_at` is the intent and `submitted_at` the marker (see [Submitting](#submitting)).
+- `printers.hold_*` blocks a printer after an outcome the queue cannot know (see
+  [Printer holds](#printer-holds)).
 - `event` is a serialized `JobStatusEvent`: exactly the frame the WebSocket sends today, so the api forwards it
   without reshaping it.
 - Rows written before the migration are terminal history rows. The defaults leave them inert: `attempts` 0,
-  no lease, no cancel.
+  no lease, no intent, no cancel.
 
 ### Why the lease lives on the job row
 
@@ -102,12 +115,83 @@ a separate table adds a join to every claim and renewal, and adds a second row t
 first. Keeping the lease on the row also makes the claim a single `UPDATE`. The cost is that `jobs` carries
 queue columns that are `NULL` once the job settles. That is acceptable, and settling clears them.
 
-### Fencing with `lease_token`
+### Connection settings
 
-Every claim increments `lease_token`. Every write a worker makes for a job (renew, status, submit marker,
-settle) carries `AND lease_token = ?`. A worker whose lease expired and was taken over by another worker gets
-`changes() = 0` on its next write. It then aborts its run without touching the printer again. This turns
-"two workers believe they own the job" from a race into a checked error.
+`openDb` keeps `journal_mode = WAL` and `busy_timeout = 5000`, and adds `synchronous = NORMAL`. Under WAL,
+`NORMAL` skips the fsync on each commit and syncs at checkpoints instead. It cannot corrupt the database. A
+power cut can lose the last few commits, though, and two writes must survive one: the submit intent and the
+submit marker. Those two run with `synchronous = FULL` on the writing connection, set before the transaction
+and reset after it. Everything else (progress, renewals, events) runs at `NORMAL`. A lost progress row costs
+nothing.
+
+## Leases and fencing
+
+A lease is the triple `(lease_owner, lease_token, lease_until)` on the job row. Three rules make it a fence.
+
+1. **Every takeover bumps the token.** The claim, the reaper and a worker releasing its own lease all set
+   `lease_token = lease_token + 1`. No statement hands a lease from one owner to another without bumping it.
+2. **Every worker write checks it still owns a live lease.** Each worker write for a job carries
+   `AND lease_owner = ?me AND lease_token = ?token AND lease_until >= ?now`. That covers renew, status,
+   intent, marker, settle and release. A write that changes 0 rows means the lease is gone, and the worker
+   stops working on that job.
+3. **No worker write clears a lease, except settling and releasing.** Status, intent and marker writes leave
+   `lease_owner` and `lease_until` as they are.
+
+`lease_until >= ?now` also makes a worker fence itself. A worker that stalled past its own lease (a GC pause,
+`SIGSTOP`, an NTP step, renewals stuck on `SQLITE_BUSY`) cannot write, even before the reaper has run.
+
+### Invariant: no in-flight row without a lease, except a resumable one
+
+An in-flight row is one in `generating`, `slicing`, `transferring` or `printing`. At every commit, each such
+row is in exactly one of these shapes:
+
+| Shape | Columns | Who moves it next |
+|---|---|---|
+| Leased | `lease_owner`, `lease_until` set | its owner, or the reaper once `lease_until < now` |
+| Resumable orphan | lease cleared, `submitted_at` set, state `transferring` or `printing` | the next claim (it resumes monitoring) |
+
+Each statement that writes an in-flight state, and why it keeps the invariant:
+
+| Statement | Writes | Keeps the invariant because |
+|---|---|---|
+| Claim | sets an in-flight state and a full lease | it sets all three lease columns |
+| Worker status, intent, marker | in-flight state | rule 2 requires a live lease; rule 3 keeps it |
+| Worker release on `SIGTERM` | clears the lease | it requeues the job, or leaves it a resumable orphan only when `submitted_at` is set; otherwise it waits for the submit to finish |
+| Reaper | clears the lease | it moves the row to `queued`, to `failed`, or to a resumable orphan only when `submitted_at` is set |
+
+A stalled worker that wakes after the reaper ran fails rule 2 (the token moved) and writes nothing, so it
+cannot leave a lease-less row in flight. As a backstop against a bug in that reasoning, the reaper also
+matches in-flight rows with `lease_owner IS NULL AND submitted_at IS NULL`. It settles them `failed` and
+holds the printer when `submit_started_at` is set. A test asserts the invariant after every step of the
+scenarios in the [test plan](#test-plan).
+
+### Why a printer cannot get stuck
+
+A printer is blocked while some job is on it (`transferring` or `printing`), or while it has a hold. Each way
+out:
+
+- **A live lease:** the job finishes, fails or is canceled, and settling clears it.
+- **A dead worker:** the lease expires within `leaseMs` (30 s). The reaper then turns the job into a resumable
+  orphan (marker set) or settles it and holds the printer (intent only). An orphan is claimed on the next
+  claim tick. If resuming fails, it settles `failed` and holds the printer.
+- **A hold:** an operator releases it with `POST /printers/:id/release` (see [Printer holds](#printer-holds)).
+  A hold is deliberate. It is the one wait that needs a person, and it says so in the printer's status and the
+  failed job's reason.
+
+No state needs a process that no longer exists to make progress.
+
+### Renewal
+
+- `leaseMs` defaults to 30 s. Each running job's lease is renewed every 10 s:
+  `UPDATE jobs SET lease_until = ?now + ?leaseMs WHERE id = ? AND lease_owner = ?me AND lease_token = ? AND lease_until >= ?now`.
+- Renewal runs on a timer independent of the stage. Engines run through `Bun.spawn` and printers through
+  async I/O, so the event loop stays free to renew during a long slice or print.
+- **`SQLITE_BUSY` is not a lost lease.** If a renewal still gets `SQLITE_BUSY` after `busy_timeout`, it is
+  retried every 1 s until 5 s before `lease_until`. If it has not succeeded by then, the worker treats the
+  lease as lost and stops. Only `changes() = 0`, or running out of time, counts as lost.
+- A lost lease aborts the job's `AbortController` with `LeaseLostError`. The run unwinds and writes nothing:
+  every write it attempts is fenced. When the job is past the submit intent, the abort does not stop the
+  printer. Whoever holds the job next decides, through resume or a hold.
 
 ## Claiming
 
@@ -124,158 +208,207 @@ It inserts the first `queued` event in the same transaction, then returns `202 {
 
 ### Atomic claim
 
-A worker claims in one immediate transaction, so two workers can never take the same row:
+`bun:sqlite`'s `db.transaction(fn)` opens a deferred `BEGIN`. The claim, the reaper, slot acquisition and the
+queued-cancel all use `db.transaction(fn).immediate()`, which issues `BEGIN IMMEDIATE`. It takes the write
+lock before the first read, so the selecting subquery and the update see the same snapshot. A test asserts
+these entry points run immediate transactions.
 
 ```sql
-BEGIN IMMEDIATE;
 UPDATE jobs
    SET state       = CASE WHEN submitted_at IS NULL THEN 'generating' ELSE state END,
        attempts    = CASE WHEN submitted_at IS NULL THEN attempts + 1 ELSE attempts END,
-       lease_owner = ?worker, lease_token = lease_token + 1,
+       lease_owner = ?me, lease_token = lease_token + 1,
        lease_until = ?now + ?leaseMs, updated_at = ?now
  WHERE id = (
    SELECT j.id FROM jobs j
-    WHERE (    (j.state = 'queued' AND j.run_after <= ?now AND j.cancel_requested_at IS NULL)
-            OR (j.submitted_at IS NOT NULL AND j.lease_owner IS NULL
-                AND j.state IN ('transferring', 'printing')))
-      AND NOT EXISTS (
-        SELECT 1 FROM jobs r
-         WHERE r.printer_id = j.printer_id
-           AND r.id <> j.id
-           AND r.state IN ('generating', 'slicing', 'transferring', 'printing'))
+    WHERE (    (j.state = 'queued' AND j.run_after <= ?now AND j.cancel_requested_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM jobs p
+                                 WHERE p.printer_id = j.printer_id AND p.id <> j.id
+                                   AND p.state IN ('generating', 'slicing')))
+            OR (j.state IN ('transferring', 'printing') AND j.lease_owner IS NULL
+                AND j.submitted_at IS NOT NULL))
     ORDER BY j.submitted_at IS NULL, j.created_at, j.rowid
     LIMIT 1)
 RETURNING *;
-COMMIT;
 ```
 
-- `BEGIN IMMEDIATE` takes the write lock up front, so the subquery and the update see the same snapshot.
-  SQLite allows one writer at a time, and `busy_timeout = 5000` (already set in `openDb`) queues a
-  competing claimant instead of failing it.
-- The claim picks two kinds of row. A `queued` job starts at `generating` and counts an attempt. An orphaned
-  job that was already submitted keeps its state and is resumed (see
-  [Crash recovery](#worker-crash-recovery)). Orphans sort first, because a printer is busy with them.
-- `r.id <> j.id` keeps an orphan from blocking itself. Its printer's queued jobs still wait, because the
-  orphan counts as running.
-- A worker polls with this claim every `claimIdleMs` (default 500 ms) while it has free capacity
-  (`WORKER_CONCURRENCY`, default 2 as today). After it settles a job, it claims again at once.
+- **Two kinds of row.** A `queued` job starts at `generating` and counts an attempt. A resumable orphan keeps
+  its state and is resumed (see [Crash recovery](#worker-crash-recovery)). Orphans sort first.
+- **One job prepares ahead per printer.** The `NOT EXISTS` lets a queued job start only when no other job for
+  its printer is already generating or slicing. So a printer has at most one job on it and one preparing. A
+  worker's capacity cannot fill with jobs that all wait for the same printer.
+- **Idle polling is cheap.** A worker with free capacity (`WORKER_CONCURRENCY`, default 2 as today) checks
+  every `claimIdleMs` (default 1 s) with a read-only `SELECT EXISTS` over the same conditions. It takes the
+  write lock only when that finds a candidate. After it settles a job, it checks again at once.
 
-### Visibility timeout and renewal
+### Printer slot
 
-- `leaseMs` defaults to 30 s, and the worker renews every 10 s:
-  `UPDATE jobs SET lease_until = ?now + ?leaseMs WHERE id = ? AND lease_token = ? AND state IN (in-flight)`.
-- Renewal runs on a timer independent of the stage. Engines run through `Bun.spawn` and printers through
-  async I/O, so the event loop stays free to renew during a long slice or print.
-- A renewal that changes 0 rows means the lease was lost, either taken over or settled by a cancel. The
-  worker aborts its `AbortController` with a `LeaseLostError`, which is handled as "stop and do not settle".
-  The owner of the new lease settles the job.
+The per-printer lock covers only sending and printing. A job leaves `slicing` for `transferring` through one
+immediate transaction:
+
+```sql
+UPDATE jobs SET state = 'transferring', updated_at = ?now
+ WHERE id = ? AND lease_owner = ?me AND lease_token = ? AND lease_until >= ?now
+   AND NOT EXISTS (SELECT 1 FROM jobs o WHERE o.printer_id = jobs.printer_id AND o.id <> jobs.id
+                     AND o.state IN ('transferring', 'printing'))
+   AND NOT EXISTS (SELECT 1 FROM printers pr WHERE pr.id = jobs.printer_id AND pr.hold_job_id IS NOT NULL);
+```
+
+When it changes 0 rows and the lease is still live, the printer is busy or held. The job stays in `slicing`
+with `progress = 1` and `message = 'sliced; waiting for the printer'`, and retries every `claimIdleMs`,
+renewing its lease as usual. Cancel works while it waits. A dedicated waiting state was considered and left
+out: it would change the shared `JobState` union that the web client renders, for a message that says the
+same thing.
 
 ### Retries and backoff
 
-Only a lost worker causes a retry. A reaper runs on every worker's claim tick, and once at startup:
+Only a lost worker before the submit intent causes a retry. The reaper runs on every worker's claim tick and
+once at startup, in one immediate transaction. In it, every row it takes over gets
+`lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1`. It matches in-flight rows whose
+`lease_until < ?now`, plus the backstop: in-flight rows with `lease_owner IS NULL AND submitted_at IS NULL`.
+Resumable orphans (no lease, marker set) match neither and are left for the claim. Each matched row gets one
+outcome:
 
-```sql
-UPDATE jobs
-   SET state = CASE WHEN submitted_at IS NULL AND attempts < max_attempts THEN 'queued'
-                    WHEN submitted_at IS NOT NULL THEN state
-                    ELSE 'failed' END,
-       run_after = ?now + ?backoffBaseMs * (1 << (attempts - 1)),
-       lease_owner = NULL, lease_until = NULL, updated_at = ?now
- WHERE state IN ('generating', 'slicing', 'transferring', 'printing')
-   AND lease_until < ?now
-RETURNING id, state, attempts, submitted_at;
-```
+| Row | Outcome |
+|---|---|
+| `submit_started_at IS NULL`, `attempts < max_attempts` | `queued`, `run_after = now + 5 s * 2^(attempts - 1)` (5 s, then 10 s) |
+| `submit_started_at IS NULL`, attempts exhausted | `failed`: `worker lost the job <n> times before it reached the printer` |
+| `submit_started_at` set, `submitted_at IS NULL` | `failed` and the printer held: `worker stopped while sending the job to the printer; check the printer before releasing it` |
+| `submitted_at` set | a resumable orphan: state kept, lease cleared, token bumped |
 
-- **Not yet submitted:** the job goes back to `queued` with exponential backoff (`backoffBaseMs` 5 s, so 5 s,
-  then 10 s). Regenerating and re-slicing are safe because nothing has reached the printer.
-- **Attempts exhausted:** the job is `failed` with the reason
-  `worker lost the job <n> times before it reached the printer`.
-- **Submitted:** the row keeps its in-flight state with no lease, so the next claim resumes monitoring
-  instead of queueing it again. The reaper never resets `submitted_at`.
-- Each transition the reaper makes appends a `job_events` row and, for `failed`, settles history exactly as
-  `settle.ts` does.
-
-The real reaper is written as two statements, the requeue and the fail, in one transaction rather than one
-`CASE`. That keeps each easy to test; the `CASE` above only shows the rules side by side.
+Each transition appends a `job_events` row. Each `failed` settles history exactly as `settle.ts` does,
+including `notes`. Regenerating and re-slicing in the first row are safe, because nothing has reached the
+printer.
 
 ## Behaviour
 
+### Submitting
+
+`printStage` becomes four fenced steps:
+
+1. **Take the printer slot** (above). The state becomes `transferring`.
+2. **Write the intent:** `submit_started_at = now`, with `synchronous = FULL`. Steps 1 and 2 are one
+   transaction.
+3. **Call `transport.submit()`** (upload plus `print/start`).
+4. **Write the marker:** `submitted_at = now, print_handle_json = ?handle`, with `synchronous = FULL`.
+
+What each crash point leaves behind:
+
+| The worker dies | Row afterwards | Next |
+|---|---|---|
+| Before step 2 commits | no intent | requeued; nothing reached the printer |
+| After step 2, during or after step 3, before step 4 commits | intent, no marker | `failed`, printer held |
+| After step 4 | marker | resumed |
+
+`submit()` raising `PrintNotStartedError` (a transport's "the printer never got it") clears the intent in the
+same fenced write that settles the job `failed`. No hold is set, because the transport knows the outcome.
+
+### Printer holds
+
+A hold means "the printer may be busy with a job the queue has lost track of". The reaper or a failed resume
+sets it, in the same transaction that settles the job:
+`hold_job_id = ?job, hold_reason = ?text, hold_at = ?now`. While a printer is held:
+
+- the printer slot refuses every job for it, so queued jobs can still generate and slice, then wait;
+- `GET /printers` and the printer's status show the hold and its reason.
+
+`POST /printers/:id/release` clears it. The operator calls it after checking the printer. It is an
+authenticated route like the rest of the api, and it needs a confirmation flag (`{ "confirm": true }`) so a
+stray request cannot release a hold. Until the UI rewrite adds a button, the runbook in
+`docs/self-hosting.md` gives the `curl` command. A hold is never released automatically: probing the printer
+cannot tell "idle" from "about to start the job we sent".
+
 ### Cancel
 
-`POST /jobs/:id/cancel` keeps today's contract, from `api/src/cancel.ts`. One transaction decides by the
-row's state:
+`POST /jobs/:id/cancel` keeps today's contract, from `api/src/cancel.ts`. One immediate transaction decides by
+the row's state:
 
 | State when cancel arrives | Today | With the SQLite queue |
 |---|---|---|
 | Terminal | `200` with that state | Same; nothing is written |
 | No row | `404 unknown job` | Same |
-| `queued` (BullMQ `waiting`, `delayed`) | Job removed, `canceled` published and recorded, `200 canceled` | `UPDATE ... SET state = 'canceled', cancel_requested_at = ?now WHERE state = 'queued'` plus a `canceled` event in the same transaction, `200 canceled` |
+| `queued` (BullMQ `waiting`, `delayed`) | Job removed, `canceled` published and recorded, `200 canceled` | `SET state = 'canceled', cancel_requested_at = ?now WHERE state = 'queued'` plus a `canceled` event, `200 canceled` |
 | In flight | Cancel flag and control message, `202 canceling` | `SET cancel_requested_at = ?now`, `202 canceling` |
 | Snapshot exists but BullMQ lost the job | Flag set, `202 canceling` | Cannot happen: the row is the job |
 
-The worker side is unchanged in shape. `PipelineDeps.cancelRequested()` becomes
-`SELECT cancel_requested_at IS NOT NULL FROM jobs WHERE id = ?`, read at each `checkpoint` and by the
-print-stage poll (every `cancelPollMs`, 2 s). The control channel's instant abort becomes the next poll, so
-cancel is acknowledged within 2 s rather than at once. `settle.ts` keeps stopping the printer, writing
-`canceled` (or `failed` when the printer refuses to stop) and recording notes.
+**Prompt abort in every stage.** Today the control message calls `controller.abort()` at once. That reaches
+`ctx.signal`, and the generator and slicer pass `ctx.signal` to `Bun.spawn`, so a cancel kills a running
+engine. The queue keeps that. Each running job has one run timer that ticks every `cancelPollMs` (1 s). Each
+tick reads `cancel_requested_at`, a read-only indexed lookup, and calls `controller.abort()` when it is set.
+It renews the lease on every tenth tick. The timer runs from claim to settle, so a cancel during a long slice
+kills the slicer within 1 s. It replaces the print stage's own cancel poll. `PipelineDeps.cancelRequested()`
+reads the same column, so stage checkpoints behave as now.
+
+From there, `settle.ts` does what it does today: it stops the printer when the job had reached it, and
+writes `canceled`, or `failed` when the printer refuses to stop. A cancel during step 3 of
+[Submitting](#submitting) aborts the submit the same way today's does. That is an operator's explicit
+choice, and `stopPrinter` runs.
 
 The queued-cancel `UPDATE` and the claim both take the write lock, so a job is either claimed or canceled,
 never both. The claim's `cancel_requested_at IS NULL` filter covers a cancel that lands between a requeue
-and the next claim.
-
-The 7-day cancel-flag TTL goes away. The flag lives on the row, which is kept as history.
+and the next claim. The 7-day cancel-flag TTL goes away: the flag lives on the row, which is kept as history.
 
 ### Worker crash recovery
 
 This is the fix for #5.
 
-1. `printStage` calls `transport.submit()`. On success, before anything else, the worker writes
-   `submitted_at = ?now, print_handle_json = ?handle` under its `lease_token`. That write is the durable
-   "the printer has this job" marker.
+1. Steps 2 and 4 of [Submitting](#submitting) bracket `submit()` with durable writes.
 2. The worker dies (OOM, `docker compose up -d`, a reboot). Renewals stop, and `lease_until` passes.
-3. The reaper clears the lease but keeps the state and `submitted_at` (see the table above).
-4. The next claim sees `submitted_at IS NOT NULL` and enters `watchPrint` directly with the stored handle,
-   skipping generate, slice and submit. It publishes a `printing` event whose `message` reads
+3. The reaper applies its table: requeue before the intent, fail and hold between intent and marker, orphan
+   after the marker.
+4. The next claim takes an orphan and enters `watchPrint` directly with the stored handle, skipping
+   generate, slice and submit. It publishes a `printing` event whose `message` reads
    `resumed after worker restart`.
 5. If the transport cannot resume (no `status()` for a stored handle, or the first status read fails), the
    job settles `failed` with
-   `worker restarted mid-print and could not reconnect; check the printer before starting another print`.
-   It is never resubmitted.
+   `worker restarted mid-print and could not reconnect; check the printer before releasing it`, and holds
+   the printer. It is never resubmitted.
 
-A crash between `submit()` returning and the marker commit is the one remaining window, a single local
-SQLite write wide. The design accepts it and documents it in `docs/modules/worker.md`. Closing it needs
-printer-side idempotency, which neither transport offers.
+No crash point leads to a second `submit()`. The cost of that guarantee is a held printer after a crash
+during the upload window, which is the case that needs a person to look at the printer anyway.
 
-**Graceful shutdown.** The worker handles `SIGTERM`. It stops claiming. For each job not yet submitted, it
-aborts the run and requeues it at once (`run_after = now`, the attempt not counted). For each job already
-submitted, it sets `lease_until = now` so the next worker resumes monitoring without waiting 30 s. The print
-itself is never touched. Compose gets `stop_grace_period: 30s`.
+### Graceful shutdown
+
+On `SIGTERM` the worker stops claiming and, per running job:
+
+| Where the job is | What the worker does |
+|---|---|
+| Before the intent (generating, slicing, waiting for the slot) | aborts the run, then, fenced, requeues it with `run_after = now`, the attempt not counted and the token bumped |
+| Between intent and marker (inside `submit()`) | lets `submit()` finish and writes the marker, then releases as below |
+| After the marker | releases the lease (owner and until cleared, token bumped), so the next worker resumes at once. The print is not touched |
+
+Compose sets `stop_grace_period: 60s`. That covers a g-code upload to a printer on the local network. If the
+grace period runs out during `submit()`, the process is killed with the intent written and no marker, and the
+reaper fails the job and holds the printer, as for any crash in that window.
 
 ### Ordering
 
-- FIFO by `created_at`, with `rowid` as the tie-break for jobs enqueued in the same millisecond.
-- One running job per printer. BullMQ did not enforce this: two jobs for one printer could run at once and
-  collide at `submit()`. A queued job for a busy printer waits without blocking jobs for other printers.
-- `WORKER_CONCURRENCY` still caps the jobs one worker runs at once.
+- FIFO by `created_at`, with `rowid` as the tie-break for jobs enqueued in the same millisecond. Resumable
+  orphans go first.
+- Per printer: at most one job on the printer and one preparing. Jobs reach the printer in the order they
+  finished slicing. That is FIFO except when an earlier job fails or is canceled.
+- Other printers are never blocked by a busy or held one.
+- `WORKER_CONCURRENCY` still caps the jobs one worker runs at once, waiting jobs included.
 
 ## Live status
 
 ### Writes
 
-Every status change the worker publishes today through `StatusBus.publish` becomes one transaction:
+Every status change the worker publishes today through `StatusBus.publish` becomes one fenced transaction:
 
 ```sql
 UPDATE jobs SET state = ?, stage = ?, progress = ?, message = ?, timings_json = ?, updated_at = ?now
- WHERE id = ? AND lease_token = ? AND state NOT IN ('done', 'failed', 'canceled');
+ WHERE id = ? AND lease_owner = ?me AND lease_token = ? AND lease_until >= ?now
+   AND state NOT IN ('done', 'failed', 'canceled');
 INSERT INTO job_events (job_id, event, at) SELECT ?, ?, ?now WHERE changes() = 1;
 ```
 
-- The `state NOT IN (terminal)` guard replaces the Lua script's "never overwrite a terminal snapshot". A
-  late `printing` event after `canceled` changes nothing and appends nothing.
-- Progress is coalesced. `ctx.report()` can fire many times a second, so it updates the row on every call
-  but appends a `job_events` row at most once per `progressEventMs` (default 1 s) per job, plus every state
-  or stage change, which are never dropped. Without this, the event table would grow by thousands of rows
-  per slice.
+- The guard replaces the Lua script's "never overwrite a terminal snapshot". A late `printing` event after
+  `canceled` changes nothing and appends nothing.
+- **Progress is coalesced before it reaches the database.** `ctx.report()` can fire many times a second. The
+  worker keeps the latest progress in memory and flushes it at most once per `progressFlushMs` (1 s) per job,
+  as one row update plus one event. A state or stage change flushes at once and is never dropped. So a
+  printing job costs at most one progress write per second, and a renewal every 10 s.
 
 ### Reads
 
@@ -283,21 +416,24 @@ INSERT INTO job_events (job_id, event, at) SELECT ?, ?, ?now WHERE changes() = 1
 |---|---|---|
 | `GET /jobs/:id` | Redis snapshot | The row, mapped to `JobStatusEvent` |
 | `GET /jobs/active` | Set plus snapshots, pruned | `SELECT ... WHERE state NOT IN (terminal) ORDER BY updated_at DESC` |
-| `GET /jobs/:id/ws` | Redis subscription | Event-log tail, below |
+| `GET /jobs/:id/ws` | Redis subscription | Snapshot, then the event-log tail, below |
 | `GET /jobs-history` | Terminal rows | Unchanged, filtered to terminal states so queued jobs do not appear early |
 
 ### The event-log tail
 
-The WebSocket handler sends the current snapshot first, then tails `job_events`:
+**Snapshot and cursor are read atomically.** When a socket opens, the handler reads the row and
+`MAX(seq)` for the job inside one read transaction (`BEGIN` ... `COMMIT`, deferred). Under WAL, both reads
+see the same committed state. A status write cannot land between them, so the tail that starts after that
+cursor neither drops nor repeats an event. It then tails:
 
 ```sql
 SELECT seq, event FROM job_events WHERE job_id = ? AND seq > ? ORDER BY seq LIMIT 100;
 ```
 
-- **Two processes** (PRs 2 to 4): the api polls every `tailPollMs` (default 250 ms) for each open socket. In
-  WAL mode readers never block the writer and the writer never blocks readers, and the query is an index
-  range scan on `(job_id, seq)`. One poll per open socket per 250 ms is negligible at self-hosted scale.
-- **One process** (PR 5): the queue module exposes an in-process `EventTarget`. Every committed event
+- **Two processes** (until the last PR): the api polls each open socket every 250 ms while events keep
+  arriving, backing off to 1 s after 5 s with nothing new. In WAL mode readers never block the writer, and the
+  query is an index range scan on `(job_id, seq)` that takes no write lock. That is cheap even on a Pi.
+- **One process** (last PR): the queue module exposes an in-process `EventTarget`. Every committed event
   dispatches `job:<id>` after `COMMIT`, and the tail wakes on it instead of waiting for the next poll. The
   poll stays as a fallback for events written by a separate `conveyor work` process.
 - The socket closes after it forwards a terminal event, as today.
@@ -311,8 +447,8 @@ SELECT seq, event FROM job_events WHERE job_id = ? AND seq > ? ORDER BY seq LIMI
 | Phase | Processes | Compose services |
 |---|---|---|
 | Today | api, worker, redis | caddy, web, api, worker, redis |
-| PRs 2 to 4 | api and worker share `/data/conveyor.db` | caddy, web, api, worker |
-| PR 5 | `conveyor serve` runs the api and an in-process worker; `conveyor work` runs a worker alone | caddy, web, conveyor |
+| Until Redis is removed | api and worker share `/data/conveyor.db` | caddy, web, api, worker (redis until PR 9) |
+| Last PR | `conveyor serve` runs the api and an in-process worker; `conveyor work` runs a worker alone | caddy, web, conveyor |
 | UI rewrite (separate) | the app serves the SPA too | conveyor, plus optional caddy |
 
 SQLite must be on a local volume, and `docs/self-hosting.md` says so. The api and worker share one database
@@ -320,48 +456,75 @@ file, so they must run on the same host.
 
 ## Rollout
 
+### Switching between the two stacks
+
+`CONVEYOR_QUEUE=redis|sqlite` (default `redis`) selects the stack while both exist. Compose passes one
+`${CONVEYOR_QUEUE:-redis}` value to both the api and the worker, so in a normal install they cannot
+disagree. The api and the worker each log the selected mode at startup.
+
+- `sqlite` is only coherent once the worker PRs (5 and 6) **and** the api PR (7) have all merged. A
+  `sqlite` worker with a `redis` api never sees a job, and the reverse never runs one.
+- Until PR 7 merges, `sqlite` is undocumented, and the worker refuses to start in that mode unless
+  `CONVEYOR_QUEUE_UNSTABLE=1` is also set. Only tests and the developers of PRs 5 to 7 set it.
+- PR 7 removes that guard and documents the flag. PR 9 makes `sqlite` the default, deletes the Redis path and
+  removes the flag.
+
 ### Migrating from Redis
 
 Default: **drain, then upgrade.** `docs/self-hosting.md` tells the operator to wait until `/jobs/active` is
-empty, which it already advises for printing jobs. For operators who cannot drain, PR 4 ships a one-shot
-importer, `bun run --cwd packages/worker migrate-redis`. It runs only when `REDIS_URL` is set and reads the
-old keys:
+empty. For queued jobs that should survive the upgrade, PR 8 ships a one-shot importer,
+`bun run --cwd packages/worker migrate-redis`. It runs only when `REDIS_URL` is set.
+
+It **refuses to run**, and changes nothing, in two cases:
+
+- **The old BullMQ worker might still be running:** the queue has a live worker (BullMQ's worker list is not
+  empty) or any job lock key exists. The message tells the operator to stop the `worker` service first.
+- **A job is on a printer:** any snapshot is `transferring` or `printing`, or any BullMQ job is `active`. The
+  message lists those jobs and their printers and says to let them finish or cancel them first.
+
+It refuses rather than holding those printers' queues. A hold needs a stored print handle to resume from or
+a person to release it, and Redis has no handle. So importing an in-flight print would always end in a held
+printer and a manual release. Asking the operator to wait for the print is simpler and leaves nothing
+half-imported. The refusal costs a wait, never a collision.
+
+When neither refusal applies:
 
 | Redis state | Imported as |
 |---|---|
 | BullMQ `waiting`, `delayed`, `prioritized` | `queued` rows, in their BullMQ order, with their original ids |
-| BullMQ `active`, snapshot not yet `transferring` | `queued` (safe to rerun: nothing reached the printer) |
-| BullMQ `active`, snapshot `transferring` or `printing` | `failed` with reason `interrupted by the queue upgrade; check the printer`. There is no stored handle to resume from, and resubmitting is what #5 forbids |
 | Snapshot terminal | Skipped: it is already in SQLite history |
-| Cancel flags | Applied as `cancel_requested_at` on the imported row |
+| Cancel flag on a waiting job | Imported as `canceled` |
 
 The importer is idempotent (`INSERT ... ON CONFLICT(id) DO NOTHING`), prints one line per job, and exits
-non-zero when Redis is unreachable. It is deleted one release after PR 4.
-
-### Feature flag
-
-PRs 2 and 3 switch the worker and the api separately, so for those two PRs both stacks exist behind
-`CONVEYOR_QUEUE=redis|sqlite` (default `redis`). PR 4 flips the default, deletes the Redis path and removes
-the flag. The flag exists only to keep each PR shippable and under the size limit. It is not a long-lived
-option.
+non-zero when Redis is unreachable. It is deleted one release after PR 9.
 
 ### Test plan
 
 All queue tests use a temporary SQLite file (WAL needs a file, not `:memory:`) and an injected clock and id
-generator. They need no network and no Redis.
+generator. They need no network and no Redis. A helper asserts the
+[lease invariant](#invariant-no-in-flight-row-without-a-lease-except-a-resumable-one) over every row after each
+step of every scenario.
 
 | Area | Tests |
 |---|---|
-| Claim | FIFO with a `created_at` tie broken by `rowid`; `run_after` in the future is skipped; a canceled queued job is never claimed; a busy printer's next job waits while another printer's job is claimed |
+| Claim | FIFO with a `created_at` tie broken by `rowid`; `run_after` in the future is skipped; a canceled queued job is never claimed; a second job for a printer may claim while the first prints, but a third waits while the second prepares; orphans are claimed first |
+| Immediate transactions | The claim, reaper, slot and queued-cancel entry points open `BEGIN IMMEDIATE` (checked through a spy on the connection's `exec`) |
 | Concurrency | Two `Database` handles on one file claiming in alternation never return the same id; two `Bun.spawn` processes claiming 200 jobs between them claim each exactly once |
-| Lease | Renewal extends `lease_until`; a renewal with a stale `lease_token` changes 0 rows and aborts the run; a status write after takeover is refused |
-| Reaper | Not submitted: requeued with 5 s then 10 s backoff, then `failed` with the "lost the job" reason at `max_attempts`; submitted: left in flight, never requeued |
-| Issue #5 | A fake transport counts `submit()` calls. Kill the worker after `submit` (stop renewing), advance the clock past the lease, start a second worker: `submit()` count stays 1 and `status()` resumes on the stored handle. If the resume fails, the job settles `failed` with the reconnect reason |
-| Shutdown | `SIGTERM` requeues an unsubmitted job with no attempt counted and releases a printing job's lease at once |
-| Cancel | The table in [Cancel](#cancel), case by case, mirroring `api/src/cancel.test.ts`; cancel racing a claim leaves exactly one of `canceled` or running |
-| Events | `seq` increases; a write after a terminal state appends nothing; progress is coalesced to one event per second but every state change appears; retention removes only events of jobs terminal for over 7 days |
-| Api | `GET /jobs/:id`, `/jobs/active`, `/jobs-history` and the WebSocket against a listener on `127.0.0.1:0`; the socket sends the snapshot, then events in order, and closes on terminal |
-| Importer | A fake Redis reader with one job per row of the importer table produces the expected rows; a second run changes nothing |
+| Fencing | After the reaper takes a lease, every write from the old owner (status, intent, marker, settle, release) changes 0 rows; a worker past its own `lease_until` cannot write before the reaper runs; a stalled worker that wakes after a reaper requeue leaves the row `queued` with no lease, and the invariant holds |
+| Renewal | Renewal extends `lease_until`; `SQLITE_BUSY` (simulated by holding a write lock on a second handle) is retried and succeeds once released; one still busy 5 s before expiry aborts the run |
+| Reaper | Each row of the reaper table, including the 5 s and 10 s backoff and the backstop for a lease-less in-flight row |
+| Printer slot | A second job waits in `slicing` with the waiting message while the first is on the printer, and takes the slot when it settles; a held printer refuses the slot; cancel while waiting settles `canceled` |
+| Issue #5, crash | A fake transport counts `submit()` calls. Kill the worker (stop renewing, no settle) at each of the three crash points in [Submitting](#submitting), advance the clock past the lease, start a second worker. Before the intent: requeued and submitted once. Intent only: `failed`, printer held, `submit()` count 1, the next job for that printer waits. After the marker: resumed on the stored handle, count 1 |
+| Resume failure | A transport whose `status()` rejects on resume settles `failed` with the reconnect reason and holds the printer |
+| Hold release | `POST /printers/:id/release` without `confirm` is `400`; with it, the hold clears and the waiting job takes the slot |
+| Shutdown | `SIGTERM` requeues a slicing job (attempt not counted); waits for a `submit()` in progress, writes the marker, then releases; releases a printing job so a second worker resumes at once; a grace timeout inside `submit()` ends in a hold |
+| Cancel | The table in [Cancel](#cancel), case by case, mirroring `api/src/cancel.test.ts`; a cancel during a 10 s fake slice aborts `ctx.signal` within 1.5 s of the clock; a cancel racing a claim leaves exactly one of `canceled` or running |
+| Writes | 100 `ctx.report()` calls in one second produce one row update and one event; every state change produces an event; a write after a terminal state appends nothing |
+| Durability | The intent and marker writes run with `synchronous = FULL`, and other writes with `NORMAL` (checked through `PRAGMA synchronous` on the connection inside each write) |
+| Events and tail | `seq` increases; a status write injected between snapshot and cursor (through a hook in the test) is delivered exactly once; the poll backs off after 5 s idle; retention removes only events of jobs terminal for over 7 days |
+| Api | `GET /jobs/:id`, `/jobs/active`, `/jobs-history`, the WebSocket and the hold release against a listener on `127.0.0.1:0` |
+| Importer | Refuses with a live BullMQ worker, a lock key, an `active` job, or a `transferring` or `printing` snapshot, and writes nothing; otherwise imports each row of its table; a second run changes nothing |
+| Switch | The worker refuses `CONVEYOR_QUEUE=sqlite` without `CONVEYOR_QUEUE_UNSTABLE=1` before PR 7; compose passes one value to both services |
 | End to end | Compose in stub mode (`CONVEYOR_ENGINE_STUB=1`) with no `redis` service runs a job to `done`; `docker compose config` lists no `redis` |
 
 Every new test is proven to bite: the PR reverts the line it covers and shows the test fail, as AGENTS.md §7
@@ -369,38 +532,56 @@ requires. Coverage must not drop, and the queue module targets at least 90% line
 
 ## Breakdown into PRs
 
-Each PR stays at or under 800 changed lines, counted as AGENTS.md §4 counts them (pure deletions excluded),
-and closes or references one issue.
+AGENTS.md §4 caps a PR at 400 changed lines; 401 to 800 is an S2 with a request to split. Each code PR below
+is planned under 400. Tests count toward the limit, which is what makes some of them close. PR 6 is the one
+most likely to go over. If it does, it asks for `large-ok` rather than splitting the submit steps from their
+crash tests, because the tests are what prove #5 is fixed.
 
 | # | Title | Scope | Estimate |
 |---|---|---|---|
-| 1 | `feat(queue): sqlite job queue with leases and an event log` | `packages/shared/src/queue/`: the migration, enqueue, claim, renew, reaper, cancel, status write with the terminal guard, events tail, retention. Tests from the claim, concurrency, lease, reaper, cancel and events rows above. No callers yet. ADR 0004 records the decision. | ~650 |
-| 2 | `fix(worker): run jobs from the sqlite queue and never resubmit after a restart` | Worker loop behind `CONVEYOR_QUEUE=sqlite`: claim and renew, `cancelRequested` from the row, status through the queue, the submit marker and resume path, `SIGTERM`, `stop_grace_period`. The issue #5 and shutdown tests. Closes #5 for the SQLite path. | ~700 |
-| 3 | `feat(api): serve jobs from the sqlite queue` | Behind the same flag: enqueue, snapshot, active, history filter, cancel, and the WebSocket event-log tail. Api tests on `127.0.0.1:0`. | ~550 |
-| 4 | `refactor(infra): make the sqlite queue the only queue and remove redis` | Flip the default and remove the flag, the Redis importer and its test, delete `bullmq`, `ioredis`, `StatusBus`, the Lua script and the Redis keys, drop `redis` from compose, update `self-hosting.md`, `DATA-MODEL.md`, `SEQUENCE.md` and the module pages. Mostly deletions. | ~450 added |
-| 5 | `feat(infra): run the api and worker in one process` | `conveyor serve` and `conveyor work` entry points, the in-process `EventTarget` fast path, compose down to caddy, web and conveyor, one image for api and worker. | ~400 |
+| 1 | `feat(queue): add the sqlite job queue schema and atomic claim` | `packages/shared/src/queue/`: migration (columns, indexes, `job_events`, printer holds, `synchronous`), enqueue, claim with orphans and the per-printer prepare cap, immediate-transaction helper. Claim, immediate and concurrency tests. ADR 0004 records the decision | ~380 |
+| 2 | `feat(queue): fence leases with renewal and a reaper` | Renew with the `SQLITE_BUSY` retry, release, the reaper table and backstop, the invariant helper. Fencing, renewal and reaper tests | ~390 |
+| 3 | `feat(queue): guard status writes and tail the event log` | Fenced status write with the terminal guard, progress coalescing, events, snapshot-plus-cursor read, tail query, retention. Writes and events tests | ~360 |
+| 4 | `feat(queue): cancel, printer slot and printer holds` | Queued and in-flight cancel, slot acquisition, hold set and release functions. Cancel (queue side), slot and hold tests | ~330 |
+| 5 | `feat(worker): run jobs from the sqlite queue behind a flag` | Worker loop: claim, the run timer (cancel every 1 s, renew every 10 s), status through the queue, settle through the queue, behind `CONVEYOR_QUEUE=sqlite` plus `CONVEYOR_QUEUE_UNSTABLE=1` | ~370 |
+| 6 | `fix(worker): never resubmit after a restart` | Slot, intent, marker, resume, holds on unknown outcome, `SIGTERM`, `stop_grace_period`. The #5 crash, resume failure and shutdown tests. Closes #5 | ~400, may ask for `large-ok` |
+| 7 | `feat(api): serve jobs from the sqlite queue` | Enqueue, snapshot, active, history filter, cancel, the WebSocket tail and `POST /printers/:id/release`, behind the flag; removes the unstable guard and documents the flag. Api and switch tests | ~390 |
+| 8 | `feat(worker): import queued jobs from redis` | The importer with both refusals, its tests, and the upgrade runbook in `self-hosting.md` | ~300 |
+| 9 | `refactor(infra): make the sqlite queue the only queue and remove redis` | Default to SQLite and remove the flag; delete `bullmq`, `ioredis`, `StatusBus`, the Lua script and the Redis keys; drop `redis` from compose; update `DATA-MODEL.md`, `SEQUENCE.md` and the module pages. Mostly deletions, which §4 does not count | ~250 added |
+| 10 | `feat(infra): run the api and worker in one process` | `conveyor serve` and `conveyor work`, the in-process `EventTarget` fast path, compose down to caddy, web and conveyor | ~350 |
 
-PRs 2 and 3 can be reviewed in parallel once PR 1 merges. PR 4 needs both. PR 5 needs PR 4.
+Order: 1, then 2, 3 and 4 in any order; 5 needs 2 and 3; 6 needs 4 and 5; 7 needs 3 and 4 and can be reviewed
+beside 5 and 6; 8 needs 7; 9 needs 6, 7 and 8; 10 needs 9.
 
 ## Risks
 
-- **Write contention.** One writer at a time. Claims, renewals and status writes are single-row and short, and
-  progress is coalesced, so even ten concurrent jobs stay under one write per 100 ms. `busy_timeout` absorbs
-  bursts.
-- **Clock.** Leases compare `Date.now()` across processes on one host, so they share a clock. A large NTP step
-  can expire a lease early. The fencing token keeps that safe, at worst a reclaim.
+- **Write rate.** Per running job: at most one coalesced progress write per second, one renewal per 10 s, and
+  one-off state changes. Cancel checks and idle claim probes are reads. With the default
+  `WORKER_CONCURRENCY` of 2, that is about 2.2 writes per second, each a short single-row transaction at
+  `synchronous = NORMAL` with no fsync per commit. Ten concurrent jobs stay near 11 writes per second.
+  `busy_timeout` absorbs bursts. The two `FULL` writes per job (intent and marker) add two fsyncs per print.
+- **Clock.** Leases compare `Date.now()` across processes on one host, so they share a clock. A large forward
+  NTP step can expire leases early. Fencing makes that safe: the old owner stops writing. The cost is a
+  requeue, or a hold when the step landed inside `submit()`.
 - **Resume depends on the transport.** Moonraker and Elegoo both read status from a handle (`status(handle)`),
-  but resuming after a restart has not been exercised against real hardware. The fallback is a clear
-  `failed`, never a resubmit.
-- **The submit-to-marker window** (see [Crash recovery](#worker-crash-recovery)) remains.
-- **Cancel latency** rises from immediate to at most `cancelPollMs` (2 s) while printing.
+  but resuming after a restart has not been exercised against real hardware. The fallback is a `failed` job
+  and a held printer, never a resubmit.
+- **Holds need a person.** A crash during the upload window holds the printer until someone releases it. That
+  is deliberate, but until the UI rewrite the release is a `curl` from the runbook.
+- **Cancel latency** is at most `cancelPollMs` (1 s) in every stage, against effectively immediate today.
+- **Power loss** at `synchronous = NORMAL` can drop the last progress updates. The intent and marker are
+  written at `FULL`, so they cannot be lost that way.
 
 ## Alternatives considered
 
 | Option | Why not |
 |---|---|
-| Keep BullMQ and set `maxStalledCount: 0` (#5's second suggestion) | Fixes the double print by failing every interrupted job, keeps Redis and its five roles, and still allows two jobs on one printer |
-| `bunqueue` or another SQLite queue package | 298 versions in 10 months from one maintainer is too much churn for the core path, and the queue is about 300 lines we can test fully |
+| Keep BullMQ and set `maxStalledCount: 0` (#5's second suggestion) | Fails every interrupted job, including ones safe to rerun. Keeps Redis and its five roles, and still allows two jobs on one printer |
+| `bunqueue` or another SQLite queue package | 298 versions in 10 months from one maintainer is too much churn for the core path, and the queue is small enough to test fully |
 | A separate `job_leases` table | See [Why the lease lives on the job row](#why-the-lease-lives-on-the-job-row) |
+| Per-printer lock across the whole run | Simpler, but a job could not even start slicing until the previous multi-hour print ended |
+| A new `waiting_printer` job state | Clearer in the UI, but it changes the shared `JobState` union for what a message already says (see [Printer slot](#printer-slot)) |
+| Probing the printer to auto-release a hold | A printer about to start the job we sent looks idle, so a probe cannot tell the safe case from the dangerous one |
+| Importing in-flight prints with a printer hold | See [Migrating from Redis](#migrating-from-redis): with no stored handle it always ends in a manual release |
 | SQLite `update_hook` to push events across processes | It only fires in the connection that wrote, so it cannot reach the api process; polling is needed there anyway |
 | Postgres with `LISTEN`/`NOTIFY` and `SKIP LOCKED` | Adds a container, which is the opposite of the goal |
