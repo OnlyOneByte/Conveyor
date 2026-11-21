@@ -1,15 +1,12 @@
 name: conveyor
 
-# Conveyor topology. Caddy terminates TLS (PWA service workers require https),
-# api is the REST+WS front door, worker carries the heavy engines, redis is the
-# queue + live status bus. Durable config (printers/profiles/job history)
-# lives in SQLite on the worker's mounted volume — see docs/DATA-MODEL.md.
-
 services:
   caddy:
     image: caddy:2
     restart: unless-stopped
-    ports: ["80:80", "443:443"]
+    ports:
+      - "${CONVEYOR_BIND:-127.0.0.1}:80:80"
+      - "${CONVEYOR_BIND:-127.0.0.1}:443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -32,6 +29,9 @@ services:
       - CONVEYOR_HOST=0.0.0.0
       - DATA_DIR=/data
       - CONVEYOR_PROFILES_ROOT=/profiles
+      - CONVEYOR_AUTH=${CONVEYOR_AUTH:-}
+      - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
+      - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
     volumes:
       - ./data:/data                 # shared with worker: STL uploads land here for the passthrough generator
       - ./profiles:/profiles:ro      # bundled profile fallback for the raw JSON editor

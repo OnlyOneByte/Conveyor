@@ -13,7 +13,7 @@
       "suppressions": 0
     },
     "docker-compose.yml": {
-      "comments": 12,
+      "comments": 8,
       "suppressions": 0
     },
     "docs/ui-mockup.html": {
@@ -33,7 +33,7 @@
       "suppressions": 0
     },
     "packages/api/src/auth.ts": {
-      "comments": 37,
+      "comments": 10,
       "suppressions": 0
     },
     "packages/api/src/index.ts": {
@@ -89,7 +89,7 @@
       "suppressions": 0
     },
     "packages/shared/src/db/index.ts": {
-      "comments": 98,
+      "comments": 96,
       "suppressions": 0
     },
     "packages/shared/src/db/schema.sql.ts": {
@@ -97,7 +97,7 @@
       "suppressions": 0
     },
     "packages/shared/src/db/seed.ts": {
-      "comments": 8,
+      "comments": 7,
       "suppressions": 0
     },
     "packages/shared/src/events.ts": {
