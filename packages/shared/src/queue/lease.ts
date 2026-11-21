@@ -74,7 +74,9 @@ const CLAIM_SQL = `UPDATE jobs SET
     SELECT j.id FROM jobs j
      WHERE ((j.state = 'queued' AND j.run_after <= $now AND j.cancel_requested_at IS NULL
              AND NOT EXISTS (SELECT 1 FROM jobs p WHERE p.printer_id = j.printer_id AND p.id <> j.id
-                               AND p.state IN ('generating', 'slicing')))
+                               AND p.state IN ('generating', 'slicing'))
+             AND NOT EXISTS (SELECT 1 FROM printers h WHERE h.id = j.printer_id
+                               AND h.hold_job_id IS NOT NULL))
          OR (j.state IN ('transferring', 'printing') AND j.lease_owner IS NULL
              AND j.submitted_at IS NOT NULL))
      ORDER BY j.submitted_at IS NULL, j.created_at, j.rowid

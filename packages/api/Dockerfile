@@ -20,5 +20,6 @@ LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV CONVEYOR_HOST=0.0.0.0
 EXPOSE 3000
 CMD ["bun", "packages/api/src/index.ts"]

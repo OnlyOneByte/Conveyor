@@ -18,6 +18,7 @@ export interface ReapedJob {
 
 interface ReapRow {
   id: string;
+  printer_id: string | null;
   state: (typeof IN_FLIGHT_STATES)[number];
   attempts: number;
   max_attempts: number;
@@ -54,13 +55,19 @@ function reasonOf(row: ReapRow, outcome: "failed" | "unknown"): string {
     : `worker lost the job ${row.attempts} times before it reached the printer`;
 }
 
+function holdPrinter(db: Database, row: ReapRow, at: number): void {
+  db.query(
+    "UPDATE printers SET hold_job_id = ?, hold_reason = ?, hold_at = ? WHERE id = ? AND hold_job_id IS NULL",
+  ).run(row.id, UNKNOWN_REASON, at, row.printer_id);
+}
+
 const TAKE_OVER = "lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
 
 export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING): ReapedJob[] {
   return inImmediate(db, timing.now, (at) => {
     const rows = db
       .query<ReapRow, Record<string, number>>(
-        `SELECT id, state, attempts, max_attempts, submit_started_at, submitted_at FROM jobs
+        `SELECT id, printer_id, state, attempts, max_attempts, submit_started_at, submitted_at FROM jobs
           WHERE state IN (${IN_FLIGHT_SQL})
             AND (lease_until < $now OR lease_until > $now + $leaseMs
                  OR (lease_owner IS NULL AND submitted_at IS NULL))`,
@@ -80,6 +87,7 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
         db.query(
           `UPDATE jobs SET ${TAKE_OVER}, state = 'failed', error_json = ?, updated_at = ? WHERE id = ?`,
         ).run(error, at, row.id);
+        if (outcome === "unknown") holdPrinter(db, row, at);
       }
       return { jobId: row.id, outcome };
     });

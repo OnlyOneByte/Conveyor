@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
+import { dbUpsertPrinter } from "../db/index.ts";
 import { claimJob, DEFAULT_TIMING, type Lease, releaseLease, renewLease } from "./lease.ts";
 import { reapExpired } from "./reaper.ts";
 
@@ -40,12 +41,21 @@ describe("reapExpired", () => {
     });
   });
 
-  test("fails a job whose submit outcome is unknown and never requeues it", () => {
+  test("fails a job whose submit outcome is unknown, holds its printer and never requeues it", () => {
     claimed("state = 'transferring', submit_started_at = 1");
+    dbUpsertPrinter(h.db, { id: "p1", transportId: "fake", name: "P1", address: "10.0.0.2" });
+    h.enqueue("next");
+    h.enqueue("other", "p2");
     h.advance(30_001);
     expect(reapExpired(h.db, h.timing)).toEqual([{ jobId: "a", outcome: "unknown" }]);
     expect(h.row("a").state).toBe("failed");
     expect(JSON.parse(String(h.row("a").error_json)).reason).toContain("check the printer");
+    const hold = h.db
+      .query("SELECT hold_job_id, hold_reason, hold_at FROM printers WHERE id = 'p1'")
+      .get();
+    expect(hold).toMatchObject({ hold_job_id: "a", hold_at: h.timing.now() });
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("other");
+    expect(claimJob(h.db, "w1", h.timing)).toBeNull();
   });
 
   test("turns an expired submitted job into an orphan the next claim resumes", () => {
@@ -64,6 +74,16 @@ describe("reapExpired", () => {
     expect(renewLease(h.db, lease, h.timing)).toBeNull();
     expect(releaseLease(h.db, lease, h.timing)).toBe("lost");
     expect(h.row("a")).toMatchObject({ state: "queued", lease_owner: null });
+    expect(Number(h.row("a").lease_token)).toBeGreaterThan(lease.token);
+  });
+
+  test("waits for the write lock before it reads, even with nothing to reap", async () => {
+    claimed();
+    const holder = await holdWriteLock(h.path);
+    const calledAt = Date.now();
+    expect(reapExpired(h.db, h.timing)).toEqual([]);
+    expect(Date.now() - calledAt).toBeGreaterThanOrEqual(200);
+    expect(await holder.exited).toBe(0);
   });
 
   test("takes an in-flight row with no lease and no submit marker", () => {
