@@ -158,6 +158,7 @@ describe("coverage totals", () => {
       measured,
       sweep,
       fallback: () => nonBlankLines("x\n\ny\n"),
+      typeLines: () => new Set(),
     });
 
   test("counts unloaded files at zero using the sweep line map", () => {
@@ -203,6 +204,7 @@ describe("coverage totals", () => {
         measured: new Map([[path, new Map(hitLines.map((line) => [line, 1]))]]),
         sweep: new Map([[path, new Map(sweepLines.map((line) => [line, 0]))]]),
         fallback: () => new Map(),
+        typeLines: () => new Set(),
       });
       return percents(summarize(merged.coverage)).shared;
     };

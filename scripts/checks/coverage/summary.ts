@@ -56,7 +56,11 @@ export interface MergeInput {
   measured: Coverage;
   sweep: Coverage;
   fallback: (path: string) => LineHits;
+  typeLines: (path: string) => ReadonlySet<number>;
 }
+
+const withoutLines = (lines: LineHits, drop: ReadonlySet<number>): LineHits =>
+  new Map([...lines].filter(([line]) => !drop.has(line)));
 
 export interface Merged {
   coverage: Coverage;
@@ -64,14 +68,20 @@ export interface Merged {
   estimated: string[];
 }
 
-export function mergeCoverage({ sources, measured, sweep, fallback }: MergeInput): Merged {
+export function mergeCoverage({
+  sources,
+  measured,
+  sweep,
+  fallback,
+  typeLines,
+}: MergeInput): Merged {
   const coverage: Coverage = new Map();
   const unloaded: string[] = [];
   const estimated: string[] = [];
   for (const path of [...sources].sort()) {
     const mapped = sweep.get(path);
     if (!mapped) estimated.push(path);
-    const lines = mapped ?? fallback(path);
+    const lines = withoutLines(mapped ?? fallback(path), typeLines(path));
     const loaded = measured.get(path);
     if (!loaded) unloaded.push(path);
     coverage.set(path, loaded ? exactHits(lines, loaded) : zeroed(lines));

@@ -21,6 +21,7 @@ import {
   summarize,
   sweepErrors,
 } from "./summary";
+import { typeOnlyLines } from "./type-lines";
 
 const table = (summary: Summary) => {
   const total = overall(summary);
@@ -46,7 +47,14 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   const all = sources();
   const sweep = runSweep(all);
   const fallback = (path: string) => nonBlankLines(readOrNull(join(ROOT, path)) ?? "");
-  const merged = mergeCoverage({ sources: all, measured, sweep: sweep.coverage, fallback });
+  const typeLines = (path: string) => typeOnlyLines(path, readOrNull(join(ROOT, path)) ?? "");
+  const merged = mergeCoverage({
+    sources: all,
+    measured,
+    sweep: sweep.coverage,
+    fallback,
+    typeLines,
+  });
   writeFileSync(join(ROOT, outPath), serializeLcov(merged.coverage));
   const summary = summarize(merged.coverage);
   const report = `### Line coverage (all source files in ${PACKAGES.join(", ")})\n\n${table(summary)}\n\n${merged.unloaded.length} of ${all.length} source files are loaded by no test and count as 0%.\n`;

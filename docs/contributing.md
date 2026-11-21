@@ -52,6 +52,11 @@ other module, including one named `*.spec.ts` or kept in a `test/` folder, is ma
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
 
+Lines that hold only types leave the denominator, so writing a type inline or as a named `interface` measures
+the same. The checker parses each file with TypeScript and drops a line only when every token on it sits inside
+a type (a type annotation, a type literal, an `interface` or a `type` alias), apart from bare `,` and `;`. A line
+with any other token stays counted, and so do `extends`/`implements` clauses and `enum`s.
+
 ## The PR flow
 
 1. **Issue.** Find or open the issue the change answers.
