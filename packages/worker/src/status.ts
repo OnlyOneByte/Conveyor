@@ -9,11 +9,6 @@ import { Redis } from "ioredis";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 
-/**
- * Publishes a job status event to the bus AND writes the durable snapshot so a
- * reconnecting PWA can GET /jobs/:id. State IS the contract — every transition is
- * exactly one of these messages, forwarded verbatim to the WS.
- */
 export class StatusBus {
   private readonly redis = new Redis(REDIS_URL);
 

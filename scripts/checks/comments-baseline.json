@@ -171,22 +171,6 @@
     "packages/web/vite.config.ts": {
       "comments": 9,
       "suppressions": 0
-    },
-    "packages/worker/Dockerfile": {
-      "comments": 37,
-      "suppressions": 0
-    },
-    "packages/worker/src/profile.ts": {
-      "comments": 16,
-      "suppressions": 0
-    },
-    "packages/worker/src/registry.ts": {
-      "comments": 4,
-      "suppressions": 0
-    },
-    "packages/worker/src/status.ts": {
-      "comments": 5,
-      "suppressions": 0
     }
   }
 }
