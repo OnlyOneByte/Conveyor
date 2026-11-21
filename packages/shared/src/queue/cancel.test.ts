@@ -8,9 +8,9 @@ import {
   settleCancel,
 } from "./cancel.ts";
 import { claimJob, type Lease, releaseLease } from "./lease.ts";
-import { reapExpired } from "./reaper.ts";
+import { reapExpired, UNKNOWN_REASON } from "./reaper.ts";
 import { tailEvents, writeStatus } from "./status.ts";
-import { takePrinterSlot } from "./submit.ts";
+import { markSubmitted, takePrinterSlot } from "./submit.ts";
 
 let h: QueueHarness;
 afterEach(() => h.close());
@@ -85,7 +85,7 @@ describe("cancel before the printer slot", () => {
   });
 });
 
-describe("cancel when the worker lets go before the printer", () => {
+describe("cancel when the worker lets go of the job", () => {
   test("the reaper settles an expired canceled job instead of requeueing it", () => {
     slicing();
     requestCancel(h.db, "a", h.timing);
@@ -103,6 +103,26 @@ describe("cancel when the worker lets go before the printer", () => {
     expect(h.row("a")).toMatchObject({ state: "canceled", lease_owner: null });
     expect(lastState()).toBe("canceled");
     expect(claimJob(h.db, "w2", h.timing)).toBeNull();
+  });
+
+  test("the reaper fails and holds a canceled job whose submit outcome is unknown", () => {
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    requestCancel(h.db, "a", h.timing);
+    h.advance(30_001);
+    expect(reapExpired(h.db, h.timing)).toEqual([{ jobId: "a", outcome: "unknown" }]);
+    expect(h.row("a").state).toBe("failed");
+    expect(holdOf()).toEqual({ hold_job_id: "a", hold_reason: UNKNOWN_REASON });
+  });
+
+  test("a released canceled job already on the printer stays an orphan", () => {
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    markSubmitted(h.db, lease, { transportId: "fake", printerId: "p1", ref: "a.gcode" }, h.timing);
+    requestCancel(h.db, "a", h.timing);
+    expect(releaseLease(h.db, lease, h.timing)).toBe("orphaned");
+    expect(h.row("a")).toMatchObject({ state: "transferring", lease_owner: null });
+    expect(lastState()).not.toBe("canceled");
   });
 });
 
