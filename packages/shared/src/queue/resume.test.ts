@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { dbUpsertPrinter } from "../db/index.ts";
+import type { StageTiming } from "../job.ts";
 import { claimJob, type Lease, releaseLease } from "./lease.ts";
 import { failResume, RESUME_FAILED_REASON, readResumeState } from "./resume.ts";
 import { tailEvents } from "./status.ts";
@@ -34,7 +35,7 @@ function orphanResumed(): Lease {
 describe("readResumeState", () => {
   test("returns the stored handle, artifacts and timings to the job's owner only", () => {
     const lease = orphanResumed();
-    const timings = [
+    const timings: StageTiming[] = [
       { stage: "generator", enteredAt: 1, durationMs: 4 },
       { stage: "transport", enteredAt: 5 },
     ];
