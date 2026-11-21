@@ -80,5 +80,13 @@ describe("the global auth guard on a booted api", () => {
     expect((await send("GET", "/auth/status")).status).toBe(200);
     expect((await send("GET", "/health-report")).status).toBe(401);
     expect((await send("GET", "/healthz")).status).toBe(401);
+    expect((await send("GET", "/authx")).status).toBe(401);
+    expect((await send("GET", "/auth-foo")).status).toBe(401);
+  });
+
+  test("judges the path alone, so a query string can neither open nor close a route", async () => {
+    expect((await send("GET", "/jobs?/health")).status).toBe(401);
+    expect((await send("POST", "/jobs?x=/auth/login")).status).toBe(401);
+    expect((await send("GET", "/health?probe=1")).status).toBe(200);
   });
 });
