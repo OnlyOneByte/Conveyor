@@ -55,13 +55,30 @@ export interface Excess {
   allowed: number;
 }
 
+const sameTally = (a: FileTally, b: FileTally) =>
+  METRICS.every((metric) => a[metric] === b[metric]);
+
+export function followRenames(actual: Baseline, allowed: Baseline): Baseline {
+  const files = { ...allowed.files };
+  const vanished = Object.entries(allowed.files).filter(([path]) => !(path in actual.files));
+  for (const [path, tally] of Object.entries(actual.files)) {
+    if (path in allowed.files) continue;
+    const match = vanished.findIndex(([, old]) => sameTally(old, tally));
+    if (match === -1) continue;
+    files[path] = tally;
+    vanished.splice(match, 1);
+  }
+  return { files };
+}
+
 export function excesses(actual: Baseline, allowed: Baseline): Excess[] {
+  const allowance = followRenames(actual, allowed);
   return Object.entries(actual.files).flatMap(([file, tally]) =>
     METRICS.map((metric) => ({
       file,
       metric,
       actual: tally[metric],
-      allowed: (allowed.files[file] ?? ZERO)[metric],
+      allowed: (allowance.files[file] ?? ZERO)[metric],
     })).filter((entry) => entry.actual > entry.allowed),
   );
 }

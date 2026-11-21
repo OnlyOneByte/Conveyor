@@ -87,6 +87,28 @@ describe("svelte comments", () => {
     expect(svelte("<styled-box></styled-box>\n<!-- hidden -->\n")).toEqual([2]);
   });
 
+  test("does not open a block for script or style text inside attribute values", () => {
+    expect(svelte('<div title="<style>">x</div>\n<!-- hidden? -->\n')).toEqual([2]);
+    expect(svelte("<a title='<script>'>x</a>\n<!-- c -->\n<script>// d\n</script>\n")).toEqual([
+      2, 3,
+    ]);
+    expect(svelte('<p data-x="</script>">\n<!-- c -->\n')).toEqual([2]);
+    expect(svelte('<div title="a > <script>">\n<!-- c -->\n')).toEqual([2]);
+  });
+
+  test("scans expressions inside attributes, quoted or not", () => {
+    expect(svelte('<p\n  title="{a /* c */}"\n  on:x={() => b // d\n}>\n')).toEqual([2, 3]);
+  });
+
+  test("leaves self-closing script tags and text comparisons alone", () => {
+    expect(svelte('<script src="x.js" />\n<!-- c -->\n')).toEqual([2]);
+    expect(svelte("<p>a < b</p>\n<!-- c -->\n")).toEqual([2]);
+  });
+
+  test("treats Script and Style as components in svelte", () => {
+    expect(svelte("<Script>\n<!-- c -->\n</Script>\n")).toEqual([2]);
+  });
+
   test("ignores markers in string expressions and CSS content", () => {
     const src = '<p>{"// no"}</p>\n<style>\n  p::after { content: "/* */"; }\n</style>\n';
     expect(svelte(src)).toEqual([]);
@@ -112,6 +134,18 @@ describe("svelte comments", () => {
 describe("other languages", () => {
   test("html has no markup expressions", () => {
     expect(commentLines("<p>{ // not js }</p>\n<!-- c -->\n", "html")).toEqual([2]);
+  });
+
+  test("html tags are case-insensitive", () => {
+    expect(commentLines("<SCRIPT>\n// c\n</SCRIPT>\n<STYLE>/* d */</STYLE>\n", "html")).toEqual([
+      2, 4,
+    ]);
+    expect(commentLines("<p>İİ</p><SCRIPT>// c</SCRIPT>\n", "html")).toEqual([1]);
+  });
+
+  test("an apostrophe inside a word does not open a quote", () => {
+    expect(commentLines("name: Don't panic # yes\nb: 'x # no'\n", "hash")).toEqual([1]);
+    expect(commentLines("echo it's # yes\necho a='# no'\n", "hash")).toEqual([1]);
   });
 
   test("css block comments outside strings", () => {
@@ -148,6 +182,15 @@ describe("tally", () => {
     expect(languageOf("Caddyfile")).toBe("hash");
     expect(languageOf(".github/workflows/ci.yaml")).toBe("hash");
     expect(languageOf("mise.toml")).toBe("toml");
+    expect(languageOf("a/b.mts")).toBe("script");
+    expect(languageOf("a/b.cts")).toBe("script");
+    expect(languageOf("a/b.tsx")).toBe("script");
+    expect(languageOf("a/b.jsx")).toBe("script");
+    expect(languageOf("a/settings.jsonc")).toBe("script");
+    expect(languageOf("tsconfig.json")).toBe("script");
+    expect(languageOf("packages/web/tsconfig.base.json")).toBe("script");
+    expect(languageOf("biome.json")).toBe("script");
+    expect(languageOf("package.json")).toBeNull();
     expect(languageOf("README.md")).toBeNull();
     expect(languageOf("LICENSE")).toBeNull();
   });
