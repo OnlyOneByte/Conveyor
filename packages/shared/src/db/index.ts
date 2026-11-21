@@ -55,14 +55,27 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   return db;
 }
 
-function enableWal(db: Database): void {
+export interface WalRetry {
+  attempts: number;
+  delayMs: number;
+  sleep: (ms: number) => void;
+}
+
+const WAL_RETRY: WalRetry = { attempts: 50, delayMs: 100, sleep: Bun.sleepSync };
+
+export function enableWal(db: Pick<Database, "exec" | "filename">, retry = WAL_RETRY): void {
   for (let attempt = 1; ; attempt++) {
     try {
       db.exec("PRAGMA journal_mode = WAL;");
       return;
     } catch (err) {
-      if (!(err instanceof SQLiteError) || err.code !== "SQLITE_BUSY" || attempt >= 50) throw err;
-      Bun.sleepSync(100);
+      if (!(err instanceof SQLiteError) || err.code !== "SQLITE_BUSY") throw err;
+      if (attempt >= retry.attempts)
+        throw new Error(
+          `could not enable WAL on ${db.filename} after ${attempt} attempts: ${err.message}`,
+          { cause: err },
+        );
+      retry.sleep(retry.delayMs);
     }
   }
 }
