@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { exhaustive } from "../exhaustive.js";
 import type { Stage } from "../plugins.js";
 import { appendEvent } from "./event-log.js";
+import { holdPrinter } from "./hold.js";
 import {
   CLEAR_PROGRESS,
   DEFAULT_TIMING,
@@ -57,12 +58,6 @@ function reasonOf(row: ReapRow, outcome: "failed" | "unknown"): string {
     : `worker lost the job ${row.attempts} times before it reached the printer`;
 }
 
-function holdPrinter(db: Database, row: ReapRow, at: number): void {
-  db.query(
-    "UPDATE printers SET hold_job_id = ?, hold_reason = ?, hold_at = ? WHERE id = ? AND hold_job_id IS NULL",
-  ).run(row.id, UNKNOWN_REASON, at, row.printer_id);
-}
-
 const TAKE_OVER = "lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
 
 export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING): ReapedJob[] {
@@ -91,7 +86,9 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
           `UPDATE jobs SET ${TAKE_OVER}, state = 'failed', error_json = ?, updated_at = ? WHERE id = ?`,
         ).run(JSON.stringify(error), at, row.id);
         appendEvent(db, { jobId: row.id, state: "failed", stage: error.stage, error, at });
-        if (outcome === "unknown") holdPrinter(db, row, at);
+        if (outcome === "unknown") {
+          holdPrinter(db, { printerId: row.printer_id, jobId: row.id, reason: UNKNOWN_REASON, at });
+        }
       }
       return { jobId: row.id, outcome };
     });

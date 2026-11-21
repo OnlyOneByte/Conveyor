@@ -373,6 +373,28 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 | Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
+## queue/cancel.ts
+
+Cancel keeps the api's contract: `200` for a settled job, `404` for an unknown one, `200 canceled` for a
+queued one and `202 canceling` for one in flight.
+
+- `requestCancel` decides in one immediate transaction:
+  - a settled job returns its state;
+  - a missing job returns `unknown`;
+  - a queued job becomes `canceled` at once, with an event. The claim takes the same write lock, so a job is
+    either claimed or canceled, never both;
+  - an in-flight job gets `cancel_requested_at` (the first request's time is kept) and returns `canceling`.
+- `isCancelRequested` is the read the worker's cancel tick polls.
+- The printer slot refuses a job with a cancel request (`canceled`), so a cancel that lands before the slot
+  never reaches `submit()`.
+- `settleCancel(lease, stopConfirmed)` settles a canceled job that the worker owns:
+  - `canceled` when nothing reached the printer (no intent), or the printer confirmed the stop;
+  - otherwise `failed` with `STOP_UNCONFIRMED_REASON`, and the printer held in the same transaction, because
+    the printer may still have the job.
+
+  It settles nothing without a cancel request, a live lease, or for a job that has already settled. Either
+  way the lease is cleared, so the job is never submitted again.
+
 ## queue/submit.ts
 
 The two durable writes that bracket `transport.submit()`. Together they make sure no job reaches a printer
@@ -386,6 +408,7 @@ twice.
   - `taken`;
   - `busy`: another job is transferring or printing on that printer, or the printer is held. The job stays
     `slicing` with no intent, and the caller retries;
+  - `canceled`: a cancel was requested, so the job is settled instead of submitted;
   - `refused`: the job is not `slicing`, or already has an intent;
   - `lost`: the lease is gone.
 - `markSubmitted` writes the marker (`submitted_at`) and the printer handle, once, under the lease, and only
