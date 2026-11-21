@@ -14,7 +14,7 @@ bun compare.ts --before /tmp/visual/before --after /tmp/visual/after
 
 `capture.ts` boots the whole stack from `--root` (default: this checkout) in stub mode:
 
-- Redis runs in Docker on a random `127.0.0.1` port, or uses `REDIS_URL` if that is set.
+- Redis always runs in Docker on a random `127.0.0.1` port. A `REDIS_URL` in your shell is ignored, so the stack never touches another Redis.
 - The api and worker run from source. The api gets `CONVEYOR_HOST=127.0.0.1`. Its default stays `0.0.0.0`, which compose sets explicitly.
 - The web app is built with `vite build` and served with `vite preview` on `127.0.0.1`, reusing the dev proxy config. Dev mode is not used: its lazy dependency optimisation reloads pages mid-scene.
 - Auth is off and the database lives in a temp directory, so every run starts clean.
