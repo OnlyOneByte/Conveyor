@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { type PrintStatus, StageError } from "@conveyor/shared";
-import { buildCommand, parseStatusFrame, type SdcpStatusFrame } from "./sdcp.js";
+import {
+  buildCommand,
+  exhaustive,
+  malformed,
+  parseStatusFrame,
+  type SdcpRead,
+  type SdcpStatusFrame,
+} from "./sdcp.js";
 
 export const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const COMMAND_TIMEOUT_MS = 15000;
@@ -19,14 +26,14 @@ function nowMs(): number {
   return Date.now();
 }
 
-export function ackCode(raw: string, requestId: string): number | undefined {
+export function ackCode(raw: string, requestId: string): SdcpRead<number> {
   try {
     const j = JSON.parse(raw);
     const ackId = j?.Data?.RequestID ?? j?.Data?.Data?.RequestID;
-    if (ackId !== requestId) return undefined;
-    return j?.Data?.Data?.Ack ?? j?.Data?.Ack ?? 0;
-  } catch {
-    return undefined;
+    if (ackId !== requestId) return { kind: "other", reason: "not an ack for this request" };
+    return { kind: "frame", frame: j?.Data?.Data?.Ack ?? j?.Data?.Ack ?? 0 };
+  } catch (e) {
+    return malformed(raw, e);
   }
 }
 
@@ -55,13 +62,23 @@ export function sendCommand(
       ws.send(buildCommand(mainboardId, cmd, data, requestId, Math.floor(nowMs() / 1000)));
     };
     ws.onmessage = (ev) => {
-      const code = ackCode(String(ev.data), requestId);
-      if (code === undefined) return;
-      done(
-        code === 0
-          ? undefined
-          : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${code})`),
-      );
+      const reply = ackCode(String(ev.data), requestId);
+      switch (reply.kind) {
+        case "other":
+          return;
+        case "malformed":
+          return done(
+            new StageError("transport", `elegoo cmd ${cmd}: unreadable reply: ${reply.reason}`),
+          );
+        case "frame":
+          return done(
+            reply.frame === 0
+              ? undefined
+              : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${reply.frame})`),
+          );
+        default:
+          return exhaustive(reply);
+      }
     };
     ws.onerror = () =>
       done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
@@ -92,6 +109,7 @@ export async function* streamStatus(
   const queue: PrintStatus[] = [];
   let wake: (() => void) | null = null;
   let closed = false;
+  let failure: StageError | null = null;
   const notify = () => {
     wake?.();
     wake = null;
@@ -103,11 +121,22 @@ export async function* streamStatus(
 
   const ws = new WebSocket(socketUrl(address));
   ws.onmessage = (ev) => {
-    const frame = parseStatusFrame(String(ev.data));
-    const status = frame ? toPrintStatus(frame) : undefined;
-    if (!status) return;
-    queue.push(status);
-    notify();
+    const read = parseStatusFrame(String(ev.data));
+    switch (read.kind) {
+      case "other":
+        return;
+      case "malformed":
+        failure = new StageError("transport", `elegoo status from ${address}: ${read.reason}`);
+        return stop();
+      case "frame": {
+        const status = toPrintStatus(read.frame);
+        if (!status) return;
+        queue.push(status);
+        return notify();
+      }
+      default:
+        return exhaustive(read);
+    }
   };
   ws.onclose = stop;
   ws.onerror = stop;
@@ -119,4 +148,5 @@ export async function* streamStatus(
     for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
   }
   ws.close();
+  if (failure) throw failure;
 }
