@@ -2,10 +2,10 @@
   "name": "@conveyor/worker",
   "version": "0.0.0",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./src/main.ts",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts"
   },
   "dependencies": {
     "@conveyor/generator-gridfinity": "workspace:*",

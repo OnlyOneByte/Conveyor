@@ -30,7 +30,28 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
 
 Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 
+## main.ts and mode.ts
+
+`main.ts` is the image's entry point. It picks the queue from `CONVEYOR_QUEUE` (`redis`, the default, or
+`sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
+code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
+with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
+`SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
+`process.once`, so a second signal during the grace period kills the process at once; a job caught between
+intent and marker is then failed by the reaper with its printer held, as for any crash in that window.
+`sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, because the api does not
+enqueue to the SQLite queue yet: a `sqlite` worker beside a `redis` api would never see a job. The api
+step removes that guard and documents the flag.
+
+## sqlite.ts
+
+`startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the
+parsed concurrency, `DATA_DIR` and a unique owner (host, pid and a random id). `sqliteBase` resolves job targets and
+printers from that database, as the BullMQ worker does from its own connection.
+
 ## index.ts
+
+The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
 
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
@@ -60,8 +81,7 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 
 ## loop.ts
 
-`startQueueWorker` runs jobs from the SQLite queue. Nothing starts it yet; the entry point behind
-`CONVEYOR_QUEUE=sqlite` is the next step.
+`startQueueWorker` runs jobs from the SQLite queue; `sqlite.ts` starts it.
 
 - **Claim.** Every `claimIdleMs` (1 s), and at once when a job leaves engine work or ends, it claims while
   fewer than `concurrency` (`WORKER_CONCURRENCY`) of its jobs run an engine. A job counts from its claim
@@ -76,8 +96,18 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 - **Reaper.** `reapExpired` runs at start and every `reapMs` (10 s).
 - **Known limits.** An orphan is only claimed while an engine slot is free, because `claimJob` cannot ask for
   orphans alone. An idle worker takes the write lock for each claim attempt, without the design's read-only
-  `SELECT EXISTS` first. `stop()` only stops claiming and aborts the running jobs; releasing them by phase on
-  `SIGTERM` is the next step.
+  `SELECT EXISTS` first.
+- **Stop.** `stop()` stops claiming, then releases each running job by where it is:
+  - before the intent (generating, slicing, waiting at the slot): the run is aborted and `releaseLease`
+    requeues it with `run_after = now`, the attempt not counted;
+  - between intent and marker: the submit is left to finish, the marker is written, then the job is
+    released as below;
+  - after the marker: the run is aborted without touching the printer, and `releaseLease` leaves it an orphan
+    for the next worker to resume.
+
+  The abort is a `LeaseLostError`, so the run writes nothing itself; the release is the one write. Compose
+  gives the worker `stop_grace_period: 60s`, enough for a g-code upload on the local network. An upload that
+  outlasts it is killed between intent and marker, and the reaper then fails the job and holds the printer.
 
 ## queue-deps.ts
 
