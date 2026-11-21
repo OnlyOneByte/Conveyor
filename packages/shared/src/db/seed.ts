@@ -1,12 +1,6 @@
 import type { Printer, Profile } from "./index.js";
 
-/**
- * The default catalog Conveyor ships with: the printers you can print to and the
- * slicer profiles you can print with. A job names one of each.
- */
 export const DEFAULT_PROFILES: Profile[] = [
-  // OrcaSlicer klipper bundle (Creality K1 family leaf exports) — VERIFIED slicing
-  // a cube → klipper gcode in the worker image 2026-06-30. See docs/M1-WORKER-ENGINES.md.
   {
     id: "orca/klipper-pla-0.2",
     slicerId: "orca",
@@ -14,7 +8,6 @@ export const DEFAULT_PROFILES: Profile[] = [
     path: "/profiles/orca-klipper-pla-0.2",
     gcodeFlavor: "klipper",
   },
-  // PrusaSlicer is multi-arch (apt) and headless-verified — see docs/M1-WORKER-ENGINES.md.
   {
     id: "prusa/klipper-pla-0.2",
     slicerId: "prusa",
