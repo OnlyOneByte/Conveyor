@@ -1,15 +1,7 @@
 {
   "files": {
-    ".github/workflows/ci.yml": {
-      "comments": 0,
-      "suppressions": 0
-    },
     ".github/workflows/release.yml": {
       "comments": 23,
-      "suppressions": 0
-    },
-    "biome.json": {
-      "comments": 0,
       "suppressions": 0
     },
     "bunfig.toml": {
@@ -112,20 +104,12 @@
       "comments": 21,
       "suppressions": 0
     },
-    "packages/shared/src/index.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
     "packages/shared/src/job.ts": {
       "comments": 37,
       "suppressions": 0
     },
     "packages/shared/src/plugins.ts": {
       "comments": 57,
-      "suppressions": 0
-    },
-    "packages/shared/src/profile.test.ts": {
-      "comments": 0,
       "suppressions": 0
     },
     "packages/shared/src/profile.ts": {
@@ -138,10 +122,6 @@
     },
     "packages/web/Dockerfile": {
       "comments": 5,
-      "suppressions": 0
-    },
-    "packages/web/src/app.html": {
-      "comments": 0,
       "suppressions": 0
     },
     "packages/web/src/lib/api.ts": {
@@ -252,10 +232,6 @@
       "comments": 1,
       "suppressions": 0
     },
-    "packages/web/tsconfig.json": {
-      "comments": 0,
-      "suppressions": 0
-    },
     "packages/web/vite.config.ts": {
       "comments": 9,
       "suppressions": 0
@@ -316,68 +292,12 @@
       "comments": 30,
       "suppressions": 1
     },
-    "scripts/checks/comments.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/baseline.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/cursor.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/literals.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/ratchet.test.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/ratchet.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/scan-hash.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/scan-markup.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/scan-script.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/scan.test.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/tally.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "scripts/checks/comments/tree.ts": {
-      "comments": 0,
-      "suppressions": 0
-    },
     "scripts/install-openscad.sh": {
       "comments": 28,
       "suppressions": 0
     },
     "scripts/install-orca.sh": {
       "comments": 37,
-      "suppressions": 0
-    },
-    "tsconfig.base.json": {
-      "comments": 0,
-      "suppressions": 0
-    },
-    "tsconfig.json": {
-      "comments": 0,
       "suppressions": 0
     }
   }

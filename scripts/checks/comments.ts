@@ -37,6 +37,7 @@ const check = (tree: Tree, baseRef: string) => {
   );
   const { errors } = checkRatchet({
     current,
+    present: new Set(tree.list()),
     committed: tree.read(BASELINE_PATH),
     base: treeAt(ROOT, baseRef),
   });

@@ -7,6 +7,7 @@ const CHECKER_PATH = "scripts/checks/comments.ts";
 
 export interface RatchetInput {
   current: Baseline;
+  present: ReadonlySet<string>;
   committed: string | null;
   base: Tree;
 }
@@ -31,9 +32,12 @@ export function checkRatchet(input: RatchetInput): RatchetResult {
   if (committed === null) return { errors: [`${BASELINE_PATH} is not a valid baseline`] };
   const allowance = allowanceFrom(input.base);
   if (typeof allowance === "string") return { errors: [allowance] };
+  const { present } = input;
+  const added = excesses({ actual: input.current, allowed: allowance, present });
+  const raised = excesses({ actual: committed, allowed: allowance, present });
   const errors = [
-    ...excesses(input.current, allowance).map((e) => `added: ${describe(e, "base allows")}`),
-    ...excesses(committed, allowance).map((e) => `baseline raised: ${describe(e, "base has")}`),
+    ...added.map((e) => `added: ${describe(e, "base allows")}`),
+    ...raised.map((e) => `baseline raised: ${describe(e, "base has")}`),
   ];
   if (errors.length === 0 && !sameBaseline(input.current, committed)) {
     errors.push(`${BASELINE_PATH} is stale; run \`bun run check:comments:update\` and commit it`);

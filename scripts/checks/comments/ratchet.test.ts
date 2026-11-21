@@ -3,12 +3,14 @@ import { type Baseline, isBaseline, parseBaseline, serializeBaseline } from "./b
 import { BASELINE_PATH, checkRatchet } from "./ratchet";
 import type { Tree } from "./tree";
 
+type Counts = Record<string, [number, number]>;
+
 const tree = (files: Record<string, string>): Tree => ({
   list: () => Object.keys(files),
   read: (path) => files[path] ?? null,
 });
 
-const baseline = (files: Record<string, [number, number]>): Baseline => ({
+const baseline = (files: Counts): Baseline => ({
   files: Object.fromEntries(
     Object.entries(files).map(([path, [comments, suppressions]]) => [
       path,
@@ -17,105 +19,144 @@ const baseline = (files: Record<string, [number, number]>): Baseline => ({
   ),
 });
 
-const json = (files: Record<string, [number, number]>) => serializeBaseline(baseline(files));
+const json = (files: Counts) => serializeBaseline(baseline(files));
 
-const baseWith = (files: Record<string, [number, number]>) =>
+const baseWith = (files: Counts) =>
   tree({ [BASELINE_PATH]: json(files), "scripts/checks/comments.ts": "" });
+
+interface Case {
+  current: Counts;
+  committed?: Counts | null;
+  base: Tree;
+  alsoPresent?: string[];
+}
+
+const run = ({ current, committed, base, alsoPresent = [] }: Case) =>
+  checkRatchet({
+    current: baseline(current),
+    present: new Set([...Object.keys(current), ...alsoPresent]),
+    committed: committed === null ? null : json(committed ?? current),
+    base,
+  }).errors;
 
 describe("checkRatchet", () => {
   test("passes when the tree matches its baseline and the base allows it", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [2, 0] }),
-      committed: json({ "a.ts": [2, 0] }),
-      base: baseWith({ "a.ts": [3, 0] }),
-    });
-    expect(result.errors).toEqual([]);
+    expect(run({ current: { "a.ts": [2, 0] }, base: baseWith({ "a.ts": [3, 0] }) })).toEqual([]);
   });
 
   test("fails when the committed baseline is missing", () => {
-    const result = checkRatchet({ current: baseline({}), committed: null, base: baseWith({}) });
-    expect(result.errors).toEqual([`${BASELINE_PATH} is missing`]);
+    expect(run({ current: {}, committed: null, base: baseWith({}) })).toEqual([
+      `${BASELINE_PATH} is missing`,
+    ]);
   });
 
   test("fails when the base has the checker but no baseline", () => {
-    const result = checkRatchet({
-      current: baseline({}),
-      committed: json({}),
-      base: tree({ "scripts/checks/comments.ts": "" }),
-    });
-    expect(result.errors[0]).toContain("no scripts/checks/comments-baseline.json");
+    const errors = run({ current: {}, base: tree({ "scripts/checks/comments.ts": "" }) });
+    expect(errors[0]).toContain("no scripts/checks/comments-baseline.json");
   });
 
   test("bootstraps from the measured base tree before the checker exists", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [1, 0] }),
-      committed: json({ "a.ts": [1, 0] }),
-      base: tree({ "a.ts": "// one\n// two\n" }),
-    });
-    expect(result.errors).toEqual([]);
+    const base = tree({ "a.ts": "// one\n// two\n", "empty.ts": "export {};\n" });
+    expect(run({ current: { "a.ts": [1, 0] }, base })).toEqual([]);
   });
 
   test("compares per file, so moving a comment between files fails", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [0, 0], "b.ts": [2, 0] }),
-      committed: json({ "a.ts": [0, 0], "b.ts": [2, 0] }),
+    const errors = run({
+      current: { "b.ts": [2, 0] },
       base: baseWith({ "a.ts": [1, 0], "b.ts": [1, 0] }),
+      alsoPresent: ["a.ts"],
     });
-    expect(result.errors).toContain("added: b.ts: 2 comments (base allows 1)");
+    expect(errors).toContain("added: b.ts: 2 comments (base allows 1)");
   });
 
   test("fails when the PR raises its own baseline above the base", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [1, 0] }),
-      committed: json({ "a.ts": [5, 0] }),
+    const errors = run({
+      current: { "a.ts": [1, 0] },
+      committed: { "a.ts": [5, 0] },
       base: baseWith({ "a.ts": [1, 0] }),
     });
-    expect(result.errors).toContain("baseline raised: a.ts: 5 comments (base has 1)");
+    expect(errors).toContain("baseline raised: a.ts: 5 comments (base has 1)");
   });
 
   test("fails on a new suppression even when comment lines stay level", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [1, 1] }),
-      committed: json({ "a.ts": [1, 1] }),
-      base: baseWith({ "a.ts": [1, 0] }),
-    });
-    expect(result.errors).toContain("added: a.ts: 1 suppressions (base allows 0)");
+    const errors = run({ current: { "a.ts": [1, 1] }, base: baseWith({ "a.ts": [1, 0] }) });
+    expect(errors).toContain("added: a.ts: 1 suppressions (base allows 0)");
   });
 
   test("fails when the baseline is stale after comments were removed", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [1, 0] }),
-      committed: json({ "a.ts": [2, 0] }),
+    const errors = run({
+      current: { "a.ts": [1, 0] },
+      committed: { "a.ts": [2, 0] },
       base: baseWith({ "a.ts": [2, 0] }),
     });
-    expect(result.errors[0]).toContain("is stale");
+    expect(errors[0]).toContain("is stale");
   });
+});
 
-  test("treats a rename with an identical tally as unchanged", () => {
-    const result = checkRatchet({
-      current: baseline({ "new.ts": [2, 1] }),
-      committed: json({ "new.ts": [2, 1] }),
-      base: baseWith({ "old.ts": [2, 1] }),
+describe("comment-free files never touch the baseline", () => {
+  test("adding an empty new file passes with the base's baseline unchanged", () => {
+    const errors = run({
+      current: { "a.ts": [1, 0] },
+      committed: { "a.ts": [1, 0] },
+      base: baseWith({ "a.ts": [1, 0] }),
+      alsoPresent: ["new.ts"],
     });
-    expect(result.errors).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
-  test("does not treat a rename with a different tally as unchanged", () => {
-    const result = checkRatchet({
-      current: baseline({ "new.ts": [3, 0] }),
-      committed: json({ "new.ts": [3, 0] }),
-      base: baseWith({ "old.ts": [2, 0] }),
+  test("deleting a comment-free file passes with the baseline unchanged", () => {
+    expect(run({ current: { "a.ts": [1, 0] }, base: baseWith({ "a.ts": [1, 0] }) })).toEqual([]);
+  });
+
+  test("adding a commented new file fails", () => {
+    const errors = run({
+      current: { "a.ts": [1, 0], "new.ts": [1, 0] },
+      base: baseWith({ "a.ts": [1, 0] }),
     });
-    expect(result.errors).toContain("added: new.ts: 3 comments (base allows 0)");
+    expect(errors).toContain("added: new.ts: 1 comments (base allows 0)");
   });
 
-  test("does not let a file that still exists donate its allowance", () => {
-    const result = checkRatchet({
-      current: baseline({ "a.ts": [0, 0], "b.ts": [2, 0] }),
-      committed: json({ "a.ts": [0, 0], "b.ts": [2, 0] }),
+  test("zero entries in a committed baseline are ignored, never stored", () => {
+    expect(json({ "a.ts": [0, 0], "b.ts": [1, 0] })).toBe(json({ "b.ts": [1, 0] }));
+    const errors = run({
+      current: { "b.ts": [1, 0] },
+      committed: { "a.ts": [0, 0], "b.ts": [1, 0] },
+      base: baseWith({ "b.ts": [1, 0] }),
+    });
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("renames", () => {
+  test("a deleted file's allowance moves to one new file with the same tally", () => {
+    expect(run({ current: { "new.ts": [2, 1] }, base: baseWith({ "old.ts": [2, 1] }) })).toEqual(
+      [],
+    );
+  });
+
+  test("a rename with a different tally gets no allowance", () => {
+    const errors = run({ current: { "new.ts": [3, 0] }, base: baseWith({ "old.ts": [2, 0] }) });
+    expect(errors).toContain("added: new.ts: 3 comments (base allows 0)");
+  });
+
+  test("a file that still exists does not donate its allowance", () => {
+    const errors = run({
+      current: { "b.ts": [2, 0] },
+      base: baseWith({ "a.ts": [2, 0] }),
+      alsoPresent: ["a.ts"],
+    });
+    expect(errors).toContain("added: b.ts: 2 comments (base allows 0)");
+  });
+
+  test("two new files cannot both claim one deleted file's allowance", () => {
+    const errors = run({
+      current: { "c.ts": [2, 0], "d.ts": [2, 0] },
       base: baseWith({ "a.ts": [2, 0] }),
     });
-    expect(result.errors).toContain("added: b.ts: 2 comments (base allows 0)");
+    expect(errors).toEqual([
+      "added: d.ts: 2 comments (base allows 0)",
+      "baseline raised: d.ts: 2 comments (base has 0)",
+    ]);
   });
 });
 
