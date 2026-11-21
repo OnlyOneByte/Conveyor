@@ -415,10 +415,16 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
   is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
 - `writeStatus` cannot move a job into or out of the upload window, because only `takePrinterSlot` and
   `markSubmitted` may. By target state:
-  - `transferring` needs a submit intent, so only the slot starts an upload;
+  - `transferring` needs a submit intent and no marker, so only the slot starts an upload, and a job on
+    the printer cannot go back to uploading;
   - `printing` needs the submit marker, so a job leaves the window only through `markSubmitted`;
   - `queued`, `generating` and `slicing` need no intent, so a job with one cannot go back;
-  - a terminal state is always accepted, so a job in the window can still fail or be canceled.
+  - a terminal state is always accepted. Inside the window, though, `done`, `failed` and `canceled` all
+    settle the job as `failed` and hold its printer in the same transaction, because nobody knows what
+    the printer received. The worker's own error is kept; without one the error is
+    `UPLOAD_SETTLE_REASON`, which is also the hold's reason. The next job for that printer is not
+    claimed until someone releases the hold. So a worker that catches a transport error can settle at
+    once, without waiting for the reaper, and still never frees a printer in an unknown state.
 
   A refused write appends nothing. Without these rules one worker bug could start a second upload to a busy
   printer, or hide an unknown submit from the reaper (#134).

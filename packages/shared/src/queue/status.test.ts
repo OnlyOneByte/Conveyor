@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
+import { dbUpsertPrinter } from "../db/index.ts";
 import { claimJob, DEFAULT_TIMING, type Lease, releaseLease } from "./lease.ts";
 import { reapExpired } from "./reaper.ts";
 import {
@@ -9,6 +10,7 @@ import {
   readSnapshot,
   type StatusUpdate,
   tailEvents,
+  UPLOAD_SETTLE_REASON,
   writeStatus,
 } from "./status.ts";
 import { markSubmitted, takePrinterSlot } from "./submit.ts";
@@ -18,11 +20,15 @@ afterEach(() => h.close());
 
 function claimed(): Lease {
   h = queueHarness();
+  dbUpsertPrinter(h.db, { id: "p1", transportId: "fake", name: "P1", address: "10.0.0.2" });
   h.enqueue("a");
   const lease = claimJob(h.db, "w1", h.timing)?.lease;
   if (!lease) throw new Error("not claimed");
   return lease;
 }
+
+const holdOf = () =>
+  h.db.query("SELECT hold_job_id, hold_reason FROM printers WHERE id = 'p1'").get();
 
 const handle = { transportId: "fake", printerId: "p1", ref: "model.gcode" };
 const states = (afterSeq = 0) => tailEvents(h.db, "a", afterSeq).map((e) => e.event.state);
@@ -74,7 +80,10 @@ describe("job status and events", () => {
     expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(true);
     expect(writeStatus(h.db, lease, { state: "printing" }, h.timing)).toBe(true);
     expect(writeStatus(h.db, lease, { state: "slicing" }, h.timing)).toBe(false);
+    expect(writeStatus(h.db, lease, { state: "transferring" }, h.timing)).toBe(false);
     expect(writeStatus(h.db, lease, { state: "done" }, h.timing)).toBe(true);
+    expect(h.row("a").state).toBe("done");
+    expect(holdOf()).toEqual({ hold_job_id: null, hold_reason: null });
     expect(states()).toEqual([
       "queued",
       "generating",
@@ -85,16 +94,34 @@ describe("job status and events", () => {
     ]);
   });
 
-  test("lets a job inside the upload window settle as failed or canceled", () => {
-    for (const state of ["failed", "canceled"] as const) {
+  test("settles a job inside the upload window only as failed, holding its printer", () => {
+    for (const state of ["done", "failed", "canceled"] as const) {
       const lease = claimed();
       h.set("a", "state = 'slicing'");
       takePrinterSlot(h.db, lease, h.timing);
       expect(writeStatus(h.db, lease, { state }, h.timing)).toBe(true);
-      expect(h.row("a").state).toBe(state);
+      expect(h.row("a")).toMatchObject({ state: "failed", lease_owner: null });
+      expect(JSON.parse(String(h.row("a").error_json))).toEqual({
+        stage: "transport",
+        reason: UPLOAD_SETTLE_REASON,
+      });
+      expect(states().at(-1)).toBe("failed");
+      expect(holdOf()).toEqual({ hold_job_id: "a", hold_reason: UPLOAD_SETTLE_REASON });
+      h.enqueue("next");
+      expect(claimJob(h.db, "w2", h.timing)).toBeNull();
       h.close();
     }
     h = queueHarness();
+  });
+
+  test("keeps the worker's own error when it fails a job inside the upload window", () => {
+    const lease = claimed();
+    h.set("a", "state = 'slicing'");
+    takePrinterSlot(h.db, lease, h.timing);
+    const error = { stage: "transport", reason: "connection reset" } as const;
+    expect(writeStatus(h.db, lease, { state: "failed", error }, h.timing)).toBe(true);
+    expect(JSON.parse(String(h.row("a").error_json))).toEqual(error);
+    expect(holdOf()).toEqual({ hold_job_id: "a", hold_reason: UPLOAD_SETTLE_REASON });
   });
 
   test("a write without a live lease changes nothing and appends nothing", () => {
