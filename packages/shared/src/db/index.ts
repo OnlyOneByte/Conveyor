@@ -1,9 +1,10 @@
-import { Database, SQLiteError } from "bun:sqlite";
+import { Database } from "bun:sqlite";
 import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
+import { enableWal } from "./wal.js";
 
 export interface Printer {
   id: string;
@@ -38,18 +39,6 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   singleton = db;
   singletonPath = path;
   return db;
-}
-
-function enableWal(db: Database): void {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      db.exec("PRAGMA journal_mode = WAL;");
-      return;
-    } catch (err) {
-      if (!(err instanceof SQLiteError) || err.code !== "SQLITE_BUSY" || attempt >= 50) throw err;
-      Bun.sleepSync(100);
-    }
-  }
 }
 
 function columnsOf(db: Database, table: string): string[] {
