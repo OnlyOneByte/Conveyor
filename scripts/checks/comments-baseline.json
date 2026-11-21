@@ -45,7 +45,7 @@
       "suppressions": 0
     },
     "packages/api/src/routes/jobs.ts": {
-      "comments": 18,
+      "comments": 17,
       "suppressions": 0
     },
     "packages/api/src/routes/uploads.ts": {
@@ -174,10 +174,6 @@
     },
     "packages/worker/Dockerfile": {
       "comments": 37,
-      "suppressions": 0
-    },
-    "packages/worker/src/index.ts": {
-      "comments": 15,
       "suppressions": 0
     },
     "packages/worker/src/profile.ts": {

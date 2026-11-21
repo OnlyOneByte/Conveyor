@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import {
   ACTIVE_JOBS_KEY,
+  CANCEL_TTL_SECONDS,
   isTerminal,
   type JobStatusEvent,
+  jobCancelKey,
   jobChannel,
+  jobControlChannel,
   jobSnapshotKey,
+  publishStatus,
 } from "@conveyor/shared";
-import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
@@ -15,6 +19,7 @@ import {
   openArtifactStream,
   resolveJobArtifact,
 } from "../artifact-download.js";
+import { cancelJob } from "../cancel.js";
 import { jobQueue, redis } from "../queue.js";
 import { validateJobRequest } from "../validate.js";
 
@@ -110,12 +115,40 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // Cancel.
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
-    await redis.publish(`job:${req.params.id}:control`, "cancel");
-    const job = await jobQueue.getJob(req.params.id);
-    if (job && (await job.isWaiting())) await job.remove();
-    return reply.send({ ok: true });
+    const result = await cancelJob(req.params.id, {
+      getJob: (id) => jobQueue.getJob(id),
+      readSnapshot: async (id) => {
+        const raw = await redis.get(jobSnapshotKey(id));
+        return raw ? (JSON.parse(raw) as JobStatusEvent) : undefined;
+      },
+      requestCancel: async (id) => {
+        await redis
+          .multi()
+          .set(jobCancelKey(id), "1", "EX", CANCEL_TTL_SECONDS)
+          .publish(jobControlChannel(id), "cancel")
+          .exec();
+      },
+      settleCanceled: async (id, request) => {
+        const written = await publishStatus(redis, {
+          jobId: id,
+          state: "canceled",
+          at: Date.now(),
+        });
+        if (written) {
+          dbRecordJob(openDb(), {
+            id,
+            generatorId: request.generator.id,
+            params: request.generator.params,
+            printerId: request.printerId,
+            profileId: request.profileId,
+            state: "canceled",
+          });
+        }
+        return written;
+      },
+    });
+    return reply.code(result.code).send(result.body);
   });
 
   // Live status: subscribe to the job's Redis channel, forward frames verbatim.

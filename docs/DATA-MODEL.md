@@ -160,7 +160,8 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 - `conveyor:jobs` — BullMQ queue
 - `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`)
 - `job:<id>:status` — pub/sub channel the API bridges to the WS
-- `job:<id>:control` — cancel signal (API → worker)
+- `job:<id>:control` — cancel signal, fast path (API → worker)
+- `job:<id>:cancel` — durable cancel flag with a 7-day TTL, checked by the worker on start and between stages
 
 ## Secrets
 

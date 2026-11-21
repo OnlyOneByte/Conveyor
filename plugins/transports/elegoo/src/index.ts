@@ -84,10 +84,16 @@ export const elegoo: TransportPlugin = {
       ctx,
     );
 
-    return { transportId: "elegoo", printerId: target.id, ref: filename, address: target.address };
+    return {
+      transportId: "elegoo",
+      printerId: target.id,
+      ref: filename,
+      address: target.address,
+      deviceId: mainboardId,
+    };
   },
 
-  async *status(handle: PrintHandle): AsyncIterable<PrintStatus> {
+  async *status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus> {
     if (STUB) {
       yield { state: "transferring" };
       for (let p = 0; p <= 1.0001; p += 0.25) yield { state: "printing", progress: Math.min(p, 1) };
@@ -99,7 +105,7 @@ export const elegoo: TransportPlugin = {
 
     yield { state: "transferring" };
     // Drain pushed status frames from the WS, translating to PrintStatus until terminal.
-    for await (const s of streamStatus(handle.address, STATUS_TIMEOUT_MS)) {
+    for await (const s of streamStatus(handle.address, STATUS_TIMEOUT_MS, signal)) {
       yield s;
       if (s.state === "done" || s.state === "failed" || s.state === "canceled") return;
     }
@@ -109,7 +115,7 @@ export const elegoo: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
-    const mainboardId = handle.printerId;
+    const mainboardId = handle.deviceId ?? handle.printerId;
     await sendCommandRaw(handle.address, mainboardId, SDCP_CMD.STOP_PRINT, {});
   },
 };
@@ -207,7 +213,11 @@ function sendCommandRaw(
 }
 
 /** Subscribe to pushed status frames, translating each to a PrintStatus. */
-async function* streamStatus(address: string, timeoutMs: number): AsyncIterable<PrintStatus> {
+async function* streamStatus(
+  address: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): AsyncIterable<PrintStatus> {
   const queue: PrintStatus[] = [];
   let resolveNext: (() => void) | null = null;
   let closed = false;
@@ -240,8 +250,14 @@ async function* streamStatus(address: string, timeoutMs: number): AsyncIterable<
     resolveNext?.();
   };
 
+  const onAbort = () => {
+    closed = true;
+    resolveNext?.();
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+
   const deadline = nowMs() + timeoutMs;
-  while (!closed && nowMs() < deadline) {
+  while (!closed && !signal?.aborted && nowMs() < deadline) {
     if (queue.length === 0) await new Promise<void>((r) => (resolveNext = r));
     for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
   }

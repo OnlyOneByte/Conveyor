@@ -29,6 +29,7 @@ import {
  */
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
+const CANCEL_TIMEOUT_MS = 15000;
 
 export const moonraker: TransportPlugin = {
   id: "moonraker",
@@ -84,7 +85,7 @@ export const moonraker: TransportPlugin = {
     };
   },
 
-  async *status(handle: PrintHandle): AsyncIterable<PrintStatus> {
+  async *status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus> {
     if (STUB) {
       yield { state: "transferring" };
       for (let p = 0; p <= 1.0001; p += 0.25) yield { state: "printing", progress: Math.min(p, 1) };
@@ -104,7 +105,7 @@ export const moonraker: TransportPlugin = {
     let printingSeen = false;
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const res = await fetch(query, { headers: keyHeaderFromEnv() }).catch((e) => {
+      const res = await fetch(query, { headers: keyHeaderFromEnv(), signal }).catch((e) => {
         throw new StageError("transport", `moonraker status query failed: ${(e as Error).message}`);
       });
       if (!res.ok)
@@ -145,7 +146,7 @@ export const moonraker: TransportPlugin = {
         default:
           break;
       }
-      await sleep(POLL_MS);
+      await sleep(POLL_MS, signal);
     }
   },
 
@@ -157,6 +158,7 @@ export const moonraker: TransportPlugin = {
     const res = await fetch(`${base}/printer/print/cancel`, {
       method: "POST",
       headers: keyHeaderFromEnv(),
+      signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
     });
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);
   },
@@ -185,8 +187,19 @@ function keyHeaderFromEnv(): Record<string, string> {
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new StageError("transport", "moonraker status aborted"));
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new StageError("transport", "moonraker status aborted"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 interface MoonrakerQueryResponse {

@@ -1,18 +1,17 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  computeStageTimings,
   JOB_QUEUE,
   type JobRequest,
+  jobCancelKey,
+  jobControlChannel,
   type PrinterTarget,
-  type Stage,
-  type StageCtx,
   StageError,
-  type StageTiming,
 } from "@conveyor/shared";
 import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
+import { runJob, type TerminalRecord, type TerminalState } from "./pipeline.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
@@ -20,6 +19,7 @@ import { StatusBus } from "./status.js";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const connection = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
+const commands = new Redis(REDIS_URL);
 
 const registry = buildRegistry();
 const bus = new StatusBus();
@@ -33,122 +33,22 @@ const worker = new Worker<JobRequest>(
     const workDir = join(DATA_DIR, jobId);
     await mkdir(workDir, { recursive: true });
 
-    // Cooperative cancel: API publishes to job:<id>:control.
     const controller = new AbortController();
     const control = new Redis(REDIS_URL);
-    await control.subscribe(`job:${jobId}:control`);
     control.on("message", () => controller.abort());
-
-    const ctx: StageCtx = {
-      jobId,
-      workDir,
-      signal: controller.signal,
-      report: (progress, message) =>
-        void bus.publish(jobId, currentState, { stage, progress, message }),
-      log: (msg) => console.log(`[${jobId}] ${msg}`),
-    };
-
-    let stage: "generator" | "slicer" | "transport" = "generator";
-    let currentState: "generating" | "slicing" | "transferring" | "printing" = "generating";
-    // Artifact paths captured as stages complete, persisted to the job history.
-    let modelPath: string | undefined;
-    let gcodePath: string | undefined;
-    // Stage-enter timestamps in entry order. Each stage-enter appends one; the live
-    // events carry the timings-so-far (final stage open), and the terminal record
-    // closes the last stage with the settle time.
-    const stageEnters: { stage: Stage; at: number }[] = [];
-    const enterStage = (s: Stage): StageTiming[] => {
-      stageEnters.push({ stage: s, at: Date.now() });
-      return computeStageTimings(stageEnters);
-    };
+    await control.subscribe(jobControlChannel(jobId));
 
     try {
-      // The (printer, profile) pair the request names, with the transport and slicer
-      // derived from it — what a Station used to hold.
-      const jobTarget = dbResolveJobTarget(openDb(), req.printerId, req.profileId);
-      if (!jobTarget) {
-        throw new StageError(
-          "generator",
-          `unknown printer ${req.printerId} or profile ${req.profileId}`,
-        );
-      }
-
-      // ── Generate ───────────────────────────────────────────────
-      stage = "generator";
-      currentState = "generating";
-      await bus.publish(jobId, "generating", { stage, timings: enterStage("generator") });
-      const generator = registry.generators.get(req.generator.id);
-      if (!generator) throw new StageError("generator", `unknown generator ${req.generator.id}`);
-      const model = await generator.generate(req.generator.params, ctx);
-      modelPath = model.path;
-
-      // ── Slice ──────────────────────────────────────────────────
-      stage = "slicer";
-      currentState = "slicing";
-      await bus.publish(jobId, "slicing", { stage, timings: enterStage("slicer") });
-      const slicer = registry.slicers.get(jobTarget.slicerId);
-      if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
-      const profileForSlice = await resolveProfileForSlice(jobTarget, workDir);
-      ctx.log(`profile ${jobTarget.profileId}: ${profileForSlice.source}`);
-      const gcode = await slicer.slice(model, profileForSlice.profile, ctx).finally(async () => {
-        // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
-        // best-effort and must not turn a successful slice into a failed print.
-        await profileForSlice
-          .cleanup()
-          .catch((error) =>
-            ctx.log(`warning: failed to clean materialized profile: ${(error as Error).message}`),
-          );
+      return await runJob(jobId, req, workDir, controller, {
+        registry,
+        publish: (id, state, extra) => bus.publish(id, state, extra),
+        record: recordTerminal,
+        resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
+        resolvePrinter: resolveTarget,
+        resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
+        cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
+        log: (msg) => console.log(`[${jobId}] ${msg}`),
       });
-      gcodePath = gcode.path;
-
-      // ── Transport ──────────────────────────────────────────────
-      stage = "transport";
-      currentState = "transferring";
-      await bus.publish(jobId, "transferring", { stage, timings: enterStage("transport") });
-      const transport = registry.transports.get(jobTarget.transportId);
-      if (!transport)
-        throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
-      const target = await resolveTarget(jobTarget.printerId);
-      const handle = await transport.submit(gcode, target, ctx);
-
-      currentState = "printing";
-      for await (const status of transport.status(handle)) {
-        if (status.state === "printing") {
-          await bus.publish(jobId, "printing", {
-            stage,
-            progress: status.progress,
-            message: status.message,
-            timings: computeStageTimings(stageEnters),
-          });
-        } else if (status.state === "done") {
-          break;
-        } else if (status.state === "failed" || status.state === "canceled") {
-          throw new StageError("transport", status.message ?? status.state);
-        }
-      }
-
-      const doneTimings = computeStageTimings(stageEnters, Date.now());
-      await bus.publish(jobId, "done", { stage, timings: doneTimings });
-      // Durable history: settled record lives in SQLite (Redis snapshot expires).
-      recordTerminal(jobId, req, "done", { modelPath, gcodePath, timings: doneTimings });
-    } catch (err) {
-      const se =
-        err instanceof StageError
-          ? err
-          : new StageError(stage, (err as Error).message, { cause: err });
-      const failTimings = computeStageTimings(stageEnters, Date.now());
-      await bus.publish(jobId, "failed", {
-        stage: se.stage,
-        error: { stage: se.stage, reason: se.reason },
-        timings: failTimings,
-      });
-      recordTerminal(jobId, req, "failed", {
-        stage: se.stage,
-        reason: se.reason,
-        timings: failTimings,
-      });
-      await rm(workDir, { recursive: true, force: true }).catch(() => {});
-      throw se;
     } finally {
       await control.quit();
     }
@@ -159,25 +59,17 @@ const worker = new Worker<JobRequest>(
 worker.on("ready", () => console.log("conveyor worker ready"));
 worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
 
-/** Resolve the PrinterTarget (incl. server-only secrets) from the SQLite store. */
 async function resolveTarget(printerId: string): Promise<PrinterTarget> {
   const p = dbGetPrinter(openDb(), printerId);
   if (!p) throw new StageError("transport", `unknown printer ${printerId}`);
   return { id: p.id, transportId: p.transportId, address: p.address, secrets: p.secrets };
 }
 
-/** Persist the settled job record; never throws into the pipeline. */
 function recordTerminal(
   jobId: string,
   req: JobRequest,
-  state: "done" | "failed",
-  extra: {
-    modelPath?: string;
-    gcodePath?: string;
-    stage?: Stage;
-    reason?: string;
-    timings?: StageTiming[];
-  },
+  state: TerminalState,
+  extra: TerminalRecord,
 ): void {
   try {
     dbRecordJob(openDb(), {
