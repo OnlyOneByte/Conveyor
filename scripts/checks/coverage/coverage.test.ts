@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type Coverage, parseLcov, serializeLcov } from "./lcov";
+import { type Coverage, parseLcov, projectHits, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
   checkRatchet,
@@ -121,28 +121,85 @@ describe("coverage merge", () => {
     expect(packageOf("packages/shared/test/helpers/db.ts")).toBeNull();
   });
 
-  test("counts unloaded files at zero using the sweep line map", () => {
-    const merged = mergeCoverage({
-      sources: ["packages/api/src/a.ts", "packages/api/src/b.ts", "packages/worker/src/c.ts"],
-      measured: lcov({
-        "packages/api/src/a.ts": [
-          [1, 1],
-          [2, 0],
-        ],
-      }),
-      sweep: lcov({
-        "packages/api/src/b.ts": [
-          [1, 5],
-          [2, 5],
-        ],
-      }),
+  const A = "packages/api/src/a.ts";
+  const B = "packages/api/src/b.ts";
+  const C = "packages/worker/src/c.ts";
+
+  const sweep = lcov({
+    [A]: [
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [4, 1],
+    ],
+    [B]: [
+      [1, 5],
+      [2, 5],
+    ],
+  });
+
+  const merge = (measured: Coverage) =>
+    mergeCoverage({
+      sources: [A, B, C],
+      measured,
+      sweep,
       fallback: () => nonBlankLines("x\n\ny\n"),
     });
-    expect(merged.unloaded).toEqual(["packages/api/src/b.ts", "packages/worker/src/c.ts"]);
-    expect(merged.estimated).toEqual(["packages/worker/src/c.ts"]);
+
+  test("counts unloaded files at zero using the sweep line map", () => {
+    const merged = merge(new Map());
+    expect(merged.unloaded).toEqual([A, B, C]);
+    expect(merged.estimated).toEqual([C]);
     const summary = summarize(merged.coverage);
-    expect(summary.api).toEqual({ found: 4, hit: 1 });
+    expect(summary.api).toEqual({ found: 6, hit: 0 });
     expect(summary.worker).toEqual({ found: 2, hit: 0 });
-    expect(percents(summary)).toEqual({ api: 25, worker: 0, shared: 100 });
+    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100 });
+  });
+
+  test("a test that loads a file cannot move its denominator", () => {
+    const before = summarize(merge(new Map()).coverage);
+    const run = lcov({
+      [A]: [
+        [1, 3],
+        [3, 0],
+        [9, 1],
+      ],
+    });
+    const merged = merge(run);
+    const after = summarize(merged.coverage);
+    expect(merged.unloaded).toEqual([B, C]);
+    expect(after.api.found).toBe(before.api.found);
+    expect(after.worker.found).toBe(before.worker.found);
+    expect(merged.coverage.get(A)).toEqual(
+      new Map([
+        [1, 3],
+        [2, 3],
+        [3, 0],
+        [4, 0],
+      ]),
+    );
+    expect(after.api).toEqual({ found: 6, hit: 2 });
+  });
+
+  test("projects run hits onto the stable lines from the nearest mark above", () => {
+    const lines = new Map([
+      [2, 0],
+      [5, 0],
+      [6, 0],
+      [10, 0],
+    ]);
+    const run = new Map([
+      [3, 0],
+      [5, 4],
+      [8, 0],
+    ]);
+    expect(projectHits(lines, run)).toEqual(
+      new Map([
+        [2, 0],
+        [5, 4],
+        [6, 4],
+        [10, 0],
+      ]),
+    );
   });
 });

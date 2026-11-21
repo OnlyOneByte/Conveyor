@@ -84,7 +84,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   }
   const measured = parseLcov(lcov);
   const all = sources();
-  const sweep = runSweep(all.filter((path) => !measured.has(path)));
+  const sweep = runSweep(all);
   const fallback = (path: string) => nonBlankLines(readOrNull(join(ROOT, path)) ?? "");
   const merged = mergeCoverage({ sources: all, measured, sweep, fallback });
   writeFileSync(join(ROOT, outPath), serializeLcov(merged.coverage));

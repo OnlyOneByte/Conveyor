@@ -1,4 +1,4 @@
-import { type Coverage, hitCount, type LineHits, zeroed } from "./lcov";
+import { type Coverage, hitCount, type LineHits, projectHits, zeroed } from "./lcov";
 
 export const SWEEP_ENV = "CONVEYOR_COVERAGE_SWEEP";
 
@@ -40,15 +40,12 @@ export function mergeCoverage({ sources, measured, sweep, fallback }: MergeInput
   const unloaded: string[] = [];
   const estimated: string[] = [];
   for (const path of [...sources].sort()) {
-    const loaded = measured.get(path);
-    if (loaded) {
-      coverage.set(path, loaded);
-      continue;
-    }
-    unloaded.push(path);
     const mapped = sweep.get(path);
     if (!mapped) estimated.push(path);
-    coverage.set(path, zeroed(mapped ?? fallback(path)));
+    const lines = mapped ?? fallback(path);
+    const loaded = measured.get(path);
+    if (!loaded) unloaded.push(path);
+    coverage.set(path, loaded ? projectHits(lines, loaded) : zeroed(lines));
   }
   return { coverage, unloaded, estimated };
 }
