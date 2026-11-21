@@ -80,7 +80,9 @@ plus what they imply. The API and the worker build it from the catalog and hand 
 | `allowedGenerators` | the printer row: `undefined` means no restriction, `[]` permits nothing |
 
 `Job` is the durable record, persisted to SQLite on a terminal state. `timings` is captured as the worker
-enters each stage.
+enters each stage. `error` is set only when a job failed. `notes` holds what went wrong around a job that did
+not fail (a work dir that could not be removed, a status stream that did not close cleanly), so a canceled
+or finished job never shows an error line.
 
 `StageTiming` is one stage's wall-clock span. `enteredAt` (epoch ms) is stamped when the worker begins the
 stage. `durationMs` is filled once the next stage starts or the job settles, so an in-flight stage has
@@ -234,7 +236,7 @@ same file on the shared `/data` volume. `openDb()` is a process-wide singleton, 
 |---|---|
 | `db/printers.ts` | `Printer` and the printer queries |
 | `db/profiles.ts` | `Profile` and the profile and profile-content queries |
-| `db/jobs.ts` | `dbResolveJobTarget` and the job queries |
+| `db/jobs.ts` | `SettledJob`, `dbResolveJobTarget` and the job queries |
 | `db/migrate.ts` | `migrate()`, see [Migrations](#migrations) |
 | `db/epoch-ms.ts` | `epochMs()`, the one clock every write reads |
 
@@ -271,7 +273,7 @@ instead of enqueueing a job that cannot run.
 
 ### Jobs
 
-`dbRecordJob` writes the settled record of a finished run. A job migrated from a station that had already
+`dbRecordJob` writes the settled record of a finished run, typed as `SettledJob`. A job migrated from a station that had already
 been deleted has a null printer and profile; `rowToJob` surfaces them as empty strings rather than invent
 values.
 
@@ -297,7 +299,8 @@ shape and safe on every boot.
 3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
    files.
 4. **`jobs.timings_json`.** Additive and nullable; `NULL` on rows recorded before timings existed.
-5. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
+5. **`jobs.notes`.** Additive and nullable; `NULL` on rows recorded before notes were split from `error`.
+6. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
    already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
    it.
 

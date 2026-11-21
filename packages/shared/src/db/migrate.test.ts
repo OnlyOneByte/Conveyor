@@ -9,6 +9,7 @@ import {
   dbGetPrinter,
   dbGetProfile,
   dbGetPrusaProfileContent,
+  dbRecordJob,
   dbSaveOrcaProfileDocuments,
   dbSavePrusaProfileContent,
   dbUpsertPrinter,
@@ -144,15 +145,31 @@ describe("openDb legacy station migration", () => {
     expect(
       namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'jobs'"),
     ).toEqual(["trg_jobs_state"]);
-    db.exec("UPDATE jobs SET state = 'failed' WHERE id = 'job-a'");
+    dbRecordJob(db, {
+      id: "job-a",
+      generatorId: "gen",
+      printerId: "printer-a",
+      profileId: "profile-a",
+      state: "canceled",
+      notes: "work dir not removed",
+    });
     expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
-      { job_id: "job-a", state: "failed" },
+      { job_id: "job-a", state: "canceled" },
     ]);
+    expect(dbGetJob(db, "job-a")).toMatchObject({
+      state: "canceled",
+      notes: "work dir not removed",
+    });
   });
 
   test("adds timings_json to the migrated jobs table", () => {
     const db = openLegacyDb();
     expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("timings_json");
+  });
+
+  test("adds notes to the migrated jobs table", () => {
+    const db = openLegacyDb();
+    expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("notes");
   });
 });
 

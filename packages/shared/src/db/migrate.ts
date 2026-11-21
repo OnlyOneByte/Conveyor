@@ -60,6 +60,10 @@ export function migrate(db: Database): void {
     db.exec("ALTER TABLE jobs ADD COLUMN timings_json TEXT");
   }
 
+  if (!columnsOf(db, "jobs").includes("notes")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
+  }
+
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");
   }
