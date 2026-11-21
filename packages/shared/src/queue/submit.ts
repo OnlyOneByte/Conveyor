@@ -27,7 +27,7 @@ interface SlotRow {
 }
 
 const TAKE_SLOT = `UPDATE jobs SET state = 'transferring', submit_started_at = $now, updated_at = $now
-  WHERE ${FENCE}
+  WHERE ${FENCE} AND state = 'slicing' AND submit_started_at IS NULL
     AND NOT EXISTS (SELECT 1 FROM jobs o WHERE o.printer_id = jobs.printer_id AND o.id <> jobs.id
                       AND o.state IN ('transferring', 'printing'))
     AND NOT EXISTS (SELECT 1 FROM printers p WHERE p.id = jobs.printer_id AND p.hold_job_id IS NOT NULL)`;
@@ -40,16 +40,17 @@ export function takePrinterSlot(
   return withFullSync(db, () =>
     inImmediate(db, timing.now, (at) => {
       const fence = fenceOf(lease, at);
+      if (db.query(TAKE_SLOT).run(fence).changes === 1) {
+        appendEvent(db, { jobId: lease.jobId, state: "transferring", at });
+        return "taken";
+      }
       const row = db
         .query<SlotRow, Record<string, string | number>>(
           `SELECT state, submit_started_at FROM jobs WHERE ${FENCE}`,
         )
         .get(fence);
       if (!row) return "lost";
-      if (row.state !== "slicing" || row.submit_started_at !== null) return "refused";
-      if (db.query(TAKE_SLOT).run(fence).changes === 0) return "busy";
-      appendEvent(db, { jobId: lease.jobId, state: "transferring", at });
-      return "taken";
+      return row.state !== "slicing" || row.submit_started_at !== null ? "refused" : "busy";
     }),
   );
 }

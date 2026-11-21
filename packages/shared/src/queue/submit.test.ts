@@ -69,6 +69,16 @@ describe("takePrinterSlot", () => {
     expect(takePrinterSlot(h.db, lease, h.timing)).toBe("taken");
   });
 
+  test("leaves the job waiting while another job is still uploading to that printer", () => {
+    h = queueHarness();
+    const first = slicing("first");
+    expect(takePrinterSlot(h.db, first, h.timing)).toBe("taken");
+    const lease = slicing("a");
+    expect(takePrinterSlot(h.db, lease, h.timing)).toBe("busy");
+    expect(h.row("a")).toMatchObject({ state: "slicing", submit_started_at: null });
+    expect(h.row("first").state).toBe("transferring");
+  });
+
   test("never records a second intent, so a job cannot be submitted twice", () => {
     h = queueHarness();
     const lease = slicing();
@@ -101,10 +111,9 @@ describe("takePrinterSlot", () => {
 });
 
 describe("markSubmitted", () => {
-  test("records the marker and handle once, at FULL, only after the intent", () => {
+  test("records the marker and handle once, at FULL", () => {
     h = queueHarness();
     const lease = slicing();
-    expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
     takePrinterSlot(h.db, lease, h.timing);
     const exec = spyOn(h.db, "exec");
     expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(true);
@@ -115,7 +124,27 @@ describe("markSubmitted", () => {
     expect(JSON.parse(String(h.row("a").print_handle_json))).toEqual(handle);
     expect(h.row("a").submitted_at).toBe(h.timing.now());
     expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
+  });
+
+  test("refuses the marker without its own live lease, and leaves it unwritten", () => {
+    h = queueHarness();
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    expect(markSubmitted(h.db, { ...lease, token: lease.token - 1 }, handle, h.timing)).toBe(false);
     expect(markSubmitted(h.db, { ...lease, owner: "w2" }, handle, h.timing)).toBe(false);
+    h.advance(30_001);
+    expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
+    expect(h.row("a")).toMatchObject({ submitted_at: null, print_handle_json: null });
+  });
+
+  test("refuses the marker for a transferring job with no intent, and once the job left transferring", () => {
+    h = queueHarness();
+    const lease = slicing();
+    h.set("a", "state = 'transferring'");
+    expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
+    h.set("a", "state = 'printing', submit_started_at = 1");
+    expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
+    expect(h.row("a").submitted_at).toBeNull();
   });
 });
 

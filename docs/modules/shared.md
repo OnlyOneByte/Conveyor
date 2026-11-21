@@ -379,13 +379,18 @@ The two durable writes that bracket `transport.submit()`. Together they make sur
 twice.
 
 - `takePrinterSlot` moves a sliced job to `transferring` and writes the submit intent (`submit_started_at`)
-  in one immediate transaction, then records a `transferring` event. Its outcomes:
+  in one immediate transaction, then records a `transferring` event. The fenced `UPDATE` is the guard: it
+  requires the live lease, `slicing`, no intent yet, no other job transferring or printing on the printer,
+  and no hold. Only when it changes nothing does a fenced `SELECT` in the same transaction say why. Its
+  outcomes:
   - `taken`;
   - `busy`: another job is transferring or printing on that printer, or the printer is held. The job stays
     `slicing` with no intent, and the caller retries;
   - `refused`: the job is not `slicing`, or already has an intent;
   - `lost`: the lease is gone.
-- `markSubmitted` writes the marker (`submitted_at`) and the printer handle, once, and only after the intent.
+- `markSubmitted` writes the marker (`submitted_at`) and the printer handle, once, under the lease, and only
+  for a `transferring` job with an intent. The worker must write it before it reports `printing`; a marker
+  refused because the job already says `printing` ends, after a crash, in a hold rather than a resume.
 - Never resubmit:
   - `takePrinterSlot` refuses any job that already has an intent;
   - the reaper fails an intent-without-marker job and holds its printer;
