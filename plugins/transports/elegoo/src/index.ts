@@ -63,7 +63,12 @@ export const elegoo: TransportPlugin = {
     const filename = basename(gcode.path);
     if (STUB) {
       ctx.log(`[stub] elegoo upload ${gcode.path} → ${target.address}`);
-      return { transportId: "elegoo", printerId: target.id, ref: filename, address: target.address };
+      return {
+        transportId: "elegoo",
+        printerId: target.id,
+        ref: filename,
+        address: target.address,
+      };
     }
 
     const mainboardId = target.secrets?.mainboardId ?? target.id;
@@ -71,9 +76,15 @@ export const elegoo: TransportPlugin = {
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     // 2) issue START_PRINT over the control WebSocket.
-    await sendCommand(target.address, mainboardId, SDCP_CMD.START_PRINT, { Filename: filename, StartLayer: 0 }, ctx);
+    await sendCommand(
+      target.address,
+      mainboardId,
+      SDCP_CMD.START_PRINT,
+      { Filename: filename, StartLayer: 0 },
+      ctx,
+    );
 
-    return { transportId: "elegoo", printerId: target.id, ref: filename, address: target.address, };
+    return { transportId: "elegoo", printerId: target.id, ref: filename, address: target.address };
   },
 
   async *status(handle: PrintHandle): AsyncIterable<PrintStatus> {
@@ -83,7 +94,8 @@ export const elegoo: TransportPlugin = {
       yield { state: "done", progress: 1 };
       return;
     }
-    if (!handle.address) throw new StageError("transport", "elegoo status: missing printer address on handle");
+    if (!handle.address)
+      throw new StageError("transport", "elegoo status: missing printer address on handle");
 
     yield { state: "transferring" };
     // Drain pushed status frames from the WS, translating to PrintStatus until terminal.
@@ -95,7 +107,8 @@ export const elegoo: TransportPlugin = {
 
   async cancel(handle: PrintHandle): Promise<void> {
     if (STUB) return;
-    if (!handle.address) throw new StageError("transport", "elegoo cancel: missing printer address on handle");
+    if (!handle.address)
+      throw new StageError("transport", "elegoo cancel: missing printer address on handle");
     const mainboardId = handle.printerId;
     await sendCommandRaw(handle.address, mainboardId, SDCP_CMD.STOP_PRINT, {});
   },
@@ -162,7 +175,10 @@ function sendCommandRaw(
       }
       err ? reject(err) : resolve();
     };
-    const timer = setTimeout(() => done(new StageError("transport", `elegoo cmd ${cmd} timed out`)), 15000);
+    const timer = setTimeout(
+      () => done(new StageError("transport", `elegoo cmd ${cmd} timed out`)),
+      15000,
+    );
     ws.onopen = () => {
       // TimeStamp is wall-clock seconds; supplied via the runtime, not at import.
       ws.send(buildCommand(mainboardId, cmd, data, requestId, Math.floor(nowMs() / 1000)));
@@ -174,13 +190,18 @@ function sendCommandRaw(
         if (ackId === requestId) {
           clearTimeout(timer);
           const code = j?.Data?.Data?.Ack ?? j?.Data?.Ack ?? 0;
-          done(code === 0 ? undefined : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${code})`));
+          done(
+            code === 0
+              ? undefined
+              : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${code})`),
+          );
         }
       } catch {
         /* ignore non-JSON frames */
       }
     };
-    ws.onerror = () => done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
+    ws.onerror = () =>
+      done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
     ws.onclose = () => done(); // resolve if closed after ack
   });
 }
@@ -233,7 +254,12 @@ async function* streamStatus(address: string, timeoutMs: number): AsyncIterable<
 
 // ─── HTTP file upload (VERIFY note #1) ───────────────────────────────────────
 
-async function uploadGcode(address: string, path: string, filename: string, ctx: StageCtx): Promise<void> {
+async function uploadGcode(
+  address: string,
+  path: string,
+  filename: string,
+  ctx: StageCtx,
+): Promise<void> {
   const body = await readFile(path);
   const form = new FormData();
   form.append("File", new Blob([body]), filename);
@@ -242,7 +268,11 @@ async function uploadGcode(address: string, path: string, filename: string, ctx:
   const res = await fetch(url, { method: "POST", body: form, signal: ctx.signal }).catch((e) => {
     throw new StageError("transport", `elegoo upload failed: ${(e as Error).message}`);
   });
-  if (!res.ok) throw new StageError("transport", `elegoo upload failed: ${res.status} (confirm route — see VERIFY note)`);
+  if (!res.ok)
+    throw new StageError(
+      "transport",
+      `elegoo upload failed: ${res.status} (confirm route — see VERIFY note)`,
+    );
 }
 
 /** Date.now via a tiny indirection so the import graph stays pure. */

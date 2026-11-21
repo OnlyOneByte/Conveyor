@@ -78,8 +78,11 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
       ],
     },
     controls: {
-      gridX: "stepper", gridY: "stepper", heightUnits: "stepper",
-      divisionsX: "stepper", divisionsY: "stepper",
+      gridX: "stepper",
+      gridY: "stepper",
+      heightUnits: "stepper",
+      divisionsX: "stepper",
+      divisionsY: "stepper",
     },
     unitMm: { gridX: 42, gridY: 42, heightUnits: 7 },
     note: "1u = 42 mm footprint · 7 mm height",
@@ -88,7 +91,8 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = gridfinityParams.safeParse(rawParams);
-    if (!parsed.success) throw new StageError("generator", `invalid params: ${parsed.error.message}`);
+    if (!parsed.success)
+      throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
     const out = join(ctx.workDir, "model.stl");
 

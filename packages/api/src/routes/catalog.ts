@@ -91,7 +91,6 @@ function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boo
   return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
 }
 
-
 function sendProfileContentError(reply: FastifyReply, error: unknown) {
   if (error instanceof ProfileContentError) {
     return reply.code(error.statusCode).send({ error: error.message });
@@ -171,25 +170,30 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
     const format = slicerFormat(profile.slicerId);
     if (format === null) {
-      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+      return reply
+        .code(409)
+        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {
       if (format === "orca-json") {
         const edited = dbGetOrcaProfileDocuments(db, profile.id);
-        if (edited) return { format: "orca-json" as const, source: "edited" as const, documents: edited };
+        if (edited)
+          return { format: "orca-json" as const, source: "edited" as const, documents: edited };
         const documents = await readBundledOrcaDocuments(profile.path);
         try {
           validateOrcaDocuments(documents);
         } catch (error) {
-          if (error instanceof ProfileContentError) throw new ProfileContentError(`bundled ${error.message}`, 409);
+          if (error instanceof ProfileContentError)
+            throw new ProfileContentError(`bundled ${error.message}`, 409);
           throw error;
         }
         return { format: "orca-json" as const, source: "bundled" as const, documents };
       }
       // prusa-ini
       const edited = dbGetPrusaProfileContent(db, profile.id);
-      if (edited) return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
+      if (edited)
+        return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
       const document = await readBundledPrusaConfig(profile.path);
       return { format: "prusa-ini" as const, source: "bundled" as const, document };
     } catch (error) {
@@ -209,7 +213,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
       const format = slicerFormat(profile.slicerId);
       if (format === null) {
-        return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+        return reply
+          .code(409)
+          .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
       }
 
       try {
@@ -243,7 +249,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
     const format = slicerFormat(profile.slicerId);
     if (format === null) {
-      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+      return reply
+        .code(409)
+        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {
