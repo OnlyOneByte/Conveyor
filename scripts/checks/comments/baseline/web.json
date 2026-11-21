@@ -1,9 +1,5 @@
 {
   "files": {
-    "packages/api/src/routes/jobs.ts": {
-      "comments": 17,
-      "suppressions": 0
-    },
     "packages/web/Dockerfile": {
       "comments": 5,
       "suppressions": 0
