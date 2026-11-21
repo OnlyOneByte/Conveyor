@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { BASELINE_PATH, CHECKER_PATH } from "./ratchet";
-import { ROOT, readBase, readOrNull, runSweep, sources } from "./runner";
+import { baselinePath, CHECKER_PATH, LEGACY_BASELINE_PATH } from "./ratchet";
+import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
@@ -127,25 +127,70 @@ const repo = (files: Record<string, string>) => {
   return root;
 };
 
+const none = { api: null, worker: null, shared: null, plugins: null };
+
 describe("readBase", () => {
   test("detects a base that has the checker but no baseline", () => {
     const root = repo({ [CHECKER_PATH]: "export {};\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: null, hasChecker: true });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
   });
 
   test("detects a base that predates the checker", () => {
     const root = repo({ "README.md": "x\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: null, hasChecker: false });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: false });
   });
 
-  test("reads the base baseline when it exists", () => {
-    const root = repo({ [CHECKER_PATH]: "export {};\n", [BASELINE_PATH]: '{"lines":{}}\n' });
-    expect(readBase("HEAD", root)).toEqual({ baseline: '{"lines":{}}\n', hasChecker: true });
+  test("reads one file per package from the base", () => {
+    const root = repo({
+      [CHECKER_PATH]: "export {};\n",
+      [baselinePath("api")]: "40\n",
+      [baselinePath("shared")]: "80\n",
+    });
+    expect(readBase("HEAD", root)).toEqual({
+      baseline: { ...none, api: "40\n", shared: "80\n" },
+      hasChecker: true,
+    });
+  });
+
+  test("falls back to a base that still has the legacy single-file baseline", () => {
+    const root = repo({
+      [CHECKER_PATH]: "export {};\n",
+      [LEGACY_BASELINE_PATH]:
+        '{"lines":{"api":35.51,"worker":79,"shared":82.69,"plugins":60.11}}\n',
+    });
+    expect(readBase("HEAD", root)).toEqual({
+      baseline: { api: "35.51\n", worker: "79\n", shared: "82.69\n", plugins: "60.11\n" },
+      hasChecker: true,
+    });
+  });
+
+  test("prefers per-package files over a legacy baseline", () => {
+    const root = repo({
+      [CHECKER_PATH]: "export {};\n",
+      [baselinePath("api")]: "41\n",
+      [LEGACY_BASELINE_PATH]: '{"lines":{"api":10}}\n',
+    });
+    expect(readBase("HEAD", root)).toEqual({
+      baseline: { ...none, api: "41\n" },
+      hasChecker: true,
+    });
+  });
+
+  test("a malformed legacy baseline is an error", () => {
+    const root = repo({ [CHECKER_PATH]: "export {};\n", [LEGACY_BASELINE_PATH]: "nope\n" });
+    expect(readBase("HEAD", root)).toBeInstanceOf(Error);
   });
 
   test("an unresolvable base ref is an error", () => {
     const root = repo({ "README.md": "x\n" });
     expect(readBase("no-such-ref", root)).toBeInstanceOf(Error);
+  });
+});
+
+describe("readCommitted", () => {
+  test("reads each package file from the working tree", () => {
+    const root = repo({ [baselinePath("worker")]: "79.01\n" });
+    expect(readCommitted(root)).toEqual({ ...none, worker: "79.01\n" });
   });
 });
 
