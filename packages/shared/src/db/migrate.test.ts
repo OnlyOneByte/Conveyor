@@ -166,6 +166,25 @@ describe("openDb legacy station migration", () => {
     const db = openLegacyDb();
     expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("notes");
   });
+
+  test("adds the queue columns and indexes, and runs at synchronous NORMAL", () => {
+    const db = openLegacyDb();
+    expect(namesOf(db, "PRAGMA table_info(jobs)")).toEqual(
+      expect.arrayContaining([
+        "attempts",
+        "lease_owner",
+        "lease_token",
+        "lease_until",
+        "submitted_at",
+      ]),
+    );
+    expect(namesOf(db, "PRAGMA index_list(jobs)")).toEqual(
+      expect.arrayContaining(["idx_jobs_claim", "idx_jobs_lease"]),
+    );
+    expect(db.query<{ synchronous: number }, []>("PRAGMA synchronous").get()).toEqual({
+      synchronous: 1,
+    });
+  });
 });
 
 describe("openDb legacy printers and profiles columns", () => {
