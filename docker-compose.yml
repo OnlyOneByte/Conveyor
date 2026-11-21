@@ -41,6 +41,7 @@ services:
   worker:
     build: { context: ., dockerfile: packages/worker/Dockerfile }
     restart: unless-stopped
+    stop_grace_period: 60s
     environment:
       - REDIS_URL=redis://redis:6379
       - DB_PATH=/data/conveyor.db
