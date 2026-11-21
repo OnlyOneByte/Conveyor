@@ -10,7 +10,6 @@ export interface TailOptions {
   fastMs: number;
   slowMs: number;
   idleMs: number;
-  lifetimeMs: number;
   maxSockets: number;
   read: typeof tailEvents;
 }
@@ -20,7 +19,6 @@ export const DEFAULT_TAIL: TailOptions = {
   fastMs: 250,
   slowMs: 1000,
   idleMs: 5000,
-  lifetimeMs: 30 * 60 * 1000,
   maxSockets: 64,
   read: tailEvents,
 };
@@ -93,13 +91,11 @@ export async function registerJobRoutes(
       open = false;
       sockets--;
       clearTimeout(timer);
-      clearTimeout(lifetime);
     };
     const close = () => {
       release();
       socket.close();
     };
-    const lifetime = setTimeout(close, tail.lifetimeMs);
     const forward = (event: JobStatusEvent): boolean => {
       socket.send(JSON.stringify(event));
       if (isTerminal(event.state)) close();

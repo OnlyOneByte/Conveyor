@@ -102,14 +102,6 @@ describe("the sqlite job stream's limits", () => {
     expect(reads).toBe(after);
   });
 
-  test("closes a socket at the end of its lifetime", async () => {
-    const base = await serve({ fastMs: 10, lifetimeMs: 80 });
-    const lease = claimed();
-    const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
-    await socket.closed;
-    expect(socket.frames).toHaveLength(1);
-  });
-
   test("refuses a socket past the cap with 1013, and counts closed ones back", async () => {
     const base = await serve({ maxSockets: 1 });
     const lease = claimed();
@@ -123,6 +115,36 @@ describe("the sqlite job stream's limits", () => {
     const third = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await Bun.sleep(50);
     expect(third.frames).toHaveLength(1);
+  });
+
+  test("counts a socket the server closes back once, not twice", async () => {
+    const base = await serve({ maxSockets: 1 });
+    const gone = await connect(`${base}/jobs/nope/ws`);
+    await gone.closed;
+    await Bun.sleep(20);
+    const lease = claimed();
+    const first = await connect(`${base}/jobs/${lease.jobId}/ws`);
+    const second = await connect(`${base}/jobs/${lease.jobId}/ws`);
+    await second.closed;
+    expect(second.code()).toBe(1013);
+    expect(first.frames).toHaveLength(1);
+  });
+
+  test("closes the socket when a tail read throws", async () => {
+    const base = await serve({
+      fastMs: 10,
+      read: () => {
+        reads++;
+        throw new Error("disk I/O error");
+      },
+    });
+    const lease = claimed();
+    const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
+    await socket.closed;
+    expect(socket.frames).toHaveLength(1);
+    const after = reads;
+    await Bun.sleep(50);
+    expect(reads).toBe(after);
   });
 
   test("drains a backlog longer than one page in a single tick", async () => {

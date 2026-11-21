@@ -36,9 +36,14 @@ new event, and closes after forwarding a terminal event. Each poll keeps reading
 comes back short, so a backlog never lags. A job already finished sends its snapshot and closes; an unknown
 job closes with no frame. A stored row or event that does not parse closes the socket and logs.
 
-Polling is bounded: a socket closes after 30 minutes (the client reconnects and gets a fresh snapshot), and
-at most 64 job streams are open at once; one more is closed with code `1013`. A socket stops polling the
-moment it closes, from either side. `GET /jobs/active` skips, and logs, a row that does not parse, so one bad
+Polling is bounded by a cap: at most 64 job streams are open at once, across all sessions, and one more is
+closed with code `1013`. There is no per-session cap, because every session shares the one password. A socket
+stays open until its job finishes or a side closes it, so a long print keeps its live status; it stops
+polling the moment it closes, and counts back against the cap exactly once.
+
+The current web client does not reconnect. The UI rewrite must reconnect after a `1013` (with a backoff) and
+after any other close of an unfinished job's stream; each new socket starts from a fresh snapshot, so nothing
+is missed. `GET /jobs/active` skips, and logs, a row that does not parse, so one bad
 row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests pass their own.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
