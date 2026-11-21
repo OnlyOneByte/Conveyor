@@ -27,12 +27,16 @@ bun run lint
 bun run format:check
 bun run typecheck
 (cd packages/web && bunx svelte-kit sync && bunx svelte-check)
-bun test --coverage
+bun run test:coverage && bun run check:coverage
 bun run check:comments
 ```
 
 If `check:comments` says the baseline is stale, you removed comments: run `bun run check:comments:update` and
 commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the comment you added.
+
+If `check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
+`bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json`. If it says `dropped below
+base`, add the tests that cover what you changed.
 
 ## The PR flow
 
