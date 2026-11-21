@@ -84,10 +84,15 @@ export interface TransportPlugin extends PluginManifest {
   acceptsFlavors: string[];                // gcode flavors it can print
   discover?(): Promise<PrinterTarget[]>;   // optional mDNS/network discovery
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
-  status(handle: PrintHandle): AsyncIterable<PrintStatus>;
-  cancel?(handle: PrintHandle): Promise<void>;
+  status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>; // stop when signal aborts
+  cancel?(handle: PrintHandle): Promise<void>;     // resolve only once the printer confirmed the stop
+  handleFor?(target: PrinterTarget, ref: string): PrintHandle; // handle for a submit() that never returned
 }
+```
 
+`submit()` must check `ctx.signal` between the upload and the start command, and throw `PrintNotStartedError` (from `@conveyor/shared`) when it is cancelled before the start command was sent. The worker sends no stop for that error. Any other error from `submit()` after a cancel is treated as "the print may have started", and the worker sends a stop.
+
+```ts
 export interface PrinterTarget {
   id: string;                              // "klipper-garage"
   transportId: string;                     // which transport owns it

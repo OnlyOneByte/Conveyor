@@ -100,6 +100,9 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
   `standby` after `printing` with progress at ~1 counts as done.
+- Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
+  `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
+  and the start request, and throws `PrintNotStartedError` when it was cancelled first.
 
 ### Elegoo (`plugins/transports/elegoo`)
 
@@ -114,6 +117,10 @@ SDCP (Smart Device Control Protocol), written from the
   import graph stays pure. Each command waits
   up to 15 s for its ack; non-JSON frames are ignored.
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
+- Cancel: `cancel()` sends `Cmd 130` (STOP_PRINT) to the handle's `deviceId`, which is the stored
+  `mainboardId`. It resolves only on a matching ack with `Ack 0`. A non-zero ack, a socket close before the
+  ack, an error or the 15 s timeout rejects it. `handleFor()` builds the same handle for an interrupted
+  `submit()`. The socket, ack and status-stream code lives in `src/socket.ts`.
 
 Status mapping from a pushed `sdcp/status/<id>` frame:
 
