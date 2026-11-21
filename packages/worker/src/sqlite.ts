@@ -21,12 +21,15 @@ export function sqliteBase(db: Database): BaseDeps {
   };
 }
 
-export function startSqliteWorker(env: Record<string, string | undefined>): QueueWorker {
+export function startSqliteWorker(
+  env: Record<string, string | undefined>,
+  concurrency: number,
+): QueueWorker {
   const db = openDb(env.DB_PATH);
   return startQueueWorker({
     db,
     owner: `${hostname()}:${process.pid}:${randomUUID()}`,
-    concurrency: Number(env.WORKER_CONCURRENCY ?? 2),
+    concurrency,
     dataDir: env.DATA_DIR ?? "/data",
     base: sqliteBase(db),
   });

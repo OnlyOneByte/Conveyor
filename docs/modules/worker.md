@@ -34,16 +34,19 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 
 `main.ts` is the image's entry point. It picks the queue from `CONVEYOR_QUEUE` (`redis`, the default, or
 `sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
-code 1. In `sqlite` mode, `SIGTERM` or `SIGINT` calls `stop()` and exits once every running job has been
-released.
+code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
+with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
+`SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
+`process.once`, so a second signal during the grace period kills the process at once; a job caught between
+intent and marker is then failed by the reaper with its printer held, as for any crash in that window.
 `sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, because the api does not
 enqueue to the SQLite queue yet: a `sqlite` worker beside a `redis` api would never see a job. The api
 step removes that guard and documents the flag.
 
 ## sqlite.ts
 
-`startSqliteWorker(env)` starts `startQueueWorker` on the database `DB_PATH` names, with `WORKER_CONCURRENCY`
-(default 2), `DATA_DIR` and a unique owner (host, pid and a random id). `sqliteBase` resolves job targets and
+`startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the
+parsed concurrency, `DATA_DIR` and a unique owner (host, pid and a random id). `sqliteBase` resolves job targets and
 printers from that database, as the BullMQ worker does from its own connection.
 
 ## index.ts

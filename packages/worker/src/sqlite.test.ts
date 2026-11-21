@@ -10,7 +10,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 test("starts and stops on the database DB_PATH names, resolving printers from it", async () => {
   const path = join(dir, "conveyor.db");
-  const worker = startSqliteWorker({ DB_PATH: path, DATA_DIR: dir, WORKER_CONCURRENCY: "1" });
+  const worker = startSqliteWorker({ DB_PATH: path, DATA_DIR: dir }, 1);
   const db = openDb(path);
   dbUpsertPrinter(db, { id: "p1", transportId: "tr", name: "P1", address: "10.0.0.9" });
   const base = sqliteBase(db);
