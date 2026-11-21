@@ -256,42 +256,6 @@
       "comments": 10,
       "suppressions": 0
     },
-    "plugins/generators/gridfinity/src/index.ts": {
-      "comments": 30,
-      "suppressions": 0
-    },
-    "plugins/generators/gridfinity/src/params.ts": {
-      "comments": 5,
-      "suppressions": 0
-    },
-    "plugins/generators/passthrough/src/index.ts": {
-      "comments": 13,
-      "suppressions": 0
-    },
-    "plugins/generators/passthrough/src/params.ts": {
-      "comments": 9,
-      "suppressions": 0
-    },
-    "plugins/slicers/orca/src/index.ts": {
-      "comments": 24,
-      "suppressions": 0
-    },
-    "plugins/slicers/prusa/src/index.ts": {
-      "comments": 20,
-      "suppressions": 0
-    },
-    "plugins/transports/elegoo/src/index.ts": {
-      "comments": 35,
-      "suppressions": 0
-    },
-    "plugins/transports/elegoo/src/sdcp.ts": {
-      "comments": 30,
-      "suppressions": 0
-    },
-    "plugins/transports/moonraker/src/index.ts": {
-      "comments": 30,
-      "suppressions": 1
-    },
     "scripts/install-openscad.sh": {
       "comments": 28,
       "suppressions": 0
