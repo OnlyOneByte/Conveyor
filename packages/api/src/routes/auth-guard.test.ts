@@ -21,7 +21,7 @@ const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "index.ts")
 });
 let base = "";
 
-async function drain(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+async function drain(reader: { read(): Promise<{ done: boolean }> }): Promise<void> {
   while (!(await reader.read()).done) {}
 }
 
