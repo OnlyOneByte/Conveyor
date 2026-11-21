@@ -10,7 +10,7 @@ interface SchemaObject {
   sql: string;
 }
 
-const NAMES_STATION_ID = /\bstation_id\b/i;
+const NAMES_STATION_SCHEMA = /\b(?:stations|station_id)\b/i;
 
 function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
   return db
@@ -21,7 +21,7 @@ function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
 }
 
 function isStationTrigger(object: SchemaObject): boolean {
-  return object.type === "trigger" && NAMES_STATION_ID.test(object.sql);
+  return object.type === "trigger" && NAMES_STATION_SCHEMA.test(object.sql);
 }
 
 function droppedTriggerKey(name: string): string {
@@ -30,7 +30,7 @@ function droppedTriggerKey(name: string): string {
 
 function warnDroppedTrigger(name: string): void {
   console.warn(
-    `migration dropped trigger ${name} on jobs: it references jobs.station_id, which the migration removes; its SQL is kept in meta under ${droppedTriggerKey(name)}`,
+    `migration dropped trigger ${name} on jobs: it references the stations table or jobs.station_id, which the migration removes; its SQL is kept in meta under ${droppedTriggerKey(name)}`,
   );
 }
 

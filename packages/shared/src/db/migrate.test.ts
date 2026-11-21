@@ -39,6 +39,23 @@ BEGIN
 END;
 `;
 
+const LEGACY_STATIONS_TABLE_TRIGGER = `
+CREATE TABLE station_name_log (name TEXT);
+CREATE TRIGGER trg_jobs_station AFTER UPDATE ON jobs
+BEGIN
+  INSERT INTO station_name_log SELECT name FROM "Stations" WHERE printer_id = 'printer-a';
+END;
+`;
+
+const STATION_TRIGGERS = [
+  { reads: "names station_id", sql: LEGACY_STATION_TRIGGER, kept: "NEW.station_id" },
+  {
+    reads: "selects from a quoted Stations",
+    sql: LEGACY_STATIONS_TABLE_TRIGGER,
+    kept: '"Stations"',
+  },
+];
+
 function openLegacyDb(extraSql = ""): Database {
   const dir = mkdtempSync(join(tmpdir(), "conveyor-migrate-"));
   dirs.push(dir);
@@ -109,34 +126,36 @@ describe("openDb legacy station migration", () => {
     });
   });
 
-  test("drops a legacy trigger that names station_id, keeps its SQL in meta and warns", () => {
-    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
-    const db = openLegacyDb(LEGACY_JOBS_TRIGGER + LEGACY_STATION_TRIGGER);
-    const warnings = warn.mock.calls.map((call) => String(call[0]));
-    warn.mockRestore();
-    expect(
-      namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'jobs'"),
-    ).toEqual(["trg_jobs_state"]);
-    expect(
-      db
-        .query<{ value: string }, []>(
-          "SELECT value FROM meta WHERE key = 'dropped_trigger:trg_jobs_station'",
-        )
-        .get()?.value,
-    ).toContain("NEW.station_id");
-    expect(warnings).toEqual([expect.stringContaining("dropped trigger trg_jobs_station")]);
-    dbRecordJob(db, {
-      id: "job-a",
-      generatorId: "gen",
-      printerId: "printer-a",
-      profileId: "profile-a",
-      state: "failed",
+  for (const station of STATION_TRIGGERS) {
+    test(`drops a legacy trigger that ${station.reads}, keeps its SQL in meta and warns`, () => {
+      const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+      const db = openLegacyDb(LEGACY_JOBS_TRIGGER + station.sql);
+      const warnings = warn.mock.calls.map((call) => String(call[0]));
+      warn.mockRestore();
+      expect(
+        namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'jobs'"),
+      ).toEqual(["trg_jobs_state"]);
+      expect(
+        db
+          .query<{ value: string }, []>(
+            "SELECT value FROM meta WHERE key = 'dropped_trigger:trg_jobs_station'",
+          )
+          .get()?.value,
+      ).toContain(station.kept);
+      expect(warnings).toEqual([expect.stringContaining("dropped trigger trg_jobs_station")]);
+      dbRecordJob(db, {
+        id: "job-a",
+        generatorId: "gen",
+        printerId: "printer-a",
+        profileId: "profile-a",
+        state: "failed",
+      });
+      expect(dbGetJob(db, "job-a")?.state).toBe("failed");
+      expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
+        { job_id: "job-a", state: "failed" },
+      ]);
     });
-    expect(dbGetJob(db, "job-a")?.state).toBe("failed");
-    expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
-      { job_id: "job-a", state: "failed" },
-    ]);
-  });
+  }
 
   test("adds timings_json to the migrated jobs table", () => {
     const db = openLegacyDb();
