@@ -71,6 +71,7 @@ export async function resumePrint(run: Run, handle: PrintHandle): Promise<PrintO
   await run.deps.publish(run.opts.jobId, "printing", {
     stage: "transport",
     message: RESUMED_MESSAGE,
+    timings: computeStageTimings(run.enters),
   });
   return watchPrint(run, transport, handle, true);
 }

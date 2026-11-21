@@ -90,9 +90,12 @@ export async function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promis
   run.state = "printing";
   let outcome: PrintOutcome;
   try {
-    const handle = deps.queue?.printHandle();
-    if (!handle) throw new ResumeFailedError("no stored print handle");
-    outcome = await resumePrint(run, handle);
+    const resumed = deps.queue?.resumeState();
+    if (!resumed) throw new ResumeFailedError("no stored print handle");
+    run.modelPath = resumed.modelPath;
+    run.gcodePath = resumed.gcodePath;
+    run.enters = (resumed.timings ?? []).map((t) => ({ stage: t.stage, at: t.enteredAt }));
+    outcome = await resumePrint(run, resumed.handle);
   } catch (err) {
     return settleError(run, err);
   }
