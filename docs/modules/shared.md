@@ -399,6 +399,19 @@ queued one and `202 canceling` for one in flight.
   Both outcomes clear the lease, so the job is never submitted again. It settles nothing without a cancel
   request or a live lease, or for a job that has already settled.
 
+## queue/resume.ts
+
+What the worker needs to resume a job that was already on the printer when its last worker stopped.
+
+- `readResumeState(lease)` returns what a resumed run needs, only to the job's live owner and only for a job
+  with the marker: the handle `markSubmitted` stored, the artifact paths and the stage timings. A stored handle
+  that does not parse as a `PrintHandle` reads as `null`. The timings come through `readSnapshot`, so they are
+  validated like any status event.
+- `failResume(lease)` settles a resumed job `failed` with `RESUME_FAILED_REASON` and holds its printer, in one
+  immediate transaction, then records the event. It is fenced and only acts on a job with the marker. The
+  printer may still be printing the job the worker lost track of, so nothing else may be sent to it until an
+  operator checks it and releases the hold.
+
 ## queue/submit.ts
 
 The two durable writes that bracket `transport.submit()`. Together they make sure no job reaches a printer
