@@ -1,5 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import type { PrintHandle } from "@conveyor/shared";
+import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type PrintHandle, PrintNotStartedError, type StageCtx } from "@conveyor/shared";
 import { elegoo } from "./index";
 import { SDCP_CMD } from "./sdcp";
 
@@ -9,7 +12,7 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
-type Mode = "ack" | "close" | "silent";
+type Mode = "ack" | "nack" | "close" | "silent";
 
 class FakeWebSocket {
   static mode: Mode = "ack";
@@ -26,8 +29,9 @@ class FakeWebSocket {
     const frame = JSON.parse(raw);
     FakeWebSocket.sent.push({ url: this.url, frame });
     if (FakeWebSocket.mode === "close") queueMicrotask(() => this.onclose?.());
-    if (FakeWebSocket.mode !== "ack") return;
-    const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: 0 } } };
+    if (FakeWebSocket.mode !== "ack" && FakeWebSocket.mode !== "nack") return;
+    const code = FakeWebSocket.mode === "ack" ? 0 : 1;
+    const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: code } } };
     queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
   }
   close() {
@@ -74,6 +78,47 @@ describe("elegoo cancel", () => {
     useFakeSocket("close");
     const stop = elegoo.cancel?.(handle) ?? Promise.resolve();
     await expect(stop).rejects.toThrow("closed before the printer acked");
+  });
+});
+
+describe("elegoo cancel ack codes", () => {
+  test("a non-zero ack rejects the stop", async () => {
+    useFakeSocket("nack");
+    const stop = elegoo.cancel?.(handle) ?? Promise.resolve();
+    await expect(stop).rejects.toThrow("rejected (ack 1)");
+  });
+});
+
+const { preconnect } = globalThis.fetch;
+const fetchSpy = spyOn(globalThis, "fetch");
+
+afterAll(() => {
+  fetchSpy.mockRestore();
+});
+
+describe("elegoo submit", () => {
+  test("a cancel during the upload never sends START_PRINT", async () => {
+    useFakeSocket("ack");
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const path = join(dir, "a.gcode");
+    await writeFile(path, "G28\n");
+    const controller = new AbortController();
+    const upload = async () => {
+      controller.abort();
+      return new Response("{}", { status: 200 });
+    };
+    fetchSpy.mockImplementation(Object.assign(upload, { preconnect }));
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: controller.signal,
+      report: () => {},
+      log: () => {},
+    };
+    const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
+    const submit = elegoo.submit({ path, format: "gcode" }, target, ctx);
+    await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
+    expect(FakeWebSocket.sent).toHaveLength(0);
   });
 });
 

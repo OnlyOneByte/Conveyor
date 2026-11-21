@@ -185,7 +185,7 @@
       "suppressions": 0
     },
     "packages/worker/src/status.ts": {
-      "comments": 10,
+      "comments": 5,
       "suppressions": 0
     },
     "plugins/generators/gridfinity/src/index.ts": {
@@ -213,7 +213,7 @@
       "suppressions": 0
     },
     "plugins/transports/elegoo/src/index.ts": {
-      "comments": 34,
+      "comments": 23,
       "suppressions": 0
     },
     "plugins/transports/elegoo/src/sdcp.ts": {

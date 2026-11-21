@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { PrintNotStartedError } from "@conveyor/shared";
 import { harness, states, waitForAbort } from "./pipeline-harness";
 
 describe("runJob cancel before printing", () => {
@@ -89,6 +90,18 @@ describe("runJob cancel during submit", () => {
     expect(h.cancels).toHaveLength(1);
     expect(h.cancels[0].deviceId).toBe("mainboard-abc");
     expect(h.cancels[0].ref).toBe("model.gcode");
+  });
+
+  test("a cancel during upload that never started the print sends no stop", async () => {
+    const h = harness({
+      submit: async () => {
+        h.controller.abort();
+        throw new PrintNotStartedError("canceled before print start");
+      },
+    });
+    expect(await h.run()).toBe("canceled");
+    expect(h.cancels).toHaveLength(0);
+    expect(h.order).toEqual([]);
   });
 
   test("an interrupted submit whose stop fails settles failed with the reason", async () => {

@@ -18,3 +18,10 @@ export class StageError extends Error {
     this.reason = reason;
   }
 }
+
+export class PrintNotStartedError extends StageError {
+  constructor(reason: string, options?: { cause?: unknown }) {
+    super("transport", reason, options);
+    this.name = "PrintNotStartedError";
+  }
+}

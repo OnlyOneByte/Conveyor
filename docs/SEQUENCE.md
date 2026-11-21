@@ -119,6 +119,8 @@ sequenceDiagram
 - Unknown ids return 404. Cancelling twice returns the same answer and does nothing more.
 - If the printer refuses, times out or drops the stop request without acknowledging it, the job settles as `failed` with a reason that says the stop was not confirmed. That includes a cancel that interrupted `submit()`, because the start command may already have reached the printer. It is never recorded as `canceled` while the printer may still be printing.
 - A print cancelled on the printer itself settles as `canceled`.
+- A status stream that ends without `done`, `failed` or `canceled` settles `failed` with `connection lost before completion`. A dropped connection never looks like a finished print.
+- A cancel that lands during the upload stops the transport before it sends the start command. The transport throws `PrintNotStartedError`, no stop is sent, and the job settles `canceled`.
 - Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `shared/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
 
 ## Notes

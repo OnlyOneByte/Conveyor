@@ -1,4 +1,8 @@
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PrintNotStartedError, type StageCtx } from "@conveyor/shared";
 import { moonraker } from "./index";
 
 const handle = {
@@ -44,6 +48,30 @@ describe("moonraker cancel", () => {
   test("a rejected cancel throws", async () => {
     fakeFetch(async () => new Response("busy", { status: 503 }));
     await expect(moonraker.cancel?.(handle) ?? Promise.resolve()).rejects.toThrow("503");
+  });
+});
+
+describe("moonraker submit", () => {
+  test("a cancel during the upload never starts the print", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const path = join(dir, "a.gcode");
+    await writeFile(path, "G28\n");
+    const controller = new AbortController();
+    const calls = fakeFetch(async () => {
+      controller.abort();
+      return new Response("{}", { status: 201 });
+    });
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: controller.signal,
+      report: () => {},
+      log: () => {},
+    };
+    const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+    const submit = moonraker.submit({ path, format: "gcode" }, target, ctx);
+    await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
+    expect(calls.map((c) => c.url)).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
   });
 });
 

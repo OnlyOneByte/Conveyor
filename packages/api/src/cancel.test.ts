@@ -9,10 +9,11 @@ function setup(opts: { state?: string; snapshot?: JobState; removeThrows?: boole
   let snapshot: JobStatusEvent | undefined = opts.snapshot
     ? { jobId: "j", state: opts.snapshot, at: 1 }
     : undefined;
-  const job: CancelableJob | undefined = opts.state
+  const state = opts.state;
+  const job: CancelableJob | undefined = state
     ? {
         data,
-        getState: async () => opts.state as string,
+        getState: async () => state,
         remove: async () => {
           if (opts.removeThrows) throw new Error("job is locked");
           calls.removed++;

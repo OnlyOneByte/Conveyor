@@ -91,6 +91,17 @@ describe("runJob print outcomes", () => {
     expect(h.records[0].reason).toContain("moonraker cancel failed: 503");
   });
 
+  test("a status stream that ends without a terminal state is a lost connection", async () => {
+    const h = harness({
+      status: async function* () {
+        yield { state: "printing", progress: 0.4 };
+      },
+    });
+    await expect(h.run()).rejects.toThrow("connection lost before completion");
+    expect(h.records[0]).toEqual({ state: "failed", reason: "connection lost before completion" });
+    expect(states(h)).not.toContain("done");
+  });
+
   test("a real failure is still recorded as failed", async () => {
     const h = harness({
       status: async function* () {

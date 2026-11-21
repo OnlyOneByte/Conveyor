@@ -4,6 +4,7 @@ import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintNotStartedError,
   type PrintStatus,
   type StageCtx,
   StageError,
@@ -62,8 +63,14 @@ export const moonraker: TransportPlugin = {
       body: form,
       headers,
       signal: ctx.signal,
+    }).catch((e) => {
+      const reason = `moonraker upload failed: ${e instanceof Error ? e.message : String(e)}`;
+      throw ctx.signal.aborted
+        ? new PrintNotStartedError(reason)
+        : new StageError("transport", reason);
     });
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
+    if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
 
     // 2) start the print
     const start = await fetch(
