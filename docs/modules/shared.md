@@ -373,6 +373,36 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 | Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
+## queue/submit.ts
+
+The two durable writes that bracket `transport.submit()`. Together they make sure no job reaches a printer
+twice.
+
+- `takePrinterSlot` moves a sliced job to `transferring` and writes the submit intent (`submit_started_at`)
+  in one immediate transaction, then records a `transferring` event. The fenced `UPDATE` is the guard: it
+  requires the live lease, `slicing`, no intent yet, no other job transferring or printing on the printer,
+  and no hold. Only when it changes nothing does a fenced `SELECT` in the same transaction say why. Its
+  outcomes:
+  - `taken`;
+  - `busy`: another job is transferring or printing on that printer, or the printer is held. The job stays
+    `slicing` with no intent, and the caller retries;
+  - `refused`: the job is not `slicing`, or already has an intent;
+  - `lost`: the lease is gone.
+- `markSubmitted` writes the marker (`submitted_at`) and the printer handle, once, under the lease, and only
+  for a `transferring` job with an intent. The worker must write it before it reports `printing`; a marker
+  refused because the job already says `printing` ends, after a crash, in a hold rather than a resume.
+- Never resubmit:
+  - `takePrinterSlot` refuses any job that already has an intent;
+  - the reaper fails an intent-without-marker job and holds its printer;
+  - a job with the marker is resumed by the claim and never re-enters the slot.
+
+  Between those rules, no path calls `submit()` a second time.
+- Both writes run under `withFullSync`. `openDb` keeps connections at `synchronous = NORMAL`, where a power
+  cut can lose the last commits; the intent and marker must survive one. `withFullSync` sets `FULL`, runs the
+  step and resets `NORMAL` in a `finally`, all in one synchronous block. `bun:sqlite` is synchronous, so no
+  other write on the connection can run at `FULL` meanwhile, and a throwing step cannot leave it there.
+- The worker does not call these yet; that is the worker step.
+
 ## queue/status.ts and queue/event-log.ts
 
 A job's live status is its `jobs` row plus an append-only log in `job_events`. Each event is a serialized
