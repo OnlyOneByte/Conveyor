@@ -4,8 +4,6 @@ export const BASELINE_PATH = "scripts/checks/coverage/baseline.json";
 
 export const TOLERANCE = 0.5;
 
-export const RAISE_HINT = 1;
-
 export type Percents = Record<string, number>;
 
 export interface CoverageBaseline {
@@ -55,7 +53,6 @@ export interface RatchetInput {
 
 export interface RatchetResult {
   errors: string[];
-  notices: string[];
 }
 
 interface Loaded {
@@ -89,26 +86,21 @@ function packageErrors(name: string, current: number, loaded: Loaded): string[] 
   if (round2(claimed) > round2(current + TOLERANCE)) {
     return [`${name}: baseline claims ${fmt(claimed)} but measured ${fmt(current)}`];
   }
+  if (round2(current - claimed) >= TOLERANCE) {
+    return [
+      `${name}: line coverage ${fmt(current)} is ${TOLERANCE} or more above the committed ${fmt(claimed)}; run \`bun run check:coverage:update\` and commit it`,
+    ];
+  }
   return [];
 }
 
-function packageNotice(name: string, current: number, committed: CoverageBaseline) {
-  const claimed = committed.lines[name] ?? 0;
-  if (round2(current) < round2(claimed + RAISE_HINT)) return [];
-  return [
-    `${name}: line coverage ${fmt(current)} is above the baseline ${fmt(claimed)}; run \`bun run check:coverage:update\` to raise the floor`,
-  ];
-}
+export const updateRefusal = (env: Record<string, string | undefined>): string | null =>
+  env.CI ? "--update is local only; commit the regenerated baseline instead" : null;
 
 export function checkRatchet(input: RatchetInput): RatchetResult {
   const loaded = load(input);
-  if (typeof loaded === "string") return { errors: [loaded], notices: [] };
-  const errors: string[] = [];
-  const notices: string[] = [];
-  for (const name of PACKAGES) {
-    const current = input.current[name] ?? 0;
-    errors.push(...packageErrors(name, current, loaded));
-    notices.push(...packageNotice(name, current, loaded.committed));
-  }
-  return { errors, notices };
+  if (typeof loaded === "string") return { errors: [loaded] };
+  return {
+    errors: PACKAGES.flatMap((name) => packageErrors(name, input.current[name] ?? 0, loaded)),
+  };
 }

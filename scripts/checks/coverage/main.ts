@@ -16,6 +16,7 @@ import {
   parseBaseline,
   raisedBaseline,
   serializeBaseline,
+  updateRefusal,
 } from "./ratchet";
 import {
   isSource,
@@ -27,7 +28,9 @@ import {
   percents,
   type Summary,
   SWEEP_ENV,
+  SWEEP_REPORT_ENV,
   summarize,
+  sweepErrors,
 } from "./summary";
 
 const ROOT = join(import.meta.dir, "..", "..", "..");
@@ -42,21 +45,55 @@ const git = (args: string[]) => {
 const readOrNull = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : null);
 
 const sources = () =>
-  (git(["ls-files", "-z", "--", "packages"]) ?? "").split("\0").filter(isSource);
+  (git(["ls-files", "-z", "--", "packages", "plugins"]) ?? "").split("\0").filter(isSource);
 
-function runSweep(files: string[]): Coverage {
-  if (files.length === 0) return new Map();
+interface Sweep {
+  coverage: Coverage;
+  completed: boolean;
+  failed: string[];
+}
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+function readFailures(text: string | null): string[] | null {
+  if (text === null) return null;
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null || !("failed" in value)) return null;
+    return isStringArray(value.failed) ? value.failed : null;
+  } catch {
+    return null;
+  }
+}
+
+const sweepEnv = (dir: string, files: string[]) => ({
+  ...process.env,
+  CONVEYOR_PASSWORD: "coverage-sweep",
+  CONVEYOR_AUTH_SECRET: "coverage-sweep-secret-coverage-sweep-secret",
+  DB_PATH: join(dir, "sweep.db"),
+  DATA_DIR: join(dir, "data"),
+  [SWEEP_ENV]: files.join("\n"),
+  [SWEEP_REPORT_ENV]: join(dir, "report.json"),
+});
+
+function runSweep(files: string[]): Sweep {
   const dir = mkdtempSync(join(tmpdir(), "conveyor-sweep-"));
   try {
     const args = ["test", SWEEP_PATH, "--coverage", "--coverage-reporter=lcov"];
     const result = Bun.spawnSync(["bun", ...args, `--coverage-dir=${dir}`], {
       cwd: ROOT,
-      env: { ...process.env, [SWEEP_ENV]: files.join("\n") },
+      env: sweepEnv(dir, files),
       stdout: "pipe",
       stderr: "pipe",
     });
     if (result.exitCode !== 0) console.error(result.stderr.toString());
-    return parseLcov(readOrNull(join(dir, "lcov.info")) ?? "");
+    const failures = readFailures(readOrNull(join(dir, "report.json")));
+    return {
+      coverage: parseLcov(readOrNull(join(dir, "lcov.info")) ?? ""),
+      completed: result.exitCode === 0 && failures !== null,
+      failed: failures ?? [],
+    };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -66,13 +103,13 @@ const table = (summary: Summary) => {
   const total = overall(summary);
   const rows = PACKAGES.map(
     (name) =>
-      `| ${name} | ${summary[name].hit} / ${summary[name].found} | ${percent(summary[name]).toFixed(2)}% |`,
+      `| ${name} | ${summary[name].hit} | ${summary[name].found} | ${percent(summary[name]).toFixed(2)}% |`,
   );
   return [
-    "| package | lines hit / found | line % |",
-    "| --- | --- | --- |",
+    "| package | lines covered | lines found | line % |",
+    "| --- | --- | --- | --- |",
     ...rows,
-    `| **all** | ${total.hit} / ${total.found} | ${percent(total).toFixed(2)}% |`,
+    `| **all** | ${total.hit} | ${total.found} | ${percent(total).toFixed(2)}% |`,
   ].join("\n");
 };
 
@@ -86,21 +123,21 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   const all = sources();
   const sweep = runSweep(all);
   const fallback = (path: string) => nonBlankLines(readOrNull(join(ROOT, path)) ?? "");
-  const merged = mergeCoverage({ sources: all, measured, sweep, fallback });
+  const merged = mergeCoverage({ sources: all, measured, sweep: sweep.coverage, fallback });
   writeFileSync(join(ROOT, outPath), serializeLcov(merged.coverage));
-  for (const path of merged.estimated) {
-    console.error(`warning: ${path} could not be loaded; counted every non-blank line as missed`);
-  }
   const summary = summarize(merged.coverage);
   const report = `### Line coverage (all source files in ${PACKAGES.join(", ")})\n\n${table(summary)}\n\n${merged.unloaded.length} of ${all.length} source files are loaded by no test and count as 0%.\n`;
   console.log(report);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
-  return summary;
+  const errors = sweepErrors({ ...sweep, estimated: merged.estimated });
+  for (const error of errors) console.error(error);
+  return errors.length === 0 ? summary : null;
 }
 
 function update(summary: Summary): number {
-  if (process.env.CI) {
-    console.error("--update is local only; commit the regenerated baseline instead");
+  const refusal = updateRefusal(process.env);
+  if (refusal !== null) {
+    console.error(refusal);
     return 1;
   }
   const path = join(ROOT, BASELINE_PATH);
@@ -123,12 +160,11 @@ function check(summary: Summary, ref: string): number {
     console.error(base.message);
     return 1;
   }
-  const { errors, notices } = checkRatchet({
+  const { errors } = checkRatchet({
     current: percents(summary),
     committed: readOrNull(join(ROOT, BASELINE_PATH)),
     base,
   });
-  for (const notice of notices) console.log(notice);
   for (const error of errors) console.error(error);
   if (base === null) console.log(`base ${ref} has no ${BASELINE_PATH}; using the committed one`);
   return errors.length === 0 ? 0 : 1;

@@ -1,7 +1,8 @@
 {
   "lines": {
-    "api": 0,
-    "shared": 58.2,
+    "api": 27.31,
+    "plugins": 10.16,
+    "shared": 50.63,
     "worker": 0
   }
 }

@@ -4,7 +4,7 @@ dist/
 build/
 *.log
 *.tsbuildinfo
-coverage/
+/coverage/
 
 # job artifacts, local db & secrets
 data/

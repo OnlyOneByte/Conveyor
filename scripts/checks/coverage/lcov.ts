@@ -31,19 +31,8 @@ export const hitCount = (lines: LineHits) => [...lines.values()].filter((hits) =
 
 export const zeroed = (lines: LineHits): LineHits => new Map([...lines.keys()].map((n) => [n, 0]));
 
-export function projectHits(lines: LineHits, run: LineHits): LineHits {
-  const marks = [...run.entries()].sort(([a], [b]) => a - b);
-  const projected: LineHits = new Map();
-  let hits = 0;
-  let next = 0;
-  for (const line of [...lines.keys()].sort((a, b) => a - b)) {
-    for (; next < marks.length && (marks[next]?.[0] ?? line + 1) <= line; next += 1) {
-      hits = marks[next]?.[1] ?? 0;
-    }
-    projected.set(line, hits);
-  }
-  return projected;
-}
+export const exactHits = (lines: LineHits, run: LineHits): LineHits =>
+  new Map([...lines.keys()].map((line) => [line, run.get(line) ?? 0]));
 
 const serializeFile = (file: string, lines: LineHits) => {
   const sorted = [...lines.entries()].sort(([a], [b]) => a - b);

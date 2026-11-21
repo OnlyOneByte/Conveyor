@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type Coverage, parseLcov, projectHits, serializeLcov } from "./lcov";
+import { type Coverage, exactHits, parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
   checkRatchet,
@@ -7,12 +7,25 @@ import {
   parseBaseline,
   raisedBaseline,
   serializeBaseline,
+  updateRefusal,
 } from "./ratchet";
-import { mergeCoverage, nonBlankLines, packageOf, percents, summarize } from "./summary";
+import {
+  mergeCoverage,
+  nonBlankLines,
+  packageOf,
+  percents,
+  summarize,
+  sweepErrors,
+} from "./summary";
 
 const json = (lines: Percents) => serializeBaseline({ lines });
 
-const all = (value: number): Percents => ({ api: value, worker: value, shared: value });
+const all = (value: number): Percents => ({
+  api: value,
+  worker: value,
+  shared: value,
+  plugins: value,
+});
 
 interface Case {
   current: Percents;
@@ -37,21 +50,21 @@ describe("checkRatchet", () => {
   });
 
   test("fails a package that drops more than half a point", () => {
-    const current = { api: 39.49, worker: 40, shared: 40 };
+    const current = { ...all(40), api: 39.49 };
     expect(run({ current, committed: all(40), base: all(40) }).errors).toEqual([
       "api: line coverage 39.49% dropped below base 40.00%",
     ]);
   });
 
   test("fails when the committed baseline is lowered below the base", () => {
-    const committed = { api: 30, worker: 40, shared: 40 };
+    const committed = { ...all(40), api: 30 };
     const { errors } = run({ current: all(40), committed, base: all(40) });
     expect(errors).toEqual(["api: baseline lowered to 30.00% (base has 40.00%)"]);
   });
 
   test("fails when the committed baseline claims more than is measured", () => {
     const { errors } = run({ current: all(10), committed: all(50), base: null });
-    expect(errors).toHaveLength(3);
+    expect(errors).toHaveLength(4);
     expect(errors[0]).toBe("api: baseline claims 50.00% but measured 10.00%");
   });
 
@@ -71,15 +84,50 @@ describe("checkRatchet", () => {
   });
 
   test("fails when a package is missing from the committed baseline", () => {
-    const committed = { api: 10, worker: 10 };
+    const committed = { api: 10, worker: 10, shared: 10 };
     const { errors } = run({ current: all(10), committed, base: null });
-    expect(errors).toEqual([`shared: ${BASELINE_PATH} has no entry`]);
+    expect(errors).toEqual([`plugins: ${BASELINE_PATH} has no entry`]);
   });
 
-  test("suggests an update once coverage rises a full point", () => {
-    const { errors, notices } = run({ current: all(42), committed: all(40), base: all(40) });
-    expect(errors).toEqual([]);
-    expect(notices).toHaveLength(3);
+  test("fails when coverage rises half a point above an unraised baseline", () => {
+    const current = { ...all(40), shared: 40.5 };
+    const { errors } = run({ current, committed: all(40), base: all(40) });
+    expect(errors).toEqual([
+      "shared: line coverage 40.50% is 0.5 or more above the committed 40.00%; run `bun run check:coverage:update` and commit it",
+    ]);
+  });
+
+  test("passes once the PR raises the committed baseline with the rise", () => {
+    const current = { ...all(40), shared: 45 };
+    expect(run({ current, committed: current, base: all(40) }).errors).toEqual([]);
+  });
+
+  test("tolerates a rise under half a point without an update", () => {
+    const current = { ...all(40), shared: 40.49 };
+    expect(run({ current, committed: all(40), base: all(40) }).errors).toEqual([]);
+  });
+});
+
+describe("updateRefusal", () => {
+  test("refuses under CI and allows locally", () => {
+    expect(updateRefusal({ CI: "true" })).toContain("local only");
+    expect(updateRefusal({})).toBeNull();
+  });
+});
+
+describe("sweepErrors", () => {
+  test("a clean sweep has no errors", () => {
+    expect(sweepErrors({ completed: true, failed: [], estimated: [] })).toEqual([]);
+  });
+
+  test("an estimated file, a throwing import or a dead sweep each fail", () => {
+    expect(sweepErrors({ completed: true, failed: [], estimated: ["a.ts"] })).toEqual([
+      "coverage sweep: a.ts has no line map",
+    ]);
+    expect(sweepErrors({ completed: true, failed: ["b.ts"], estimated: [] })).toEqual([
+      "coverage sweep: b.ts threw while importing",
+    ]);
+    expect(sweepErrors({ completed: false, failed: [], estimated: [] })).toHaveLength(1);
   });
 });
 
@@ -91,10 +139,8 @@ describe("baseline files", () => {
   });
 
   test("an update only ever raises the floor", () => {
-    const committed = { lines: { api: 50, worker: 10, shared: 10 } };
-    expect(raisedBaseline(all(20), committed)).toEqual({
-      lines: { api: 50, worker: 20, shared: 20 },
-    });
+    const committed = { lines: { ...all(10), api: 50 } };
+    expect(raisedBaseline(all(20), committed)).toEqual({ lines: { ...all(20), api: 50 } });
   });
 });
 
@@ -119,6 +165,9 @@ describe("coverage merge", () => {
     expect(packageOf("packages/api/src/auth.test.ts")).toBeNull();
     expect(packageOf("packages/web/src/app.ts")).toBeNull();
     expect(packageOf("packages/shared/test/helpers/db.ts")).toBeNull();
+    expect(packageOf("plugins/slicers/orca/src/index.ts")).toBe("plugins");
+    expect(packageOf("plugins/slicers/orca/src/index.test.ts")).toBeNull();
+    expect(packageOf("packages/plugins/src/x.ts")).toBeNull();
   });
 
   const A = "packages/api/src/a.ts";
@@ -153,7 +202,7 @@ describe("coverage merge", () => {
     const summary = summarize(merged.coverage);
     expect(summary.api).toEqual({ found: 6, hit: 0 });
     expect(summary.worker).toEqual({ found: 2, hit: 0 });
-    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100 });
+    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100, plugins: 100 });
   });
 
   test("a test that loads a file cannot move its denominator", () => {
@@ -173,15 +222,15 @@ describe("coverage merge", () => {
     expect(merged.coverage.get(A)).toEqual(
       new Map([
         [1, 3],
-        [2, 3],
+        [2, 0],
         [3, 0],
         [4, 0],
       ]),
     );
-    expect(after.api).toEqual({ found: 6, hit: 2 });
+    expect(after.api).toEqual({ found: 6, hit: 1 });
   });
 
-  test("projects run hits onto the stable lines from the nearest mark above", () => {
+  test("credits only lines bun reports as hit, never a neighbour's count", () => {
     const lines = new Map([
       [2, 0],
       [5, 0],
@@ -193,11 +242,11 @@ describe("coverage merge", () => {
       [5, 4],
       [8, 0],
     ]);
-    expect(projectHits(lines, run)).toEqual(
+    expect(exactHits(lines, run)).toEqual(
       new Map([
         [2, 0],
         [5, 4],
-        [6, 4],
+        [6, 0],
         [10, 0],
       ]),
     );

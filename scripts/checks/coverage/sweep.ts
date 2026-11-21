@@ -1,6 +1,7 @@
 import { mock, test } from "bun:test";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { SWEEP_ENV } from "./summary";
+import { SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
 
 const ROOT = join(import.meta.dir, "..", "..", "..");
 
@@ -34,10 +35,20 @@ for (const name of SIDE_EFFECT_MODULES) {
 
 const files = (process.env[SWEEP_ENV] ?? "").split("\n").filter(Boolean);
 
-test("loads every unmeasured source file so coverage can map its lines", async () => {
+class ExitDuringImport extends Error {}
+
+process.exit = (code?: number | string | null) => {
+  throw new ExitDuringImport(`process.exit(${String(code)}) during import`);
+};
+
+test("loads every source file so coverage can map its lines", async () => {
+  const failed: string[] = [];
   for (const file of files) {
     await import(join(ROOT, file)).catch((error: unknown) => {
       console.error(`sweep could not load ${file}: ${String(error)}`);
+      failed.push(file);
     });
   }
+  const report = process.env[SWEEP_REPORT_ENV];
+  if (report) writeFileSync(report, JSON.stringify({ completed: true, failed }));
 });
