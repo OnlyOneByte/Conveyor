@@ -296,7 +296,7 @@ shape and safe on every boot.
    trigger definition first and recreates each one in the same transaction, indexes before triggers;
    `idx_jobs_created_at` never goes missing. A trigger whose SQL names `station_id` or the `stations`
    table, in any case and quoted or not, is not recreated: SQLite checks a trigger body's columns and
-   tables only when it fires, and step 6 drops `stations`, so it would fail every later update to
+   tables only when it fires, and step 7 drops `stations`, so it would fail every later update to
    `jobs`. Its SQL is kept in `meta` under `dropped_trigger:<name>` and `openDb()` warns with that key once
    the migration commits. A station was a (printer, profile) pair, so no single new column can stand in
    for `station_id` in a rewritten body.
@@ -305,17 +305,38 @@ shape and safe on every boot.
    files.
 4. **`jobs.timings_json`.** Additive and nullable; `NULL` on rows recorded before timings existed.
 5. **`jobs.notes`.** Additive and nullable; `NULL` on rows recorded before notes were split from `error`.
-6. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
+6. **The queue columns on `jobs`** (`attempts`, `run_after`, `lease_*`, `cancel_requested_at`,
+   `submit_started_at`, `submitted_at`, `print_handle_json`, `progress`, `message`) and the `idx_jobs_claim`
+   and `idx_jobs_lease` indexes. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
+   `migrate()`, not `SCHEMA_SQL`, because `SCHEMA_SQL` runs first and an old table has no such columns yet.
+7. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
    already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
    it.
 
 ### Startup
 
 `openDb` sets `busy_timeout = 5000` and retries `journal_mode = WAL` on `SQLITE_BUSY` (up to 50 attempts,
-100 ms apart), since the API and the worker can open the file at the same moment. Seeding runs in an
+100 ms apart), since the API and the worker can open the file at the same moment. It sets
+`synchronous = NORMAL`: under WAL that cannot corrupt the database, and a power cut can lose only the last
+few commits. Seeding runs in an
 immediate transaction and only once per database, recorded as `meta.seeded`; it is skipped when any
 printer or profile already exists, so an operator who deleted every printer keeps zero printers across
 restarts.
+
+## queue/lease.ts
+
+The lease core of the SQLite job queue, exported as `@conveyor/shared/queue`. The design, and the steps still
+to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
+
+- `inImmediate` is the only way the queue writes. It runs its step in `BEGIN IMMEDIATE` and reads the clock
+  only after the write lock is held, so a step that waited on `busy_timeout` never acts on a stale `now`.
+- `claimJob` takes the oldest due queued job, or first a submitted orphan to resume, and bumps
+  `lease_token`. A queued job is skipped while another job for its printer is generating or slicing.
+- Every write against a held lease (`renewLease`, `releaseLease`) checks owner, token and an unexpired
+  `lease_until`. A worker past its own lease cannot write, even before anyone takes the job over.
+- `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an
+  orphan for the next claim. It refuses (`submitting`) between the submit intent and the marker, because
+  the outcome of that submit is still unknown.
 
 ## db/schema.sql.ts
 
