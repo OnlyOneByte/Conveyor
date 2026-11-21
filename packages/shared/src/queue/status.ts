@@ -30,9 +30,10 @@ function submitWindowRule(state: JobState): string {
     case "generating":
     case "slicing":
       return "submit_started_at IS NULL";
+    case "canceled":
+      return "submitted_at IS NULL";
     case "done":
     case "failed":
-    case "canceled":
       return "1";
     default:
       return exhaustive(state);

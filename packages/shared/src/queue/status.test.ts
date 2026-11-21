@@ -81,6 +81,7 @@ describe("job status and events", () => {
     expect(writeStatus(h.db, lease, { state: "printing" }, h.timing)).toBe(true);
     expect(writeStatus(h.db, lease, { state: "slicing" }, h.timing)).toBe(false);
     expect(writeStatus(h.db, lease, { state: "transferring" }, h.timing)).toBe(false);
+    expect(writeStatus(h.db, lease, { state: "canceled" }, h.timing)).toBe(false);
     expect(writeStatus(h.db, lease, { state: "done" }, h.timing)).toBe(true);
     expect(h.row("a").state).toBe("done");
     expect(holdOf()).toEqual({ hold_job_id: null, hold_reason: null });

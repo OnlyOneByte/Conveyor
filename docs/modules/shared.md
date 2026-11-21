@@ -419,7 +419,9 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
     the printer cannot go back to uploading;
   - `printing` needs the submit marker, so a job leaves the window only through `markSubmitted`;
   - `queued`, `generating` and `slicing` need no intent, so a job with one cannot go back;
-  - a terminal state is always accepted. Inside the window, though, `done`, `failed` and `canceled` all
+  - `canceled` is refused once the job has the marker, so stopping a job on the printer always goes
+    through `settleCancel`;
+  - otherwise a terminal state is accepted. Inside the window, though, `done`, `failed` and `canceled` all
     settle the job as `failed` and hold its printer in the same transaction, because nobody knows what
     the printer received. The worker's own error is kept; without one the error is
     `UPLOAD_SETTLE_REASON`, which is also the hold's reason. The next job for that printer is not
