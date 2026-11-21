@@ -33,8 +33,8 @@ services:
       - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
     volumes:
-      - ./data:/data                 # shared with worker: STL uploads land here for the passthrough generator
-      - ./profiles:/profiles:ro      # bundled profile fallback for the raw JSON editor
+      - ./data:/data
+      - ./profiles:/profiles:ro
     depends_on:
       redis: { condition: service_healthy }
 
@@ -45,14 +45,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - DB_PATH=/data/conveyor.db
     volumes:
-      - ./data:/data                 # job artifacts (*.stl, *.gcode) + sqlite db
-      - ./profiles:/profiles:ro      # locked slicer profiles
-      - ./scad:/scad:ro              # gridfinity-rebuilt-openscad submodule
+      - ./data:/data
+      - ./profiles:/profiles:ro
+      - ./scad:/scad:ro
     depends_on:
       redis: { condition: service_healthy }
-    # Printers live on the LAN. Pick ONE reach strategy:
-    #   network_mode: host           # simplest for mDNS/LAN discovery
-    # or keep bridged (default) and store explicit printer IPs in the printer's address.
 
   redis:
     image: redis:7-alpine

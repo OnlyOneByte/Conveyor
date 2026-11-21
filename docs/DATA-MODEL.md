@@ -13,7 +13,8 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 
 **Rule of thumb:** Redis is the *live* truth for an in-flight job; SQLite is the *durable* truth
 for config and finished jobs. On a terminal state the worker writes the final `Job` row to SQLite;
-the Redis snapshot is allowed to expire.
+the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until
+something deletes it.
 
 Recommended driver: `better-sqlite3` (synchronous, simple) with a thin migration runner, or Drizzle
 if we want typed queries (matches the VROOM stack). Decided at M4, when the Settings page landed.
@@ -151,7 +152,7 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 |---|---|---|---|
 | submit | enqueue + initial snapshot | — | mkdir `/data/<id>` |
 | generating/slicing/transferring/printing | snapshot + publish each transition | — | write `model.stl`, `model.gcode` |
-| terminal (done/failed/canceled) | final snapshot (TTL-expire later) | **insert/append `jobs` row** | keep gcode; cleanup on failure |
+| terminal (done/failed/canceled) | final snapshot (no TTL) | **insert/append `jobs` row** | keep gcode; cleanup on failure |
 | operator edits printer/profile | — | upsert | — |
 
 ## Redis keys (single source of truth in `shared/events.ts`)
@@ -172,7 +173,7 @@ knows a `printerId` and a `profileId`. (Friends-only deployment; app-level auth 
 - Artifacts: keep last N successful jobs' gcode (configurable); prune older. Failed-job dirs are
   cleaned immediately by the worker.
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.
-- Redis snapshots: short TTL after terminal — SQLite is the durable record.
+- Redis snapshots: no TTL today; they stay until deleted. SQLite is the durable record.
 
 ## Implementation status
 

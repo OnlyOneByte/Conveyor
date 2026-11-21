@@ -6,26 +6,12 @@ import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 import { enableWal } from "./wal.js";
 
-/**
- * Conveyor's durable store, backed by bun:sqlite (synchronous, no native build —
- * works the same on aarch64 and x86_64). Both the API (config reads + job
- * history) and the worker (print-target resolution + terminal job writes) open the
- * SAME file on the shared /data volume, so there is one source of truth.
- *
- * Process-wide singleton: openDb() is idempotent per path.
- */
 export interface Printer {
   id: string;
   transportId: string;
   name: string;
   address: string;
-  /** parsed from secrets_json; server-side only, never serialized to clients */
   secrets?: Record<string, string>;
-  /**
-   * Generator ids this printer accepts. `undefined` means no restriction — which is
-   * deliberately distinct from `[]`, an empty allowlist that permits nothing. Unlike
-   * `secrets` this IS returned to clients, so a form can round-trip it.
-   */
   allowedGenerators?: string[];
 }
 
@@ -35,7 +21,6 @@ export interface Profile {
   name: string;
   path: string;
   gcodeFlavor: string;
-  /** True when all three editable Orca documents are stored in SQLite. */
   hasEditableContent?: boolean;
 }
 
@@ -56,33 +41,14 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   return db;
 }
 
-/** Column names of an existing table (empty when the table does not exist). */
 function columnsOf(db: Database, table: string): string[] {
   return (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
 }
 
-/**
- * Reshape tables that already exist in the wild. SCHEMA_SQL is `CREATE TABLE IF NOT
- * EXISTS` only, so it CANNOT change a table that is already there — a column added to
- * the DDL is simply absent from any database created before it, and the first INSERT
- * naming that column fails at runtime. Each step below is therefore guarded on the
- * LIVE table shape and is safe to run on every boot.
- */
 function migrate(db: Database): void {
-  // jobs.station_id → jobs.printer_id + jobs.profile_id
-  //
-  // A full table rebuild rather than ALTER TABLE ADD COLUMN, because station_id was
-  // declared NOT NULL: merely adding the new columns would leave the old one in place
-  // and every future insert would fail the NOT NULL constraint. SQLite cannot drop a
-  // constraint in place, so the 12-step rebuild is the supported route.
-  //
-  // The backfill is lossless: a station WAS exactly the (printer, profile) pair we now
-  // store directly, so its two ids are recoverable for as long as the row exists. A job
-  // whose station was already deleted backfills to NULL — its provenance is genuinely
-  // gone, and that is surfaced as an empty printer/profile rather than invented.
   if (columnsOf(db, "jobs").includes("station_id")) {
     const hasStations = columnsOf(db, "stations").length > 0;
-    const lookup = (col: string) =>
+    const stationColumnOrNull = (col: string) =>
       hasStations ? `(SELECT s.${col} FROM stations s WHERE s.id = j.station_id)` : "NULL";
     db.transaction(() => {
       db.exec(`CREATE TABLE jobs_migrated (
@@ -101,7 +67,7 @@ function migrate(db: Database): void {
       )`);
       db.exec(`INSERT INTO jobs_migrated
         SELECT j.id, j.generator_id, j.params_json,
-               ${lookup("printer_id")}, ${lookup("profile_id")},
+               ${stationColumnOrNull("printer_id")}, ${stationColumnOrNull("profile_id")},
                j.state, j.stage, j.error_json, j.model_path, j.gcode_path,
                j.created_at, j.updated_at
         FROM jobs j`);
@@ -110,34 +76,20 @@ function migrate(db: Database): void {
     })();
   }
 
-  // printers.allowed_generators_json — a per-printer generator allowlist. Additive and
-  // nullable, so a plain ADD COLUMN suffices; no table rebuild (contrast the jobs
-  // rebuild above, which was forced by a NOT NULL column that had to go).
   if (!columnsOf(db, "printers").includes("allowed_generators_json")) {
     db.exec("ALTER TABLE printers ADD COLUMN allowed_generators_json TEXT");
   }
 
-  // profiles.orca_*_json — optional raw Orca editor documents. They are additive,
-  // nullable columns: all NULL means "read the immutable bundled files". Saving and
-  // resetting updates all three together, so a normal row is never partially edited.
   const profileColumns = new Set(columnsOf(db, "profiles"));
   for (const column of ["orca_machine_json", "orca_process_json", "orca_filament_json"]) {
     if (!profileColumns.has(column)) db.exec(`ALTER TABLE profiles ADD COLUMN ${column} TEXT`);
   }
-  // profiles.prusa_ini — optional raw Prusa config.ini. Additive, nullable; NULL
-  // reads the bundled config. Same fallback semantics as the orca_* columns.
   if (!profileColumns.has("prusa_ini")) db.exec("ALTER TABLE profiles ADD COLUMN prusa_ini TEXT");
 
-  // jobs.timings_json — per-stage wall-clock captured by the worker. Additive and
-  // nullable (NULL on a pre-timing row); a plain ADD COLUMN suffices.
   if (!columnsOf(db, "jobs").includes("timings_json")) {
     db.exec("ALTER TABLE jobs ADD COLUMN timings_json TEXT");
   }
 
-  // Then retire the stations table itself. A SEPARATE guard, not an else of the one
-  // above: a database migrated by an earlier build already has printer_id on jobs yet
-  // may still carry the stations table, and that case must still be cleaned up.
-  // Ordering matters — the backfill above reads this table, so it must run first.
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");
   }
@@ -182,8 +134,6 @@ function epochMs(): number {
   return Date.now();
 }
 
-// ─── Printers ────────────────────────────────────────────────────────────────
-
 interface PrinterRow {
   id: string;
   transport_id: string;
@@ -200,8 +150,6 @@ function rowToPrinter(r: PrinterRow): Printer {
     name: r.name,
     address: r.address,
     secrets: r.secrets_json ? JSON.parse(r.secrets_json) : undefined,
-    // `?? undefined` not `|| undefined`: "[]" parses to [], which is a meaningful
-    // allow-nothing list and must not collapse into "no restriction".
     allowedGenerators: r.allowed_generators_json
       ? (JSON.parse(r.allowed_generators_json) as string[])
       : undefined,
@@ -218,19 +166,6 @@ export function dbListPrinters(db: Database): Printer[] {
 }
 
 export function dbUpsertPrinter(db: Database, p: Printer): void {
-  // NOTE the COALESCE on secrets_json. Reads strip secrets (only `hasSecrets` is
-  // returned), so a client editing a printer CANNOT round-trip them — it can only
-  // send new ones or none. Assigning excluded.secrets_json directly therefore wiped
-  // the stored credential every time someone changed, say, just the address.
-  // Semantics now:
-  //   secrets omitted  → keep whatever is stored
-  //   secrets {}       → clear them
-  //   secrets {...}    → replace them
-  //
-  // allowed_generators_json is assigned DIRECTLY, not COALESCEd, and that asymmetry is
-  // deliberate: unlike secrets it is returned on read, so a client can round-trip it
-  // and "omitted" is an intentional choice meaning "no restriction". COALESCE here
-  // would make an allowlist impossible to remove.
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)
@@ -254,8 +189,6 @@ export function dbDeletePrinter(db: Database, id: string): void {
   db.prepare("DELETE FROM printers WHERE id = ?").run(id);
 }
 
-// ─── Profiles ────────────────────────────────────────────────────────────────
-
 interface ProfileRow {
   id: string;
   slicer_id: string;
@@ -269,8 +202,6 @@ interface ProfileRow {
 }
 
 function rowToProfile(r: ProfileRow): Profile {
-  // "Has an edit" is per-slicer: all three Orca docs present, or the Prusa config
-  // present. A profile is editable-content when either holds.
   const orcaEdited =
     r.orca_machine_json !== null && r.orca_process_json !== null && r.orca_filament_json !== null;
   const prusaEdited = r.prusa_ini !== null;
@@ -299,12 +230,6 @@ interface OrcaDocumentsRow {
   orca_filament_json: string | null;
 }
 
-/**
- * Return the stored editable Orca documents, or null when this profile still uses
- * its immutable bundled files. Partial state is an integrity error: save/reset update
- * all three columns in one statement, so silently mixing DB and bundled content would
- * hide corruption and make a slice irreproducible.
- */
 export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfileDocuments | null {
   const row = db
     .query(
@@ -324,7 +249,6 @@ export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfile
   return { machine, process: processDoc, filament };
 }
 
-/** Atomically replace all three editable documents. False means no such profile. */
 export function dbSaveOrcaProfileDocuments(
   db: Database,
   id: string,
@@ -340,7 +264,6 @@ export function dbSaveOrcaProfileDocuments(
   return result.changes > 0;
 }
 
-/** Atomically return a profile to its immutable bundled files. */
 export function dbResetOrcaProfileDocuments(db: Database, id: string): boolean {
   const result = db
     .prepare(
@@ -352,10 +275,6 @@ export function dbResetOrcaProfileDocuments(db: Database, id: string): boolean {
   return result.changes > 0;
 }
 
-/**
- * Return the stored editable Prusa config.ini, or null when this profile still uses
- * its bundled config. Single column, so no partial-state concern (unlike Orca's three).
- */
 export function dbGetPrusaProfileContent(db: Database, id: string): PrusaProfileDocument | null {
   const row = db.query("SELECT prusa_ini FROM profiles WHERE id = ?").get(id) as {
     prusa_ini: string | null;
@@ -364,7 +283,6 @@ export function dbGetPrusaProfileContent(db: Database, id: string): PrusaProfile
   return { config: row.prusa_ini };
 }
 
-/** Replace the editable config.ini. False means no such profile. */
 export function dbSavePrusaProfileContent(
   db: Database,
   id: string,
@@ -376,7 +294,6 @@ export function dbSavePrusaProfileContent(
   return result.changes > 0;
 }
 
-/** Return a Prusa profile to its bundled config. False means no such profile. */
 export function dbResetPrusaProfileContent(db: Database, id: string): boolean {
   const result = db.prepare("UPDATE profiles SET prusa_ini = NULL WHERE id = ?").run(id);
   return result.changes > 0;
@@ -395,12 +312,6 @@ export function dbDeleteProfile(db: Database, id: string): void {
   db.prepare("DELETE FROM profiles WHERE id = ?").run(id);
 }
 
-/**
- * Resolve the (printer, profile) pair a job names into a full JobTarget, deriving the
- * transport from the printer and the slicer + g-code flavour from the profile. Returns
- * null when either id is unknown, so callers can answer 400 rather than enqueue a job
- * that cannot run. This replaces looking a Station up by id.
- */
 export function dbResolveJobTarget(
   db: Database,
   printerId: string,
@@ -421,8 +332,6 @@ export function dbResolveJobTarget(
   };
 }
 
-// ─── Jobs (durable history) ──────────────────────────────────────────────────
-
 interface JobRow {
   id: string;
   generator_id: string;
@@ -442,8 +351,6 @@ interface JobRow {
 function rowToJob(r: JobRow): Job {
   return {
     id: r.id,
-    // printer/profile can be null on a job migrated from a station that had already
-    // been deleted — surfaced as empty rather than fabricated.
     request: {
       generator: {
         id: r.generator_id,
@@ -462,7 +369,6 @@ function rowToJob(r: JobRow): Job {
   };
 }
 
-/** Write the settled record of a finished pipeline run (terminal state). */
 export function dbRecordJob(
   db: Database,
   job: {
@@ -510,11 +416,6 @@ export function dbListJobs(db: Database, limit = 50): Job[] {
   ).map(rowToJob);
 }
 
-/**
- * One settled job by id. The detail page needs this rather than filtering
- * dbListJobs(): that list is windowed (50 by default, 200 max), so a deep link to
- * an older job would resolve to "not found" purely because it fell off the window.
- */
 export function dbGetJob(db: Database, id: string): Job | null {
   const row = db.query("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | null;
   return row ? rowToJob(row) : null;
