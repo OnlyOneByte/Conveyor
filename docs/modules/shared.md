@@ -429,7 +429,7 @@ twice.
   cut can lose the last commits; the intent and marker must survive one. `withFullSync` sets `FULL`, runs the
   step and resets `NORMAL` in a `finally`, all in one synchronous block. `bun:sqlite` is synchronous, so no
   other write on the connection can run at `FULL` meanwhile, and a throwing step cannot leave it there.
-- The worker does not call these yet; that is the worker step.
+- The worker calls them through `queueDeps` (see [worker.md](worker.md#queue-depsts)).
 
 ## queue/status.ts and queue/event-log.ts
 
@@ -473,8 +473,8 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
   does not parse as a `JobStatusEvent` throws rather than being skipped.
 - `pruneEvents` deletes the events of jobs settled more than `EVENT_RETENTION_MS` (7 days) ago. The `jobs`
   row stays, because it is history.
-- Progress coalescing (at most one progress write per second per job) lives in the worker, which owns the
-  flush timer. It lands with the worker step.
+- Progress coalescing (at most one progress write per second per job) lives in the worker's `queueDeps`,
+  which owns the flush timer.
 
 ## db/schema.sql.ts
 
