@@ -13,6 +13,7 @@ import {
   type StageTiming,
   type TransportPlugin,
 } from "@conveyor/shared";
+import type { ResumeState } from "@conveyor/shared/queue";
 import type { ProfileForSlice } from "./profile.js";
 
 export type TerminalState = "done" | "failed" | "canceled";
@@ -41,7 +42,7 @@ export interface QueueHooks {
   takeSlot(signal: AbortSignal): Promise<SlotResult>;
   markSubmitted(handle: PrintHandle): Promise<void>;
   settleCancel(stopConfirmed: boolean): Promise<TerminalState>;
-  printHandle(): PrintHandle | null;
+  resumeState(): ResumeState | null;
   failResume(): Promise<TerminalState>;
 }
 

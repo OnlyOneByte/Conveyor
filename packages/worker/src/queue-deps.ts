@@ -11,7 +11,7 @@ import {
   type Lease,
   markSubmitted,
   type QueueTiming,
-  readPrintHandle,
+  readResumeState,
   requestCancel,
   type StatusUpdate,
   settleCancel,
@@ -133,7 +133,7 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
           dispose();
           if (!markSubmitted(db, lease, handle, timing)) throw lose();
         },
-        printHandle: () => readPrintHandle(db, lease, timing),
+        resumeState: () => readResumeState(db, lease, timing),
         failResume: async (): Promise<TerminalState> => {
           dispose();
           if (!failResume(db, lease, timing)) throw lose();

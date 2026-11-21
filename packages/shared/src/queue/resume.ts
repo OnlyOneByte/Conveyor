@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { z } from "zod";
+import type { StageTiming } from "../job.js";
 import type { PrintHandle } from "../plugins.js";
 import { appendEvent } from "./event-log.js";
 import { holdPrinter } from "./hold.js";
@@ -11,6 +12,7 @@ import {
   type Lease,
   type QueueTiming,
 } from "./lease.js";
+import { readSnapshot } from "./status.js";
 
 export const RESUME_FAILED_REASON =
   "worker restarted mid-print and could not reconnect; check the printer before releasing it";
@@ -25,19 +27,38 @@ const handleSchema = z.object({
 
 const ON_PRINTER = "state IN ('transferring', 'printing') AND submitted_at IS NOT NULL";
 
-export function readPrintHandle(
+export interface ResumeState {
+  handle: PrintHandle;
+  modelPath?: string;
+  gcodePath?: string;
+  timings?: StageTiming[];
+}
+
+interface ResumeRow {
+  print_handle_json: string | null;
+  model_path: string | null;
+  gcode_path: string | null;
+}
+
+export function readResumeState(
   db: Database,
   lease: Lease,
   timing: QueueTiming = DEFAULT_TIMING,
-): PrintHandle | null {
+): ResumeState | null {
   const row = db
-    .query<{ print_handle_json: string | null }, Record<string, string | number>>(
-      `SELECT print_handle_json FROM jobs WHERE ${FENCE} AND ${ON_PRINTER}`,
+    .query<ResumeRow, Record<string, string | number>>(
+      `SELECT print_handle_json, model_path, gcode_path FROM jobs WHERE ${FENCE} AND ${ON_PRINTER}`,
     )
     .get(fenceOf(lease, timing.now()));
   if (!row?.print_handle_json) return null;
   const parsed = handleSchema.safeParse(JSON.parse(row.print_handle_json));
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  return {
+    handle: parsed.data,
+    modelPath: row.model_path ?? undefined,
+    gcodePath: row.gcode_path ?? undefined,
+    timings: readSnapshot(db, lease.jobId)?.snapshot.timings,
+  };
 }
 
 export function failResume(

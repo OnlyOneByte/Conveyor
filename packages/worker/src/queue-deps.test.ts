@@ -322,6 +322,60 @@ describe("a job run on the sqlite queue", () => {
 });
 
 describe("resuming a job that was already on the printer", () => {
+  test("keeps the job's artifacts and stage timings through a resumed done", async () => {
+    const h = queued({ resume: true });
+    const timings = [
+      { stage: "generator", enteredAt: 1, durationMs: 4 },
+      { stage: "slicer", enteredAt: 5, durationMs: 5 },
+      { stage: "transport", enteredAt: 10 },
+    ];
+    db.query(
+      "UPDATE jobs SET model_path = '/data/m.stl', gcode_path = '/data/m.gcode', timings_json = ? WHERE id = 'job-1'",
+    ).run(JSON.stringify(timings));
+    expect(await h.run()).toBe("done");
+    const job = dbGetJob(db, "job-1");
+    expect(job?.artifacts).toEqual({ model: "/data/m.stl", gcode: "/data/m.gcode" });
+    expect(job?.timings?.map((t) => t.stage)).toEqual(["generator", "slicer", "transport"]);
+    expect(job?.timings?.[1]?.durationMs).toBe(5);
+    expect(job?.timings?.[2]?.durationMs).toBeNumber();
+  });
+
+  test("fails and holds the printer when the stored transport is unknown", async () => {
+    const h = queued({ resume: true });
+    db.query(
+      `UPDATE jobs SET print_handle_json = '{"transportId":"gone","printerId":"p1","ref":"model.gcode"}' WHERE id = 'job-1'`,
+    ).run();
+    expect(await h.run()).toBe("failed");
+    expect(hold()).toEqual({ hold_job_id: "job-1", hold_reason: RESUME_FAILED_REASON });
+  });
+
+  test("fails and holds the printer when the printer cannot be resolved", async () => {
+    const h = queued(
+      { resume: true },
+      {
+        resolvePrinter: async () => {
+          throw new Error("unknown printer p1");
+        },
+      },
+    );
+    expect(await h.run()).toBe("failed");
+    expect(hold()).toEqual({ hold_job_id: "job-1", hold_reason: RESUME_FAILED_REASON });
+  });
+
+  test("a failed resume whose lease is gone reports the lost lease and holds nothing", async () => {
+    const h = queued(
+      { resume: true },
+      {
+        resolvePrinter: async () => {
+          bumpToken();
+          throw new Error("unknown printer p1");
+        },
+      },
+    );
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
+  });
+
   test("watches the stored handle and never submits again", async () => {
     const h = queued({
       resume: true,
