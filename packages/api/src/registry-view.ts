@@ -1,10 +1,6 @@
-import {
-  createRegistry,
-  type SlicerPlugin,
-  type TransportPlugin,
-} from "@conveyor/shared";
 import { gridfinity } from "@conveyor/generator-gridfinity";
 import { passthrough } from "@conveyor/generator-passthrough";
+import { createRegistry, type SlicerPlugin, type TransportPlugin } from "@conveyor/shared";
 
 /**
  * Capability + metadata view of the registry. The API runs validateJob() and
@@ -30,7 +26,11 @@ apiRegistry.slicers.set("orca", {
   accepts: ["stl", "3mf"],
   gcodeFlavor: "klipper",
   profiles: [
-    { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/orca-klipper-pla-0.2" },
+    {
+      id: "orca/klipper-pla-0.2",
+      name: "Klipper PLA 0.2mm",
+      path: "/profiles/orca-klipper-pla-0.2",
+    },
   ],
   slice: () => {
     throw new Error("api holds a capability-only view; slicing runs in the worker");
@@ -45,8 +45,16 @@ apiRegistry.slicers.set("prusa", {
   accepts: ["stl", "3mf", "obj"],
   gcodeFlavor: "klipper",
   profiles: [
-    { id: "prusa/klipper-pla-0.2", name: "Klipper PLA 0.2mm (Prusa)", path: "/profiles/prusa-klipper-pla-0.2" },
-    { id: "prusa/marlin-pla-0.2", name: "Marlin PLA 0.2mm (Prusa)", path: "/profiles/prusa-marlin-pla-0.2" },
+    {
+      id: "prusa/klipper-pla-0.2",
+      name: "Klipper PLA 0.2mm (Prusa)",
+      path: "/profiles/prusa-klipper-pla-0.2",
+    },
+    {
+      id: "prusa/marlin-pla-0.2",
+      name: "Marlin PLA 0.2mm (Prusa)",
+      path: "/profiles/prusa-marlin-pla-0.2",
+    },
   ],
   slice: () => {
     throw new Error("api holds a capability-only view; slicing runs in the worker");
@@ -62,8 +70,7 @@ const transportView = (id: string, name: string): TransportPlugin => ({
   submit: () => {
     throw new Error("api holds a capability-only view; transport runs in the worker");
   },
-  // eslint-disable-next-line require-yield
-  async *status() {
+  status: () => {
     throw new Error("api holds a capability-only view");
   },
 });

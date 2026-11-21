@@ -122,7 +122,8 @@ export function parseStatusFrame(buf: string): SdcpStatusFrame | null {
     // PrintInfo.Progress is a 0..100 percentage on most firmware; normalize. If
     // absent, derive from layer counts.
     let progress = 0;
-    if (typeof pi.Progress === "number") progress = pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
+    if (typeof pi.Progress === "number")
+      progress = pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
     else if (pi.TotalLayer) progress = (pi.CurrentLayer ?? 0) / pi.TotalLayer;
     return {
       currentStatus: cur,

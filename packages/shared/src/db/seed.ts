@@ -8,14 +8,36 @@ import type { Printer, Profile } from "./index.js";
 export const DEFAULT_PROFILES: Profile[] = [
   // OrcaSlicer klipper bundle (Creality K1 family leaf exports) — VERIFIED slicing
   // a cube → klipper gcode in the worker image 2026-06-30. See docs/M1-WORKER-ENGINES.md.
-  { id: "orca/klipper-pla-0.2", slicerId: "orca", name: "Klipper PLA 0.2mm (Orca)", path: "/profiles/orca-klipper-pla-0.2", gcodeFlavor: "klipper" },
+  {
+    id: "orca/klipper-pla-0.2",
+    slicerId: "orca",
+    name: "Klipper PLA 0.2mm (Orca)",
+    path: "/profiles/orca-klipper-pla-0.2",
+    gcodeFlavor: "klipper",
+  },
   // PrusaSlicer is multi-arch (apt) and headless-verified — see docs/M1-WORKER-ENGINES.md.
-  { id: "prusa/klipper-pla-0.2", slicerId: "prusa", name: "Klipper PLA 0.2mm (Prusa)", path: "/profiles/prusa-klipper-pla-0.2", gcodeFlavor: "klipper" },
-  { id: "prusa/marlin-pla-0.2", slicerId: "prusa", name: "Marlin PLA 0.2mm (Prusa)", path: "/profiles/prusa-marlin-pla-0.2", gcodeFlavor: "marlin" },
+  {
+    id: "prusa/klipper-pla-0.2",
+    slicerId: "prusa",
+    name: "Klipper PLA 0.2mm (Prusa)",
+    path: "/profiles/prusa-klipper-pla-0.2",
+    gcodeFlavor: "klipper",
+  },
+  {
+    id: "prusa/marlin-pla-0.2",
+    slicerId: "prusa",
+    name: "Marlin PLA 0.2mm (Prusa)",
+    path: "/profiles/prusa-marlin-pla-0.2",
+    gcodeFlavor: "marlin",
+  },
 ];
 
 export const DEFAULT_PRINTERS: Printer[] = [
-  { id: "klipper-garage", transportId: "moonraker", name: "Garage Klipper", address: "127.0.0.1:7125" },
+  {
+    id: "klipper-garage",
+    transportId: "moonraker",
+    name: "Garage Klipper",
+    address: "127.0.0.1:7125",
+  },
   { id: "elegoo-1", transportId: "elegoo", name: "Elegoo Neptune", address: "127.0.0.1" },
 ];
-

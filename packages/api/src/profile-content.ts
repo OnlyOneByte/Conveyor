@@ -5,13 +5,13 @@ import {
   MAX_ORCA_DOCUMENT_BYTES,
   MAX_PRUSA_DOCUMENT_BYTES,
   ORCA_PROFILE_DOCUMENT_NAMES,
+  type OrcaProfileDocumentName,
+  type OrcaProfileDocuments,
   OrcaProfileValidationError,
+  type PrusaProfileDocument,
   PrusaProfileValidationError,
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
-  type OrcaProfileDocumentName,
-  type OrcaProfileDocuments,
-  type PrusaProfileDocument,
 } from "@conveyor/shared";
 
 /**
@@ -50,10 +50,7 @@ async function bundledDirectory(logicalPath: string): Promise<{ root: string; di
   const segments = suffix.split("/");
   // Allowlist profile-directory characters rather than trying to enumerate traversal
   // encodings. Existing bundles use lowercase letters, digits, dashes and dots.
-  if (
-    !suffix ||
-    segments.some((segment) => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(segment))
-  ) {
+  if (!suffix || segments.some((segment) => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(segment))) {
     throw new ProfileContentError("profile has an invalid bundled path", 409);
   }
 
