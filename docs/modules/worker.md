@@ -33,16 +33,18 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 ## main.ts and mode.ts
 
 `main.ts` is the image's entry point. It picks the queue from `CONVEYOR_QUEUE` (`redis`, the default, or
-`sqlite`), logs it, and loads `index.ts` (BullMQ) or `sqlite.ts`. Anything else exits with code 1.
+`sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
+code 1. In `sqlite` mode, `SIGTERM` or `SIGINT` calls `stop()` and exits once every running job has been
+released.
 `sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, because the api does not
 enqueue to the SQLite queue yet: a `sqlite` worker beside a `redis` api would never see a job. The api
 step removes that guard and documents the flag.
 
 ## sqlite.ts
 
-Starts `startQueueWorker` on the shared database with `WORKER_CONCURRENCY` (default 2) and `DATA_DIR`, and
-a unique owner (host, pid and a random id). On `SIGTERM` or `SIGINT` it calls `stop()` and exits once every
-running job has been released.
+`startSqliteWorker(env)` starts `startQueueWorker` on the database `DB_PATH` names, with `WORKER_CONCURRENCY`
+(default 2), `DATA_DIR` and a unique owner (host, pid and a random id). `sqliteBase` resolves job targets and
+printers from that database, as the BullMQ worker does from its own connection.
 
 ## index.ts
 
