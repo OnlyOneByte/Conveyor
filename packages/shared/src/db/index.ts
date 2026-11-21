@@ -141,21 +141,27 @@ function migrate(db: Database): void {
   }
 }
 
-/** Seed the default catalog the project shipped with — only when empty, so user
- * edits made in Settings are never clobbered on restart. */
+const SEEDED_VERSION = 1;
+
+function countRows(db: Database, table: "printers" | "profiles"): number {
+  return (db.query(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+}
+
 function seedDefaults(db: Database): void {
-  const count = (db.query("SELECT COUNT(*) AS n FROM printers").get() as { n: number }).n;
-  if (count > 0) return;
+  const { user_version } = db.query("PRAGMA user_version").get() as { user_version: number };
+  if (user_version >= SEEDED_VERSION) return;
 
   const now = epochMs();
   const insertProfile = db.prepare(
-    "INSERT INTO profiles (id, slicer_id, name, path, gcode_flavor, created_at) VALUES (?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO profiles (id, slicer_id, name, path, gcode_flavor, created_at) VALUES (?,?,?,?,?,?)",
   );
   const insertPrinter = db.prepare(
-    "INSERT INTO printers (id, transport_id, name, address, secrets_json, created_at) VALUES (?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO printers (id, transport_id, name, address, secrets_json, created_at) VALUES (?,?,?,?,?,?)",
   );
 
   const tx = db.transaction(() => {
+    db.exec(`PRAGMA user_version = ${SEEDED_VERSION}`);
+    if (countRows(db, "printers") > 0 || countRows(db, "profiles") > 0) return;
     for (const p of DEFAULT_PROFILES)
       insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
     for (const p of DEFAULT_PRINTERS)

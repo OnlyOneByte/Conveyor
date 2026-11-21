@@ -180,8 +180,12 @@ knows a `printerId` and a `profileId`. (Friends-only deployment; app-level auth 
 on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
 and `worker` delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
-default catalog (the old in-memory seeds) is seeded only when the `printers` table is empty, so
-edits made in Settings survive restarts. The worker resolves real `PrinterTarget`s (incl. secrets)
+default catalog (the old in-memory seeds) is seeded once per database, tracked by
+`PRAGMA user_version` (1 = seeded), so edits made in Settings survive restarts. A database that
+predates the flag is marked seeded without inserting anything when it already holds any printer
+or profile. Zero printers is a valid state: deleting every printer (including the two samples)
+survives restarts, `/catalog/printers` returns `[]`, and `POST /jobs` naming a missing printer is
+rejected with 404. The worker resolves real `PrinterTarget`s (incl. secrets)
 from `printers` and writes the settled `Job` row on every terminal state.
 
 Catalog CRUD lives behind `/catalog/*` (printers/profiles/transports) + `/jobs-history`; printer
