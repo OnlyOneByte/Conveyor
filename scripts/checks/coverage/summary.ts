@@ -18,9 +18,7 @@ const DECLARATION = /\.d\.ts$/;
 
 const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
-const TEST_IMPORT = /\bfrom\s*["']bun:test["']/;
-
-const TEST_CALL = /(?<![\w.$])(test|it|describe)(\.\w+)*\s*\(/;
+const TEST_IMPORT = /\b(from|import|require)\s*\(?\s*["']bun:test["']/;
 
 export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/"];
 
@@ -40,7 +38,7 @@ export function packageOf(path: string): PackageName | null {
 
 export const isTestFile = (path: string, text: string) =>
   TEST_HELPER_DIRS.some((dir) => path.startsWith(dir)) ||
-  (TEST_NAME.test(path) && TEST_IMPORT.test(text) && TEST_CALL.test(text));
+  (TEST_NAME.test(path) && TEST_IMPORT.test(text));
 
 export const isSource = (path: string, read: () => string) =>
   packageOf(path) !== null && !isTestFile(path, read());

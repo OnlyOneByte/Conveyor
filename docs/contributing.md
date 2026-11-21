@@ -34,17 +34,19 @@ bun run check:comments
 If `check:comments` says the baseline is stale, you removed comments: run `bun run check:comments:update` and
 commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the comment you added.
 
-If `check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
-`bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json`. If it says `dropped below
-base`, add the tests that cover what you changed.
+The coverage baseline is one file per package, `scripts/checks/coverage/baseline/<package>.json`, each holding
+a single line-coverage percent, so PRs that move different packages never touch the same file. If
+`check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
+`bun run check:coverage:update` and commit the files it names; it rewrites only packages whose floor rose. If
+it says `dropped below base`, add the tests that cover what you changed.
 
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
-file whose text imports from `bun:test` and contains a bare `test(`, `it(` or `describe(` (a text match, not a
-parse), and the declared helper folder `packages/shared/test/helpers/`. Call the test API by those bare names:
-a suite that only uses `bt.test(` or an alias like `t(` counts as source. Any other module named `*.spec.ts` or kept in a `test/` folder is mapped by
-bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder so it
-can. The sweep that maps never-imported files fails an import that hangs for 30 s; set
+file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
+`import`; a text match, not a parse), and the declared helper folder `packages/shared/test/helpers/`. Any
+other module, including one named `*.spec.ts` or kept in a `test/` folder, is mapped by bun and counts;
+`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder so it can. The sweep
+that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
 
 ## The PR flow
@@ -67,7 +69,7 @@ can. The sweep that maps never-imported files fails an import that hangs for 30 
 
 Guardrail paths (`.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`,
 `biome.json`, `biome.jsonc`, `tsconfig*.json`, `bunfig.toml` at any depth) change in their own PR. A PR that
-only lowers `scripts/checks/comments-baseline.json` or `scripts/checks/coverage/baseline.json` is exempt. A guardrail-path PR needs a passing
+only lowers `scripts/checks/comments-baseline.json` or `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json` is exempt. A guardrail-path PR needs a passing
 adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
 tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
 after that independent pass.
