@@ -135,6 +135,28 @@ describe("a job run on the sqlite queue", () => {
     expect(h.submits).toBe(1);
   });
 
+  test("a lease lost while waiting at the slot stops the wait", async () => {
+    const h = queued({
+      generate: async () => {
+        db.query(
+          "INSERT INTO jobs (id, generator_id, printer_id, profile_id, state, created_at, updated_at) VALUES ('other', 'gen', 'p1', 'prof', 'printing', 0, 0)",
+        ).run();
+      },
+      slice: async () => {
+        setTimeout(bumpToken, 40);
+      },
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const spinning = new Promise((resolve) => {
+      timer = setTimeout(() => resolve("still waiting"), 1500);
+    });
+    const outcome = await Promise.race([h.run().catch((err: unknown) => err), spinning]);
+    clearTimeout(timer);
+    h.controller.abort();
+    expect(outcome).toBeInstanceOf(LeaseLostError);
+    expect(h.submits).toBe(0);
+  });
+
   test("a cancel the slot sees first settles canceled and submits nothing", async () => {
     const h = queued(
       { slice: async () => void requestCancel(db, "job-1") },
