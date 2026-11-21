@@ -307,14 +307,14 @@ export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfile
   if (!row) return null;
   const {
     orca_machine_json: machine,
-    orca_process_json: process,
+    orca_process_json: processDoc,
     orca_filament_json: filament,
   } = row;
-  if (machine === null && process === null && filament === null) return null;
-  if (machine === null || process === null || filament === null) {
+  if (machine === null && processDoc === null && filament === null) return null;
+  if (machine === null || processDoc === null || filament === null) {
     throw new Error(`profile ${id} has incomplete Orca content`);
   }
-  return { machine, process, filament };
+  return { machine, process: processDoc, filament };
 }
 
 /** Atomically replace all three editable documents. False means no such profile. */
