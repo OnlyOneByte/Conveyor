@@ -271,13 +271,15 @@ would otherwise resolve to "not found" only because it fell off the window.
 
 `SCHEMA_SQL` is `CREATE TABLE IF NOT EXISTS` only, so it cannot change a table that already exists: a column
 added to the DDL is absent from any database created before it, and the first insert naming that column
-fails. `migrate()` reshapes existing tables, each step guarded on the live table shape and safe on every
-boot.
+fails. `migrate()`, in `db/migrate.ts`, reshapes existing tables, each step guarded on the live table
+shape and safe on every boot.
 
 1. **`jobs.station_id` → `printer_id` and `profile_id`.** A full table rebuild, because `station_id` was
    `NOT NULL`: adding columns would leave it in place and every later insert would fail. SQLite cannot drop
    a constraint in place, so the rebuild is the supported route. The backfill is lossless, since a station
    was exactly the (printer, profile) pair; a job whose station was already deleted backfills to `NULL`.
+   Dropping the old table drops its indexes, so the rebuild reads every `jobs` index definition first and
+   recreates each one in the same transaction; `idx_jobs_created_at` never goes missing.
 2. **`printers.allowed_generators_json`.** Additive and nullable, so `ADD COLUMN`.
 3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
    files.
