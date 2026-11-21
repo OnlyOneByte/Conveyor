@@ -4,12 +4,14 @@ import { isTerminal, StageError } from "@conveyor/shared";
 import {
   DEFAULT_TIMING,
   FENCE,
+  failResume,
   fenceOf,
   inImmediate,
   isCancelRequested,
   type Lease,
   markSubmitted,
   type QueueTiming,
+  readResumeState,
   requestCancel,
   type StatusUpdate,
   settleCancel,
@@ -130,6 +132,12 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
         markSubmitted: async (handle) => {
           dispose();
           if (!markSubmitted(db, lease, handle, timing)) throw lose();
+        },
+        resumeState: () => readResumeState(db, lease, timing),
+        failResume: async (): Promise<TerminalState> => {
+          dispose();
+          if (!failResume(db, lease, timing)) throw lose();
+          return "failed";
         },
         settleCancel: async (stopConfirmed): Promise<TerminalState> => {
           dispose();

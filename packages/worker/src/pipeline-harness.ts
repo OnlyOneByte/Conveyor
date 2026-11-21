@@ -13,7 +13,7 @@ import {
   type StageCtx,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { type PipelineDeps, runJob, type TerminalState } from "./pipeline";
+import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "./pipeline";
 
 export const req: JobRequest = { generator: { id: "gen" }, printerId: "p1", profileId: "prof" };
 
@@ -42,6 +42,7 @@ export interface HarnessOptions {
   streamCloseMs?: number;
   workDir?: string;
   deps?: (h: Harness) => Partial<PipelineDeps>;
+  resume?: boolean;
 }
 
 export interface Harness {
@@ -162,7 +163,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
     generated: 0,
     run: async () => {
       const workDir = opts.workDir ?? (await mkdtemp(join(tmpdir(), "conveyor-pipeline-")));
-      return runJob(
+      return (opts.resume ? resumeJob : runJob)(
         {
           jobId: "job-1",
           req,
