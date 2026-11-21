@@ -31,9 +31,13 @@ export function parseBaseline(text: string): Baseline | null {
   }
 }
 
+export const isNonzero = (tally: FileTally) => METRICS.some((metric) => tally[metric] > 0);
+
 export function serializeBaseline(baseline: Baseline): string {
   const sorted = Object.fromEntries(
-    Object.entries(baseline.files).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(baseline.files)
+      .filter(([, tally]) => isNonzero(tally))
+      .sort(([a], [b]) => a.localeCompare(b)),
   );
   return `${JSON.stringify({ files: sorted }, null, 2)}\n`;
 }
@@ -58,11 +62,19 @@ export interface Excess {
 const sameTally = (a: FileTally, b: FileTally) =>
   METRICS.every((metric) => a[metric] === b[metric]);
 
-export function followRenames(actual: Baseline, allowed: Baseline): Baseline {
+export interface Comparison {
+  actual: Baseline;
+  allowed: Baseline;
+  present: ReadonlySet<string>;
+}
+
+export function followRenames({ actual, allowed, present }: Comparison): Baseline {
   const files = { ...allowed.files };
-  const vanished = Object.entries(allowed.files).filter(([path]) => !(path in actual.files));
+  const vanished = Object.entries(allowed.files).filter(
+    ([path, tally]) => isNonzero(tally) && !present.has(path),
+  );
   for (const [path, tally] of Object.entries(actual.files)) {
-    if (path in allowed.files) continue;
+    if (path in allowed.files || !isNonzero(tally)) continue;
     const match = vanished.findIndex(([, old]) => sameTally(old, tally));
     if (match === -1) continue;
     files[path] = tally;
@@ -71,9 +83,9 @@ export function followRenames(actual: Baseline, allowed: Baseline): Baseline {
   return { files };
 }
 
-export function excesses(actual: Baseline, allowed: Baseline): Excess[] {
-  const allowance = followRenames(actual, allowed);
-  return Object.entries(actual.files).flatMap(([file, tally]) =>
+export function excesses(comparison: Comparison): Excess[] {
+  const allowance = followRenames(comparison);
+  return Object.entries(comparison.actual.files).flatMap(([file, tally]) =>
     METRICS.map((metric) => ({
       file,
       metric,
