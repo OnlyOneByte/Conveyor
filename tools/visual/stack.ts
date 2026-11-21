@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Subprocess, spawn } from "bun";
 import { messageOf } from "./errors.ts";
+import { createTeardown, type StackHandles, tearDownOnExit } from "./teardown.ts";
 
 export interface Stack {
   url: string;
@@ -49,11 +50,16 @@ export function redisContainer(port: number): { url: string; dockerRun: string[]
   };
 }
 
-async function startRedis(log: Log): Promise<{ url: string; stop: () => Promise<void> }> {
+async function startRedis(log: Log, handles: StackHandles): Promise<string> {
   const container = redisContainer(await freePort());
   const run = Bun.spawnSync(container.dockerRun);
   if (run.exitCode !== 0) throw new Error(`docker run redis failed: ${run.stderr.toString()}`);
   const id = run.stdout.toString().trim();
+  handles.cleanups.push(async () => {
+    const removed = Bun.spawnSync(["docker", "rm", "-f", id]);
+    if (removed.exitCode !== 0)
+      log(`[redis] docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
+  });
   const until = Date.now() + 30000;
   let ready = false;
   while (!ready && Date.now() < until) {
@@ -62,18 +68,8 @@ async function startRedis(log: Log): Promise<{ url: string; stop: () => Promise<
       .includes("PONG");
     if (!ready) await Bun.sleep(300);
   }
-  if (!ready) {
-    Bun.spawnSync(["docker", "rm", "-f", id]);
-    throw new Error("redis did not answer PING within 30 s");
-  }
-  return {
-    url: container.url,
-    stop: async () => {
-      const removed = Bun.spawnSync(["docker", "rm", "-f", id]);
-      if (removed.exitCode !== 0)
-        log(`[redis] docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
-    },
-  };
+  if (!ready) throw new Error("redis did not answer PING within 30 s");
+  return container.url;
 }
 
 async function pipeLines(
@@ -105,30 +101,36 @@ export function stackEnv(
 }
 
 export async function bootStack(root: string, log: Log): Promise<Stack> {
-  const dataDir = await mkdtemp(join(tmpdir(), "conveyor-visual-"));
-  const redis = await startRedis(log);
-  const apiPort = await freePort();
-  const webPort = await freePort();
-  const env = stackEnv(process.env, { redisUrl: redis.url, dataDir, apiPort });
-  const procs: Subprocess<"ignore", "pipe", "pipe">[] = [];
-  const launch = (name: string, cmd: string[], cwd: string) => {
-    const proc = spawn({ cmd, cwd, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
-    procs.push(proc);
-    pipeLines(name, proc.stdout, log).catch((err) =>
-      log(`[${name}] stdout closed: ${messageOf(err)}`),
-    );
-    pipeLines(name, proc.stderr, log).catch((err) =>
-      log(`[${name}] stderr closed: ${messageOf(err)}`),
-    );
-    return proc;
-  };
+  const handles: StackHandles = { children: [], cleanups: [] };
+  const teardown = createTeardown(handles);
+  const detach = tearDownOnExit({
+    events: process,
+    teardown,
+    exit: (code) => process.exit(code),
+    report: (reason) => console.error(reason),
+  });
   const stop = async () => {
-    for (const p of procs) p.kill();
-    await Promise.all(procs.map((p) => p.exited));
-    await redis.stop();
-    await rm(dataDir, { recursive: true, force: true });
+    await teardown();
+    detach();
   };
   try {
+    const dataDir = await mkdtemp(join(tmpdir(), "conveyor-visual-"));
+    handles.cleanups.push(() => rm(dataDir, { recursive: true, force: true }));
+    const redisUrl = await startRedis(log, handles);
+    const apiPort = await freePort();
+    const webPort = await freePort();
+    const env = stackEnv(process.env, { redisUrl, dataDir, apiPort });
+    const launch = (name: string, cmd: string[], cwd: string) => {
+      const proc = spawn({ cmd, cwd, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+      handles.children.push(proc);
+      pipeLines(name, proc.stdout, log).catch((err) =>
+        log(`[${name}] stdout closed: ${messageOf(err)}`),
+      );
+      pipeLines(name, proc.stderr, log).catch((err) =>
+        log(`[${name}] stderr closed: ${messageOf(err)}`),
+      );
+      return proc;
+    };
     const api = launch("api", ["bun", "src/index.ts"], join(root, "packages/api"));
     await waitHttp(`http://127.0.0.1:${apiPort}/health`, 30000, api);
     launch("worker", ["bun", "src/index.ts"], join(root, "packages/worker"));
