@@ -1,8 +1,9 @@
-import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, test } from "bun:test";
+import type { Database } from "bun:sqlite";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeLegacyStationDb } from "../../test/helpers/legacy-db.ts";
 import {
   dbGetJob,
   dbGetOrcaProfileDocuments,
@@ -22,53 +23,6 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-const LEGACY_STATION_SCHEMA = `
-CREATE TABLE IF NOT EXISTS profiles (
-  id            TEXT PRIMARY KEY,
-  slicer_id     TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  path          TEXT NOT NULL,
-  gcode_flavor  TEXT NOT NULL,
-  created_at    INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS printers (
-  id            TEXT PRIMARY KEY,
-  transport_id  TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  address       TEXT NOT NULL,
-  secrets_json  TEXT,
-  created_at    INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS stations (
-  id                       TEXT PRIMARY KEY,
-  name                     TEXT NOT NULL,
-  transport_id             TEXT NOT NULL,
-  printer_id               TEXT NOT NULL,
-  slicer_id                TEXT NOT NULL,
-  profile_id               TEXT NOT NULL,
-  allowed_generators_json  TEXT,
-  created_at               INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS jobs (
-  id            TEXT PRIMARY KEY,
-  generator_id  TEXT NOT NULL,
-  params_json   TEXT,
-  station_id    TEXT NOT NULL,
-  state         TEXT NOT NULL,
-  stage         TEXT,
-  error_json    TEXT,
-  model_path    TEXT,
-  gcode_path    TEXT,
-  created_at    INTEGER NOT NULL,
-  updated_at    INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs (created_at DESC);
-`;
-
 const LEGACY_JOBS_TRIGGER = `
 CREATE TABLE job_state_log (job_id TEXT NOT NULL, state TEXT NOT NULL);
 CREATE TRIGGER trg_jobs_state AFTER UPDATE OF state ON jobs
@@ -77,26 +31,19 @@ BEGIN
 END;
 `;
 
-function writeLegacyDb(path: string, extraSql: string): void {
-  const legacy = new Database(path, { create: true });
-  legacy.exec(LEGACY_STATION_SCHEMA + extraSql);
-  legacy.exec(`INSERT INTO printers VALUES ('printer-a', 'moonraker', 'Legacy A', 'http://a', NULL, 1);
-INSERT INTO profiles VALUES ('profile-a', 'orca', 'Legacy PLA', '/profiles/a', 'klipper', 1);
-INSERT INTO stations VALUES
-  ('st-a', 'Station A', 'moonraker', 'printer-a', 'orca', 'profile-a', NULL, 1),
-  ('st-b', 'Station B', 'moonraker', 'printer-b', 'orca', 'profile-b', NULL, 1);
-INSERT INTO jobs VALUES
-  ('job-a', 'gen', NULL, 'st-a', 'done', NULL, NULL, NULL, NULL, 1, 1),
-  ('job-b', 'gen', NULL, 'st-b', 'done', NULL, NULL, NULL, NULL, 2, 2),
-  ('job-gone', 'gen', NULL, 'st-deleted', 'failed', NULL, NULL, NULL, NULL, 3, 3);`);
-  legacy.close();
-}
+const LEGACY_STATION_TRIGGER = `
+CREATE TABLE station_log (station_id TEXT);
+CREATE TRIGGER trg_jobs_station AFTER UPDATE ON jobs
+BEGIN
+  INSERT INTO station_log VALUES (NEW.station_id);
+END;
+`;
 
 function openLegacyDb(extraSql = ""): Database {
   const dir = mkdtempSync(join(tmpdir(), "conveyor-migrate-"));
   dirs.push(dir);
   const path = join(dir, "conveyor.db");
-  writeLegacyDb(path, extraSql);
+  writeLegacyStationDb(path, extraSql);
   return openDb(path);
 }
 
@@ -160,6 +107,35 @@ describe("openDb legacy station migration", () => {
       state: "canceled",
       notes: "work dir not removed",
     });
+  });
+
+  test("drops a legacy trigger that names station_id, keeps its SQL in meta and warns", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined);
+    const db = openLegacyDb(LEGACY_JOBS_TRIGGER + LEGACY_STATION_TRIGGER);
+    const warnings = warn.mock.calls.map((call) => String(call[0]));
+    warn.mockRestore();
+    expect(
+      namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'jobs'"),
+    ).toEqual(["trg_jobs_state"]);
+    expect(
+      db
+        .query<{ value: string }, []>(
+          "SELECT value FROM meta WHERE key = 'dropped_trigger:trg_jobs_station'",
+        )
+        .get()?.value,
+    ).toContain("NEW.station_id");
+    expect(warnings).toEqual([expect.stringContaining("dropped trigger trg_jobs_station")]);
+    dbRecordJob(db, {
+      id: "job-a",
+      generatorId: "gen",
+      printerId: "printer-a",
+      profileId: "profile-a",
+      state: "failed",
+    });
+    expect(dbGetJob(db, "job-a")?.state).toBe("failed");
+    expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
+      { job_id: "job-a", state: "failed" },
+    ]);
   });
 
   test("adds timings_json to the migrated jobs table", () => {
