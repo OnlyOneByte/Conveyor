@@ -380,8 +380,9 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
 
 - `writeStatus` is the worker's one way to change a job's status. It is fenced like every lease write
   (owner, token, unexpired lease), and it never overwrites a terminal state. That replaces the Redis Lua
-  script's terminal guard. An event is appended only when the row changed, so a refused write leaves no
-  trace. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
+  script's terminal guard. An event is appended only when the write is accepted, so a refused write
+  leaves no trace. An identical repeated write is accepted and appends a second event; coalescing repeats
+  is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
 - `appendEvent` is shared by `enqueueJob` (the first `queued` event) and the reaper (`queued` on a requeue,
   `failed` with its error). Orphaning a job changes no state and records no event.
 - `readSnapshot` returns the row as a `JobStatusEvent` together with the job's highest event `seq`, read in

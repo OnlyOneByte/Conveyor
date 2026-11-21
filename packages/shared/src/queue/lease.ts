@@ -29,6 +29,8 @@ export interface ClaimedJob {
   resumed: boolean;
 }
 
+export const CLEAR_PROGRESS = "stage = NULL, progress = NULL, message = NULL";
+
 export type ReleaseOutcome = "requeued" | "orphaned" | "submitting" | "lost";
 
 export function inImmediate<T>(db: Database, now: () => number, step: (at: number) => T): T {
@@ -97,6 +99,7 @@ export function claimJob(
       .query<ClaimRow, Record<string, string | number>>(CLAIM_SQL)
       .get({ $owner: owner, $until: until, $now: at });
     if (!row) return null;
+    if (row.submitted_at === null) appendEvent(db, { jobId: row.id, state: "generating", at });
     const params: unknown = row.params_json === null ? undefined : JSON.parse(row.params_json);
     return {
       lease: { jobId: row.id, owner, token: row.lease_token, until },
@@ -151,9 +154,10 @@ export function releaseLease(
     const requeue = marks.submitted_at === null;
     db.query(
       `UPDATE jobs SET lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1,
-         updated_at = $now${requeue ? ", state = 'queued', attempts = attempts - 1, run_after = $now" : ""}
+         updated_at = $now${requeue ? `, state = 'queued', attempts = attempts - 1, run_after = $now, ${CLEAR_PROGRESS}` : ""}
         WHERE ${FENCE}`,
     ).run(fence);
+    if (requeue) appendEvent(db, { jobId: lease.jobId, state: "queued", at });
     return requeue ? "requeued" : "orphaned";
   });
 }
