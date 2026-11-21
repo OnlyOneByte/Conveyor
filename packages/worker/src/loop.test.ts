@@ -195,3 +195,59 @@ describe("the sqlite queue worker", () => {
     expect(h.submits).toBe(0);
   });
 });
+
+describe("stopping the sqlite queue worker", () => {
+  test("requeues a job that has not reached the printer, without counting the attempt", async () => {
+    setup();
+    enqueue("a");
+    const { worker } = start({ generate: (ctx) => waitForAbort(ctx.signal) });
+    await until(() => row("a").state === "generating");
+    await worker.stop();
+    expect(row("a")).toMatchObject({
+      state: "queued",
+      attempts: 0,
+      lease_owner: null,
+      cancel_requested_at: null,
+    });
+  });
+
+  test("lets a submit in progress finish and write the marker, then releases it", async () => {
+    setup();
+    enqueue("a");
+    let finish = () => {};
+    const { h, worker } = start({
+      submit: (ctx) =>
+        new Promise<void>((resolve, reject) => {
+          finish = resolve;
+          ctx.signal.addEventListener("abort", () => reject(new Error("submit aborted")));
+        }),
+    });
+    await until(() => h.submits === 1);
+    const stopped = worker.stop();
+    await Bun.sleep(30);
+    expect(row("a").lease_owner).not.toBeNull();
+    finish();
+    await stopped;
+    expect(row("a")).toMatchObject({ state: "transferring", lease_owner: null });
+    expect(row("a").submitted_at).not.toBeNull();
+    expect(h.cancels).toHaveLength(0);
+  });
+
+  test("releases a printing job untouched, and the next worker resumes it", async () => {
+    setup();
+    enqueue("a");
+    const first = start({
+      status: async function* (_handle, signal) {
+        yield { state: "printing", progress: 0.2 };
+        if (signal) await waitForAbort(signal);
+      },
+    });
+    await until(() => row("a").state === "printing");
+    await first.worker.stop();
+    expect(row("a")).toMatchObject({ state: "printing", lease_owner: null });
+    expect(first.h.cancels).toHaveLength(0);
+    const second = start();
+    await until(() => row("a").state === "done");
+    expect(first.h.submits + second.h.submits).toBe(1);
+  });
+});

@@ -10,6 +10,7 @@ import {
   type Lease,
   type QueueTiming,
   reapExpired,
+  releaseLease,
   renewLease,
 } from "@conveyor/shared/queue";
 import { resumeJob, runJob } from "./pipeline.js";
@@ -42,6 +43,8 @@ interface Running {
   lease: Lease;
   controller: AbortController;
   engine: boolean;
+  phase: "preparing" | "submitting" | "on-printer";
+  released: boolean;
   renewing: boolean;
   done: Promise<void>;
 }
@@ -93,7 +96,14 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
           job.engine = false;
           pump();
         }
-        return hooks.takeSlot(signal);
+        const outcome = await hooks.takeSlot(signal);
+        if (outcome === "taken") job.phase = "submitting";
+        return outcome;
+      },
+      markSubmitted: async (handle) => {
+        await hooks.markSubmitted(handle);
+        job.phase = "on-printer";
+        if (job.released) lose(job);
       },
     };
   }
@@ -132,6 +142,9 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
     } finally {
       clearInterval(timer);
       q.dispose();
+      if (job.released) {
+        o.base.log(`job ${jobId}: released, ${releaseLease(o.db, job.lease, timing)}`);
+      }
       running.delete(jobId);
       pump();
     }
@@ -142,6 +155,8 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       lease: claimed.lease,
       controller: new AbortController(),
       engine: !claimed.resumed,
+      phase: claimed.resumed ? "on-printer" : "preparing",
+      released: false,
       renewing: false,
       done: Promise.resolve(),
     };
@@ -185,7 +200,10 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       clearInterval(claimTimer);
       clearInterval(reapTimer);
       const jobs = [...running.values()];
-      for (const job of jobs) lose(job);
+      for (const job of jobs) {
+        job.released = true;
+        if (job.phase !== "submitting") lose(job);
+      }
       await Promise.all(jobs.map((job) => job.done));
     },
   };
