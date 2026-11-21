@@ -294,7 +294,11 @@ shape and safe on every boot.
    was exactly the (printer, profile) pair; a job whose station was already deleted backfills to `NULL`.
    Dropping the old table drops its indexes and triggers, so the rebuild reads every `jobs` index and
    trigger definition first and recreates each one in the same transaction, indexes before triggers;
-   `idx_jobs_created_at` never goes missing.
+   `idx_jobs_created_at` never goes missing. A trigger whose SQL names `station_id` is not recreated:
+   SQLite checks a trigger body's columns only when it fires, so it would fail every later update to
+   `jobs`. Its SQL is kept in `meta` under `dropped_trigger:<name>` and `openDb()` warns with that key once
+   the migration commits. A station was a (printer, profile) pair, so no single new column can stand in
+   for `station_id` in a rewritten body.
 2. **`printers.allowed_generators_json`.** Additive and nullable, so `ADD COLUMN`.
 3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
    files.
