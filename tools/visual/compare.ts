@@ -1,7 +1,7 @@
-import { PNG } from "pngjs";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { PNG } from "pngjs";
 import { messageOf } from "./errors.ts";
 
 export const MARKER = "<!-- conveyor-visual -->";
@@ -57,12 +57,17 @@ export function pairUp(beforeDir: string, afterDir: string): Pair[] {
     if (!name) return [];
     const pair: Pair = { ...name, before: before.has(file), after: after.has(file) };
     if (pair.kind === "png" && pair.before && pair.after) {
-      pair.diff = pixelDiff(readFileSync(join(beforeDir, file)), readFileSync(join(afterDir, file)));
+      pair.diff = pixelDiff(
+        readFileSync(join(beforeDir, file)),
+        readFileSync(join(afterDir, file)),
+      );
     }
     return [pair];
   });
   for (const gif of pairs.filter((p) => p.kind === "gif" && p.before && p.after)) {
-    gif.diff = pairs.find((p) => p.kind === "png" && p.scene === gif.scene && p.width === gif.width)?.diff;
+    gif.diff = pairs.find(
+      (p) => p.kind === "png" && p.scene === gif.scene && p.width === gif.width,
+    )?.diff;
   }
   return pairs.sort(
     (a, b) => b.width - a.width || a.scene.localeCompare(b.scene) || a.kind.localeCompare(b.kind),
@@ -133,7 +138,14 @@ export interface Report {
   footer?: string;
 }
 
-export function buildMarkdown({ pairs, beforeUrl, afterUrl, notes = [], title, footer }: Report): string {
+export function buildMarkdown({
+  pairs,
+  beforeUrl,
+  afterUrl,
+  notes = [],
+  title,
+  footer,
+}: Report): string {
   const changed = pairs.filter(isChanged);
   const same = pairs.filter((p) => !isChanged(p));
   const parts = [MARKER, `### ${title ?? "Visual changes"}`];
@@ -163,7 +175,9 @@ if (import.meta.main) {
     },
   });
   if (!values.before || !values.after) {
-    console.error("usage: bun compare.ts --before <dir> --after <dir> [--before-url <url>] [--after-url <url>] [--out <file>]");
+    console.error(
+      "usage: bun compare.ts --before <dir> --after <dir> [--before-url <url>] [--after-url <url>] [--out <file>]",
+    );
     process.exit(2);
   }
   const beforeDir = resolve(values.before);

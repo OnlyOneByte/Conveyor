@@ -1,4 +1,4 @@
-import { GIFEncoder, applyPalette, quantize } from "gifenc";
+import { applyPalette, GIFEncoder, quantize } from "gifenc";
 import { PNG } from "pngjs";
 
 export const MAX_GIF_BYTES = 5 * 1024 * 1024;
@@ -20,7 +20,10 @@ const ATTEMPTS: Attempt[] = [
   { maxWidth: 360, fps: 3 },
 ];
 
-function downscale(src: PNG, maxWidth: number): { data: Uint8Array; width: number; height: number } {
+function downscale(
+  src: PNG,
+  maxWidth: number,
+): { data: Uint8Array; width: number; height: number } {
   const factor = Math.max(1, Math.ceil(src.width / maxWidth));
   if (factor === 1) return { data: new Uint8Array(src.data), width: src.width, height: src.height };
   const width = Math.floor(src.width / factor);
@@ -86,7 +89,10 @@ function encodeOnce(frames: Frame[], attempt: Attempt): Uint8Array {
   const images = picked.map(({ frame }) => downscale(PNG.sync.read(frame.png), attempt.maxWidth));
   const palette = sharedPalette(images.map((i) => i.data));
   images.forEach((img, i) => {
-    gif.writeFrame(applyPalette(img.data, palette), img.width, img.height, { palette, delay: picked[i].delay });
+    gif.writeFrame(applyPalette(img.data, palette), img.width, img.height, {
+      palette,
+      delay: picked[i].delay,
+    });
   });
   gif.finish();
   return gif.bytes();

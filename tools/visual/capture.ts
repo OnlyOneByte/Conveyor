@@ -1,10 +1,10 @@
-import { chromium, type Browser, type Page } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { type Browser, chromium, type Page } from "playwright";
 import { messageOf } from "./errors.ts";
-import { framesToGif, type Frame } from "./gif.ts";
-import { HEIGHTS, WIDTHS, scenes, type Scene, type Step } from "./scenes.ts";
+import { type Frame, framesToGif } from "./gif.ts";
+import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
 export interface ShotResult {
@@ -53,7 +53,8 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   if ("click" in step) await page.locator(step.click).first().click();
   else if ("type" in step) await page.locator(step.type).first().fill(step.text);
   else if ("press" in step) await page.keyboard.press(step.press);
-  else if ("scroll" in step) await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
+  else if ("scroll" in step)
+    await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else await page.waitForTimeout(step.wait);
 }
@@ -64,7 +65,10 @@ async function waitForStep(
   warnings: string[],
 ): Promise<void> {
   try {
-    await page.locator(step.waitFor).first().waitFor({ timeout: step.timeout ?? 15000 });
+    await page
+      .locator(step.waitFor)
+      .first()
+      .waitFor({ timeout: step.timeout ?? 15000 });
   } catch (err) {
     if (!step.warn) throw err;
     warnings.push(step.warn);
@@ -119,7 +123,10 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
-  const context = await browser.newContext({ viewport: { width, height: HEIGHTS[width] ?? 900 }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({
+    viewport: { width, height: HEIGHTS[width] ?? 900 },
+    deviceScaleFactor: 1,
+  });
   const page = await context.newPage();
   let sampler: Sampler | undefined;
   try {
@@ -163,7 +170,9 @@ function describe(r: ShotResult): string {
 async function main(): Promise<number> {
   await mkdir(outDir, { recursive: true });
   const log = values.verbose ? (line: string) => console.error(line) : () => {};
-  const stack = values.url ? { url: values.url, stop: async () => {} } : await bootStack(resolve(values.root), log);
+  const stack = values.url
+    ? { url: values.url, stop: async () => {} }
+    : await bootStack(resolve(values.root), log);
   const browser = await chromium.launch();
   const results: ShotResult[] = [];
   let warnings: string[] = [];

@@ -15,7 +15,7 @@ bun compare.ts --before /tmp/visual/before --after /tmp/visual/after
 `capture.ts` boots the whole stack from `--root` (default: this checkout) in stub mode:
 
 - Redis runs in Docker on a random `127.0.0.1` port, or uses `REDIS_URL` if that is set.
-- The api and worker run from source. The api gets `HOST=127.0.0.1`. Its default stays `0.0.0.0` for compose.
+- The api and worker run from source. The api gets `CONVEYOR_HOST=127.0.0.1`. Its default stays `0.0.0.0`, which compose sets explicitly.
 - The web app is built with `vite build` and served with `vite preview` on `127.0.0.1`, reusing the dev proxy config. Dev mode is not used: its lazy dependency optimisation reloads pages mid-scene.
 - Auth is off and the database lives in a temp directory, so every run starts clean.
 
@@ -42,3 +42,5 @@ A `waitFor` with `warn` does not fail the scene on timeout. It records the warni
 - `visual` has a read-only token. It captures the base commit and the PR merge commit (`refs/pull/N/merge`), builds `comment.md` with a placeholder for the assets commit, and uploads everything as the `visual-pr-<number>` artifact. It fails when the merge-commit capture fails.
 - `publish` has write access and runs no PR code. It downloads the artifact, pushes it to the orphan `pr-assets` branch under `pr-<number>/` (3 attempts, refetching each time), fills in the pinned commit and keeps one sticky comment on the PR. It is skipped for forks, which only get the artifact and the job summary.
 - `cleanup` runs when the PR closes and deletes `pr-<number>/` from `pr-assets`.
+
+The root `bunfig.toml` keeps `tools/visual/**` out of the root `bun test`, since the root install doesn't include this package's dependencies. The `visual` job runs these tests with them installed.

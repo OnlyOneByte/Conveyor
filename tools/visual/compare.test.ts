@@ -1,9 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { PNG } from "pngjs";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MARKER, buildMarkdown, isChanged, manifestNotes, pairUp, pixelDiff, readNotes, type Pair } from "./compare.ts";
+import { PNG } from "pngjs";
+import {
+  buildMarkdown,
+  isChanged,
+  MARKER,
+  manifestNotes,
+  type Pair,
+  pairUp,
+  pixelDiff,
+  readNotes,
+} from "./compare.ts";
 import { sampleFrames } from "./gif.ts";
 
 function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
@@ -99,7 +108,9 @@ describe("pairUp and buildMarkdown", () => {
   });
 
   test("a missing manifest becomes a note", () => {
-    expect(readNotes(before, "before")).toEqual(["before: no manifest.json (capture did not finish)"]);
+    expect(readNotes(before, "before")).toEqual([
+      "before: no manifest.json (capture did not finish)",
+    ]);
   });
 });
 
