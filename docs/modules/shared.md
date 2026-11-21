@@ -349,7 +349,8 @@ to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
 - Every write against a held lease (`renewLease`, `releaseLease`) checks owner, token and an unexpired
   `lease_until`. A worker past its own lease cannot write, even before anyone takes the job over.
 - `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an
-  orphan for the next claim. It refuses (`submitting`) between the submit intent and the marker, because
+  orphan for the next claim. An unsubmitted job with a cancel request settles `canceled` instead, with an
+  event, because the claim skips such a job and it would otherwise sit in `queued` forever. It refuses (`submitting`) between the submit intent and the marker, because
   the outcome of that submit is still unknown.
 
 ## queue/reaper.ts
@@ -368,9 +369,10 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 
 | Row | Outcome |
 |---|---|
+| No submit intent, cancel requested | `canceled`, with an event, so the job is not left in `queued` where no claim takes it |
 | No submit intent, attempts left | `queued`, after 5 s, then 10 s, of backoff |
 | No submit intent, attempts used up | `failed`: the worker lost the job before it reached the printer |
-| Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
+| Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`) with `UNKNOWN_REASON`, unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
 ## queue/cancel.ts

@@ -7,7 +7,8 @@ import {
   STOP_UNCONFIRMED_REASON,
   settleCancel,
 } from "./cancel.ts";
-import { claimJob, type Lease } from "./lease.ts";
+import { claimJob, type Lease, releaseLease } from "./lease.ts";
+import { reapExpired } from "./reaper.ts";
 import { tailEvents, writeStatus } from "./status.ts";
 import { takePrinterSlot } from "./submit.ts";
 
@@ -84,6 +85,27 @@ describe("cancel before the printer slot", () => {
   });
 });
 
+describe("cancel when the worker lets go before the printer", () => {
+  test("the reaper settles an expired canceled job instead of requeueing it", () => {
+    slicing();
+    requestCancel(h.db, "a", h.timing);
+    h.advance(30_001);
+    expect(reapExpired(h.db, h.timing)).toEqual([{ jobId: "a", outcome: "canceled" }]);
+    expect(h.row("a")).toMatchObject({ state: "canceled", lease_owner: null });
+    expect(lastState()).toBe("canceled");
+    expect(holdOf()).toEqual({ hold_job_id: null, hold_reason: null });
+  });
+
+  test("a released canceled job settles instead of going back to the queue", () => {
+    const lease = slicing();
+    requestCancel(h.db, "a", h.timing);
+    expect(releaseLease(h.db, lease, h.timing)).toBe("canceled");
+    expect(h.row("a")).toMatchObject({ state: "canceled", lease_owner: null });
+    expect(lastState()).toBe("canceled");
+    expect(claimJob(h.db, "w2", h.timing)).toBeNull();
+  });
+});
+
 describe("settleCancel after the job reached the printer", () => {
   test("settles canceled when the printer confirms the stop", () => {
     const lease = slicing();
@@ -118,6 +140,7 @@ describe("settleCancel after the job reached the printer", () => {
     expect(settleCancel(h.db, lease, true, h.timing)).toBeNull();
     requestCancel(h.db, "a", h.timing);
     expect(settleCancel(h.db, { ...lease, token: lease.token - 1 }, true, h.timing)).toBeNull();
+    expect(settleCancel(h.db, { ...lease, owner: "w2" }, true, h.timing)).toBeNull();
     h.advance(30_001);
     expect(settleCancel(h.db, lease, true, h.timing)).toBeNull();
     expect(h.row("a").state).toBe("transferring");

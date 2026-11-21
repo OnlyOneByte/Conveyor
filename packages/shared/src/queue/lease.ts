@@ -31,7 +31,7 @@ export interface ClaimedJob {
 
 export const CLEAR_PROGRESS = "stage = NULL, progress = NULL, message = NULL";
 
-export type ReleaseOutcome = "requeued" | "orphaned" | "submitting" | "lost";
+export type ReleaseOutcome = "requeued" | "canceled" | "orphaned" | "submitting" | "lost";
 
 export function inImmediate<T>(db: Database, now: () => number, step: (at: number) => T): T {
   return db.transaction(() => step(now())).immediate();
@@ -136,6 +136,7 @@ export function renewLease(
 interface SubmitMarks {
   submit_started_at: number | null;
   submitted_at: number | null;
+  cancel_requested_at: number | null;
 }
 
 export function releaseLease(
@@ -147,18 +148,25 @@ export function releaseLease(
     const fence = fenceOf(lease, at);
     const marks = db
       .query<SubmitMarks, Record<string, string | number>>(
-        `SELECT submit_started_at, submitted_at FROM jobs WHERE ${FENCE} AND state IN (${IN_FLIGHT_SQL})`,
+        `SELECT submit_started_at, submitted_at, cancel_requested_at FROM jobs
+          WHERE ${FENCE} AND state IN (${IN_FLIGHT_SQL})`,
       )
       .get(fence);
     if (!marks) return "lost";
     if (marks.submitted_at === null && marks.submit_started_at !== null) return "submitting";
-    const requeue = marks.submitted_at === null;
+    const unsent = marks.submitted_at === null;
+    const cancel = unsent && marks.cancel_requested_at !== null;
+    const settle = cancel
+      ? ", state = 'canceled'"
+      : unsent
+        ? `, state = 'queued', attempts = attempts - 1, run_after = $now, ${CLEAR_PROGRESS}`
+        : "";
     db.query(
       `UPDATE jobs SET lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1,
-         updated_at = $now${requeue ? `, state = 'queued', attempts = attempts - 1, run_after = $now, ${CLEAR_PROGRESS}` : ""}
+         updated_at = $now${settle}
         WHERE ${FENCE}`,
     ).run(fence);
-    if (requeue) appendEvent(db, { jobId: lease.jobId, state: "queued", at });
-    return requeue ? "requeued" : "orphaned";
+    if (unsent) appendEvent(db, { jobId: lease.jobId, state: cancel ? "canceled" : "queued", at });
+    return cancel ? "canceled" : unsent ? "requeued" : "orphaned";
   });
 }
