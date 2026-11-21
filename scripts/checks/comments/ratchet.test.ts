@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { BASELINE_DIR, readAreas, serializeAreas } from "./areas";
+import { areaPath, BASELINE_DIR, readAreas, serializeAreas } from "./areas";
 import { type Baseline, isBaseline, parseBaseline, serializeBaseline } from "./baseline";
-import { checkRatchet } from "./ratchet";
+import { checkRatchet, updateRefusal } from "./ratchet";
 import type { Tree } from "./tree";
 
 type Counts = Record<string, [number, number]>;
@@ -50,6 +50,18 @@ describe("checkRatchet", () => {
     expect(run({ current: {}, committed: null, base: baseWith({}) })).toEqual([
       `${BASELINE_DIR}/ is missing`,
     ]);
+  });
+
+  test("fails when a committed area file is missing", () => {
+    const files = areaFiles({ "a.ts": [1, 0] });
+    delete files[areaPath("repo")];
+    const errors = checkRatchet({
+      current: baseline({ "a.ts": [1, 0] }),
+      present: new Set(["a.ts"]),
+      committed: readAreas(tree(files)),
+      base: baseWith({ "a.ts": [1, 0] }),
+    }).errors;
+    expect(errors).toEqual([`${areaPath("repo")} is missing`]);
   });
 
   test("fails when the base has the checker but no baseline", () => {
@@ -175,5 +187,19 @@ describe("baseline validation", () => {
   test("accepts and round-trips a valid baseline", () => {
     const text = json({ "b.ts": [1, 0], "a.ts": [2, 1] });
     expect(parseBaseline(text)).toEqual(baseline({ "a.ts": [2, 1], "b.ts": [1, 0] }));
+  });
+});
+
+describe("updateRefusal", () => {
+  test("refuses under CI and allows locally", () => {
+    expect(updateRefusal({ CI: "true" })).toBe(
+      "--update is local only; commit the regenerated baseline instead",
+    );
+    expect(updateRefusal({ CI: "1" })).not.toBeNull();
+    expect(updateRefusal({})).toBeNull();
+  });
+
+  test("an empty CI value counts as not CI, matching the coverage checker", () => {
+    expect(updateRefusal({ CI: "" })).toBeNull();
   });
 });

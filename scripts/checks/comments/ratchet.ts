@@ -30,6 +30,9 @@ export function allowanceFrom(base: Tree): Baseline | string {
   return measure(base);
 }
 
+export const updateRefusal = (env: Record<string, string | undefined>): string | null =>
+  env.CI ? "--update is local only; commit the regenerated baseline instead" : null;
+
 export function checkRatchet(input: RatchetInput): RatchetResult {
   const committed = parseAreas(input.committed);
   if (committed === null) return { errors: [`${BASELINE_DIR}/ is missing`] };
