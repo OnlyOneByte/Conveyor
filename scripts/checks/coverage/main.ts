@@ -1,26 +1,17 @@
-import {
-  appendFileSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { type Coverage, parseLcov, serializeLcov } from "./lcov";
+import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
-  CHECKER_PATH,
   checkRatchet,
   parseBaseline,
   raisedBaseline,
   serializeBaseline,
   updateRefusal,
 } from "./ratchet";
+import { ROOT, readBase, readOrNull, runSweep, sources } from "./runner";
 import {
-  isSource,
   mergeCoverage,
   nonBlankLines,
   overall,
@@ -28,76 +19,9 @@ import {
   percent,
   percents,
   type Summary,
-  SWEEP_ENV,
-  SWEEP_REPORT_ENV,
   summarize,
   sweepErrors,
 } from "./summary";
-
-const ROOT = join(import.meta.dir, "..", "..", "..");
-
-const SWEEP_PATH = "./scripts/checks/coverage/sweep.ts";
-
-const git = (args: string[]) => {
-  const result = Bun.spawnSync(["git", ...args], { cwd: ROOT, stderr: "pipe" });
-  return result.exitCode === 0 ? result.stdout.toString() : null;
-};
-
-const readOrNull = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : null);
-
-const sources = () =>
-  (git(["ls-files", "-z", "--", "packages", "plugins"]) ?? "").split("\0").filter(isSource);
-
-interface Sweep {
-  coverage: Coverage;
-  completed: boolean;
-  failed: string[];
-}
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
-
-function readFailures(text: string | null): string[] | null {
-  if (text === null) return null;
-  try {
-    const value: unknown = JSON.parse(text);
-    if (typeof value !== "object" || value === null || !("failed" in value)) return null;
-    return isStringArray(value.failed) ? value.failed : null;
-  } catch {
-    return null;
-  }
-}
-
-const sweepEnv = (dir: string, files: string[]) => ({
-  ...process.env,
-  CONVEYOR_AUTH: "disabled",
-  DB_PATH: join(dir, "sweep.db"),
-  DATA_DIR: join(dir, "data"),
-  [SWEEP_ENV]: files.join("\n"),
-  [SWEEP_REPORT_ENV]: join(dir, "report.json"),
-});
-
-function runSweep(files: string[]): Sweep {
-  const dir = mkdtempSync(join(tmpdir(), "conveyor-sweep-"));
-  try {
-    const args = ["test", SWEEP_PATH, "--coverage", "--coverage-reporter=lcov"];
-    const result = Bun.spawnSync(["bun", ...args, `--coverage-dir=${dir}`], {
-      cwd: ROOT,
-      env: sweepEnv(dir, files),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    if (result.exitCode !== 0) console.error(result.stderr.toString());
-    const failures = readFailures(readOrNull(join(dir, "report.json")));
-    return {
-      coverage: parseLcov(readOrNull(join(dir, "lcov.info")) ?? ""),
-      completed: result.exitCode === 0 && failures !== null,
-      failed: failures ?? [],
-    };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
 
 const table = (summary: Summary) => {
   const total = overall(summary);
@@ -145,21 +69,6 @@ function update(summary: Summary): number {
   writeFileSync(path, serializeBaseline(raisedBaseline(percents(summary), committed)));
   console.log(`wrote ${BASELINE_PATH}`);
   return 0;
-}
-
-interface Base {
-  baseline: string | null;
-  hasChecker: boolean;
-}
-
-function readBase(ref: string): Base | Error {
-  if (git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) === null) {
-    return new Error(`base ref ${ref} does not resolve; fetch it first`);
-  }
-  return {
-    baseline: git(["show", `${ref}:${BASELINE_PATH}`]),
-    hasChecker: git(["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
-  };
 }
 
 function check(summary: Summary, ref: string): number {

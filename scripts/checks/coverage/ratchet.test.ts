@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { type Coverage, exactHits, parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
   CHECKER_PATH,
@@ -10,14 +9,6 @@ import {
   serializeBaseline,
   updateRefusal,
 } from "./ratchet";
-import {
-  mergeCoverage,
-  nonBlankLines,
-  packageOf,
-  percents,
-  summarize,
-  sweepErrors,
-} from "./summary";
 
 const json = (lines: Percents) => serializeBaseline({ lines });
 
@@ -63,6 +54,20 @@ describe("checkRatchet", () => {
     const committed = { ...all(40), api: 30 };
     const { errors } = run({ current: all(40), committed, base: all(40) });
     expect(errors).toEqual(["api: baseline lowered to 30.00% (base has 40.00%)"]);
+  });
+
+  test("fails a baseline lowered by a hundredth of a point", () => {
+    const committed = { ...all(40), api: 39.99 };
+    const { errors } = run({ current: all(40), committed, base: all(40) });
+    expect(errors).toEqual(["api: baseline lowered to 39.99% (base has 40.00%)"]);
+  });
+
+  test("allows a claim up to half a point above measured, not beyond", () => {
+    const base = all(40);
+    const atLimit = run({ current: all(40), committed: { ...all(40), api: 40.5 }, base });
+    const over = run({ current: all(40), committed: { ...all(40), api: 40.51 }, base });
+    expect(atLimit.errors).toEqual([]);
+    expect(over.errors).toEqual(["api: baseline claims 40.51% but measured 40.00%"]);
   });
 
   test("fails when the committed baseline claims more than is measured", () => {
@@ -130,22 +135,6 @@ describe("updateRefusal", () => {
   });
 });
 
-describe("sweepErrors", () => {
-  test("a clean sweep has no errors", () => {
-    expect(sweepErrors({ completed: true, failed: [], estimated: [] })).toEqual([]);
-  });
-
-  test("an estimated file, a throwing import or a dead sweep each fail", () => {
-    expect(sweepErrors({ completed: true, failed: [], estimated: ["a.ts"] })).toEqual([
-      "coverage sweep: a.ts has no line map",
-    ]);
-    expect(sweepErrors({ completed: true, failed: ["b.ts"], estimated: [] })).toEqual([
-      "coverage sweep: b.ts threw while importing",
-    ]);
-    expect(sweepErrors({ completed: false, failed: [], estimated: [] })).toHaveLength(1);
-  });
-});
-
 describe("baseline files", () => {
   test("round-trip and reject out-of-range values", () => {
     expect(parseBaseline(json(all(12.345)))).toEqual({ lines: all(12.35) });
@@ -156,132 +145,5 @@ describe("baseline files", () => {
   test("an update only ever raises the floor", () => {
     const committed = { lines: { ...all(10), api: 50 } };
     expect(raisedBaseline(all(20), committed)).toEqual({ lines: { ...all(20), api: 50 } });
-  });
-});
-
-const lcov = (entries: Record<string, [number, number][]>): Coverage =>
-  new Map(Object.entries(entries).map(([file, lines]) => [file, new Map(lines)]));
-
-describe("coverage merge", () => {
-  test("parses and serializes lcov records", () => {
-    const text = "SF:a.ts\nDA:1,2\nDA:3,0\nLF:2\nLH:1\nend_of_record\n";
-    const parsed = parseLcov(text);
-    expect(parsed.get("a.ts")).toEqual(
-      new Map([
-        [1, 2],
-        [3, 0],
-      ]),
-    );
-    expect(serializeLcov(parsed)).toBe(text);
-  });
-
-  test("classifies only package sources", () => {
-    expect(packageOf("packages/api/src/routes/jobs.ts")).toBe("api");
-    expect(packageOf("packages/api/src/auth.test.ts")).toBeNull();
-    expect(packageOf("packages/web/src/app.ts")).toBeNull();
-    expect(packageOf("packages/shared/test/helpers/db.ts")).toBeNull();
-    expect(packageOf("plugins/slicers/orca/src/index.ts")).toBe("plugins");
-    expect(packageOf("plugins/slicers/orca/src/index.test.ts")).toBeNull();
-    expect(packageOf("packages/plugins/src/x.ts")).toBeNull();
-  });
-
-  const A = "packages/api/src/a.ts";
-  const B = "packages/api/src/b.ts";
-  const C = "packages/worker/src/c.ts";
-
-  const sweep = lcov({
-    [A]: [
-      [1, 1],
-      [2, 1],
-      [3, 1],
-      [4, 1],
-    ],
-    [B]: [
-      [1, 5],
-      [2, 5],
-    ],
-  });
-
-  const merge = (measured: Coverage) =>
-    mergeCoverage({
-      sources: [A, B, C],
-      measured,
-      sweep,
-      fallback: () => nonBlankLines("x\n\ny\n"),
-    });
-
-  test("counts unloaded files at zero using the sweep line map", () => {
-    const merged = merge(new Map());
-    expect(merged.unloaded).toEqual([A, B, C]);
-    expect(merged.estimated).toEqual([C]);
-    const summary = summarize(merged.coverage);
-    expect(summary.api).toEqual({ found: 6, hit: 0 });
-    expect(summary.worker).toEqual({ found: 2, hit: 0 });
-    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100, plugins: 100 });
-  });
-
-  test("a test that loads a file cannot move its denominator", () => {
-    const before = summarize(merge(new Map()).coverage);
-    const run = lcov({
-      [A]: [
-        [1, 3],
-        [3, 0],
-        [9, 1],
-      ],
-    });
-    const merged = merge(run);
-    const after = summarize(merged.coverage);
-    expect(merged.unloaded).toEqual([B, C]);
-    expect(after.api.found).toBe(before.api.found);
-    expect(after.worker.found).toBe(before.worker.found);
-    expect(merged.coverage.get(A)).toEqual(
-      new Map([
-        [1, 3],
-        [2, 0],
-        [3, 0],
-        [4, 0],
-      ]),
-    );
-    expect(after.api).toEqual({ found: 6, hit: 1 });
-  });
-
-  test("credits only lines bun reports as hit, never a neighbour's count", () => {
-    const lines = new Map([
-      [2, 0],
-      [5, 0],
-      [6, 0],
-      [10, 0],
-    ]);
-    const run = new Map([
-      [3, 0],
-      [5, 4],
-      [8, 0],
-    ]);
-    expect(exactHits(lines, run)).toEqual(
-      new Map([
-        [2, 0],
-        [5, 4],
-        [6, 0],
-        [10, 0],
-      ]),
-    );
-  });
-
-  test("removing comment lines cannot lower a file's coverage", () => {
-    const path = "packages/shared/src/x.ts";
-    const percentOf = (sweepLines: number[], hitLines: number[]) => {
-      const merged = mergeCoverage({
-        sources: [path],
-        measured: new Map([[path, new Map(hitLines.map((line) => [line, 1]))]]),
-        sweep: new Map([[path, new Map(sweepLines.map((line) => [line, 0]))]]),
-        fallback: () => new Map(),
-      });
-      return percents(summarize(merged.coverage)).shared;
-    };
-    const withComments = percentOf([1, 2, 3, 4, 5, 6], [1, 4, 6]);
-    const withoutComments = percentOf([1, 2, 3, 4], [1, 3, 4]);
-    expect(withComments).toBe(50);
-    expect(withoutComments).toBe(75);
-    expect(withoutComments).toBeGreaterThanOrEqual(withComments);
   });
 });

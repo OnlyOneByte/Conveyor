@@ -8,23 +8,23 @@ export const PACKAGES = ["api", "worker", "shared", "plugins"] as const;
 
 export type PackageName = (typeof PACKAGES)[number];
 
-const PACKAGE_SOURCE = /^packages\/([^/]+)\/src\/.+\.(ts|tsx|mts|cts|js|mjs)$/;
+const CODE = /\.(ts|tsx|mts|cts|js|mjs)$/;
 
-const PLUGIN_SOURCE = /^plugins\/[^/]+\/[^/]+\/src\/.+\.(ts|tsx|mts|cts|js|mjs)$/;
+const NOT_SOURCE = /(\.(test|spec)\.[^.]+$|\.d\.ts$)/;
 
-const TEST = /\.(test|spec)\.[^.]+$/;
+const TEST_HELPERS = /^(packages\/[^/]+|plugins\/[^/]+\/[^/]+)\/test\//;
 
 const asPackage = (name: string | undefined): PackageName | null =>
   PACKAGES.find((known) => known === name) ?? null;
 
 const rawPackageOf = (path: string): PackageName | null => {
-  if (PLUGIN_SOURCE.test(path)) return "plugins";
-  const name = PACKAGE_SOURCE.exec(path)?.[1];
+  if (/^plugins\/[^/]+\/[^/]+\//.test(path)) return "plugins";
+  const name = /^packages\/([^/]+)\//.exec(path)?.[1];
   return name === "plugins" ? null : asPackage(name);
 };
 
 export function packageOf(path: string): PackageName | null {
-  if (TEST.test(path) || path.endsWith(".d.ts")) return null;
+  if (!CODE.test(path) || NOT_SOURCE.test(path) || TEST_HELPERS.test(path)) return null;
   return rawPackageOf(path);
 }
 
