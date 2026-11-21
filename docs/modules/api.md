@@ -6,8 +6,9 @@ It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only i
 
 ## Boot order (`index.ts`)
 
-The auth guard (an `onRequest` hook) registers before every route, then the login routes it lets through, then
-the generator, upload, catalog and job routes.
+`index.ts` registers `GET /health` first, then the auth guard (a root `onRequest` hook), then the login routes it
+lets through, then the generator, upload, catalog and job routes. The guard covers every route registered after
+it. `/health` comes before it and is public by design: it is also in `PUBLIC_PREFIXES`.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
@@ -71,7 +72,7 @@ the generator, upload, catalog and job routes.
   shared volume, where the worker's passthrough generator reads them. The client submits the returned
   `uploadId` as the passthrough generator's `params.uploadId`.
 - The bytes are never treated as code; they go to the slicer as-is. Only the size cap (`MAX_UPLOAD_BYTES`,
-  default 100 MB, 413 when exceeded) and the `.stl` extension (415 otherwise) are enforced.
+  default 100 MiB, 413 when exceeded) and the `.stl` extension (415 otherwise) are enforced.
 
 ## Registry view (`registry-view.ts`, `validate.ts`, `routes/generators.ts`)
 
