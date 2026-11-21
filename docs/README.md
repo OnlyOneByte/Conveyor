@@ -22,6 +22,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite, Redis and filesystem storage |
 | [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
 | [M2-TRANSPORTS.md](M2-TRANSPORTS.md) | Moonraker and Elegoo transports |
+| [SLICER-PROFILES.md](SLICER-PROFILES.md) | How edited slicer profiles are validated |
 | [ui-mockup.html](ui-mockup.html) | The original UI mockup |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 
