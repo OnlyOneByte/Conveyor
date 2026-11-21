@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -33,7 +33,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Biome lint and import order
-        run: bunx biome check --formatter-enabled=false --error-on-warnings --reporter=github .
+        run: bun run lint --reporter=github
 
   format:
     name: format
@@ -50,7 +50,7 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Biome format check
-        run: bunx biome format --reporter=github .
+        run: bun run format:check --reporter=github
 
   typecheck:
     name: typecheck
@@ -115,11 +115,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Comment ratchet
-        run: bun scripts/checks/comments.ts
+      - name: Comment ratchet against the base
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
+        run: bun scripts/checks/comments.ts --base "$BASE_REF"
 
   docker-build:
     name: Docker build (${{ matrix.service }})

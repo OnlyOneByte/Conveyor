@@ -14,7 +14,7 @@
     "dev:api": "bun run --cwd packages/api dev",
     "dev:worker": "bun run --cwd packages/worker dev",
     "dev": "docker compose up --build",
-    "lint": "biome lint .",
+    "lint": "biome check --formatter-enabled=false --error-on-warnings .",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "biome check .",
