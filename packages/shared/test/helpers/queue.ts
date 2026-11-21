@@ -45,3 +45,18 @@ export function queueHarness(): QueueHarness {
     },
   };
 }
+
+export async function holdWriteLock(
+  path: string,
+  sqlWhileHeld = "SELECT 1",
+): Promise<{ exited: Promise<number> }> {
+  const script = `const db = new (require("bun:sqlite").Database)(process.env.DB_FILE);
+    db.exec("BEGIN IMMEDIATE"); console.log("locked"); Bun.sleepSync(300);
+    db.exec(process.env.SQL_WHILE_HELD); db.exec("COMMIT");`;
+  const holder = Bun.spawn([process.execPath, "-e", script], {
+    env: { ...process.env, DB_FILE: path, SQL_WHILE_HELD: sqlWhileHeld },
+    stdout: "pipe",
+  });
+  await holder.stdout.getReader().read();
+  return { exited: holder.exited };
+}

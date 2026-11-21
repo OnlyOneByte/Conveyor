@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeLegacyStationDb } from "../../test/helpers/legacy-db.ts";
+import { holdWriteLock } from "../../test/helpers/queue.ts";
 import {
   dbGetJob,
   dbGetOrcaProfileDocuments,
@@ -184,6 +185,19 @@ describe("openDb legacy station migration", () => {
     expect(db.query<{ synchronous: number }, []>("PRAGMA synchronous").get()).toEqual({
       synchronous: 1,
     });
+  });
+});
+
+describe("openDb migration lock", () => {
+  test("waits for a process that adds a queue column first instead of failing on it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "conveyor-migrate-"));
+    dirs.push(dir);
+    const path = join(dir, "conveyor.db");
+    openDb(path).exec("ALTER TABLE jobs DROP COLUMN progress");
+    openDb(join(dir, "other.db"));
+    const holder = await holdWriteLock(path, "ALTER TABLE jobs ADD COLUMN progress REAL");
+    expect(namesOf(openDb(path), "PRAGMA table_info(jobs)")).toContain("progress");
+    expect(await holder.exited).toBe(0);
   });
 });
 

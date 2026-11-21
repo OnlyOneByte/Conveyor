@@ -47,19 +47,11 @@ export function enqueueJob(
 ): void {
   const at = timing.now();
   const { generator, printerId, profileId } = job.request;
+  const params = generator.params === undefined ? null : JSON.stringify(generator.params);
   db.query(
     `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, run_after, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?)`,
-  ).run(
-    job.id,
-    generator.id,
-    generator.params === undefined ? null : JSON.stringify(generator.params),
-    printerId,
-    profileId,
-    at,
-    at,
-    at,
-  );
+  ).run(job.id, generator.id, params, printerId, profileId, at, at, at);
 }
 
 interface ClaimRow {

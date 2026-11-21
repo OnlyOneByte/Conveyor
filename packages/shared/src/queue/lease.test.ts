@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
-import { type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
+import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { claimJob, DEFAULT_TIMING, releaseLease, renewLease } from "./lease.ts";
 
 let h: QueueHarness;
@@ -77,13 +77,16 @@ describe("renewLease", () => {
     expect(h.row("a").lease_until).toBe(h.timing.now() + 30_000);
   });
 
-  test("refuses a stale token, another owner, and a lease past its own expiry", () => {
+  test("refuses a stale token, another owner, a settled job, and a lease past its own expiry", () => {
     h = queueHarness();
     h.enqueue("a");
     const lease = claimJob(h.db, "w1", h.timing)?.lease;
     if (!lease) throw new Error("not claimed");
     expect(renewLease(h.db, { ...lease, token: lease.token - 1 }, h.timing)).toBeNull();
     expect(renewLease(h.db, { ...lease, owner: "w2" }, h.timing)).toBeNull();
+    h.set("a", "state = 'done'");
+    expect(renewLease(h.db, lease, h.timing)).toBeNull();
+    h.set("a", "state = 'generating'");
     h.advance(30_001);
     expect(renewLease(h.db, lease, h.timing)).toBeNull();
     expect(h.row("a").lease_until).toBe(lease.until);
@@ -95,20 +98,7 @@ describe("renewLease", () => {
     const realClock = { ...DEFAULT_TIMING, now: Date.now };
     const lease = claimJob(h.db, "w1", realClock)?.lease;
     if (!lease) throw new Error("not claimed");
-    const holder = Bun.spawn(
-      [
-        process.execPath,
-        "-e",
-        `const { Database } = require("bun:sqlite");
-         const db = new Database(process.env.DB_FILE);
-         db.exec("BEGIN IMMEDIATE");
-         console.log("locked");
-         Bun.sleepSync(300);
-         db.exec("COMMIT");`,
-      ],
-      { env: { ...process.env, DB_FILE: h.path }, stdout: "pipe" },
-    );
-    await holder.stdout.getReader().read();
+    const holder = await holdWriteLock(h.path);
     const calledAt = Date.now();
     const renewed = renewLease(h.db, lease, realClock);
     expect(await holder.exited).toBe(0);

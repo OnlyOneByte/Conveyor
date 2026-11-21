@@ -20,7 +20,7 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   db.exec("PRAGMA synchronous = NORMAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA_SQL);
-  migrate(db);
+  db.transaction(() => migrate(db)).immediate();
   seedDefaults(db);
   singleton = db;
   singletonPath = path;

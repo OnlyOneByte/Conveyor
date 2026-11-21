@@ -286,7 +286,9 @@ would otherwise resolve to "not found" only because it fell off the window.
 `SCHEMA_SQL` is `CREATE TABLE IF NOT EXISTS` only, so it cannot change a table that already exists: a column
 added to the DDL is absent from any database created before it, and the first insert naming that column
 fails. `migrate()`, in `db/migrate.ts`, reshapes existing tables, each step guarded on the live table
-shape and safe on every boot.
+shape and safe on every boot. `openDb` runs it in one `BEGIN IMMEDIATE` transaction, so when the api and the worker
+start together the second waits for the first and then sees its columns, instead of failing on a
+duplicate `ADD COLUMN` (#8).
 
 1. **`jobs.station_id` → `printer_id` and `profile_id`.** A full table rebuild, because `station_id` was
    `NOT NULL`: adding columns would leave it in place and every later insert would fail. SQLite cannot drop
