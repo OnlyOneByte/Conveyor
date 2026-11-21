@@ -224,6 +224,12 @@ shared by the API (route dispatch), the worker (materialization) and the web cli
 A slicer with no editable format returns `null` and is read-only in the editor. Adding a slicer's format
 there makes its profiles editable everywhere at once.
 
+## queue-mode.ts
+
+`queueMode(env)` reads `CONVEYOR_QUEUE`: `redis` (the default, also for an empty value) or `sqlite`, and
+throws on anything else. `sqlite` also throws unless `CONVEYOR_QUEUE_UNSTABLE=1` is set. The worker and the
+api both call it at startup and exit with code 1 on a throw, so they always agree on what a value means.
+
 ## db/index.ts
 
 Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the same on aarch64 and x86_64).

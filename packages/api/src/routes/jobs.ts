@@ -7,46 +7,23 @@ import {
   jobCancelKey,
   jobChannel,
   jobControlChannel,
-  jobRequestSchema,
   jobSnapshotKey,
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
-import {
-  ArtifactError,
-  type ArtifactKind,
-  openArtifactStream,
-  resolveJobArtifact,
-} from "../artifact-download.js";
 import { cancelJob } from "../cancel.js";
 import { jobQueue, redis } from "../queue.js";
-import { validateJobRequest } from "../validate.js";
+import { parseSubmission, registerArtifactRoute } from "./job-common.js";
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
-  // Submit a job → validate compatibility → enqueue.
   app.post("/jobs", async (req, reply) => {
-    const parsed = jobRequestSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
-
-    // The pair the request names IS the print target: the printer supplies the
-    // transport, the profile supplies the slicer and g-code flavour.
-    const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
-    if (!target) {
-      return reply.code(404).send({
-        error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
-      });
-    }
-
-    try {
-      validateJobRequest(parsed.data, target); // throws CompatibilityError → 400
-    } catch (err) {
-      return reply.code(400).send({ error: (err as Error).message });
-    }
+    const submission = parseSubmission(req.body);
+    if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
 
     const jobId = randomUUID();
-    await jobQueue.add("job", parsed.data, { jobId });
+    await jobQueue.add("job", submission.request, { jobId });
     return reply.code(202).send({ jobId });
   });
 
@@ -78,32 +55,7 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(JSON.parse(snapshot));
   });
 
-  // Download a settled job's build artifact (the STL it generated or the gcode it
-  // sliced). The only request-supplied surface is the opaque jobId and a fixed kind
-  // enum; the path comes from the job's own record and is containment-checked under
-  // its work dir (see artifact-download.ts). 404 = unknown/never-produced, 410 = the
-  // file was recorded but has since been reaped.
-  app.get<{ Params: { id: string; kind: string } }>(
-    "/jobs/:id/artifact/:kind",
-    async (req, reply) => {
-      const kind = req.params.kind;
-      if (kind !== "model" && kind !== "gcode") {
-        return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
-      }
-      try {
-        const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
-        reply
-          .header("content-type", art.contentType)
-          .header("content-length", art.size)
-          .header("content-disposition", `attachment; filename="${art.filename}"`);
-        return reply.send(openArtifactStream(art.path));
-      } catch (err) {
-        if (err instanceof ArtifactError)
-          return reply.code(err.statusCode).send({ error: err.message });
-        throw err;
-      }
-    },
-  );
+  registerArtifactRoute(app);
 
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const result = await cancelJob(req.params.id, {
