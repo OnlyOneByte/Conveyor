@@ -33,6 +33,7 @@ export interface TeardownWiring {
   teardown: () => Promise<void>;
   exit: (code: number) => void;
   report: (reason: unknown) => void;
+  leftovers: () => string[];
 }
 
 const EXIT_CODES: Record<ExitTrigger, number> = {
@@ -71,13 +72,27 @@ export function createTeardown(handles: StackHandles, timing: TeardownTiming): (
   };
 }
 
-export function tearDownOnExit({ events, teardown, exit, report }: TeardownWiring): () => void {
+function forcedExitError(leftovers: string[]): Error {
+  const left = leftovers.length > 0 ? leftovers.join("; ") : "nothing recorded";
+  return new Error(`forced exit before teardown finished; may be left behind: ${left}`);
+}
+
+export function tearDownOnExit({
+  events,
+  teardown,
+  exit,
+  report,
+  leftovers,
+}: TeardownWiring): () => void {
   let isTearingDown = false;
   const listeners = EXIT_TRIGGERS.map((trigger) => {
     const listener = (reason: unknown) => {
       const isSignal = trigger === "SIGINT" || trigger === "SIGTERM";
       if (!isSignal) report(reason);
-      if (isSignal && isTearingDown) return exit(EXIT_CODES[trigger]);
+      if (isSignal && isTearingDown) {
+        report(forcedExitError(leftovers()));
+        return exit(EXIT_CODES[trigger]);
+      }
       isTearingDown = true;
       teardown().then(
         () => exit(EXIT_CODES[trigger]),

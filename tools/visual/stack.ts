@@ -20,6 +20,7 @@ export interface Stack {
 type Log = (line: string) => void;
 
 export interface StackChild extends ChildHandle {
+  pid: number;
   exitCode: number | null;
   exited: Promise<number>;
   stdout: ReadableStream<Uint8Array>;
@@ -88,11 +89,16 @@ export function redisContainer(port: number): { url: string; dockerRun: string[]
   };
 }
 
-async function startRedis(deps: StackDeps, handles: StackHandles): Promise<string> {
+async function startRedis(
+  deps: StackDeps,
+  handles: StackHandles,
+  leftovers: string[],
+): Promise<string> {
   const container = redisContainer(await freePort());
   const run = deps.spawnSync(container.dockerRun);
   if (run.exitCode !== 0) throw new Error(`docker run redis failed: ${run.stderr.toString()}`);
   const id = run.stdout.toString().trim();
+  leftovers.push(`Redis container ${id} (remove it with: docker rm -f ${id})`);
   handles.cleanups.push(async () => {
     const removed = deps.spawnSync(["docker", "rm", "-f", id]);
     if (removed.exitCode !== 0)
@@ -145,12 +151,18 @@ export async function bootStack(
   deps: StackDeps = defaultDeps,
 ): Promise<Stack> {
   const handles: StackHandles = { children: [], cleanups: [] };
+  const leftovers: string[] = [];
+  const running = new Map<number, string>();
   const teardown = createTeardown(handles, { killAfterMs: KILL_AFTER_MS, sleep: deps.sleep });
   const detach = tearDownOnExit({
     events: deps.events,
     teardown,
     exit: deps.exit,
     report: (reason) => console.error(reason),
+    leftovers: () => [
+      ...[...running].map(([pid, name]) => `${name} process ${pid} (kill it with: kill -9 ${pid})`),
+      ...leftovers,
+    ],
   });
   const stop = async () => {
     try {
@@ -162,13 +174,16 @@ export async function bootStack(
   try {
     const dataDir = await mkdtemp(join(tmpdir(), "conveyor-visual-"));
     handles.cleanups.push(() => rm(dataDir, { recursive: true, force: true }));
-    const redisUrl = await startRedis(deps, handles);
+    leftovers.push(`temp directory ${dataDir}`);
+    const redisUrl = await startRedis(deps, handles, leftovers);
     const apiPort = await freePort();
     const webPort = await freePort();
     const env = stackEnv(process.env, { redisUrl, dataDir, apiPort });
     const launch = (name: string, cmd: string[], cwd: string) => {
       const proc = deps.spawn({ cmd, cwd, env });
       handles.children.push(proc);
+      running.set(proc.pid, name);
+      proc.exited.then(() => running.delete(proc.pid));
       pipeLines(name, proc.stdout, log).catch((err) =>
         log(`[${name}] stdout closed: ${messageOf(err)}`),
       );

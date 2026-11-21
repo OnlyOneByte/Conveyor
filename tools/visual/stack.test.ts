@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
 import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } from "./stack.ts";
@@ -65,6 +65,8 @@ interface FakeStack {
   dataDirs: string[];
   listenersAtSpawn: number[][];
   emitter: EventEmitter;
+  sleeps: number[];
+  exits: number[];
 }
 
 function closedStream(): ReadableStream<Uint8Array> {
@@ -85,13 +87,20 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
     dataDirs: [],
     listenersAtSpawn: [],
     emitter,
+    sleeps: [],
+    exits: [],
     deps: {
       events: {
         on: (event, listener) => emitter.on(event, listener),
         off: (event, listener) => emitter.off(event, listener),
       },
-      exit: () => {},
-      sleep: () => new Promise<void>(() => {}),
+      exit: (code) => {
+        fake.exits.push(code);
+      },
+      sleep: (ms) => {
+        fake.sleeps.push(ms);
+        return new Promise<void>(() => {});
+      },
       spawnSync: (cmd) => {
         fake.dockerCalls.push(cmd);
         const isRm = cmd[1] === "rm";
@@ -120,6 +129,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
             : undefined;
         if (exitCode !== null) resolve(exitCode);
         const child: StackChild = {
+          pid: 4000 + fake.children.length,
           exitCode,
           exited: promise,
           stdout: closedStream(),
@@ -169,5 +179,32 @@ describe("bootStack teardown wiring", () => {
     expect(fake.children.map((c) => c.signals)).toEqual([["SIGTERM"]]);
     expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-1"]);
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
+  });
+
+  test("gives every child 5 s after SIGTERM before SIGKILL", async () => {
+    const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
+    const stack = await bootStack("/repo", () => {}, fake.deps);
+    await stack.stop();
+    expect(fake.sleeps).toEqual([5000, 5000, 5000, 5000]);
+  });
+
+  test("a forced exit names the running children, the Redis container and the temp dir", async () => {
+    const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
+    const stack = await bootStack("/repo", () => {}, fake.deps);
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      fake.emitter.emit("SIGINT");
+      fake.emitter.emit("SIGINT");
+      expect(fake.exits).toEqual([130]);
+      const message = String(errors.mock.calls[0]?.[0]);
+      expect(message).toContain("Redis container cid-1 (remove it with: docker rm -f cid-1)");
+      expect(message).toContain("api process 4001 (kill it with: kill -9 4001)");
+      expect(message).toContain("web process 4004");
+      expect(message).not.toContain("build process");
+      expect(message).toContain(`temp directory ${fake.dataDirs[0]}`);
+    } finally {
+      await stack.stop();
+      errors.mockRestore();
+    }
   });
 });

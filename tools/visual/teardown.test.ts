@@ -1,104 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { EventEmitter } from "node:events";
+import { createTeardown, EXIT_TRIGGERS, tearDownOnExit } from "./teardown.ts";
 import {
-  type ChildHandle,
-  createTeardown,
-  EXIT_TRIGGERS,
-  type ExitEvents,
-  type ExitTrigger,
-  type TeardownTiming,
-  tearDownOnExit,
-} from "./teardown.ts";
-
-interface FakeChild extends ChildHandle {
-  signals: string[];
-  finishExit: () => void;
-}
-
-function fakeChild(calls: string[], name: string, exitsOn: "SIGTERM" | "SIGKILL" | "manual") {
-  const { promise, resolve } = Promise.withResolvers<number>();
-  const child: FakeChild = {
-    signals: [],
-    exited: promise.then((code) => {
-      calls.push(`exited ${name}`);
-      return code;
-    }),
-    finishExit: () => resolve(0),
-    kill: (signal) => {
-      const sent = signal ?? "SIGTERM";
-      child.signals.push(sent);
-      calls.push(`${sent} ${name}`);
-      if (sent === exitsOn) resolve(0);
-    },
-  };
-  return child;
-}
-
-function neverElapses(): TeardownTiming {
-  return { killAfterMs: 5000, sleep: () => new Promise<void>(() => {}) };
-}
-
-function manualTimer() {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  const delays: number[] = [];
-  const timing: TeardownTiming = {
-    killAfterMs: 5000,
-    sleep: (ms) => {
-      delays.push(ms);
-      return promise;
-    },
-  };
-  return { timing, delays, elapse: resolve };
-}
-
-function fakeStack(timing: TeardownTiming = neverElapses()) {
-  const calls: string[] = [];
-  const children = ["api", "worker", "web"].map((name) => fakeChild(calls, name, "SIGTERM"));
-  const cleanups = [
-    async () => {
-      calls.push("docker rm redis");
-    },
-    async () => {
-      calls.push("rm data dir");
-    },
-  ];
-  return { calls, children, teardown: createTeardown({ children, cleanups }, timing) };
-}
-
-function fakeProcess() {
-  const emitter = new EventEmitter();
-  const events: ExitEvents = {
-    on: (event, listener) => emitter.on(event, listener),
-    off: (event, listener) => emitter.off(event, listener),
-  };
-  const exits: number[] = [];
-  const reports: unknown[] = [];
-  const { promise: exited, resolve } = Promise.withResolvers<void>();
-  const emit = (trigger: ExitTrigger, reason?: unknown) => emitter.emit(trigger, reason);
-  const wiring = {
-    events,
-    exit: (code: number) => {
-      exits.push(code);
-      resolve();
-    },
-    report: (reason: unknown) => reports.push(reason),
-  };
-  return { emitter, emit, exits, reports, exited, wiring };
-}
-
-function failingCleanupTeardown() {
-  return createTeardown(
-    {
-      children: [],
-      cleanups: [
-        async () => {
-          throw new Error("docker rm -f abc failed: no such daemon");
-        },
-      ],
-    },
-    neverElapses(),
-  );
-}
+  failingCleanupTeardown,
+  fakeChild,
+  fakeProcess,
+  fakeStack,
+  manualTimer,
+  neverElapses,
+} from "./teardown-fakes.ts";
 
 describe("createTeardown", () => {
   test("kills every child, waits for it, then removes the container and the data dir", async () => {
@@ -124,17 +33,26 @@ describe("createTeardown", () => {
     expect(calls).toEqual(["SIGTERM web", "exited web", "docker rm redis"]);
   });
 
-  test("sends SIGKILL to a child still running after killAfterMs", async () => {
+  test("sends SIGKILL after killAfterMs and waits for the child to exit before cleanup", async () => {
     const calls: string[] = [];
-    const stubborn = fakeChild(calls, "api", "SIGKILL");
+    const stubborn = fakeChild(calls, "api", "manual");
     const timer = manualTimer();
-    const done = createTeardown({ children: [stubborn], cleanups: [] }, timer.timing)();
+    const cleanups = [
+      async () => {
+        calls.push("docker rm redis");
+      },
+    ];
+    const done = createTeardown({ children: [stubborn], cleanups }, timer.timing)();
     await Bun.sleep(0);
     expect(stubborn.signals).toEqual(["SIGTERM"]);
     expect(timer.delays).toEqual([5000]);
     timer.elapse();
-    await done;
+    await Bun.sleep(0);
     expect(stubborn.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(calls).not.toContain("docker rm redis");
+    stubborn.finishExit();
+    await done;
+    expect(calls).toEqual(["SIGTERM api", "SIGKILL api", "exited api", "docker rm redis"]);
   });
 
   test("does not SIGKILL a child that exited on SIGTERM", async () => {
@@ -209,6 +127,9 @@ describe("tearDownOnExit", () => {
     proc.emit("SIGTERM");
     expect(proc.exits).toEqual([143]);
     expect(teardowns).toBe(1);
+    expect(String(proc.reports[0])).toContain(
+      "forced exit before teardown finished; may be left behind: Redis container cid-1",
+    );
   });
 
   test("a teardown that fails after a signal is reported and exits 1", async () => {
