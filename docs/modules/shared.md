@@ -251,8 +251,9 @@ instead of enqueueing a job that cannot run.
 been deleted has a null printer and profile; `rowToJob` surfaces them as empty strings rather than invent
 values.
 
-`dbGetJob(id)` exists because `dbListJobs()` is windowed (50 by default, 200 at most): a deep link to an
-older job would otherwise resolve to "not found" only because it fell off the window.
+`dbGetJob(id)` exists because `dbListJobs()` is windowed (50 rows by default; the API's `/jobs-history`
+route in `packages/api/src/routes/catalog.ts` caps a requested limit at 200): a deep link to an older job
+would otherwise resolve to "not found" only because it fell off the window.
 
 ### Migrations
 
