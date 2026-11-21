@@ -87,7 +87,7 @@ function buildTransport(h: Harness, opts: HarnessOptions): TransportPlugin {
   return transport;
 }
 
-function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
+export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
   const generator: GeneratorPlugin = {
     id: "gen",
     name: "fake generator",

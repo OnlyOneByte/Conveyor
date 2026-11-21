@@ -58,11 +58,32 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 - A materialized profile that cannot be removed after slicing does not fail the job; it is added to the
   job's notes, which appear in the terminal status message.
 
+## loop.ts
+
+`startQueueWorker` runs jobs from the SQLite queue. Nothing starts it yet; the entry point behind
+`CONVEYOR_QUEUE=sqlite` is the next step.
+
+- **Claim.** Every `claimIdleMs` (1 s), and at once when a job leaves engine work or ends, it claims while
+  fewer than `concurrency` (`WORKER_CONCURRENCY`) of its jobs run an engine. A job counts from its claim
+  until it reaches the printer slot; a job waiting at the slot, on the printer or resumed does not count.
+  A claimed orphan runs `resumeJob`, any other job `runJob`, in `<dataDir>/<jobId>`.
+- **Run timer.** Each job has one timer, every `tickMs` (1 s). Each tick reads `isCancelRequested` and aborts
+  the run when it is set, so a cancel reaches a running engine within a second. Every `renewEvery`-th tick
+  (10th) renews the lease.
+- **Renewal.** `renewLease` changing nothing is a lost lease. `SQLITE_BUSY` is retried every `busyRetryMs`
+  (1 s) until `busyMarginMs` (5 s) before the lease ends, then the lease counts as lost. A lost lease aborts
+  the run with `LeaseLostError`.
+- **Reaper.** `reapExpired` runs at start and every `reapMs` (10 s).
+- **Known limits.** An orphan is only claimed while an engine slot is free, because `claimJob` cannot ask for
+  orphans alone. An idle worker takes the write lock for each claim attempt, without the design's read-only
+  `SELECT EXISTS` first. `stop()` only stops claiming and aborts the running jobs; releasing them by phase on
+  `SIGTERM` is the next step.
+
 ## queue-deps.ts
 
 `queueDeps` turns a claimed SQLite lease into the pipeline's status, history and cancel deps, plus the
-`queue` hooks the print and settle steps call. Nothing uses it yet: the run loop behind
-`CONVEYOR_QUEUE=sqlite` is the next step, and the Redis path does not pass `queue`, so it is unchanged.
+`queue` hooks the print and settle steps call. `startQueueWorker` builds one per job. The Redis path does
+not pass `queue`, so it is unchanged.
 
 | Step | On the SQLite queue |
 | --- | --- |
