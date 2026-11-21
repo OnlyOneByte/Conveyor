@@ -12,6 +12,7 @@ import { parseArgs } from "node:util";
 import { type Coverage, parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
+  CHECKER_PATH,
   checkRatchet,
   parseBaseline,
   raisedBaseline,
@@ -69,8 +70,7 @@ function readFailures(text: string | null): string[] | null {
 
 const sweepEnv = (dir: string, files: string[]) => ({
   ...process.env,
-  CONVEYOR_PASSWORD: "coverage-sweep",
-  CONVEYOR_AUTH_SECRET: "coverage-sweep-secret-coverage-sweep-secret",
+  CONVEYOR_AUTH: "disabled",
   DB_PATH: join(dir, "sweep.db"),
   DATA_DIR: join(dir, "data"),
   [SWEEP_ENV]: files.join("\n"),
@@ -147,15 +147,23 @@ function update(summary: Summary): number {
   return 0;
 }
 
-function baseBaseline(ref: string): string | null | Error {
+interface Base {
+  baseline: string | null;
+  hasChecker: boolean;
+}
+
+function readBase(ref: string): Base | Error {
   if (git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) === null) {
     return new Error(`base ref ${ref} does not resolve; fetch it first`);
   }
-  return git(["show", `${ref}:${BASELINE_PATH}`]);
+  return {
+    baseline: git(["show", `${ref}:${BASELINE_PATH}`]),
+    hasChecker: git(["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
+  };
 }
 
 function check(summary: Summary, ref: string): number {
-  const base = baseBaseline(ref);
+  const base = readBase(ref);
   if (base instanceof Error) {
     console.error(base.message);
     return 1;
@@ -163,10 +171,15 @@ function check(summary: Summary, ref: string): number {
   const { errors } = checkRatchet({
     current: percents(summary),
     committed: readOrNull(join(ROOT, BASELINE_PATH)),
-    base,
+    base: base.baseline,
+    baseHasChecker: base.hasChecker,
   });
   for (const error of errors) console.error(error);
-  if (base === null) console.log(`base ${ref} has no ${BASELINE_PATH}; using the committed one`);
+  if (base.baseline === null && !base.hasChecker) {
+    console.log(
+      `base ${ref} predates the coverage checker; bootstrapping from the committed baseline`,
+    );
+  }
   return errors.length === 0 ? 0 : 1;
 }
 

@@ -2,6 +2,8 @@ import { PACKAGES, round2 } from "./summary";
 
 export const BASELINE_PATH = "scripts/checks/coverage/baseline.json";
 
+export const CHECKER_PATH = "scripts/checks/coverage/main.ts";
+
 export const TOLERANCE = 0.5;
 
 export type Percents = Record<string, number>;
@@ -49,6 +51,7 @@ export interface RatchetInput {
   current: Percents;
   committed: string | null;
   base: string | null;
+  baseHasChecker: boolean;
 }
 
 export interface RatchetResult {
@@ -65,6 +68,9 @@ function load(input: RatchetInput): Loaded | string {
   if (input.committed === null) return `${BASELINE_PATH} is missing`;
   const committed = parseBaseline(input.committed);
   if (committed === null) return `${BASELINE_PATH} is not a valid baseline`;
+  if (input.base === null && input.baseHasChecker) {
+    return `base has ${CHECKER_PATH} but no ${BASELINE_PATH}; refusing to bootstrap`;
+  }
   if (input.base === null) return { committed, allowed: committed, bootstrap: true };
   const allowed = parseBaseline(input.base);
   if (allowed === null) return `base ${BASELINE_PATH} is not a valid baseline`;

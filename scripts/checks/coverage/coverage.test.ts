@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type Coverage, exactHits, parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_PATH,
+  CHECKER_PATH,
   checkRatchet,
   type Percents,
   parseBaseline,
@@ -31,13 +32,15 @@ interface Case {
   current: Percents;
   committed?: Percents | null;
   base?: Percents | null;
+  baseHasChecker?: boolean;
 }
 
-const run = ({ current, committed, base }: Case) =>
+const run = ({ current, committed, base, baseHasChecker }: Case) =>
   checkRatchet({
     current,
     committed: committed === null ? null : json(committed ?? current),
     base: base === null || base === undefined ? null : json(base),
+    baseHasChecker: baseHasChecker ?? (base !== null && base !== undefined),
   });
 
 describe("checkRatchet", () => {
@@ -72,6 +75,13 @@ describe("checkRatchet", () => {
     expect(run({ current: all(12), committed: all(12), base: null }).errors).toEqual([]);
   });
 
+  test("fails when the base has the checker but its baseline is missing", () => {
+    const { errors } = run({ current: all(1), base: null, baseHasChecker: true });
+    expect(errors).toEqual([
+      `base has ${CHECKER_PATH} but no ${BASELINE_PATH}; refusing to bootstrap`,
+    ]);
+  });
+
   test("fails without a committed baseline", () => {
     expect(run({ current: all(1), committed: null }).errors).toEqual([
       `${BASELINE_PATH} is missing`,
@@ -79,7 +89,12 @@ describe("checkRatchet", () => {
   });
 
   test("fails on a malformed base baseline", () => {
-    const result = checkRatchet({ current: all(1), committed: json(all(1)), base: "{}" });
+    const result = checkRatchet({
+      current: all(1),
+      committed: json(all(1)),
+      base: "{}",
+      baseHasChecker: true,
+    });
     expect(result.errors).toEqual([`base ${BASELINE_PATH} is not a valid baseline`]);
   });
 
@@ -250,5 +265,23 @@ describe("coverage merge", () => {
         [10, 0],
       ]),
     );
+  });
+
+  test("removing comment lines cannot lower a file's coverage", () => {
+    const path = "packages/shared/src/x.ts";
+    const percentOf = (sweepLines: number[], hitLines: number[]) => {
+      const merged = mergeCoverage({
+        sources: [path],
+        measured: new Map([[path, new Map(hitLines.map((line) => [line, 1]))]]),
+        sweep: new Map([[path, new Map(sweepLines.map((line) => [line, 0]))]]),
+        fallback: () => new Map(),
+      });
+      return percents(summarize(merged.coverage)).shared;
+    };
+    const withComments = percentOf([1, 2, 3, 4, 5, 6], [1, 4, 6]);
+    const withoutComments = percentOf([1, 2, 3, 4], [1, 3, 4]);
+    expect(withComments).toBe(50);
+    expect(withoutComments).toBe(75);
+    expect(withoutComments).toBeGreaterThanOrEqual(withComments);
   });
 });
