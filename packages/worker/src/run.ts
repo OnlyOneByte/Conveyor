@@ -23,6 +23,7 @@ export interface TerminalRecord {
   gcodePath?: string;
   stage?: Stage;
   reason?: string;
+  notes?: string;
   timings?: StageTiming[];
 }
 
@@ -52,6 +53,7 @@ export interface RunJobOptions {
   controller: AbortController;
   cancelPollMs?: number;
   streamCloseMs?: number;
+  historyRetryMs?: number;
 }
 
 export class JobCanceledError extends Error {

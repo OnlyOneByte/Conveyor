@@ -135,6 +135,11 @@ describe("openDb legacy station migration", () => {
     const db = openLegacyDb();
     expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("timings_json");
   });
+
+  test("adds notes to the migrated jobs table", () => {
+    const db = openLegacyDb();
+    expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("notes");
+  });
 });
 
 describe("openDb legacy printers and profiles columns", () => {
