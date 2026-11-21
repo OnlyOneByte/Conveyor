@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { dbUpsertPrinter } from "../db/index.ts";
 import { claimJob, DEFAULT_TIMING, type Lease, releaseLease, renewLease } from "./lease.ts";
-import { reapExpired } from "./reaper.ts";
+import { reapExpired, UNKNOWN_REASON } from "./reaper.ts";
 
 let h: QueueHarness;
 afterEach(() => h.close());
@@ -53,7 +53,11 @@ describe("reapExpired", () => {
     const hold = h.db
       .query("SELECT hold_job_id, hold_reason, hold_at FROM printers WHERE id = 'p1'")
       .get();
-    expect(hold).toMatchObject({ hold_job_id: "a", hold_at: h.timing.now() });
+    expect(hold).toEqual({
+      hold_job_id: "a",
+      hold_reason: UNKNOWN_REASON,
+      hold_at: h.timing.now(),
+    });
     expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("other");
     expect(claimJob(h.db, "w1", h.timing)).toBeNull();
   });

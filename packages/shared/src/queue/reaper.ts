@@ -12,7 +12,7 @@ import {
   type QueueTiming,
 } from "./lease.js";
 
-export type ReapOutcome = "requeued" | "failed" | "unknown" | "orphaned";
+export type ReapOutcome = "requeued" | "canceled" | "failed" | "unknown" | "orphaned";
 
 export interface ReapedJob {
   jobId: string;
@@ -27,9 +27,10 @@ interface ReapRow {
   max_attempts: number;
   submit_started_at: number | null;
   submitted_at: number | null;
+  cancel_requested_at: number | null;
 }
 
-const UNKNOWN_REASON =
+export const UNKNOWN_REASON =
   "worker stopped while sending the job to the printer; check the printer before releasing it";
 
 function stageOf(state: ReapRow["state"]): Stage {
@@ -49,6 +50,7 @@ function stageOf(state: ReapRow["state"]): Stage {
 function outcomeOf(row: ReapRow): ReapOutcome {
   if (row.submitted_at !== null) return "orphaned";
   if (row.submit_started_at !== null) return "unknown";
+  if (row.cancel_requested_at !== null) return "canceled";
   return row.attempts < row.max_attempts ? "requeued" : "failed";
 }
 
@@ -64,7 +66,8 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
   return inImmediate(db, timing.now, (at) => {
     const rows = db
       .query<ReapRow, Record<string, number>>(
-        `SELECT id, printer_id, state, attempts, max_attempts, submit_started_at, submitted_at FROM jobs
+        `SELECT id, printer_id, state, attempts, max_attempts, submit_started_at, submitted_at,
+                cancel_requested_at FROM jobs
           WHERE state IN (${IN_FLIGHT_SQL})
             AND (lease_until < $now OR lease_until > $now + $leaseMs
                  OR (lease_owner IS NULL AND submitted_at IS NULL))`,
@@ -80,6 +83,11 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
           `UPDATE jobs SET ${TAKE_OVER}, ${CLEAR_PROGRESS}, state = 'queued', run_after = ?, updated_at = ? WHERE id = ?`,
         ).run(runAfter, at, row.id);
         appendEvent(db, { jobId: row.id, state: "queued", at });
+      } else if (outcome === "canceled") {
+        db.query(
+          `UPDATE jobs SET ${TAKE_OVER}, state = 'canceled', updated_at = ? WHERE id = ?`,
+        ).run(at, row.id);
+        appendEvent(db, { jobId: row.id, state: "canceled", at });
       } else {
         const error = { stage: stageOf(row.state), reason: reasonOf(row, outcome) };
         db.query(
