@@ -17,7 +17,6 @@ await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
 
 app.get("/health", async () => ({ ok: true }));
 
-// Auth gate first (onRequest hook), then the login routes it allows through.
 registerAuthGuard(app);
 await registerAuthRoutes(app);
 

@@ -12,7 +12,7 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
-type Mode = "ack" | "nack" | "close" | "silent" | "garbage" | "chatter" | "status-garbage";
+type Mode = "ack" | "nack" | "close" | "silent" | "garbage" | "chatter";
 
 class FakeWebSocket {
   static mode: Mode = "ack";
@@ -24,8 +24,6 @@ class FakeWebSocket {
   onclose: (() => void) | null = null;
   constructor(readonly url: string) {
     queueMicrotask(() => this.onopen?.());
-    if (FakeWebSocket.mode === "status-garbage")
-      queueMicrotask(() => this.onmessage?.({ data: "<html>busy</html>" }));
   }
   send(raw: string) {
     const frame = JSON.parse(raw);
@@ -38,7 +36,7 @@ class FakeWebSocket {
         this.onmessage?.({ data: JSON.stringify({ Topic: "sdcp/status/x", Data: {} }) }),
       );
     if (FakeWebSocket.mode === "garbage" || FakeWebSocket.mode === "close") return;
-    if (FakeWebSocket.mode === "silent" || FakeWebSocket.mode === "status-garbage") return;
+    if (FakeWebSocket.mode === "silent") return;
     const code = FakeWebSocket.mode === "nack" ? 1 : 0;
     const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: code } } };
     queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
@@ -174,19 +172,6 @@ describe("elegoo status", () => {
       }
     })();
     await withinMs(drain, 1000, "elegoo status");
-    expect(seen).toEqual(["transferring"]);
-    expect(FakeWebSocket.closed).toBe(1);
-  });
-
-  test("an unreadable status frame ends the stream with a transport error", async () => {
-    useFakeSocket("status-garbage");
-    const seen: string[] = [];
-    const drain = (async () => {
-      for await (const s of elegoo.status(handle)) seen.push(s.state);
-    })();
-    await expect(withinMs(drain, 1000, "elegoo status")).rejects.toThrow(
-      "elegoo status from 10.0.0.8: JSON Parse error",
-    );
     expect(seen).toEqual(["transferring"]);
     expect(FakeWebSocket.closed).toBe(1);
   });

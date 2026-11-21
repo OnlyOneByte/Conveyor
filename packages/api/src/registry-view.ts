@@ -2,19 +2,8 @@ import { gridfinity } from "@conveyor/generator-gridfinity";
 import { passthrough } from "@conveyor/generator-passthrough";
 import { createRegistry, type SlicerPlugin, type TransportPlugin } from "@conveyor/shared";
 
-/**
- * Capability + metadata view of the registry. The API runs validateJob() and
- * serves generator metadata (paramSchema/preview) to the PWA, but never calls a
- * plugin's generate()/slice()/submit() — those run only in the worker (ADR 0001).
- * Generator plugins are imported for their schema/preview/outputs (pure data);
- * slicer/transport capabilities are declared inline (their real adapters live in
- * the worker image with the engines). M-later: hydrate from worker-published
- * manifests over Redis on boot.
- */
 export const apiRegistry = createRegistry();
 
-// Real generator metadata (paramSchema drives the PWA form). generate() is wired
-// but never invoked in the api process.
 apiRegistry.generators.set(gridfinity.id, gridfinity);
 apiRegistry.generators.set(passthrough.id, passthrough);
 
