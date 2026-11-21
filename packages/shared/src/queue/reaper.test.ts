@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
+import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { claimJob, DEFAULT_TIMING, type Lease, releaseLease, renewLease } from "./lease.ts";
 import { reapExpired } from "./reaper.ts";
 
@@ -79,26 +79,16 @@ describe("reapExpired", () => {
     expect(reapExpired(h.db, h.timing)).toEqual([{ jobId: "a", outcome: "requeued" }]);
   });
 
-  test("reads the clock only once it holds the lock, so a renewal it waited on is not taken", async () => {
+  test("does not take over a lease another process renews while the reaper waits on the lock", async () => {
     claimed();
     const realClock = { ...DEFAULT_TIMING, now: Date.now };
     h.set("a", `lease_until = ${Date.now() + 30_000}`);
-    const holder = Bun.spawn(
-      [
-        process.execPath,
-        "-e",
-        `const { Database } = require("bun:sqlite");
-         const db = new Database(process.env.DB_FILE);
-         db.exec("BEGIN IMMEDIATE");
-         console.log("locked");
-         Bun.sleepSync(300);
-         db.query("UPDATE jobs SET lease_until = ? WHERE id = 'a'").run(Date.now() + 30000);
-         db.exec("COMMIT");`,
-      ],
-      { env: { ...process.env, DB_FILE: h.path }, stdout: "pipe" },
+    const renewer = await holdWriteLock(
+      h.path,
+      "UPDATE jobs SET lease_until = CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) + 30000 WHERE id = 'a'",
     );
-    await holder.stdout.getReader().read();
     expect(reapExpired(h.db, realClock)).toEqual([]);
-    expect(await holder.exited).toBe(0);
+    expect(await renewer.exited).toBe(0);
+    expect(h.row("a").lease_owner).toBe("w1");
   });
 });
