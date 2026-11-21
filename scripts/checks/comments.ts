@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { areaWrites, BASELINE_DIR, readAreas } from "./comments/areas";
 import { totals } from "./comments/baseline";
-import { checkRatchet } from "./comments/ratchet";
+import { checkRatchet, updateRefusal } from "./comments/ratchet";
 import { commentLines, languageOf } from "./comments/tally";
 import { measure, type Tree, treeAt, workingTree } from "./comments/tree";
 
@@ -19,8 +19,9 @@ const printStrict = (tree: Tree) => {
 };
 
 const update = (tree: Tree) => {
-  if (process.env.CI) {
-    console.error("--update is local only; commit the regenerated baseline instead");
+  const refusal = updateRefusal(process.env);
+  if (refusal !== null) {
+    console.error(refusal);
     return 1;
   }
   const current = measure(tree);
