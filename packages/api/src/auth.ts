@@ -1,51 +1,28 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-/**
- * Shared-password auth with an HMAC-signed session cookie (SPEC decision: Auth A).
- *
- * Security model, grounded in ARCC "Secure Cookie Handling":
- *  - The cookie is `HttpOnly` (no JS access), `Secure` (HTTPS-only — Caddy
- *    terminates TLS in prod), `SameSite=Strict` (same-origin app, CSRF-safe),
- *    `Path=/`, no `Domain`, and expires in 12h.
- *  - Cookie *attributes* are not trusted for the auth decision; the HMAC
- *    signature over {role, exp} is. A tampered/expired token verifies to null.
- *  - The signing key + passwords come from the environment, never hardcoded or
- *    committed. Passwords are compared in constant time (sha256 + timingSafeEqual).
- *
- * Auth is OFF unless CONVEYOR_PASSWORD is set — keeps local dev and a trusted-LAN
- * deployment frictionless (opt-in), with a loud warning when running open.
- *
- * There is deliberately ONE password and no privilege tiers. Conveyor is a
- * single-household tool: whoever holds the password manages the catalog. The former
- * two-tier scheme (a second CONVEYOR_ADMIN_PASSWORD granting an elevated role) was
- * removed because its most likely configuration was silently broken — setting only
- * CONVEYOR_PASSWORD meant no password could ever grant the elevated role, so
- * /catalog/* and /jobs-history returned 403 to everyone with no way to recover and
- * no diagnostic.
- */
+import { AuthConfigError, DISABLED_WARNING, resolveAuthConfig } from "./auth-config.js";
 
-const PASSWORD = process.env.CONVEYOR_PASSWORD ?? "";
-const SESSION_TTL_MS = Number(process.env.CONVEYOR_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000); // 12h
+const SESSION_TTL_MS = Number(process.env.CONVEYOR_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000);
 const COOKIE_NAME = "conveyor_session";
-// Secure by default; only disable for local plain-HTTP testing (never in prod).
 const COOKIE_INSECURE = process.env.CONVEYOR_COOKIE_INSECURE === "1";
 
-export const authEnabled = PASSWORD.length > 0;
+function loadAuthConfig() {
+  try {
+    return resolveAuthConfig(process.env, () => randomBytes(32).toString("hex"));
+  } catch (error) {
+    if (!(error instanceof AuthConfigError)) throw error;
+    console.error(error.message);
+    process.exit(1);
+  }
+}
 
-// Signing key: required when auth is on. If absent, mint an ephemeral one (so we
-// never run unsigned) and warn that sessions won't survive a restart.
-let signingKey = process.env.CONVEYOR_AUTH_SECRET ?? "";
-if (authEnabled && !signingKey) {
-  signingKey = randomBytes(32).toString("hex");
-  console.warn(
-    "[auth] CONVEYOR_AUTH_SECRET not set — using an ephemeral signing key; sessions reset on restart.",
-  );
-}
-if (!authEnabled) {
-  console.warn(
-    "[auth] CONVEYOR_PASSWORD not set — auth is DISABLED (open). Set it to require a password (friends-only deployments).",
-  );
-}
+const config = loadAuthConfig();
+const PASSWORD = config.password;
+const signingKey = config.secret;
+
+export const authEnabled = config.enabled;
+
+if (!authEnabled) console.warn(DISABLED_WARNING);
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf).toString("base64url");
