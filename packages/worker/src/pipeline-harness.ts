@@ -41,6 +41,7 @@ export interface HarnessOptions {
   cancelPollMs?: number;
   streamCloseMs?: number;
   workDir?: string;
+  deps?: (h: Harness) => Partial<PipelineDeps>;
 }
 
 export interface Harness {
@@ -175,7 +176,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
       );
     },
   };
-  const deps = buildDeps(h, opts);
+  const deps = { ...buildDeps(h, opts), ...opts.deps?.(h) };
   return h;
 }
 

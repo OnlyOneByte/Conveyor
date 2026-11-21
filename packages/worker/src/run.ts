@@ -35,6 +35,14 @@ export interface PublishExtra {
   timings?: StageTiming[];
 }
 
+export type SlotResult = "taken" | "canceled";
+
+export interface QueueHooks {
+  takeSlot(signal: AbortSignal): Promise<SlotResult>;
+  markSubmitted(handle: PrintHandle): Promise<void>;
+  settleCancel(stopConfirmed: boolean): Promise<TerminalState>;
+}
+
 export interface PipelineDeps {
   registry: Registry;
   publish(jobId: string, state: JobState, extra?: PublishExtra): Promise<unknown>;
@@ -44,6 +52,7 @@ export interface PipelineDeps {
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;
+  queue?: QueueHooks;
 }
 
 export interface RunJobOptions {
@@ -60,6 +69,13 @@ export class JobCanceledError extends Error {
   constructor() {
     super("job canceled");
     this.name = "JobCanceledError";
+  }
+}
+
+export class LeaseLostError extends Error {
+  constructor() {
+    super("job lease lost");
+    this.name = "LeaseLostError";
   }
 }
 

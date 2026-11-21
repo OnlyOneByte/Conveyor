@@ -58,6 +58,24 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 - A materialized profile that cannot be removed after slicing does not fail the job; it is added to the
   job's notes, which appear in the terminal status message.
 
+## queue-deps.ts
+
+`queueDeps` turns a claimed SQLite lease into the pipeline's status, history and cancel deps, plus the
+`queue` hooks the print and settle steps call. Nothing uses it yet: the run loop behind
+`CONVEYOR_QUEUE=sqlite` is the next step, and the Redis path does not pass `queue`, so it is unchanged.
+
+| Step | On the SQLite queue |
+| --- | --- |
+| Status | `writeStatus`. A repeat of the same state and stage (progress) is written at most once per `progressFlushMs` (1 s), keeping only the latest; a new state or stage is written at once and drops the pending progress |
+| Printer slot | `takePrinterSlot` before `transferring`. While the printer is busy or held, the job writes `slicing` with progress 1 and `sliced; waiting for the printer` once, and retries every `slotRetryMs` (1 s). A cancel during the wait ends it |
+| Marker | `markSubmitted` with the handle right after `submit()`, so the marker is written before the first `printing` status. Pending progress is dropped first: a `transferring` update flushed after the marker would be refused, and a refused write reads as a lost lease |
+| Cancel | `cancelRequested` reads `isCancelRequested`. A canceled job, or one the printer reports canceled, settles through `settleCancel`: confirmed when nothing reached the printer or it stopped, otherwise `failed` with the printer held |
+| History | the history step writes `model_path`, `gcode_path`, `notes`, the final `stage` and `timings` and the final message, and clears `progress`, all under the lease. A done or failed job's terminal status write then sets the same stage, timings and message; a canceled job settles through `settleCancel`, which writes only the state, so its history comes from this step |
+| Lost lease | a fenced write that changes nothing aborts the run with `LeaseLostError`. The run removes its work directory and writes nothing more; it does not stop the printer, because whoever holds the job next decides |
+
+A `submit()` that fails, `PrintNotStartedError` included, settles `failed` inside the upload window, which
+holds the printer. Clearing the intent for `PrintNotStartedError` without a hold is left to the resume step.
+
 ## profile.ts
 
 `resolveProfileForSlice` returns the profile directory a slicer adapter should read.
