@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:46423",
+  "url": "http://127.0.0.1:43753",
   "warnings": [],
   "results": [
     {
@@ -13,7 +13,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 423956,
+      "gifBytes": 379919,
       "gif": "new-job-1440.gif"
     },
     {
@@ -23,7 +23,7 @@
         "final stage not reached in 12 s, see #52"
       ],
       "png": "job-progress-1440.png",
-      "gifBytes": 1839356,
+      "gifBytes": 1536552,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -55,7 +55,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 608251,
+      "gifBytes": 546213,
       "gif": "new-job-390.gif"
     },
     {
