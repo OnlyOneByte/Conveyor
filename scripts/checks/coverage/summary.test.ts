@@ -51,6 +51,8 @@ const MODULE = "export const total = (items: number[]) => items.length;\n";
 
 const IMPORT = 'import { describe, it, test } from "bun:test";\n';
 
+const EXPECT_ONLY = 'import { expect } from "bun:test";\n';
+
 const SUITE = `${IMPORT}test("adds", () => {});\n`;
 
 describe("isSource", () => {
@@ -92,12 +94,15 @@ describe("isSource", () => {
   test("a module named like a spec but without test calls counts", () => {
     expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
     expect(
-      isSource("packages/api/src/submit.spec.ts", () => "export const submit = () => split();\n"),
+      isSource(
+        "packages/api/src/submit.spec.ts",
+        () => `${EXPECT_ONLY}export const submit = () => split();\n`,
+      ),
     ).toBe(true);
     expect(
       isSource(
         "packages/api/src/match.spec.ts",
-        () => "export const isId = (v: string) => ID.test(v);\n",
+        () => `${EXPECT_ONLY}export const isId = (v: string) => ID.test(v);\n`,
       ),
     ).toBe(true);
   });
