@@ -1,4 +1,9 @@
-import { MAX_ORCA_CONTENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES, slicerFormat } from "@conveyor/shared";
+import {
+  isTerminal,
+  MAX_ORCA_CONTENT_BYTES,
+  MAX_PRUSA_DOCUMENT_BYTES,
+  slicerFormat,
+} from "@conveyor/shared";
 import {
   dbDeletePrinter,
   dbDeleteProfile,
@@ -83,7 +88,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
 
   app.get<{ Params: { id: string } }>("/jobs-history/:id", async (req, reply) => {
     const job = dbGetJob(openDb(), req.params.id);
-    if (!job) return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
+    if (!job || !isTerminal(job.state)) {
+      return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
+    }
     return job;
   });
 

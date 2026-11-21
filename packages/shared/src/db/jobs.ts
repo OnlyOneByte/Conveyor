@@ -108,7 +108,11 @@ export function dbRecordJob(db: Database, job: SettledJob): void {
 
 export function dbListJobs(db: Database, limit = 50): Job[] {
   return (
-    db.query("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?").all(limit) as JobRow[]
+    db
+      .query(
+        "SELECT * FROM jobs WHERE state IN ('done', 'failed', 'canceled') ORDER BY created_at DESC LIMIT ?",
+      )
+      .all(limit) as JobRow[]
   ).map(rowToJob);
 }
 
