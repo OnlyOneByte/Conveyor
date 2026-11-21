@@ -12,7 +12,28 @@ registered in. Requests whose path (query string removed) is exactly an entry in
 starts with an entry in `PUBLIC_PREFIXES` (today `/auth/`) skip it; everything else needs a valid session.
 `/health` is an exact match so that a later route such as `/health-report` is not public by accident.
 `routes/auth-guard.test.ts` boots the real `index.ts` with auth on and checks that every mutating route
-answers `401` without a session.
+answers `401` without a session. `routes/auth-guard-sqlite.test.ts` does the same in `CONVEYOR_QUEUE=sqlite`
+mode for every job route, the WebSocket upgrade and the history routes.
+
+The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `queueMode` from
+`@conveyor/shared`, exits with code 1 on a bad value, and imports `routes/jobs.ts` (Redis) or
+`routes/jobs-sqlite.ts` (SQLite). Both register the same paths. The import is dynamic, so in `sqlite` mode
+`queue.ts` is never loaded and the api opens no Redis connection.
+
+## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
+
+| Route | On the SQLite queue |
+| --- | --- |
+| `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }` |
+| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot |
+| `GET /jobs/:id` | `readSnapshot`; 404 for an unknown id |
+| `POST /jobs/:id/cancel` | `requestCancel`: `200` with the state of a finished job, `200 canceled` for a queued one, `202 canceling` for one in flight, `404` for an unknown id |
+| `GET /jobs/:id/ws` | the snapshot as the first frame, then the event-log tail from the snapshot's cursor |
+
+The WebSocket reads the snapshot and its cursor in one statement, so the tail that starts after the cursor
+neither drops nor repeats an event. It polls `tailEvents` every 250 ms, backing off to 1 s after 5 s with no
+new event, and closes after forwarding a terminal event. A job already finished sends its snapshot and
+closes; an unknown job closes with no frame. A stored event that does not parse closes the socket and logs.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
@@ -36,7 +57,9 @@ answers `401` without a session.
 - Printer `secrets` are accepted on write and never returned on read; reads return `hasSecrets` instead.
   Omitting `secrets` on a write keeps the stored value (see `dbUpsertPrinter`).
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
-- `GET /jobs-history/:id` returns 404 for an in-flight or unknown id: only terminal jobs have a durable row.
+- `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
+  route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
+  SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
   `reachable: false` is a successful probe of an offline printer, not an error.
 - `GET /catalog/transports` feeds the Settings printer form's transport picker.

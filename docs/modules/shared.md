@@ -242,7 +242,7 @@ same file on the shared `/data` volume. `openDb()` is a process-wide singleton, 
 |---|---|
 | `db/printers.ts` | `Printer` and the printer queries |
 | `db/profiles.ts` | `Profile` and the profile and profile-content queries |
-| `db/jobs.ts` | `SettledJob`, `dbResolveJobTarget` and the job queries |
+| `db/jobs.ts` | `SettledJob`, `dbResolveJobTarget` and the job queries. `dbListJobs` lists finished jobs only (done, failed, canceled), because on the SQLite queue a job has a row from the moment it is queued |
 | `db/migrate.ts` | `migrate()`, see [Migrations](#migrations) |
 | `db/epoch-ms.ts` | `epochMs()`, the one clock every write reads |
 
