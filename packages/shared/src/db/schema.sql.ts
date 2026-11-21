@@ -55,4 +55,13 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS job_events (
+  seq     INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id  TEXT    NOT NULL,
+  event   TEXT    NOT NULL,
+  at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events (job_id, seq);
 `;

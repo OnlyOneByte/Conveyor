@@ -373,6 +373,34 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 | Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
+## queue/status.ts and queue/event-log.ts
+
+A job's live status is its `jobs` row plus an append-only log in `job_events`. Each event is a serialized
+`JobStatusEvent`, the same frame the WebSocket sends.
+
+- `writeStatus` is the worker's one way to change a job's status. It is fenced like every lease write
+  (owner, token, unexpired lease), and it never overwrites a terminal state. That replaces the Redis Lua
+  script's terminal guard. An event is appended only when the write is accepted, so a refused write
+  leaves no trace. An identical repeated write is accepted and appends a second event; coalescing repeats
+  is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
+- `appendEvent` is shared by every write that changes a job's state outside `writeStatus`:
+  - `enqueueJob` records the first `queued` event;
+  - `claimJob` records `generating` for a queued job (a resumed orphan keeps its state and records nothing);
+  - `releaseLease` and the reaper record `queued` on a requeue;
+  - the reaper records `failed`, with its error.
+
+  A requeue also clears `stage`, `progress` and `message`, so a snapshot read after it matches the `queued`
+  event a live tail just delivered.
+- `readSnapshot` returns the row as a `JobStatusEvent` together with the job's highest event `seq`, read in
+  one statement. One statement sees one committed state, so a live tail that starts after that cursor
+  neither misses nor repeats an event.
+- `tailEvents(jobId, afterSeq)` returns later events in `seq` order, 100 at a time. A stored event that
+  does not parse as a `JobStatusEvent` throws rather than being skipped.
+- `pruneEvents` deletes the events of jobs settled more than `EVENT_RETENTION_MS` (7 days) ago. The `jobs`
+  row stays, because it is history.
+- Progress coalescing (at most one progress write per second per job) lives in the worker, which owns the
+  flush timer. It lands with the worker step.
+
 ## db/schema.sql.ts
 
 The idempotent DDL applied on every boot; `CREATE TABLE IF NOT EXISTS` makes first run and restart
@@ -388,6 +416,8 @@ identical. Column reference: [../DATA-MODEL.md](../DATA-MODEL.md).
 - `printers.allowed_generators_json` is a JSON array of generator ids; `NULL` allows all.
 - `jobs.timings_json` is a JSON array of `{stage, enteredAt, durationMs}`; `NULL` for rows recorded before
   timings existed and for jobs that failed before entering any stage.
+- `job_events` is a new table, so `CREATE TABLE IF NOT EXISTS` adds it to old databases without a migration
+  step. `idx_job_events_job (job_id, seq)` serves the tail and snapshot cursor.
 
 ## db/seed.ts
 

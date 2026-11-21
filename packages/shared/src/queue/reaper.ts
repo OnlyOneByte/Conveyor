@@ -1,7 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { exhaustive } from "../exhaustive.js";
 import type { Stage } from "../plugins.js";
+import { appendEvent } from "./event-log.js";
 import {
+  CLEAR_PROGRESS,
   DEFAULT_TIMING,
   IN_FLIGHT_SQL,
   type IN_FLIGHT_STATES,
@@ -80,13 +82,15 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
       } else if (outcome === "requeued") {
         const runAfter = at + timing.backoffBaseMs * 2 ** Math.max(row.attempts - 1, 0);
         db.query(
-          `UPDATE jobs SET ${TAKE_OVER}, state = 'queued', run_after = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE jobs SET ${TAKE_OVER}, ${CLEAR_PROGRESS}, state = 'queued', run_after = ?, updated_at = ? WHERE id = ?`,
         ).run(runAfter, at, row.id);
+        appendEvent(db, { jobId: row.id, state: "queued", at });
       } else {
-        const error = JSON.stringify({ stage: stageOf(row.state), reason: reasonOf(row, outcome) });
+        const error = { stage: stageOf(row.state), reason: reasonOf(row, outcome) };
         db.query(
           `UPDATE jobs SET ${TAKE_OVER}, state = 'failed', error_json = ?, updated_at = ? WHERE id = ?`,
-        ).run(error, at, row.id);
+        ).run(JSON.stringify(error), at, row.id);
+        appendEvent(db, { jobId: row.id, state: "failed", stage: error.stage, error, at });
         if (outcome === "unknown") holdPrinter(db, row, at);
       }
       return { jobId: row.id, outcome };
