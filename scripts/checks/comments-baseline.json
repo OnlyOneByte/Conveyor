@@ -1,29 +1,5 @@
 {
   "files": {
-    ".github/workflows/release.yml": {
-      "comments": 23,
-      "suppressions": 0
-    },
-    "bunfig.toml": {
-      "comments": 2,
-      "suppressions": 0
-    },
-    "Caddyfile": {
-      "comments": 8,
-      "suppressions": 0
-    },
-    "docker-compose.yml": {
-      "comments": 8,
-      "suppressions": 0
-    },
-    "docs/ui-mockup.html": {
-      "comments": 32,
-      "suppressions": 0
-    },
-    "mise.toml": {
-      "comments": 3,
-      "suppressions": 0
-    },
     "packages/api/Dockerfile": {
       "comments": 5,
       "suppressions": 0
@@ -291,14 +267,6 @@
     "plugins/transports/moonraker/src/index.ts": {
       "comments": 30,
       "suppressions": 1
-    },
-    "scripts/install-openscad.sh": {
-      "comments": 28,
-      "suppressions": 0
-    },
-    "scripts/install-orca.sh": {
-      "comments": 37,
-      "suppressions": 0
     }
   }
 }
