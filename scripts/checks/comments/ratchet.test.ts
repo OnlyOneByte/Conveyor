@@ -198,4 +198,8 @@ describe("updateRefusal", () => {
     expect(updateRefusal({ CI: "1" })).not.toBeNull();
     expect(updateRefusal({})).toBeNull();
   });
+
+  test("an empty CI value counts as not CI, matching the coverage checker", () => {
+    expect(updateRefusal({ CI: "" })).toBeNull();
+  });
 });
