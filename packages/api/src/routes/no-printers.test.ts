@@ -1,23 +1,21 @@
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbDeletePrinter, dbListPrinters, openDb } from "@conveyor/shared/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { connection, jobQueue, redis } from "../queue.js";
+import { registerCatalogRoutes } from "./catalog.js";
+import { registerJobRoutes } from "./jobs.js";
 
-const added: unknown[] = [];
-
-mock.module("../queue.js", () => ({
-  jobQueue: { add: async (...args: unknown[]) => added.push(args) },
-  redis: { smembers: async () => [], mget: async () => [] },
-  connection: {},
-}));
-
-const { registerCatalogRoutes } = await import("./catalog.js");
-const { registerJobRoutes } = await import("./jobs.js");
+connection.disconnect();
+redis.disconnect();
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-"));
 const dbPath = join(dir, "conveyor.db");
+const previousDbPath = process.env.DB_PATH;
+const add = spyOn(jobQueue, "add");
+spyOn(redis, "smembers").mockResolvedValue([]);
 let app: FastifyInstance;
 let base: string;
 
@@ -38,6 +36,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app.close();
+  await jobQueue.close();
+  mock.restore();
+  openDb(dbPath).close();
+  if (previousDbPath === undefined) delete process.env.DB_PATH;
+  else process.env.DB_PATH = previousDbPath;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -51,7 +54,9 @@ describe("API with zero printers", () => {
   test("still lists profiles and an empty history", async () => {
     const profiles = await get("/catalog/profiles");
     expect(profiles.status).toBe(200);
-    expect(((await profiles.json()) as unknown[]).length).toBeGreaterThan(0);
+    expect(await profiles.json()).toContainEqual(
+      expect.objectContaining({ id: "orca/klipper-pla-0.2" }),
+    );
     const history = await get("/jobs-history");
     expect(await history.json()).toEqual([]);
     const active = await get("/jobs/active");
@@ -69,7 +74,7 @@ describe("API with zero printers", () => {
       }),
     });
     expect(res.status).toBe(404);
-    expect(((await res.json()) as { error: string }).error).toContain("klipper-garage");
-    expect(added).toEqual([]);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("klipper-garage") });
+    expect(add).not.toHaveBeenCalled();
   });
 });

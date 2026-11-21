@@ -180,12 +180,20 @@ knows a `printerId` and a `profileId`. (Friends-only deployment; app-level auth 
 on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
 and `worker` delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
-default catalog (the old in-memory seeds) is seeded once per database, tracked by
-`PRAGMA user_version` (1 = seeded), so edits made in Settings survive restarts. A database that
+default catalog (the old in-memory seeds) is seeded once per database, so edits made in Settings
+survive restarts. The flag is the row `key = 'seeded'` in a small `meta (key, value)` table that
+`migrate()` creates; `PRAGMA user_version` is left free for a future schema version. The check,
+the flag write and the inserts run in one `BEGIN IMMEDIATE` transaction, so a crash mid-seed
+leaves the database unseeded and concurrent first starts seed exactly once. A database that
 predates the flag is marked seeded without inserting anything when it already holds any printer
-or profile. Zero printers is a valid state: deleting every printer (including the two samples)
-survives restarts, `/catalog/printers` returns `[]`, and `POST /jobs` naming a missing printer is
-rejected with 404. The worker resolves real `PrinterTarget`s (incl. secrets)
+or profile. Zero printers (and zero profiles) is a valid state: deleting every row survives
+restarts, `/catalog/printers` returns `[]`, and `POST /jobs` naming a missing printer is rejected
+with 404.
+
+Every connection sets `PRAGMA busy_timeout = 5000` before anything else, because the API and the
+worker open the same file and their first starts can race on a fresh volume. SQLite does not apply
+the busy handler to the switch into WAL on a brand-new file, so `openDb()` retries
+`PRAGMA journal_mode = WAL` on `SQLITE_BUSY` (up to 50 times, 100 ms apart). The worker resolves real `PrinterTarget`s (incl. secrets)
 from `printers` and writes the settled `Job` row on every terminal state.
 
 Catalog CRUD lives behind `/catalog/*` (printers/profiles/transports) + `/jobs-history`; printer

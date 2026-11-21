@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import { Database, SQLiteError } from "bun:sqlite";
 import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
@@ -44,7 +44,8 @@ let singletonPath: string | null = null;
 export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Database {
   if (singleton && singletonPath === path) return singleton;
   const db = new Database(path, { create: true });
-  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA busy_timeout = 5000;");
+  enableWal(db);
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA_SQL);
   migrate(db);
@@ -52,6 +53,18 @@ export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Datab
   singleton = db;
   singletonPath = path;
   return db;
+}
+
+function enableWal(db: Database): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      db.exec("PRAGMA journal_mode = WAL;");
+      return;
+    } catch (err) {
+      if (!(err instanceof SQLiteError) || err.code !== "SQLITE_BUSY" || attempt >= 50) throw err;
+      Bun.sleepSync(100);
+    }
+  }
 }
 
 /** Column names of an existing table (empty when the table does not exist). */
@@ -139,28 +152,27 @@ function migrate(db: Database): void {
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");
   }
+
+  db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 }
 
-const SEEDED_VERSION = 1;
-
 function countRows(db: Database, table: "printers" | "profiles"): number {
-  return (db.query(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  return db.query<{ n: number }, []>(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n ?? 0;
 }
 
 function seedDefaults(db: Database): void {
-  const { user_version } = db.query("PRAGMA user_version").get() as { user_version: number };
-  if (user_version >= SEEDED_VERSION) return;
-
   const now = epochMs();
   const insertProfile = db.prepare(
-    "INSERT OR IGNORE INTO profiles (id, slicer_id, name, path, gcode_flavor, created_at) VALUES (?,?,?,?,?,?)",
+    "INSERT INTO profiles (id, slicer_id, name, path, gcode_flavor, created_at) VALUES (?,?,?,?,?,?)",
   );
   const insertPrinter = db.prepare(
-    "INSERT OR IGNORE INTO printers (id, transport_id, name, address, secrets_json, created_at) VALUES (?,?,?,?,?,?)",
+    "INSERT INTO printers (id, transport_id, name, address, secrets_json, created_at) VALUES (?,?,?,?,?,?)",
   );
 
   const tx = db.transaction(() => {
-    db.exec(`PRAGMA user_version = ${SEEDED_VERSION}`);
+    const seeded = db.query<{ key: string }, []>("SELECT key FROM meta WHERE key = 'seeded'").get();
+    if (seeded) return;
+    db.exec("INSERT INTO meta (key, value) VALUES ('seeded', '1')");
     if (countRows(db, "printers") > 0 || countRows(db, "profiles") > 0) return;
     for (const p of DEFAULT_PROFILES)
       insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
@@ -174,7 +186,7 @@ function seedDefaults(db: Database): void {
         now,
       );
   });
-  tx();
+  tx.immediate();
 }
 
 function epochMs(): number {
