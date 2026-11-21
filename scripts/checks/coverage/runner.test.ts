@@ -93,6 +93,7 @@ describe("runSweep", () => {
           measured: new Map(),
           sweep: sweep.coverage,
           fallback: () => new Map(),
+          typeLines: () => new Set(),
         });
         expect(merged.estimated).toEqual([]);
         expect(summarize(merged.coverage).shared).toEqual({ found: 2, hit: 0 });
