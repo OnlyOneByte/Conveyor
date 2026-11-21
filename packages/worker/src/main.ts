@@ -8,4 +8,16 @@ try {
   process.exit(1);
 }
 console.log(`conveyor worker queue: ${mode}`);
-await import(mode === "sqlite" ? "./sqlite.js" : "./index.js");
+if (mode === "sqlite") {
+  const { startSqliteWorker } = await import("./sqlite.js");
+  const worker = startSqliteWorker(process.env);
+  console.log("conveyor worker ready");
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      console.log(`${signal}: releasing running jobs`);
+      void worker.stop().then(() => process.exit(0));
+    });
+  }
+} else {
+  await import("./index.js");
+}
