@@ -491,7 +491,7 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
 - `tailEvents(jobId, afterSeq)` returns later events in `seq` order, 100 at a time. A stored event that
   does not parse as a `JobStatusEvent` throws rather than being skipped.
 - `pruneEvents` deletes the events of jobs settled more than `EVENT_RETENTION_MS` (7 days) ago. The `jobs`
-  row stays, because it is history.
+  row stays, because it is history. The SQLite worker loop runs it hourly (see [worker.md](worker.md#loopts)).
 - Progress coalescing (at most one progress write per second per job) lives in the worker's `queueDeps`,
   which owns the flush timer.
 

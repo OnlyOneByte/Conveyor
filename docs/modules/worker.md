@@ -41,6 +41,8 @@ with code 1 on anything else, because `NaN` would remove the engine cap and `0` 
 intent and marker is then failed by the reaper with its printer held, as for any crash in that window.
 `sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, while the SQLite queue is still
 experimental. The api reads the flag through the same `queueMode`, so the two cannot parse it differently.
+Compose passes one `${CONVEYOR_QUEUE:-redis}` and one `${CONVEYOR_QUEUE_UNSTABLE:-}` to both the api and the
+worker, so in a normal install they always run the same queue; `queue-mode.test.ts` checks both services.
 
 ## sqlite.ts
 
@@ -93,6 +95,10 @@ The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
   (1 s) until `busyMarginMs` (5 s) before the lease ends, then the lease counts as lost. A lost lease aborts
   the run with `LeaseLostError`.
 - **Reaper.** `reapExpired` runs at start and every `reapMs` (10 s).
+- **Event pruning.** `pruneEvents` runs at start and every `pruneMs` (1 hour). It deletes the `job_events` of
+  jobs settled more than `retentionMs` (`EVENT_RETENTION_MS`, 7 days) ago; the `jobs` row stays as history.
+  The sweep lives in the worker because only the worker runs a loop in SQLite mode; a failure is logged and
+  retried on the next tick.
 - **Known limits.** An orphan is only claimed while an engine slot is free, because `claimJob` cannot ask for
   orphans alone. An idle worker takes the write lock for each claim attempt, without the design's read-only
   `SELECT EXISTS` first.
