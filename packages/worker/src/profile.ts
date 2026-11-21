@@ -16,7 +16,6 @@ import { dbGetOrcaProfileDocuments, dbGetPrusaProfileContent, openDb } from "@co
 export interface ProfileForSlice {
   profile: ProfileRef;
   source: "bundled" | "edited";
-  /** Idempotent cleanup. Bundled profiles return a no-op. */
   cleanup(): Promise<void>;
 }
 
@@ -43,16 +42,6 @@ async function bundledDirectory(target: JobTarget): Promise<string> {
   return directory;
 }
 
-/**
- * Resolve the actual profile directory an adapter should consume.
- *
- * Bundled (unedited) profiles keep their immutable /profiles path. An edited profile
- * is re-validated at the worker trust boundary, then written under the service-owned
- * per-job work directory using only fixed filenames — neither the profile id nor any
- * request input participates in a filesystem path. Dispatches on the slicer's editable
- * format: Orca writes three JSON documents, Prusa writes one config.ini; a slicer with
- * no editable format always uses its bundled path.
- */
 export async function resolveProfileForSlice(
   target: JobTarget,
   workDir: string,
@@ -102,13 +91,9 @@ export async function resolveProfileForSlice(
     const document = dbGetPrusaProfileContent(db, target.profileId);
     if (!document) return { profile: bundled, source: "bundled", cleanup: noCleanup };
     try {
-      // A crashed prior attempt may have left this fixed child behind. Remove it
-      // (a symlink is removed, not followed) before recreating with private access.
       await rm(directory, { recursive: true, force: true });
       validatePrusaProfileContent(document);
       await mkdir(directory, { mode: 0o700 });
-      // Only config.ini goes in this fresh dir, so the slicer's loadConfigs picks it
-      // up as the single config — no bundled .ini leaks in alongside the edit.
       await writeFile(join(directory, `${PRUSA_PROFILE_DOCUMENT_NAME}.ini`), document.config, {
         encoding: "utf8",
         mode: 0o600,
@@ -129,6 +114,5 @@ export async function resolveProfileForSlice(
     };
   }
 
-  // A slicer with no editable format always uses its immutable bundled path.
   return { profile: bundled, source: "bundled", cleanup: noCleanup };
 }

@@ -160,7 +160,9 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 - `conveyor:jobs` — BullMQ queue
 - `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`)
 - `job:<id>:status` — pub/sub channel the API bridges to the WS
-- `job:<id>:control` — cancel signal (API → worker)
+- `job:<id>:control` — cancel signal, fast path (API → worker)
+- `jobs:active` — set of in-flight job ids. It is updated in the same Lua script (`PUBLISH_STATUS_SCRIPT`) as the snapshot, so the set and the snapshot always agree on whether a job is live.
+- `job:<id>:cancel` — durable cancel flag with a 7-day TTL, checked by the worker on start and between stages
 
 ## Secrets
 
@@ -193,9 +195,12 @@ with 404.
 
 Every connection sets `PRAGMA busy_timeout = 5000` before anything else, because the API and the
 worker open the same file and their first starts can race on a fresh volume. SQLite does not apply
-the busy handler to the switch into WAL on a brand-new file, so `openDb()` retries
-`PRAGMA journal_mode = WAL` on `SQLITE_BUSY` (up to 50 times, 100 ms apart). The worker resolves real `PrinterTarget`s (incl. secrets)
-from `printers` and writes the settled `Job` row on every terminal state.
+the busy handler to the switch into WAL on a brand-new file, so `openDb()` makes up to 50 attempts
+at `PRAGMA journal_mode = WAL`, 100 ms apart, retrying only on `SQLITE_BUSY`. Any other error is
+rethrown at once. After the 50th busy attempt it throws `could not enable WAL on <path> after 50
+attempts: database is locked`, with the SQLite error as its `cause`. The worker resolves real
+`PrinterTarget`s (incl. secrets) from `printers` and writes the settled `Job` row on every
+terminal state.
 
 Catalog CRUD lives behind `/catalog/*` (printers/profiles/transports) + `/jobs-history`; printer
 secrets are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New

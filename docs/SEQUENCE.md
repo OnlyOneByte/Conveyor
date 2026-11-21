@@ -94,17 +94,34 @@ sequenceDiagram
     rect rgb(225,235,245)
     Note over PWA,W: User cancels
     PWA->>API: POST /jobs/{id}/cancel
-    API->>R: signal cancel
-    alt job still queued
-        R->>R: remove from queue
-    else job running
-        R->>W: cancel flag
-        W->>X: transport.cancel(handle) / kill subprocess
+    API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
+    alt already done / failed / canceled
+        API-->>PWA: 200 {state} (no-op, terminal states are final)
+    else job waiting / delayed / prioritized
+        API->>R: remove from queue
+        API->>R: publish state=canceled
+        API-->>PWA: 200 {state: canceled}
+    else job active
+        API-->>PWA: 202 {state: canceling}
+        R->>W: control message, or the flag at the next checkpoint
+        W->>X: abort signal (kills engines, aborts upload and status polling)
+        W->>X: transport.cancel(handle) when the job reached the transport stage
         W->>R: publish state=canceled
     end
     R-->>API-->>PWA: canceled
     end
 ```
+
+### Cancel rules
+
+- The cancel flag `job:<id>:cancel` is a Redis key with a 7-day TTL. The worker checks it right after it subscribes to the control channel, between stages, right after `submit()`, after every status event and every 2 s while printing. A cancel whose pub/sub message was lost still takes effect. Pub/sub is only the fast path.
+- Completion wins. If the printer reports `done` before the cancel is processed, the job settles `done` and no stop is sent to the idle printer.
+- Unknown ids return 404. Cancelling twice returns the same answer and does nothing more.
+- If the printer refuses, times out or drops the stop request without acknowledging it, the job settles as `failed` with a reason that says the stop was not confirmed. That includes a cancel that interrupted `submit()`, because the start command may already have reached the printer. It is never recorded as `canceled` while the printer may still be printing.
+- A print cancelled on the printer itself settles as `canceled`.
+- A status stream that ends without `done`, `failed` or `canceled` settles `failed` with `connection lost before completion`. A dropped connection never looks like a finished print.
+- A cancel that lands during the upload stops the transport before it sends the start command. The transport throws `PrintNotStartedError`, no stop is sent, and the job settles `canceled`.
+- Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `shared/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
 
 ## Notes
 

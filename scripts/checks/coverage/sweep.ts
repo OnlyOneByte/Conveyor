@@ -1,0 +1,54 @@
+import { mock, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
+
+const ROOT = join(import.meta.dir, "..", "..", "..");
+
+function target() {
+  return undefined;
+}
+
+const inert: object = new Proxy(target, {
+  get: (_target, key) => (key === "then" ? undefined : inert),
+  apply: () => inert,
+  construct: () => inert,
+});
+
+const SIDE_EFFECT_MODULES = [
+  "fastify",
+  "@fastify/multipart",
+  "@fastify/websocket",
+  "bullmq",
+  "ioredis",
+];
+
+for (const name of SIDE_EFFECT_MODULES) {
+  mock.module(name, () => ({
+    default: inert,
+    Redis: inert,
+    Queue: inert,
+    QueueEvents: inert,
+    Worker: inert,
+  }));
+}
+
+const files = (process.env[SWEEP_ENV] ?? "").split("\n").filter(Boolean);
+
+class ExitDuringImport extends Error {}
+
+process.exit = (code?: number | string | null) => {
+  throw new ExitDuringImport(`process.exit(${String(code)}) during import`);
+};
+
+test("loads every source file so coverage can map its lines", async () => {
+  const failed: string[] = [];
+  for (const file of files) {
+    await import(resolve(ROOT, file)).catch((error: unknown) => {
+      console.error(`sweep could not load ${file}: ${String(error)}`);
+      failed.push(file);
+    });
+  }
+  const report = process.env[SWEEP_REPORT_ENV];
+  if (report) writeFileSync(report, JSON.stringify({ completed: true, failed }));
+}, 120_000);

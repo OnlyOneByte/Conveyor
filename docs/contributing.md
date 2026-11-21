@@ -27,12 +27,16 @@ bun run lint
 bun run format:check
 bun run typecheck
 (cd packages/web && bunx svelte-kit sync && bunx svelte-check)
-bun test --coverage
+bun run test:coverage && bun run check:coverage
 bun run check:comments
 ```
 
 If `check:comments` says the baseline is stale, you removed comments: run `bun run check:comments:update` and
 commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the comment you added.
+
+If `check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
+`bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json`. If it says `dropped below
+base`, add the tests that cover what you changed.
 
 ## The PR flow
 
@@ -65,4 +69,4 @@ after that independent pass.
 
 ## Releases
 
-Pushing a `v*` tag, or running `.github/workflows/release.yml` by hand, builds the `api`, `web` and `worker` images and publishes multi-arch (amd64 and arm64) manifests to GHCR, authenticated with the built-in `GITHUB_TOKEN`. Each image and architecture builds on a native runner, because the worker's engine downloads are too heavy to emulate. Each build pushes an untagged image by digest; a per-service job joins the two digests into one tag set: `x.y.z`, `x.y`, `latest` (tag runs only) and `sha-<short>`. A manual run on a branch therefore never moves `latest`. Release builds keep `ORCA_ENABLE` at its `auto` default, unlike CI, which disables Orca. The build cache uses `mode=min`: exporting every intermediate layer of the multi-gigabyte worker image was the likely cause of the v0.1.0 arm64 failure. A newer run for the same ref cancels the older one.
+Pushing a `v*` tag, or running `.github/workflows/release.yml` by hand, builds the `api`, `web` and `worker` images and publishes multi-arch (amd64 and arm64) manifests to GHCR, authenticated with the built-in `GITHUB_TOKEN`. The image path is `ghcr.io/<owner>/conveyor-<service>` with the owner lowercased, because GHCR requires a lowercase path and the owner (`OnlyOneByte`) is mixed-case. Each image and architecture builds on a native runner, because the worker's engine downloads are too heavy to emulate. Each build pushes an untagged image by digest; a per-service job joins the two digests into one tag set: `x.y.z`, `x.y`, `latest` (tag runs only) and `sha-<short>`. A manual run on a branch therefore never moves `latest`. Release builds keep `ORCA_ENABLE` at its `auto` default, unlike CI, which disables Orca. The build cache uses `mode=min`: exporting every intermediate layer of the multi-gigabyte worker image was the likely cause of the v0.1.0 arm64 failure. A newer run for the same ref cancels the older one.

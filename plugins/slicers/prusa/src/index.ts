@@ -10,16 +10,9 @@ import {
   StageError,
 } from "@conveyor/shared";
 
-/** M0 engine-stub: emit placeholder gcode so the pipeline runs without PrusaSlicer installed. */
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const PRUSA_BIN = process.env.PRUSA_BIN ?? "prusa-slicer";
 
-// Bundled server-side defaults advertised by this plugin. Runtime profiles are
-// resolved from SQLite by the worker and passed to slice() as a ProfileRef; they do
-// not need to appear here. Prusa bundles remain read-only in this editor's first
-// version. A bundle is one or more exported `.ini` files. Verified 2026-06-30:
-// `prusa-slicer --load config.ini -g --output model.gcode model.stl` slices
-// headlessly (NO xvfb) on Debian trixie / arm64 — see docs/M1-WORKER-ENGINES.md.
 const PROFILES: ProfileRef[] = [
   {
     id: "prusa/klipper-pla-0.2",
@@ -39,9 +32,6 @@ export const prusa: SlicerPlugin = {
   version: "0.1.0",
   stage: "slicer",
   accepts: ["stl", "3mf", "obj"],
-  // The emitted flavor is governed by `gcode_flavor` in the loaded config bundle.
-  // The default bundles ship klipper-flavored; this declares the adapter's
-  // contract for validateJob (profile.gcode_flavor ∈ transport.acceptsFlavors).
   gcodeFlavor: "klipper",
   profiles: PROFILES,
 
@@ -57,11 +47,6 @@ export const prusa: SlicerPlugin = {
       return { path: out, format: "gcode", meta: { profileId: profile.id, stub: true } };
     }
 
-    // PrusaSlicer's CLI is genuinely headless — no virtual framebuffer needed
-    // (unlike Orca). Load every `.ini` in the profile bundle (a single config.ini
-    // is the common case; split printer/filament/print .ini files also work, each
-    // applied in load order), then slice to an exact output path. `--output <path>`
-    // writes that file verbatim, so no post-rename is required.
     const configs = await loadConfigs(profile.path);
     const args: string[] = [];
     for (const cfg of configs) args.push("--load", cfg);
@@ -74,11 +59,6 @@ export const prusa: SlicerPlugin = {
   },
 };
 
-/**
- * Resolve the config `.ini` file(s) to feed PrusaSlicer's repeatable `--load`.
- * Prefers a `config.ini` bundle; otherwise loads all `*.ini` in the directory
- * (alphabetical, so a `00-printer.ini`/`10-filament.ini` split applies in order).
- */
 async function loadConfigs(profilePath: string): Promise<string[]> {
   let entries: string[];
   try {

@@ -99,7 +99,7 @@ Before you expose Conveyor beyond the host:
 
 The worker talks to printers over your network. By default it runs on the Compose bridge network, so store each printer's explicit IP address in its address field. If you need mDNS or other LAN discovery, add `network_mode: host` to the `worker` service instead.
 
-`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`) and the SQLite database live there. `./profiles` holds the locked slicer profiles (read-only), and `./scad` is the gridfinity-rebuilt-openscad submodule.
+`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`) and the SQLite database live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
 
 ## Routing in the Caddyfile
 
