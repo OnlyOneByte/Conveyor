@@ -36,7 +36,7 @@ describe.skipIf(asRoot)("a work dir that cannot be removed", () => {
     expect(h.events.at(-1)?.message).toStartWith("work dir not removed: ");
   });
 
-  test("a failed job keeps its reason with the note appended", async () => {
+  test("a failed job keeps its own reason and records the note in notes", async () => {
     const h = harness({
       workDir: await unremovableWorkDir(),
       status: async function* () {
@@ -45,7 +45,10 @@ describe.skipIf(asRoot)("a work dir that cannot be removed", () => {
     });
     await expect(h.run()).rejects.toThrow("thermal runaway");
     expect(h.records[0].state).toBe("failed");
-    expect(h.records[0].reason).toStartWith("thermal runaway; work dir not removed: ");
+    expect(h.records[0].reason).toBe("thermal runaway");
+    expect(h.records[0].notes).toStartWith("work dir not removed: ");
+    expect(h.events.at(-1)?.reason).toBe("thermal runaway");
+    expect(h.events.at(-1)?.message).toStartWith("work dir not removed: ");
   });
 });
 
@@ -102,8 +105,10 @@ describe("job history on settlement", () => {
     const run = h.run();
     await expect(run).rejects.toThrow("thermal runaway");
     await expect(run).rejects.toThrow("history not recorded after 3 attempts: disk I/O error");
-    expect(h.events.at(-1)?.reason).toBe(
-      "thermal runaway; history not recorded after 3 attempts: disk I/O error",
-    );
+    expect(h.events.at(-1)).toEqual({
+      state: "failed",
+      reason: "thermal runaway",
+      message: "history not recorded after 3 attempts: disk I/O error",
+    });
   });
 });

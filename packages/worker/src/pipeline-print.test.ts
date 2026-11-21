@@ -98,12 +98,13 @@ describe("runJob cancel while printing", () => {
     });
   });
 
-  test("a printer-reported failure keeps its reason when the stream close rejects", async () => {
+  test("a printer-reported failure keeps its reason and notes the stream close rejection", async () => {
     const h = harness({ status: closeRejects({ state: "failed", message: "thermal runaway" }) });
     await expect(h.run()).rejects.toThrow("thermal runaway");
     expect(h.records[0]).toEqual({
       state: "failed",
-      reason: "thermal runaway; status stream did not close cleanly: socket reset",
+      reason: "thermal runaway",
+      notes: "status stream did not close cleanly: socket reset",
     });
   });
 

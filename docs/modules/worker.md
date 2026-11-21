@@ -35,8 +35,8 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
   parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
-- `recordTerminal` writes the settled job to SQLite. Notes go to `notes` and only a failed job's reason goes
-  to `error`.
+- `recordTerminal` writes the settled job to SQLite. Notes go to `notes` in every state. Only a failed job
+  has an `error`, and its reason is the stage's own failure reason with no notes mixed in.
 
 ## pipeline.ts
 
@@ -50,6 +50,8 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
   `failed` has already been offered to SQLite.
 - The history write gets 3 attempts, waiting `historyRetryMs` (default 250 ms) and then twice that between
   them.
+- A settled job publishes its notes as the status `message`, in every state; a failed job's `error.reason`
+  carries only the stage's reason.
 - When every attempt fails, `history not recorded after 3 attempts: <error>` is added to the job's notes, so
   it appears in the published status, and the job then rejects so BullMQ marks it failed. A failed job
   rejects with an `AggregateError` carrying both its stage error and the history error.
