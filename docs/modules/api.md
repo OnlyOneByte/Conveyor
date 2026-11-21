@@ -32,8 +32,14 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 
 The WebSocket reads the snapshot and its cursor in one statement, so the tail that starts after the cursor
 neither drops nor repeats an event. It polls `tailEvents` every 250 ms, backing off to 1 s after 5 s with no
-new event, and closes after forwarding a terminal event. A job already finished sends its snapshot and
-closes; an unknown job closes with no frame. A stored event that does not parse closes the socket and logs.
+new event, and closes after forwarding a terminal event. Each poll keeps reading 100-event pages until one
+comes back short, so a backlog never lags. A job already finished sends its snapshot and closes; an unknown
+job closes with no frame. A stored row or event that does not parse closes the socket and logs.
+
+Polling is bounded: a socket closes after 30 minutes (the client reconnects and gets a fresh snapshot), and
+at most 64 job streams are open at once; one more is closed with code `1013`. A socket stops polling the
+moment it closes, from either side. `GET /jobs/active` skips, and logs, a row that does not parse, so one bad
+row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests pass their own.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
@@ -92,8 +98,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 
 ## Artifact downloads (`artifact-download.ts`)
 
-- The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/`. The API resolves the same root;
-  both default to `/data` and are overridden together with `DATA_DIR`.
+- The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/`. The API resolves the same root, read
+  on each request; both default to `/data` and are overridden together with `DATA_DIR`.
 - The artifact path comes from the job's own durable record, never from the request: the request supplies only
   the job id and the fixed `model | gcode` kind.
 - After `realpath` (of the root too, so a symlinked `DATA_DIR` compares correctly), the file must sit under

@@ -6,14 +6,32 @@ import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/s
 import type { FastifyInstance } from "fastify";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
 
-export const TAIL_FAST_MS = 250;
-export const TAIL_SLOW_MS = 1000;
-export const TAIL_IDLE_MS = 5000;
+export interface TailOptions {
+  fastMs: number;
+  slowMs: number;
+  idleMs: number;
+  lifetimeMs: number;
+  maxSockets: number;
+  read: typeof tailEvents;
+}
+
+export const TAIL_PAGE = 100;
+export const DEFAULT_TAIL: TailOptions = {
+  fastMs: 250,
+  slowMs: 1000,
+  idleMs: 5000,
+  lifetimeMs: 30 * 60 * 1000,
+  maxSockets: 64,
+  read: tailEvents,
+};
 
 export async function registerJobRoutes(
   app: FastifyInstance,
   db: Database = openDb(),
+  tail: TailOptions = DEFAULT_TAIL,
 ): Promise<void> {
+  let sockets = 0;
+
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
@@ -29,7 +47,14 @@ export async function registerJobRoutes(
           ORDER BY updated_at DESC, rowid DESC`,
       )
       .all()
-      .flatMap(({ id }) => readSnapshot(db, id)?.snapshot ?? []),
+      .flatMap(({ id }) => {
+        try {
+          return readSnapshot(db, id)?.snapshot ?? [];
+        } catch (err) {
+          app.log.error({ err, jobId: id }, "unreadable job skipped in /jobs/active");
+          return [];
+        }
+      }),
   );
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
@@ -59,42 +84,58 @@ export async function registerJobRoutes(
 
   app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, (socket, req) => {
     const jobId = req.params.id;
+    if (sockets >= tail.maxSockets) return socket.close(1013, "too many job streams");
+    sockets++;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let open = true;
-    const close = () => {
+    const release = () => {
+      if (!open) return;
       open = false;
+      sockets--;
       clearTimeout(timer);
+      clearTimeout(lifetime);
+    };
+    const close = () => {
+      release();
       socket.close();
     };
+    const lifetime = setTimeout(close, tail.lifetimeMs);
     const forward = (event: JobStatusEvent): boolean => {
       socket.send(JSON.stringify(event));
       if (isTerminal(event.state)) close();
       return !open;
     };
-    socket.on("close", () => {
-      open = false;
-      clearTimeout(timer);
-    });
-    const first = readSnapshot(db, jobId);
+    socket.on("close", release);
+    let first: ReturnType<typeof readSnapshot>;
+    try {
+      first = readSnapshot(db, jobId);
+    } catch (err) {
+      req.log.error({ err, jobId }, "job snapshot unreadable");
+      return close();
+    }
     if (!first) return close();
     if (forward(first.snapshot)) return;
     let cursor = first.cursor;
     let lastEventAt = Date.now();
     const tick = () => {
       try {
-        for (const { seq, event } of tailEvents(db, jobId, cursor)) {
-          cursor = seq;
-          lastEventAt = Date.now();
-          if (forward(event)) return;
-        }
+        let page: ReturnType<typeof tailEvents>;
+        do {
+          page = tail.read(db, jobId, cursor, TAIL_PAGE);
+          for (const { seq, event } of page) {
+            cursor = seq;
+            lastEventAt = Date.now();
+            if (forward(event)) return;
+          }
+        } while (page.length === TAIL_PAGE);
       } catch (err) {
         req.log.error({ err, jobId }, "job event tail failed");
         return close();
       }
       if (!open) return;
-      const idle = Date.now() - lastEventAt > TAIL_IDLE_MS;
-      timer = setTimeout(tick, idle ? TAIL_SLOW_MS : TAIL_FAST_MS);
+      const idle = Date.now() - lastEventAt > tail.idleMs;
+      timer = setTimeout(tick, idle ? tail.slowMs : tail.fastMs);
     };
-    timer = setTimeout(tick, TAIL_FAST_MS);
+    timer = setTimeout(tick, tail.fastMs);
   });
 }
