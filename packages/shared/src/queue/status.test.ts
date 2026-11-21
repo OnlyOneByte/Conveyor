@@ -115,6 +115,16 @@ describe("job status and events", () => {
     h = queueHarness();
   });
 
+  test("fails a job before the upload window without holding its printer", () => {
+    const lease = claimed();
+    h.set("a", "state = 'slicing'");
+    const error = { stage: "slicer", reason: "slicer crashed" } as const;
+    expect(writeStatus(h.db, lease, { state: "failed", error }, h.timing)).toBe(true);
+    expect(h.row("a")).toMatchObject({ state: "failed", lease_owner: null });
+    expect(JSON.parse(String(h.row("a").error_json))).toEqual(error);
+    expect(holdOf()).toEqual({ hold_job_id: null, hold_reason: null });
+  });
+
   test("keeps the worker's own error when it fails a job inside the upload window", () => {
     const lease = claimed();
     h.set("a", "state = 'slicing'");
