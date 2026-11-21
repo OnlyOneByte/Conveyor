@@ -42,6 +42,14 @@ experiment) gets one. Take the next free number.
 | [0002](adr/0002-dual-model-preview.md) | Procedural client preview plus an exact server model |
 | [0003](adr/0003-visual-evidence.md) | Visual evidence captured automatically for UI pull requests |
 
+## Design docs
+
+Proposals reviewed before any code lands. Once accepted, a design's decision is recorded as an ADR.
+
+| Design | Status |
+|---|---|
+| [design/sqlite-queue.md](design/sqlite-queue.md) | Proposed: replace BullMQ and Redis with a job queue in SQLite (#5) |
+
 ## Keeping docs true
 
 [audit.md](audit.md) defines the doc audit: when it runs, the checklist, and where reports go.
@@ -51,5 +59,6 @@ experiment) gets one. Take the next free number.
 Pages here get created by the PR that first needs them, then linked above:
 
 - `modules/<module>.md`: what used to be code comments (invariants, why, gotchas), one page per package.
-- `design/`: design tokens, principles, mockups and screenshots for the UI rewrite.
+- `design/`: design tokens, principles, mockups and screenshots for the UI rewrite, alongside the design docs
+  listed above.
 - `audits/YYYY-MM-DD.md`: doc audit reports.
