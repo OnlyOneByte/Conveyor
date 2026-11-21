@@ -1,21 +1,21 @@
+import { randomUUID } from "node:crypto";
+import { createSocket } from "node:dgram";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
-import { createSocket } from "node:dgram";
-import { randomUUID } from "node:crypto";
 import {
-  StageError,
   type GcodeArtifact,
-  type PrintHandle,
   type PrinterTarget,
+  type PrintHandle,
   type PrintStatus,
   type StageCtx,
+  StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
 import {
-  SDCP_CMD,
   buildCommand,
   parseDiscovery,
   parseStatusFrame,
+  SDCP_CMD,
   type SdcpDiscovery,
 } from "./sdcp.js";
 
@@ -243,7 +243,7 @@ async function* streamStatus(address: string, timeoutMs: number): AsyncIterable<
   const deadline = nowMs() + timeoutMs;
   while (!closed && nowMs() < deadline) {
     if (queue.length === 0) await new Promise<void>((r) => (resolveNext = r));
-    while (queue.length) yield queue.shift()!;
+    for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
   }
   try {
     ws.close();

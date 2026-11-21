@@ -1,6 +1,6 @@
-import { createRegistry, type SlicerPlugin, type TransportPlugin } from "@conveyor/shared";
 import { gridfinity } from "@conveyor/generator-gridfinity";
 import { passthrough } from "@conveyor/generator-passthrough";
+import { createRegistry, type SlicerPlugin, type TransportPlugin } from "@conveyor/shared";
 
 /**
  * Capability + metadata view of the registry. The API runs validateJob() and
@@ -70,8 +70,7 @@ const transportView = (id: string, name: string): TransportPlugin => ({
   submit: () => {
     throw new Error("api holds a capability-only view; transport runs in the worker");
   },
-  // eslint-disable-next-line require-yield
-  async *status() {
+  status: () => {
     throw new Error("api holds a capability-only view");
   },
 });

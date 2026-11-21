@@ -5,13 +5,13 @@ import {
   MAX_ORCA_DOCUMENT_BYTES,
   MAX_PRUSA_DOCUMENT_BYTES,
   ORCA_PROFILE_DOCUMENT_NAMES,
+  type OrcaProfileDocumentName,
+  type OrcaProfileDocuments,
   OrcaProfileValidationError,
+  type PrusaProfileDocument,
   PrusaProfileValidationError,
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
-  type OrcaProfileDocumentName,
-  type OrcaProfileDocuments,
-  type PrusaProfileDocument,
 } from "@conveyor/shared";
 
 /**

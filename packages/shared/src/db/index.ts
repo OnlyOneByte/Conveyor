@@ -3,7 +3,7 @@ import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
-import { DEFAULT_PROFILES, DEFAULT_PRINTERS } from "./seed.js";
+import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 
 /**
  * Conveyor's durable store, backed by bun:sqlite (synchronous, no native build —
@@ -305,14 +305,16 @@ export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfile
     )
     .get(id) as OrcaDocumentsRow | null;
   if (!row) return null;
-  const values = [row.orca_machine_json, row.orca_process_json, row.orca_filament_json];
-  if (values.every((v) => v === null)) return null;
-  if (values.some((v) => v === null)) throw new Error(`profile ${id} has incomplete Orca content`);
-  return {
-    machine: row.orca_machine_json!,
-    process: row.orca_process_json!,
-    filament: row.orca_filament_json!,
-  };
+  const {
+    orca_machine_json: machine,
+    orca_process_json: process,
+    orca_filament_json: filament,
+  } = row;
+  if (machine === null && process === null && filament === null) return null;
+  if (machine === null || process === null || filament === null) {
+    throw new Error(`profile ${id} has incomplete Orca content`);
+  }
+  return { machine, process, filament };
 }
 
 /** Atomically replace all three editable documents. False means no such profile. */
@@ -489,7 +491,7 @@ export function dbRecordJob(
     job.error ? JSON.stringify(job.error) : null,
     job.modelPath ?? null,
     job.gcodePath ?? null,
-    job.timings && job.timings.length ? JSON.stringify(job.timings) : null,
+    job.timings?.length ? JSON.stringify(job.timings) : null,
     now,
     now,
   );

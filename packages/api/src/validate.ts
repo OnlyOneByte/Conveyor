@@ -1,4 +1,4 @@
-import { validateJob, CompatibilityError, type JobRequest, type JobTarget } from "@conveyor/shared";
+import { CompatibilityError, type JobRequest, type JobTarget, validateJob } from "@conveyor/shared";
 import { apiRegistry } from "./registry-view.js";
 
 /**

@@ -1,35 +1,35 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
 import { MAX_ORCA_CONTENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES, slicerFormat } from "@conveyor/shared";
-import { z } from "zod";
 import {
-  openDb,
-  dbListPrinters,
-  dbUpsertPrinter,
   dbDeletePrinter,
-  dbGetPrinter,
-  dbListProfiles,
-  dbGetProfile,
-  dbGetOrcaProfileDocuments,
-  dbSaveOrcaProfileDocuments,
-  dbResetOrcaProfileDocuments,
-  dbGetPrusaProfileContent,
-  dbSavePrusaProfileContent,
-  dbResetPrusaProfileContent,
-  dbUpsertProfile,
   dbDeleteProfile,
-  dbListJobs,
   dbGetJob,
+  dbGetOrcaProfileDocuments,
+  dbGetPrinter,
+  dbGetProfile,
+  dbGetPrusaProfileContent,
+  dbListJobs,
+  dbListPrinters,
+  dbListProfiles,
+  dbResetOrcaProfileDocuments,
+  dbResetPrusaProfileContent,
+  dbSaveOrcaProfileDocuments,
+  dbSavePrusaProfileContent,
+  dbUpsertPrinter,
+  dbUpsertProfile,
+  openDb,
   type Printer,
 } from "@conveyor/shared/db";
-import { validatePrinterTransport, listTransports } from "../validate.js";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { z } from "zod";
 import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
   readBundledOrcaDocuments,
-  validateOrcaDocuments,
   readBundledPrusaConfig,
+  validateOrcaDocuments,
   validatePrusaContent,
 } from "../profile-content.js";
+import { listTransports, validatePrinterTransport } from "../validate.js";
 
 /**
  * Catalog + history surface: the durable catalog (printers, profiles) plus the job
