@@ -114,6 +114,12 @@ describe("checkRatchet", () => {
     expect(errors).toEqual([`plugins: ${baselinePath("plugins")} is missing`]);
   });
 
+  test("fails when the base has other packages' files but not this one, instead of a zero floor", () => {
+    const base = { api: 40, worker: 40, shared: 40 };
+    const { errors } = run({ current: all(40), committed: all(40), base });
+    expect(errors).toEqual([`plugins: base ${baselinePath("plugins")} is missing`]);
+  });
+
   test("fails when coverage rises half a point above an unraised baseline", () => {
     const current = { ...all(40), shared: 40.5 };
     const { errors } = run({ current, committed: all(40), base: all(40) });

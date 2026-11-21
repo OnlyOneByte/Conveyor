@@ -111,9 +111,10 @@ function load(input: RatchetInput): Loaded | string {
 const fmt = (value: number) => `${round2(value).toFixed(2)}%`;
 
 function packageErrors(name: string, current: number, loaded: Loaded): string[] {
-  const floor = loaded.allowed.lines[name] ?? 0;
+  const floor = loaded.allowed.lines[name];
   const claimed = loaded.committed.lines[name];
   if (claimed === undefined) return [`${name}: ${baselinePath(name)} is missing`];
+  if (floor === undefined) return [`${name}: base ${baselinePath(name)} is missing`];
   if (!loaded.bootstrap && round2(current) < round2(floor - TOLERANCE)) {
     return [`${name}: line coverage ${fmt(current)} dropped below base ${fmt(floor)}`];
   }
