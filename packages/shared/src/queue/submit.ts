@@ -10,7 +10,7 @@ import {
   type QueueTiming,
 } from "./lease.js";
 
-export type SlotOutcome = "taken" | "busy" | "refused" | "lost";
+export type SlotOutcome = "taken" | "busy" | "canceled" | "refused" | "lost";
 
 export function withFullSync<T>(db: Database, step: () => T): T {
   db.exec("PRAGMA synchronous = FULL;");
@@ -24,10 +24,11 @@ export function withFullSync<T>(db: Database, step: () => T): T {
 interface SlotRow {
   state: string;
   submit_started_at: number | null;
+  cancel_requested_at: number | null;
 }
 
 const TAKE_SLOT = `UPDATE jobs SET state = 'transferring', submit_started_at = $now, updated_at = $now
-  WHERE ${FENCE} AND state = 'slicing' AND submit_started_at IS NULL
+  WHERE ${FENCE} AND state = 'slicing' AND submit_started_at IS NULL AND cancel_requested_at IS NULL
     AND NOT EXISTS (SELECT 1 FROM jobs o WHERE o.printer_id = jobs.printer_id AND o.id <> jobs.id
                       AND o.state IN ('transferring', 'printing'))
     AND NOT EXISTS (SELECT 1 FROM printers p WHERE p.id = jobs.printer_id AND p.hold_job_id IS NOT NULL)`;
@@ -46,11 +47,12 @@ export function takePrinterSlot(
       }
       const row = db
         .query<SlotRow, Record<string, string | number>>(
-          `SELECT state, submit_started_at FROM jobs WHERE ${FENCE}`,
+          `SELECT state, submit_started_at, cancel_requested_at FROM jobs WHERE ${FENCE}`,
         )
         .get(fence);
       if (!row) return "lost";
-      return row.state !== "slicing" || row.submit_started_at !== null ? "refused" : "busy";
+      if (row.state !== "slicing" || row.submit_started_at !== null) return "refused";
+      return row.cancel_requested_at === null ? "busy" : "canceled";
     }),
   );
 }

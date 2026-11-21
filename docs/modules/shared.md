@@ -349,8 +349,11 @@ to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
 - Every write against a held lease (`renewLease`, `releaseLease`) checks owner, token and an unexpired
   `lease_until`. A worker past its own lease cannot write, even before anyone takes the job over.
 - `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an
-  orphan for the next claim. It refuses (`submitting`) between the submit intent and the marker, because
-  the outcome of that submit is still unknown.
+  orphan for the next claim. An unsubmitted job with a cancel request settles `canceled` instead, with an
+  event, because the claim skips such a job and it would otherwise sit in `queued` forever. A submitted job
+  stays an orphan even with a cancel request, because only the worker can stop the printer. It refuses
+  (`submitting`) between the submit intent and the marker, because the outcome of that submit is still
+  unknown.
 
 ## queue/reaper.ts
 
@@ -368,10 +371,33 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 
 | Row | Outcome |
 |---|---|
+| No submit intent, cancel requested | `canceled`, with an event, so the job is not left in `queued` where no claim takes it. With an intent, a cancel request changes nothing: the rows below apply |
 | No submit intent, attempts left | `queued`, after 5 s, then 10 s, of backoff |
 | No submit intent, attempts used up | `failed`: the worker lost the job before it reached the printer |
-| Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
+| Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`) with `UNKNOWN_REASON`, unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
+
+## queue/cancel.ts
+
+Cancel keeps the api's contract: `200` for a settled job, `404` for an unknown one, `200 canceled` for a
+queued one and `202 canceling` for one in flight.
+
+- `requestCancel` decides in one immediate transaction:
+  - a settled job returns its state;
+  - a missing job returns `unknown`;
+  - a queued job becomes `canceled` at once, with an event. The claim takes the same write lock, so a job is
+    either claimed or canceled, never both;
+  - an in-flight job gets `cancel_requested_at` (the first request's time is kept) and returns `canceling`.
+- `isCancelRequested` is the read the worker's cancel tick polls.
+- The printer slot refuses a job with a cancel request (`canceled`), so a cancel that lands before the slot
+  never reaches `submit()`.
+- `settleCancel(lease, stopConfirmed)` settles a canceled job that the worker owns:
+  - `canceled` when nothing reached the printer (no intent), or the printer confirmed the stop;
+  - otherwise `failed` with `STOP_UNCONFIRMED_REASON`, and the printer held in the same transaction, because
+    the printer may still have the job.
+
+  Both outcomes clear the lease, so the job is never submitted again. It settles nothing without a cancel
+  request or a live lease, or for a job that has already settled.
 
 ## queue/submit.ts
 
@@ -386,6 +412,8 @@ twice.
   - `taken`;
   - `busy`: another job is transferring or printing on that printer, or the printer is held. The job stays
     `slicing` with no intent, and the caller retries;
+  - `canceled`: a cancel was requested. The job stays `slicing` with no intent, and the caller settles it
+    with `settleCancel` instead of submitting it;
   - `refused`: the job is not `slicing`, or already has an intent;
   - `lost`: the lease is gone.
 - `markSubmitted` writes the marker (`submitted_at`) and the printer handle, once, under the lease, and only
@@ -419,8 +447,8 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
     the printer cannot go back to uploading;
   - `printing` needs the submit marker, so a job leaves the window only through `markSubmitted`;
   - `queued`, `generating` and `slicing` need no intent, so a job with one cannot go back;
-  - `canceled` is refused once the job has the marker: a cancel after the marker must stop the printer
-    first, which the cancel step (#136) adds;
+  - `canceled` is refused once the job has the marker, so a job on the printer is canceled only through
+    `settleCancel`, which confirms the stop or holds the printer;
   - otherwise a terminal state is accepted. Inside the window, though, `done`, `failed` and `canceled` all
     settle the job as `failed` and hold its printer in the same transaction, because nobody knows what
     the printer received. The worker's own error is kept; without one the error is
