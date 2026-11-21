@@ -34,8 +34,7 @@ export function measure(tree: Tree): Baseline {
     const language = languageOf(path);
     const src = language ? tree.read(path) : null;
     if (!language || src === null) continue;
-    const tally = tallyFile(src, language);
-    if (tally.comments > 0 || tally.suppressions > 0) files[path] = tally;
+    files[path] = tallyFile(src, language);
   }
   return { files };
 }

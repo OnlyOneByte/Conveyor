@@ -90,6 +90,33 @@ describe("checkRatchet", () => {
     });
     expect(result.errors[0]).toContain("is stale");
   });
+
+  test("treats a rename with an identical tally as unchanged", () => {
+    const result = checkRatchet({
+      current: baseline({ "new.ts": [2, 1] }),
+      committed: json({ "new.ts": [2, 1] }),
+      base: baseWith({ "old.ts": [2, 1] }),
+    });
+    expect(result.errors).toEqual([]);
+  });
+
+  test("does not treat a rename with a different tally as unchanged", () => {
+    const result = checkRatchet({
+      current: baseline({ "new.ts": [3, 0] }),
+      committed: json({ "new.ts": [3, 0] }),
+      base: baseWith({ "old.ts": [2, 0] }),
+    });
+    expect(result.errors).toContain("added: new.ts: 3 comments (base allows 0)");
+  });
+
+  test("does not let a file that still exists donate its allowance", () => {
+    const result = checkRatchet({
+      current: baseline({ "a.ts": [0, 0], "b.ts": [2, 0] }),
+      committed: json({ "a.ts": [0, 0], "b.ts": [2, 0] }),
+      base: baseWith({ "a.ts": [2, 0] }),
+    });
+    expect(result.errors).toContain("added: b.ts: 2 comments (base allows 0)");
+  });
 });
 
 describe("baseline validation", () => {
