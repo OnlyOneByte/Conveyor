@@ -3,18 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 
-/**
- * STL upload endpoint for the passthrough generator (SPEC §8 → v1). Stores the
- * uploaded bytes under <DATA_DIR>/uploads/<uploadId>.stl on the shared /data
- * volume; the worker's passthrough plugin reads them from the same path.
- *
- * Returns an opaque uploadId the PWA then submits as the passthrough generator's
- * `params.uploadId`. The bytes are NOT trusted as code — they're handed to the
- * slicer as-is; we only enforce a size cap + .stl extension here.
- */
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(DATA_DIR, "uploads");
-const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024); // 100 MB
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);
 
 export async function registerUploadRoutes(app: FastifyInstance): Promise<void> {
   app.post("/uploads", async (req, reply) => {
@@ -30,7 +21,6 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
     await mkdir(UPLOAD_DIR, { recursive: true });
     const dest = join(UPLOAD_DIR, `${uploadId}.stl`);
 
-    // toBuffer() rejects with a 413-equivalent if the stream exceeds fileSize.
     let buf: Buffer;
     try {
       buf = await file.toBuffer();

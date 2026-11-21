@@ -12,21 +12,10 @@ import {
 
 const loginSchema = z.object({ password: z.string().min(1).max(512) });
 
-/** True when the caller presents a valid session cookie. */
 function hasSession(req: FastifyRequest): boolean {
   return verifyToken(readSessionCookie(req.headers.cookie));
 }
 
-/**
- * Path-based access gate. Mirrors the angryang.dev lesson: the gated-path
- * definition lives in ONE place so a route can't silently fall outside the
- * protected tree. Rules (when auth is enabled):
- *   - /health and /auth/* are always public (login must be reachable)
- *   - everything else requires a valid session
- *
- * One tier only — holding the password grants the whole app, catalog included. See
- * auth.ts for why the former elevated role was removed.
- */
 const PUBLIC_PREFIXES = ["/health", "/auth/"];
 
 function isPublic(url: string): boolean {
@@ -34,7 +23,7 @@ function isPublic(url: string): boolean {
 }
 
 export function registerAuthGuard(app: FastifyInstance): void {
-  if (!authEnabled) return; // open mode — no gate (warned at boot)
+  if (!authEnabled) return;
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     const url = req.url.split("?")[0];
@@ -44,13 +33,12 @@ export function registerAuthGuard(app: FastifyInstance): void {
 }
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
-  // Whether the client must show a login screen.
   app.get("/auth/status", async (req) => {
     return { authEnabled, authenticated: hasSession(req) };
   });
 
   app.post("/auth/login", async (req, reply) => {
-    if (!authEnabled) return reply.send({ ok: true }); // nothing to log into
+    if (!authEnabled) return reply.send({ ok: true });
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "password required" });
 
@@ -59,7 +47,6 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
 
     reply.header("set-cookie", sessionCookie(issueToken()));
-    // Gated responses must not be cached/cross-served (angryang.dev lesson).
     reply.header("cache-control", "private, no-store");
     return reply.send({ ok: true });
   });
