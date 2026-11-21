@@ -3,8 +3,6 @@ import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
 
-const DATA_DIR = resolve(process.env.DATA_DIR ?? "/data");
-
 export type ArtifactKind = "model" | "gcode";
 
 const KIND_META: Record<ArtifactKind, { filename: string; contentType: string }> = {
@@ -43,7 +41,7 @@ export async function resolveJobArtifact(
   const stored = job.artifacts?.[kind];
   if (!stored) throw new ArtifactError(`job ${jobId} has no ${kind} artifact recorded`);
 
-  const jobRoot = join(DATA_DIR, jobId);
+  const jobRoot = join(resolve(process.env.DATA_DIR ?? "/data"), jobId);
   let canonical: string;
   try {
     canonical = await realpath(resolve(stored));

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { job, jobRows, login } from "../../test/booted-api.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-sqlite-"));
 const { REDIS_URL: _redis, ...inherited } = process.env;
@@ -55,6 +56,19 @@ afterAll(async () => {
 });
 
 describe("the auth guard on an api running the sqlite queue", () => {
+  test("serves the sqlite job routes to a session, with Redis unreachable", async () => {
+    const cookie = await login(base, "guard-test-password");
+    const active = await fetch(`${base}/jobs/active`, { headers: { cookie } });
+    expect([active.status, await active.json()]).toEqual([200, []]);
+    const posted = await fetch(`${base}/jobs`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(job),
+    });
+    expect(posted.status).toBe(202);
+    expect(jobRows(dir)).toBe(1);
+  });
+
   test.each([
     ["POST", "/jobs"],
     ["GET", "/jobs/active"],
