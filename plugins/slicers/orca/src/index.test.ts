@@ -57,6 +57,7 @@ describe("the orca slicer", () => {
       meta: { profileId: "orca/p" },
     });
     expect(readFileSync(gcode.path, "utf8")).toBe("G1 X1\n");
+    expect(engineArgs(bin, "xvfb-run").slice(0, 2)).toEqual(["-a", join(bin, "orca-slicer")]);
     expect(engineArgs(bin, "orca-slicer")).toEqual([
       "--datadir",
       "/orca/profiles",
