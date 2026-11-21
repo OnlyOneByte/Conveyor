@@ -8,12 +8,17 @@ import {
   claimJob,
   enqueueJob,
   type Lease,
+  markSubmitted,
+  RESUME_FAILED_REASON,
+  releaseLease,
   requestCancel,
   STOP_UNCONFIRMED_REASON,
   tailEvents,
+  takePrinterSlot,
   UPLOAD_SETTLE_REASON,
 } from "@conveyor/shared/queue";
 import { type HarnessOptions, harness, req, waitForAbort } from "./pipeline-harness";
+import { RESUMED_MESSAGE } from "./print";
 import { queueDeps, SLOT_WAIT_MESSAGE } from "./queue-deps";
 import { LeaseLostError, type PipelineDeps } from "./run";
 
@@ -29,9 +34,7 @@ function queued(opts: HarnessOptions = {}, overrides: Partial<PipelineDeps> = {}
   db = openDb(join(dir, "conveyor.db"));
   dbUpsertPrinter(db, { id: "p1", transportId: "tr", name: "P1", address: "10.0.0.9" });
   enqueueJob(db, { id: "job-1", request: req });
-  const claimed = claimJob(db, "w1");
-  if (!claimed) throw new Error("not claimed");
-  const lease: Lease = claimed.lease;
+  const lease = opts.resume ? orphanLease() : claim("w1");
   return harness({
     ...opts,
     deps: (h) => ({
@@ -46,6 +49,21 @@ function queued(opts: HarnessOptions = {}, overrides: Partial<PipelineDeps> = {}
       ...overrides,
     }),
   });
+}
+
+function claim(owner: string): Lease {
+  const claimed = claimJob(db, owner);
+  if (!claimed) throw new Error("not claimed");
+  return claimed.lease;
+}
+
+function orphanLease(): Lease {
+  const first = claim("w0");
+  db.query("UPDATE jobs SET state = 'slicing' WHERE id = 'job-1'").run();
+  takePrinterSlot(db, first);
+  markSubmitted(db, first, { transportId: "tr", printerId: "p1", ref: "model.gcode" });
+  releaseLease(db, first);
+  return claim("w1");
 }
 
 const row = () =>
@@ -190,5 +208,76 @@ describe("a job run on the sqlite queue", () => {
     expect(row().state).toBe("slicing");
     expect(row()).toMatchObject({ submit_started_at: null, cancel_requested_at: null });
     expect(h.submits).toBe(0);
+  });
+});
+
+describe("resuming a job that was already on the printer", () => {
+  test("watches the stored handle and never submits again", async () => {
+    const h = queued({
+      resume: true,
+      status: async function* () {
+        yield { state: "printing", progress: 0.7 };
+        yield { state: "done" };
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(h.submits).toBe(0);
+    expect(h.generated).toBe(0);
+    expect(events().find((e) => e.message === RESUMED_MESSAGE)?.state).toBe("printing");
+    expect(row()).toMatchObject({ state: "done", lease_owner: null });
+  });
+
+  for (const [name, status] of [
+    [
+      "the first status read fails",
+      async function* () {
+        yield* [];
+        throw new Error("ECONNREFUSED");
+      },
+    ],
+    ["the status stream ends at once", async function* () {}],
+  ] as const) {
+    test(`fails and holds the printer when ${name}`, async () => {
+      const h = queued({ resume: true, status });
+      expect(await h.run()).toBe("failed");
+      expect(h.submits).toBe(0);
+      expect(JSON.parse(String(row().error_json)).reason).toBe(RESUME_FAILED_REASON);
+      expect(hold()).toEqual({ hold_job_id: "job-1", hold_reason: RESUME_FAILED_REASON });
+    });
+  }
+
+  test("a cancel before the first status stops the printer instead of failing the resume", async () => {
+    const h = queued({
+      resume: true,
+      status: async function* (_handle, signal) {
+        requestCancel(db, "job-1");
+        h.controller.abort();
+        if (signal) await waitForAbort(signal);
+        yield* [];
+      },
+    });
+    expect(await h.run()).toBe("canceled");
+    expect(h.cancels).toHaveLength(1);
+    expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
+  });
+
+  test("fails and holds the printer when the stored handle is unreadable", async () => {
+    const h = queued({ resume: true });
+    db.query("UPDATE jobs SET print_handle_json = '{}' WHERE id = 'job-1'").run();
+    expect(await h.run()).toBe("failed");
+    expect(hold()).toEqual({ hold_job_id: "job-1", hold_reason: RESUME_FAILED_REASON });
+  });
+
+  test("a failure after the first status fails the job without a hold", async () => {
+    const h = queued({
+      resume: true,
+      status: async function* () {
+        yield { state: "printing", progress: 0.7 };
+        throw new Error("socket reset");
+      },
+    });
+    await expect(h.run()).rejects.toThrow("socket reset");
+    expect(row().state).toBe("failed");
+    expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
   });
 });

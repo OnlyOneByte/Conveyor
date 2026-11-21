@@ -71,10 +71,11 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 | Marker | `markSubmitted` with the handle right after `submit()`, so the marker is written before the first `printing` status |
 | Cancel | `cancelRequested` reads `isCancelRequested`. A canceled job, or one the printer reports canceled, settles through `settleCancel`: confirmed when nothing reached the printer or it stopped, otherwise `failed` with the printer held |
 | History | the terminal state, error and timings come from the status write; the history step only adds `model_path`, `gcode_path` and `notes`, under the lease |
+| Resume | `resumeJob` runs a claimed orphan: it reads the stored handle (`readPrintHandle`), publishes `printing` with `resumed after worker restart`, and watches the print. It never generates, slices or submits. When it cannot reconnect (no readable handle, an unknown transport or printer, a first status read that fails or a stream that ends before any status) it settles through `failResume`: `failed` with the printer held. A cancel during that first read stops the printer as usual. A failure after the first status is an ordinary print failure |
 | Lost lease | a fenced write that changes nothing aborts the run with `LeaseLostError`. The run removes its work directory and writes nothing more; it does not stop the printer, because whoever holds the job next decides |
 
 A `submit()` that fails, `PrintNotStartedError` included, settles `failed` inside the upload window, which
-holds the printer. Clearing the intent for `PrintNotStartedError` without a hold is left to the resume step.
+holds the printer. Clearing the intent for `PrintNotStartedError` without a hold is not done yet.
 
 ## profile.ts
 

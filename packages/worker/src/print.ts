@@ -26,6 +26,15 @@ const DEFAULT_STREAM_CLOSE_MS = 5000;
 
 export type PrintOutcome = "done" | "canceled";
 
+export const RESUMED_MESSAGE = "resumed after worker restart";
+
+export class ResumeFailedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "ResumeFailedError";
+  }
+}
+
 export async function printStage(
   run: Run,
   target: JobTarget,
@@ -50,6 +59,20 @@ export async function printStage(
   await checkpoint(run);
   run.state = "printing";
   return watchPrint(run, transport, attempt.handle);
+}
+
+export async function resumePrint(run: Run, handle: PrintHandle): Promise<PrintOutcome> {
+  const transport = run.deps.registry.transports.get(handle.transportId);
+  if (!transport) throw new ResumeFailedError(`unknown transport ${handle.transportId}`);
+  const printer = await run.deps.resolvePrinter(handle.printerId).catch((err: unknown) => {
+    throw new ResumeFailedError(messageOf(err));
+  });
+  run.print = { transport, printer, ref: handle.ref, handle };
+  await run.deps.publish(run.opts.jobId, "printing", {
+    stage: "transport",
+    message: RESUMED_MESSAGE,
+  });
+  return watchPrint(run, transport, handle, true);
 }
 
 function pollCancelFlag(run: Run): () => void {
@@ -110,15 +133,23 @@ async function watchPrint(
   run: Run,
   transport: TransportPlugin,
   handle: PrintHandle,
+  resuming = false,
 ): Promise<PrintOutcome> {
+  let unread = resuming;
   const stopPolling = pollCancelFlag(run);
   const closing = new AbortController();
   const signal = AbortSignal.any([run.signal, closing.signal]);
   const statuses = transport.status(handle, signal)[Symbol.asyncIterator]();
   try {
     while (true) {
-      const next = await race(run, statuses.next());
-      if (next.done) throw new StageError("transport", "connection lost before completion");
+      const next = await race(run, statuses.next()).catch((err: unknown) => {
+        throw unread && !run.signal.aborted ? new ResumeFailedError(messageOf(err)) : err;
+      });
+      if (next.done) {
+        const lost = "connection lost before completion";
+        throw unread ? new ResumeFailedError(lost) : new StageError("transport", lost);
+      }
+      unread = false;
       const outcome = await handleStatus(run, next.value);
       if (outcome) return outcome;
       await checkpoint(run);

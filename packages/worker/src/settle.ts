@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { computeStageTimings, StageError } from "@conveyor/shared";
-import { fallbackHandle } from "./print.js";
+import { fallbackHandle, ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
   LeaseLostError,
@@ -109,6 +109,18 @@ async function settleQueuedCancel(
   return state;
 }
 
+async function settleResumeFailed(
+  run: Run,
+  queue: QueueHooks,
+  reason: string,
+): Promise<TerminalState> {
+  await cleanup(run);
+  const failure = await writeHistory(run, { state: "failed", notes: noted(run, reason) });
+  const state = await queue.failResume();
+  if (failure) throw failure;
+  return state;
+}
+
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
   if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue);
   await cleanup(run);
@@ -144,6 +156,9 @@ export async function settleError(run: Run, err: unknown): Promise<TerminalState
   if (lost instanceof LeaseLostError) {
     await cleanup(run);
     throw lost;
+  }
+  if (err instanceof ResumeFailedError && run.deps.queue) {
+    return settleResumeFailed(run, run.deps.queue, err.message);
   }
   if (err instanceof JobCanceledError || run.signal.aborted) {
     const stopError = await stopPrinter(run);

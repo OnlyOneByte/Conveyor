@@ -41,6 +41,8 @@ export interface QueueHooks {
   takeSlot(signal: AbortSignal): Promise<SlotResult>;
   markSubmitted(handle: PrintHandle): Promise<void>;
   settleCancel(stopConfirmed: boolean): Promise<TerminalState>;
+  printHandle(): PrintHandle | null;
+  failResume(): Promise<TerminalState>;
 }
 
 export interface PipelineDeps {

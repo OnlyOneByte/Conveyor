@@ -5,7 +5,7 @@ import {
   type ModelArtifact,
   StageError,
 } from "@conveyor/shared";
-import { type PrintOutcome, printStage } from "./print.js";
+import { type PrintOutcome, printStage, ResumeFailedError, resumePrint } from "./print.js";
 import {
   checkpoint,
   createRun,
@@ -81,6 +81,25 @@ export async function runJob(opts: RunJobOptions, deps: PipelineDeps): Promise<T
   } catch (err) {
     return settleError(run, err);
   }
+  return settleOutcome(run, outcome);
+}
+
+export async function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
+  const run = createRun(opts, deps);
+  run.stage = "transport";
+  run.state = "printing";
+  let outcome: PrintOutcome;
+  try {
+    const handle = deps.queue?.printHandle();
+    if (!handle) throw new ResumeFailedError("no stored print handle");
+    outcome = await resumePrint(run, handle);
+  } catch (err) {
+    return settleError(run, err);
+  }
+  return settleOutcome(run, outcome);
+}
+
+function settleOutcome(run: Run, outcome: PrintOutcome): Promise<TerminalState> {
   switch (outcome) {
     case "canceled":
       return settleCanceled(run, "canceled on printer");
