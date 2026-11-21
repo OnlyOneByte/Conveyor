@@ -2,9 +2,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Subprocess, spawn } from "bun";
+import { spawn } from "bun";
 import { messageOf } from "./errors.ts";
-import { createTeardown, type StackHandles, tearDownOnExit } from "./teardown.ts";
+import {
+  type ChildHandle,
+  createTeardown,
+  type ExitEvents,
+  type StackHandles,
+  tearDownOnExit,
+} from "./teardown.ts";
 
 export interface Stack {
   url: string;
@@ -12,6 +18,35 @@ export interface Stack {
 }
 
 type Log = (line: string) => void;
+
+export interface StackChild extends ChildHandle {
+  exitCode: number | null;
+  exited: Promise<number>;
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+}
+
+export interface StackDeps {
+  spawn: (options: {
+    cmd: string[];
+    cwd: string;
+    env: Record<string, string | undefined>;
+  }) => StackChild;
+  spawnSync: (cmd: string[]) => { exitCode: number | null; stdout: Buffer; stderr: Buffer };
+  events: ExitEvents;
+  exit: (code: number) => void;
+  sleep: (ms: number) => Promise<void>;
+}
+
+const KILL_AFTER_MS = 5000;
+
+const defaultDeps: StackDeps = {
+  spawn: (options) => spawn({ ...options, stdin: "ignore", stdout: "pipe", stderr: "pipe" }),
+  spawnSync: (cmd) => Bun.spawnSync(cmd),
+  events: process,
+  exit: (code) => process.exit(code),
+  sleep: (ms) => Bun.sleep(ms),
+};
 
 async function freePort(): Promise<number> {
   return new Promise((done, fail) => {
@@ -25,12 +60,15 @@ async function freePort(): Promise<number> {
   });
 }
 
-async function waitHttp(url: string, timeoutMs: number, proc?: Subprocess): Promise<void> {
+async function waitHttp(
+  url: string,
+  timeoutMs: number,
+  proc: { exitCode: number | null },
+): Promise<void> {
   const until = Date.now() + timeoutMs;
   let last = "no response yet";
   while (Date.now() < until) {
-    if (proc && proc.exitCode !== null)
-      throw new Error(`process for ${url} exited with ${proc.exitCode}`);
+    if (proc.exitCode !== null) throw new Error(`process for ${url} exited with ${proc.exitCode}`);
     try {
       const res = await fetch(url);
       if (res.status < 500) return;
@@ -50,20 +88,21 @@ export function redisContainer(port: number): { url: string; dockerRun: string[]
   };
 }
 
-async function startRedis(log: Log, handles: StackHandles): Promise<string> {
+async function startRedis(deps: StackDeps, handles: StackHandles): Promise<string> {
   const container = redisContainer(await freePort());
-  const run = Bun.spawnSync(container.dockerRun);
+  const run = deps.spawnSync(container.dockerRun);
   if (run.exitCode !== 0) throw new Error(`docker run redis failed: ${run.stderr.toString()}`);
   const id = run.stdout.toString().trim();
   handles.cleanups.push(async () => {
-    const removed = Bun.spawnSync(["docker", "rm", "-f", id]);
+    const removed = deps.spawnSync(["docker", "rm", "-f", id]);
     if (removed.exitCode !== 0)
-      log(`[redis] docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
+      throw new Error(`docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
   });
   const until = Date.now() + 30000;
   let ready = false;
   while (!ready && Date.now() < until) {
-    ready = Bun.spawnSync(["docker", "exec", id, "redis-cli", "ping"])
+    ready = deps
+      .spawnSync(["docker", "exec", id, "redis-cli", "ping"])
       .stdout.toString()
       .includes("PONG");
     if (!ready) await Bun.sleep(300);
@@ -100,28 +139,35 @@ export function stackEnv(
   };
 }
 
-export async function bootStack(root: string, log: Log): Promise<Stack> {
+export async function bootStack(
+  root: string,
+  log: Log,
+  deps: StackDeps = defaultDeps,
+): Promise<Stack> {
   const handles: StackHandles = { children: [], cleanups: [] };
-  const teardown = createTeardown(handles);
+  const teardown = createTeardown(handles, { killAfterMs: KILL_AFTER_MS, sleep: deps.sleep });
   const detach = tearDownOnExit({
-    events: process,
+    events: deps.events,
     teardown,
-    exit: (code) => process.exit(code),
+    exit: deps.exit,
     report: (reason) => console.error(reason),
   });
   const stop = async () => {
-    await teardown();
-    detach();
+    try {
+      await teardown();
+    } finally {
+      detach();
+    }
   };
   try {
     const dataDir = await mkdtemp(join(tmpdir(), "conveyor-visual-"));
     handles.cleanups.push(() => rm(dataDir, { recursive: true, force: true }));
-    const redisUrl = await startRedis(log, handles);
+    const redisUrl = await startRedis(deps, handles);
     const apiPort = await freePort();
     const webPort = await freePort();
     const env = stackEnv(process.env, { redisUrl, dataDir, apiPort });
     const launch = (name: string, cmd: string[], cwd: string) => {
-      const proc = spawn({ cmd, cwd, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+      const proc = deps.spawn({ cmd, cwd, env });
       handles.children.push(proc);
       pipeLines(name, proc.stdout, log).catch((err) =>
         log(`[${name}] stdout closed: ${messageOf(err)}`),
@@ -156,7 +202,9 @@ export async function bootStack(root: string, log: Log): Promise<Stack> {
     await waitHttp(`${url}/`, 90000, web);
     return { url, stop };
   } catch (err) {
-    await stop();
+    await stop().catch((stopErr: unknown) => {
+      throw new AggregateError([err, stopErr], `${messageOf(err)}; then ${messageOf(stopErr)}`);
+    });
     throw err;
   }
 }
