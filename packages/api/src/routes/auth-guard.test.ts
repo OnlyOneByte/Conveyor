@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { job, jobRows, login } from "../../test/booted-api.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-"));
 const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "index.ts")], {
@@ -58,6 +59,17 @@ const send = (method: string, path: string) =>
   });
 
 describe("the global auth guard on a booted api", () => {
+  test("keeps the Redis job routes by default, so a submitted job lands no sqlite row", async () => {
+    const cookie = await login(base, "guard-test-password");
+    await fetch(`${base}/jobs`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(job),
+      signal: AbortSignal.timeout(500),
+    }).catch(() => undefined);
+    expect(jobRows(dir)).toBe(0);
+  });
+
   test.each([
     ["POST", "/catalog/printers/p1/release"],
     ["POST", "/jobs"],
