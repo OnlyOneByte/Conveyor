@@ -20,11 +20,13 @@ let db: Database;
 let dir: string;
 let workers: QueueWorker[] = [];
 const logs: string[] = [];
+const loggedAt: number[] = [];
 
 afterEach(async () => {
   await Promise.all(workers.map((w) => w.stop()));
   workers = [];
   logs.length = 0;
+  loggedAt.length = 0;
   db.close();
   rmSync(dir, { recursive: true, force: true });
 });
@@ -51,7 +53,10 @@ function start(opts: HarnessOptions = {}, w: Partial<QueueWorkerOptions> = {}) {
         const target = base.resolveJobTarget(r);
         return target && { ...target, printerId: r.printerId };
       },
-      log: (msg) => logs.push(msg),
+      log: (msg) => {
+        logs.push(msg);
+        loggedAt.push(Date.now());
+      },
     },
     claimIdleMs: 10,
     tickMs: 10,
@@ -115,6 +120,37 @@ describe("the sqlite queue worker", () => {
     start({}, { timing: { ...DEFAULT_TIMING, backoffBaseMs: 0 } });
     await until(() => row("a").state === "done");
     expect(row("a").attempts).toBe(2);
+  });
+
+  test("claims a job enqueued after the worker went idle", async () => {
+    setup();
+    start();
+    await Bun.sleep(50);
+    enqueue("a");
+    await until(() => row("a").state === "done");
+  });
+
+  test("a resumed print does not take an engine slot", async () => {
+    setup();
+    enqueue("a");
+    const lease = claimJob(db, "gone")?.lease;
+    if (!lease) throw new Error("not claimed");
+    db.query("UPDATE jobs SET state = 'slicing' WHERE id = 'a'").run();
+    takePrinterSlot(db, lease);
+    markSubmitted(db, lease, { transportId: "tr", printerId: "p1", ref: "model.gcode" });
+    releaseLease(db, lease);
+    enqueue("b", "p2");
+    start(
+      {
+        status: async function* (_handle, signal) {
+          yield { state: "printing", progress: 0.1 };
+          if (signal) await waitForAbort(signal);
+        },
+      },
+      { concurrency: 1 },
+    );
+    await until(() => row("b").state === "printing");
+    expect(row("a").state).toBe("printing");
   });
 
   test("resumes a job already on the printer without submitting it again", async () => {
@@ -188,9 +224,11 @@ describe("the sqlite queue worker", () => {
           holder.exec("COMMIT");
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 150 } },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 400 }, busyMarginMs: 150 },
     );
     await until(() => logs.some((l) => l.includes("lease renewal failed")));
+    const gaveUpAt = loggedAt[logs.findIndex((l) => l.includes("lease renewal failed"))] ?? 0;
+    expect(gaveUpAt).toBeLessThan(Number(row("a").lease_until) - 75);
     holder.close();
     expect(h.submits).toBe(0);
   });
