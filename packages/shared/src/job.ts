@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Stage } from "./plugins.js";
 
 export const JOB_STATES = [
@@ -19,11 +20,13 @@ export function isTerminal(state: JobState): boolean {
   return TERMINAL_STATES.includes(state);
 }
 
-export interface JobRequest {
-  generator: { id: string; params?: unknown };
-  printerId: string;
-  profileId: string;
-}
+export const jobRequestSchema = z.object({
+  generator: z.object({ id: z.string(), params: z.unknown() }),
+  printerId: z.string(),
+  profileId: z.string(),
+});
+
+export type JobRequest = z.infer<typeof jobRequestSchema>;
 
 export interface JobTarget {
   printerId: string;

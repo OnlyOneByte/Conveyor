@@ -36,6 +36,8 @@ export interface HarnessOptions {
   cancel?: ((handle: PrintHandle) => Promise<void>) | null;
   handleFor?: (target: PrinterTarget, ref: string) => PrintHandle;
   cancelRequested?: () => Promise<boolean>;
+  record?: () => void;
+  profileCleanup?: () => Promise<void>;
   cancelPollMs?: number;
   streamCloseMs?: number;
   workDir?: string;
@@ -120,6 +122,7 @@ function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
       h.events.push({ state, message: extra?.message, reason: extra?.error?.reason });
     },
     record: (_id, _req, extra) => {
+      opts.record?.();
       h.records.push({ state: extra.state, reason: extra.reason });
     },
     resolveJobTarget: () => ({
@@ -140,7 +143,7 @@ function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     resolveProfile: async () => ({
       profile: { id: "prof", name: "prof", path: "/profiles/prof" },
       source: "bundled",
-      cleanup: async () => {},
+      cleanup: opts.profileCleanup ?? (async () => {}),
     }),
     cancelRequested: opts.cancelRequested ?? (async () => false),
     log: () => {},

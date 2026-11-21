@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type JobTarget, StageError } from "@conveyor/shared";
@@ -138,4 +138,36 @@ describe("resolveProfileForSlice", () => {
       }
     });
   });
+
+  test.skipIf(process.getuid?.() === 0)(
+    "a materialize failure names the partial profile it could not remove",
+    async () => {
+      const db = openDb(":memory:");
+      dbUpsertProfile(db, {
+        id: "edited-prusa",
+        slicerId: "prusa",
+        name: "Profile",
+        path: "/profiles/prusa-klipper-pla-0.2",
+        gcodeFlavor: "klipper",
+      });
+      db.prepare("UPDATE profiles SET prusa_ini = ? WHERE id = ?").run(
+        "layer_height = 0.2\n",
+        "edited-prusa",
+      );
+      await withWorkDir(async (dir) => {
+        await mkdir(join(dir, "profile"));
+        await writeFile(join(dir, "profile", "config.ini"), "stale\n");
+        await chmod(dir, 0o500);
+        try {
+          await expect(
+            resolveProfileForSlice(target({ profileId: "edited-prusa" }), dir, db),
+          ).rejects.toThrow(
+            /failed to materialize Prusa profile edited-prusa: .*; partial profile not removed: /,
+          );
+        } finally {
+          await chmod(dir, 0o700);
+        }
+      });
+    },
+  );
 });
