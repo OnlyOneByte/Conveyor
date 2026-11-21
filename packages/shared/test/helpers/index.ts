@@ -1,6 +1,7 @@
 export * from "./clock.ts";
 export * from "./ctx.ts";
 export * from "./db.ts";
+export * from "./engine.ts";
 export * from "./legacy-db.ts";
 export * from "./queue.ts";
 export * from "./slicer.ts";
