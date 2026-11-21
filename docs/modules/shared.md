@@ -413,6 +413,15 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
   script's terminal guard. An event is appended only when the write is accepted, so a refused write
   leaves no trace. An identical repeated write is accepted and appends a second event; coalescing repeats
   is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
+- `writeStatus` cannot move a job into or out of the upload window, because only `takePrinterSlot` and
+  `markSubmitted` may. By target state:
+  - `transferring` needs a submit intent, so only the slot starts an upload;
+  - `printing` needs the submit marker, so a job leaves the window only through `markSubmitted`;
+  - `queued`, `generating` and `slicing` need no intent, so a job with one cannot go back;
+  - a terminal state is always accepted, so a job in the window can still fail or be canceled.
+
+  A refused write appends nothing. Without these rules one worker bug could start a second upload to a busy
+  printer, or hide an unknown submit from the reaper (#134).
 - `appendEvent` is shared by every write that changes a job's state outside `writeStatus`:
   - `enqueueJob` records the first `queued` event;
   - `claimJob` records `generating` for a queued job (a resumed orphan keeps its state and records nothing);

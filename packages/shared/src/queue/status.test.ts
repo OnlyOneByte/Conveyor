@@ -11,6 +11,7 @@ import {
   tailEvents,
   writeStatus,
 } from "./status.ts";
+import { markSubmitted, takePrinterSlot } from "./submit.ts";
 
 let h: QueueHarness;
 afterEach(() => h.close());
@@ -23,6 +24,7 @@ function claimed(): Lease {
   return lease;
 }
 
+const handle = { transportId: "fake", printerId: "p1", ref: "model.gcode" };
 const states = (afterSeq = 0) => tailEvents(h.db, "a", afterSeq).map((e) => e.event.state);
 const queuedSnapshot = () =>
   ({ jobId: "a", state: "queued", stage: null, at: h.timing.now() }) as const;
@@ -57,6 +59,42 @@ describe("job status and events", () => {
     expect(writeStatus(h.db, lease, { state: "printing" }, h.timing)).toBe(false);
     expect(h.row("a").state).toBe("canceled");
     expect(states()).toEqual(["queued", "generating"]);
+  });
+
+  test("moves a job into the upload window only through the slot, and out only through the marker", () => {
+    const lease = claimed();
+    expect(writeStatus(h.db, lease, { state: "transferring" }, h.timing)).toBe(false);
+    expect(writeStatus(h.db, lease, { state: "printing" }, h.timing)).toBe(false);
+    h.set("a", "state = 'slicing'");
+    expect(takePrinterSlot(h.db, lease, h.timing)).toBe("taken");
+    for (const state of ["queued", "generating", "slicing", "printing"] as const) {
+      expect(writeStatus(h.db, lease, { state }, h.timing)).toBe(false);
+    }
+    expect(writeStatus(h.db, lease, { state: "transferring", progress: 0.5 }, h.timing)).toBe(true);
+    expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(true);
+    expect(writeStatus(h.db, lease, { state: "printing" }, h.timing)).toBe(true);
+    expect(writeStatus(h.db, lease, { state: "slicing" }, h.timing)).toBe(false);
+    expect(writeStatus(h.db, lease, { state: "done" }, h.timing)).toBe(true);
+    expect(states()).toEqual([
+      "queued",
+      "generating",
+      "transferring",
+      "transferring",
+      "printing",
+      "done",
+    ]);
+  });
+
+  test("lets a job inside the upload window settle as failed or canceled", () => {
+    for (const state of ["failed", "canceled"] as const) {
+      const lease = claimed();
+      h.set("a", "state = 'slicing'");
+      takePrinterSlot(h.db, lease, h.timing);
+      expect(writeStatus(h.db, lease, { state }, h.timing)).toBe(true);
+      expect(h.row("a").state).toBe(state);
+      h.close();
+    }
+    h = queueHarness();
   });
 
   test("a write without a live lease changes nothing and appends nothing", () => {
@@ -96,7 +134,8 @@ describe("job status and events", () => {
     const lease = claimed();
     writeStatus(h.db, lease, { state: "slicing" }, h.timing);
     const { cursor } = readSnapshot(h.db, "a") ?? { cursor: -1 };
-    writeStatus(h.db, lease, { state: "transferring" }, h.timing);
+    takePrinterSlot(h.db, lease, h.timing);
+    markSubmitted(h.db, lease, handle, h.timing);
     writeStatus(h.db, lease, { state: "printing", progress: 0.1 }, h.timing);
     const tailed = tailEvents(h.db, "a", cursor);
     expect(tailed.map((e) => e.event.state)).toEqual(["transferring", "printing"]);
@@ -179,7 +218,7 @@ describe("job status and events", () => {
          const lease = JSON.parse(process.env.LEASE);
          const timing = { leaseMs: 600000, backoffBaseMs: 5000, now: Date.now };
          for (let i = 1; i <= 3000; i++)
-           writeStatus(db, lease, { state: i % 2 ? "slicing" : "transferring", progress: i / 3000 }, timing);`,
+           writeStatus(db, lease, { state: "slicing", progress: i / 3000 }, timing);`,
       ],
       {
         env: {

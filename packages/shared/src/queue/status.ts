@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { JobStatusEvent } from "../events.js";
-import { isTerminal, TERMINAL_STATES } from "../job.js";
+import { exhaustive } from "../exhaustive.js";
+import { isTerminal, type JobState, TERMINAL_STATES } from "../job.js";
 import { parseStatusEvent } from "../status.js";
 import { appendEvent } from "./event-log.js";
 import { DEFAULT_TIMING, inImmediate, type Lease, type QueueTiming } from "./lease.js";
@@ -8,6 +9,25 @@ import { DEFAULT_TIMING, inImmediate, type Lease, type QueueTiming } from "./lea
 export const EVENT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const TERMINAL_SQL = TERMINAL_STATES.map((state) => `'${state}'`).join(", ");
 const SETTLE = ", lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
+
+function submitWindowRule(state: JobState): string {
+  switch (state) {
+    case "transferring":
+      return "submit_started_at IS NOT NULL";
+    case "printing":
+      return "submitted_at IS NOT NULL";
+    case "queued":
+    case "generating":
+    case "slicing":
+      return "submit_started_at IS NULL";
+    case "done":
+    case "failed":
+    case "canceled":
+      return "1";
+    default:
+      return exhaustive(state);
+  }
+}
 
 export type StatusUpdate = Omit<JobStatusEvent, "jobId" | "at">;
 
@@ -33,7 +53,7 @@ export function writeStatus(
         `UPDATE jobs SET state = $state, stage = $stage, progress = $progress, message = $message,
            error_json = $error, timings_json = $timings, updated_at = $now${isTerminal(update.state) ? SETTLE : ""}
           WHERE id = $id AND lease_owner = $owner AND lease_token = $token AND lease_until >= $now
-            AND state NOT IN (${TERMINAL_SQL})`,
+            AND state NOT IN (${TERMINAL_SQL}) AND ${submitWindowRule(update.state)}`,
       )
       .run({
         $id: lease.jobId,
