@@ -45,7 +45,7 @@
       "suppressions": 0
     },
     "packages/api/src/profile-content.ts": {
-      "comments": 23,
+      "comments": 21,
       "suppressions": 0
     },
     "packages/api/src/queue.ts": {
@@ -113,7 +113,7 @@
       "suppressions": 0
     },
     "packages/shared/src/profile.ts": {
-      "comments": 52,
+      "comments": 50,
       "suppressions": 0
     },
     "packages/shared/src/registry.ts": {
