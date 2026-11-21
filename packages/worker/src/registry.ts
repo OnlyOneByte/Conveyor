@@ -6,10 +6,6 @@ import { prusa } from "@conveyor/slicer-prusa";
 import { elegoo } from "@conveyor/transport-elegoo";
 import { moonraker } from "@conveyor/transport-moonraker";
 
-/**
- * The worker is the only process that loads real adapters. Plugins self-register
- * here at startup (ADR 0001: in-process adapters, isolated engines).
- */
 export function buildRegistry(): Registry {
   const reg = createRegistry();
   reg.generators.set(gridfinity.id, gridfinity);
