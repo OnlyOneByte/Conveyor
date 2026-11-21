@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dbDeletePrinter, dbListPrinters, dbListProfiles, dbResolveJobTarget, openDb } from "./index";
+import {
+  dbDeletePrinter,
+  dbListPrinters,
+  dbListProfiles,
+  dbResolveJobTarget,
+  openDb,
+} from "./index";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed";
 
 const dirs: string[] = [];
