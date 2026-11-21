@@ -69,7 +69,7 @@ that maps never-imported files fails when the whole sweep takes longer than 30 s
 
 Guardrail paths (`.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`,
 `biome.json`, `biome.jsonc`, `tsconfig*.json`, `bunfig.toml` at any depth) change in their own PR. A PR that
-only lowers `scripts/checks/comments-baseline.json` or files under `scripts/checks/coverage/baseline/` is exempt. A guardrail-path PR needs a passing
+only lowers `scripts/checks/comments-baseline.json` or `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json` is exempt. A guardrail-path PR needs a passing
 adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
 tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
 after that independent pass.

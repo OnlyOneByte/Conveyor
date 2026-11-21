@@ -196,7 +196,7 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
-`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline/*.json`, so a PR
+`merge.sh` exempts `scripts/checks/comments-baseline.json` and `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR
 that only lowers a baseline is not held. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that

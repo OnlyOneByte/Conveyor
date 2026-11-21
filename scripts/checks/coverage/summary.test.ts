@@ -84,6 +84,12 @@ describe("isSource", () => {
     }
   });
 
+  test("a module that is not test-named counts even when it imports bun:test", () => {
+    const text = 'import { mock } from "bun:test";\nexport const fake = mock(() => 1);\n';
+    expect(isSource("packages/shared/src/fakes.ts", () => text)).toBe(true);
+    expect(isSource("plugins/slicers/orca/test/fake-slicer.ts", () => text)).toBe(true);
+  });
+
   test("a spec-named module that never imports bun:test counts", () => {
     expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
     expect(
