@@ -16,7 +16,9 @@ const CODE = /\.(ts|tsx|mts|cts|js|mjs)$/;
 
 const DECLARATION = /\.d\.ts$/;
 
-const TEST_NAME = /\.(test|spec)\.ts$/;
+const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
+
+const TEST_IMPORT = /\bfrom\s*["']bun:test["']/;
 
 const TEST_CALL = /(?<![\w.$])(test|it|describe)(\.\w+)*\s*\(/;
 
@@ -38,7 +40,7 @@ export function packageOf(path: string): PackageName | null {
 
 export const isTestFile = (path: string, text: string) =>
   TEST_HELPER_DIRS.some((dir) => path.startsWith(dir)) ||
-  (TEST_NAME.test(path) && TEST_CALL.test(text));
+  (TEST_NAME.test(path) && TEST_IMPORT.test(text) && TEST_CALL.test(text));
 
 export const isSource = (path: string, read: () => string) =>
   packageOf(path) !== null && !isTestFile(path, read());

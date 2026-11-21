@@ -49,18 +49,44 @@ describe("coverage merge", () => {
 
 const MODULE = "export const total = (items: number[]) => items.length;\n";
 
-const SUITE = 'import { test } from "bun:test";\ntest("adds", () => {});\n';
+const IMPORT = 'import { describe, it, test } from "bun:test";\n';
+
+const SUITE = `${IMPORT}test("adds", () => {});\n`;
 
 describe("isSource", () => {
-  test("a spec or test file that calls test, it or describe is a test, not source", () => {
+  test("a spec or test file that imports bun:test and calls test, it or describe is a test", () => {
     expect(isSource("packages/api/src/auth.test.ts", () => SUITE)).toBe(false);
     expect(isSource("packages/api/src/auth.spec.ts", () => SUITE)).toBe(false);
     expect(
-      isSource("plugins/slicers/orca/src/index.spec.ts", () => "it('slices', () => {});\n"),
+      isSource(
+        "plugins/slicers/orca/src/index.spec.ts",
+        () => `${IMPORT}it('slices', () => {});\n`,
+      ),
     ).toBe(false);
     expect(
-      isSource("packages/worker/src/run.test.ts", () => "describe.each([1])('x', () => {});\n"),
+      isSource(
+        "packages/worker/src/run.test.ts",
+        () => `${IMPORT}describe.each([1])('x', () => {});\n`,
+      ),
     ).toBe(false);
+  });
+
+  test("suites in every code extension are tests", () => {
+    for (const name of ["a.test.js", "a.test.mts", "a.spec.mjs", "a.test.tsx", "a.spec.cts"]) {
+      expect(isSource(`packages/api/src/${name}`, () => SUITE)).toBe(false);
+    }
+  });
+
+  test("a spec-named module that mentions test( in text but never imports bun:test counts", () => {
+    expect(
+      isSource(
+        "packages/api/src/hint.spec.ts",
+        () => 'export const hint = "call test(x) first";\n',
+      ),
+    ).toBe(true);
+    expect(
+      isSource("packages/api/src/view.spec.ts", () => "const test = (n: number) => n;\ntest(2);\n"),
+    ).toBe(true);
   });
 
   test("a module named like a spec but without test calls counts", () => {

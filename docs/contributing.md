@@ -39,9 +39,11 @@ If `check:coverage` says a package is 0.5 or more above the committed baseline, 
 base`, add the tests that cover what you changed.
 
 The coverage denominator is every `.ts`/`.js` file in `packages/api`, `worker`, `shared` and `plugins/*/*`.
-Only real tests leave it: a `*.test.ts` or `*.spec.ts` file that calls `test`, `it` or `describe`, and the
-declared helper folder `packages/shared/test/helpers/`. A module named `*.spec.ts` or kept in a `test/` folder
-still counts. The sweep that maps never-imported files fails an import that hangs for 30 s; set
+Only real tests leave it: a `*.test.*` or `*.spec.*` file whose text imports from `bun:test` and contains a
+bare `test(`, `it(` or `describe(` (a text match, not a parse), and the declared helper folder
+`packages/shared/test/helpers/`. Any other module named `*.spec.ts` or kept in a `test/` folder is mapped by
+bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder so it
+can. The sweep that maps never-imported files fails an import that hangs for 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
 
 ## The PR flow
