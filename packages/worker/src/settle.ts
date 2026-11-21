@@ -107,10 +107,11 @@ async function settleFailed(run: Run, se: StageError): Promise<never> {
   const timings = computeStageTimings(run.enters, Date.now());
   const failure = await recordThenPublish(
     run,
-    { state: "failed", stage: se.stage, reason: noted(run, se.reason) ?? se.reason, timings },
+    { state: "failed", stage: se.stage, reason: se.reason, notes: noted(run), timings },
     () => ({
       stage: se.stage,
-      error: { stage: se.stage, reason: noted(run, se.reason) ?? se.reason },
+      error: { stage: se.stage, reason: se.reason },
+      message: noted(run),
       timings,
     }),
   );
