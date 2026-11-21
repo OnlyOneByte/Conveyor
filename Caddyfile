@@ -1,13 +1,6 @@
-# Auto-HTTPS reverse proxy. PWA service workers REQUIRE https — Caddy uses its
-# internal CA for `localhost`; swap in a real domain + uncomment email for public certs.
-{
-	# email you@example.com
-}
-
 localhost {
 	encode gzip zstd
 
-	# REST + WebSocket → api (jobs incl. the /jobs/:id/ws upgrade)
 	handle /jobs* {
 		reverse_proxy api:3000
 	}
@@ -23,14 +16,10 @@ localhost {
 	handle /jobs-history* {
 		reverse_proxy api:3000
 	}
-	# /catalog/* is the durable-catalog API namespace (printers/profiles/transports).
-	# Page routes deliberately never share a prefix with an API namespace — /admin and
-	# /jobs both caused 404s on direct load when they did.
 	handle /catalog* {
 		reverse_proxy api:3000
 	}
 
-	# everything else (the PWA and its page routes: /, /settings, /history) → web
 	handle {
 		reverse_proxy web:3000
 	}

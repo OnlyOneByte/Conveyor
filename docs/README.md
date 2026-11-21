@@ -18,11 +18,13 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 |---|---|
 | [../SPEC.md](../SPEC.md) | Product spec, vocabulary and milestones |
 | [PLUGINS.md](PLUGINS.md) | Generator, Slicer and Transport contracts |
+| [modules/plugins.md](modules/plugins.md) | Why the bundled plugins work the way they do: engine flags, protocol quirks, unverified hardware paths |
 | [SEQUENCE.md](SEQUENCE.md) | A job's trip through the pipeline, with failure paths |
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite, Redis and filesystem storage |
 | [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
 | [M2-TRANSPORTS.md](M2-TRANSPORTS.md) | Moonraker and Elegoo transports |
 | [SLICER-PROFILES.md](SLICER-PROFILES.md) | How edited slicer profiles are validated |
+| [modules/shared.md](modules/shared.md) | `packages/shared`: the why behind its types, validation and SQLite store |
 | [ui-mockup.html](ui-mockup.html) | The original UI mockup |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 
