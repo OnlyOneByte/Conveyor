@@ -34,7 +34,8 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = passthroughParams.safeParse(rawParams);
-    if (!parsed.success) throw new StageError("generator", `invalid params: ${parsed.error.message}`);
+    if (!parsed.success)
+      throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
     // basename() is a defense-in-depth backstop on top of the slug regex — the
     // joined path can never resolve outside UPLOAD_DIR.

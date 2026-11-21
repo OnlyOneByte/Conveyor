@@ -42,7 +42,8 @@ const worker = new Worker<JobRequest>(
       jobId,
       workDir,
       signal: controller.signal,
-      report: (progress, message) => void bus.publish(jobId, currentState, { stage, progress, message }),
+      report: (progress, message) =>
+        void bus.publish(jobId, currentState, { stage, progress, message }),
       log: (msg) => console.log(`[${jobId}] ${msg}`),
     };
 
@@ -65,7 +66,10 @@ const worker = new Worker<JobRequest>(
       // derived from it — what a Station used to hold.
       const jobTarget = dbResolveJobTarget(openDb(), req.printerId, req.profileId);
       if (!jobTarget) {
-        throw new StageError("generator", `unknown printer ${req.printerId} or profile ${req.profileId}`);
+        throw new StageError(
+          "generator",
+          `unknown printer ${req.printerId} or profile ${req.profileId}`,
+        );
       }
 
       // ── Generate ───────────────────────────────────────────────
@@ -85,15 +89,15 @@ const worker = new Worker<JobRequest>(
       if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
       const profileForSlice = await resolveProfileForSlice(jobTarget, workDir);
       ctx.log(`profile ${jobTarget.profileId}: ${profileForSlice.source}`);
-      const gcode = await slicer
-        .slice(model, profileForSlice.profile, ctx)
-        .finally(async () => {
-          // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
-          // best-effort and must not turn a successful slice into a failed print.
-          await profileForSlice.cleanup().catch((error) =>
+      const gcode = await slicer.slice(model, profileForSlice.profile, ctx).finally(async () => {
+        // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
+        // best-effort and must not turn a successful slice into a failed print.
+        await profileForSlice
+          .cleanup()
+          .catch((error) =>
             ctx.log(`warning: failed to clean materialized profile: ${(error as Error).message}`),
           );
-        });
+      });
       gcodePath = gcode.path;
 
       // ── Transport ──────────────────────────────────────────────
@@ -101,7 +105,8 @@ const worker = new Worker<JobRequest>(
       currentState = "transferring";
       await bus.publish(jobId, "transferring", { stage, timings: enterStage("transport") });
       const transport = registry.transports.get(jobTarget.transportId);
-      if (!transport) throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
+      if (!transport)
+        throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
       const target = await resolveTarget(jobTarget.printerId, jobTarget.transportId);
       const handle = await transport.submit(gcode, target, ctx);
 
@@ -136,7 +141,11 @@ const worker = new Worker<JobRequest>(
         error: { stage: se.stage, reason: se.reason },
         timings: failTimings,
       });
-      recordTerminal(jobId, req, "failed", { stage: se.stage, reason: se.reason, timings: failTimings });
+      recordTerminal(jobId, req, "failed", {
+        stage: se.stage,
+        reason: se.reason,
+        timings: failTimings,
+      });
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
       throw se;
     } finally {
@@ -161,7 +170,13 @@ function recordTerminal(
   jobId: string,
   req: JobRequest,
   state: "done" | "failed",
-  extra: { modelPath?: string; gcodePath?: string; stage?: Stage; reason?: string; timings?: StageTiming[] },
+  extra: {
+    modelPath?: string;
+    gcodePath?: string;
+    stage?: Stage;
+    reason?: string;
+    timings?: StageTiming[];
+  },
 ): void {
   try {
     dbRecordJob(openDb(), {

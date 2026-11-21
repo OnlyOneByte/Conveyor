@@ -29,7 +29,10 @@ const DEFAULT_PORTS: Record<string, number> = {
  * `host:port`, and a bare `host`/IP. Never throws — returns null when no host can be
  * read, so the caller reports "unparseable address" rather than crashing.
  */
-export function parseAddress(address: string, transportId: string): { host: string; port: number } | null {
+export function parseAddress(
+  address: string,
+  transportId: string,
+): { host: string; port: number } | null {
   const trimmed = address.trim();
   if (!trimmed) return null;
 
@@ -37,7 +40,11 @@ export function parseAddress(address: string, transportId: string): { host: stri
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
     try {
       const u = new URL(trimmed);
-      const port = u.port ? Number(u.port) : u.protocol === "https:" ? 443 : DEFAULT_PORTS[transportId] ?? 80;
+      const port = u.port
+        ? Number(u.port)
+        : u.protocol === "https:"
+          ? 443
+          : (DEFAULT_PORTS[transportId] ?? 80);
       if (!u.hostname) return null;
       return { host: u.hostname, port };
     } catch {
@@ -65,7 +72,12 @@ export function probePrinter(
 ): Promise<ReachResult> {
   const parsed = parseAddress(address, transportId);
   if (!parsed) {
-    return Promise.resolve({ reachable: false, host: address, port: 0, reason: "unparseable address" });
+    return Promise.resolve({
+      reachable: false,
+      host: address,
+      port: 0,
+      reason: "unparseable address",
+    });
   }
   const { host, port } = parsed;
   const started = Date.now();
@@ -81,7 +93,9 @@ export function probePrinter(
 
     const socket = createConnection({ host, port });
     socket.setTimeout(timeoutMs);
-    socket.once("connect", () => done({ reachable: true, latencyMs: Date.now() - started, host, port }));
+    socket.once("connect", () =>
+      done({ reachable: true, latencyMs: Date.now() - started, host, port }),
+    );
     socket.once("timeout", () => done({ reachable: false, host, port, reason: "timeout" }));
     socket.once("error", (err: NodeJS.ErrnoException) =>
       done({ reachable: false, host, port, reason: err.code ?? err.message }),

@@ -113,14 +113,12 @@ export function validatePrusaProfileContent(document: PrusaProfileDocument): voi
   }
   // Structural floor: at least one `key = value` assignment on a non-comment line.
   // (PrusaSlicer configs are flat key=value; section headers are optional.)
-  const hasAssignment = text
-    .split(/\r?\n/)
-    .some((line) => {
-      const t = line.trim();
-      if (!t || t.startsWith("#") || t.startsWith(";") || t.startsWith("[")) return false;
-      const eq = t.indexOf("=");
-      return eq > 0; // a key before the '='
-    });
+  const hasAssignment = text.split(/\r?\n/).some((line) => {
+    const t = line.trim();
+    if (!t || t.startsWith("#") || t.startsWith(";") || t.startsWith("[")) return false;
+    const eq = t.indexOf("=");
+    return eq > 0; // a key before the '='
+  });
   if (!hasAssignment) {
     throw new PrusaProfileValidationError("config.ini has no key = value settings");
   }

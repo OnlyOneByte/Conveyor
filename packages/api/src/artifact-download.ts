@@ -48,7 +48,10 @@ function isWithin(root: string, candidate: string): boolean {
  * run that never produced the file, or a reaped work dir, yields a 404/410 — the
  * request-supplied surface is only the opaque jobId and the fixed kind enum.
  */
-export async function resolveJobArtifact(jobId: string, kind: ArtifactKind): Promise<ResolvedArtifact> {
+export async function resolveJobArtifact(
+  jobId: string,
+  kind: ArtifactKind,
+): Promise<ResolvedArtifact> {
   const job = dbGetJob(openDb(), jobId);
   if (!job) throw new ArtifactError(`no settled job with id ${jobId}`);
 
@@ -77,10 +80,16 @@ export async function resolveJobArtifact(jobId: string, kind: ArtifactKind): Pro
   }
 
   const info = await stat(canonical);
-  if (!info.isFile()) throw new ArtifactError(`the ${kind} artifact for job ${jobId} is not a file`, 410);
+  if (!info.isFile())
+    throw new ArtifactError(`the ${kind} artifact for job ${jobId} is not a file`, 410);
 
   const meta = KIND_META[kind];
-  return { path: canonical, filename: meta.filename, contentType: meta.contentType, size: info.size };
+  return {
+    path: canonical,
+    filename: meta.filename,
+    contentType: meta.contentType,
+    size: info.size,
+  };
 }
 
 /** Open a read stream for a resolved artifact (separated so routes stay thin). */

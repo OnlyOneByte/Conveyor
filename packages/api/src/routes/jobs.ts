@@ -36,7 +36,9 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     if (!target) {
       return reply
         .code(404)
-        .send({ error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}` });
+        .send({
+          error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
+        });
     }
 
     try {
@@ -88,23 +90,27 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   // enum; the path comes from the job's own record and is containment-checked under
   // its work dir (see artifact-download.ts). 404 = unknown/never-produced, 410 = the
   // file was recorded but has since been reaped.
-  app.get<{ Params: { id: string; kind: string } }>("/jobs/:id/artifact/:kind", async (req, reply) => {
-    const kind = req.params.kind;
-    if (kind !== "model" && kind !== "gcode") {
-      return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
-    }
-    try {
-      const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
-      reply
-        .header("content-type", art.contentType)
-        .header("content-length", art.size)
-        .header("content-disposition", `attachment; filename="${art.filename}"`);
-      return reply.send(openArtifactStream(art.path));
-    } catch (err) {
-      if (err instanceof ArtifactError) return reply.code(err.statusCode).send({ error: err.message });
-      throw err;
-    }
-  });
+  app.get<{ Params: { id: string; kind: string } }>(
+    "/jobs/:id/artifact/:kind",
+    async (req, reply) => {
+      const kind = req.params.kind;
+      if (kind !== "model" && kind !== "gcode") {
+        return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
+      }
+      try {
+        const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
+        reply
+          .header("content-type", art.contentType)
+          .header("content-length", art.size)
+          .header("content-disposition", `attachment; filename="${art.filename}"`);
+        return reply.send(openArtifactStream(art.path));
+      } catch (err) {
+        if (err instanceof ArtifactError)
+          return reply.code(err.statusCode).send({ error: err.message });
+        throw err;
+      }
+    },
+  );
 
   // Cancel.
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
