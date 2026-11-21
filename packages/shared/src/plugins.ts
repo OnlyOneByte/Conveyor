@@ -85,4 +85,5 @@ export interface TransportPlugin extends PluginManifest {
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
   status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>;
   cancel?(handle: PrintHandle): Promise<void>;
+  handleFor?(target: PrinterTarget, ref: string): PrintHandle;
 }

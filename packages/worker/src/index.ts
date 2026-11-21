@@ -11,7 +11,7 @@ import {
 import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { runJob, type TerminalRecord, type TerminalState } from "./pipeline.js";
+import { runJob, type TerminalRecord } from "./pipeline.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
@@ -39,16 +39,19 @@ const worker = new Worker<JobRequest>(
     await control.subscribe(jobControlChannel(jobId));
 
     try {
-      return await runJob(jobId, req, workDir, controller, {
-        registry,
-        publish: (id, state, extra) => bus.publish(id, state, extra),
-        record: recordTerminal,
-        resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
-        resolvePrinter: resolveTarget,
-        resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
-        cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
-        log: (msg) => console.log(`[${jobId}] ${msg}`),
-      });
+      return await runJob(
+        { jobId, req, workDir, controller },
+        {
+          registry,
+          publish: (id, state, extra) => bus.publish(id, state, extra),
+          record: recordTerminal,
+          resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
+          resolvePrinter: resolveTarget,
+          resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
+          cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
+          log: (msg) => console.log(`[${jobId}] ${msg}`),
+        },
+      );
     } finally {
       await control.quit();
     }
@@ -65,12 +68,7 @@ async function resolveTarget(printerId: string): Promise<PrinterTarget> {
   return { id: p.id, transportId: p.transportId, address: p.address, secrets: p.secrets };
 }
 
-function recordTerminal(
-  jobId: string,
-  req: JobRequest,
-  state: TerminalState,
-  extra: TerminalRecord,
-): void {
+function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
   try {
     dbRecordJob(openDb(), {
       id: jobId,
@@ -78,7 +76,7 @@ function recordTerminal(
       params: req.generator.params,
       printerId: req.printerId,
       profileId: req.profileId,
-      state,
+      state: extra.state,
       stage: extra.stage ?? null,
       error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
       modelPath: extra.modelPath,
@@ -86,6 +84,9 @@ function recordTerminal(
       timings: extra.timings,
     });
   } catch (e) {
-    console.error(`[${jobId}] failed to record job history:`, (e as Error).message);
+    console.error(
+      `[${jobId}] failed to record job history:`,
+      e instanceof Error ? e.message : String(e),
+    );
   }
 }

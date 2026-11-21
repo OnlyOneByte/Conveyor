@@ -90,6 +90,10 @@ goes to the same mainboard when `mainboardId` is set in the printer secrets.
 `status(handle, signal)` takes the job's abort signal. Moonraker passes it to every poll
 `fetch` and to the sleep between polls; Elegoo closes its status socket when it fires.
 When a job is cancelled in the transport stage, the worker calls `transport.cancel()`
-(Moonraker `POST /printer/print/cancel` with a 15 s timeout, Elegoo `Cmd 130`). The worker
+(Moonraker `POST /printer/print/cancel` with a 15 s timeout, Elegoo `Cmd 130`). Elegoo's
+stop counts only when the printer acks it; a socket that closes first is an unconfirmed stop.
+If `submit()` was interrupted before it returned a handle, the worker asks
+`transport.handleFor(printer, ref)` for one, so Elegoo still addresses the stored
+`mainboardId`. The worker
 also races the status stream against the signal, so a transport that ignores it still
 gets its `cancel()` called. Neither cancel path has been run against real hardware.

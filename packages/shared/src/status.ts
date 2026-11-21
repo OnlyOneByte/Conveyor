@@ -1,5 +1,37 @@
+import { z } from "zod";
 import { ACTIVE_JOBS_KEY, type JobStatusEvent, jobChannel, jobSnapshotKey } from "./events.js";
-import { isTerminal, TERMINAL_STATES } from "./job.js";
+import { isTerminal, JOB_STATES, TERMINAL_STATES } from "./job.js";
+
+const stageSchema = z.enum(["generator", "slicer", "transport"]);
+
+const statusEventSchema = z.object({
+  jobId: z.string(),
+  state: z.enum(JOB_STATES),
+  at: z.number(),
+  stage: stageSchema.nullable().optional(),
+  progress: z.number().optional(),
+  message: z.string().optional(),
+  error: z.object({ stage: stageSchema, reason: z.string() }).optional(),
+  timings: z
+    .array(
+      z.object({
+        stage: stageSchema,
+        enteredAt: z.number(),
+        durationMs: z.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export function parseStatusEvent(raw: string | null | undefined): JobStatusEvent | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = statusEventSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export const CANCEL_TTL_SECONDS = 7 * 24 * 60 * 60;
 

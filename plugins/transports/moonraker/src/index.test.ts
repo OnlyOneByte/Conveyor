@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { moonraker } from "./index";
 
-const realFetch = globalThis.fetch;
 const handle = {
   transportId: "moonraker",
   printerId: "p1",
@@ -9,16 +8,20 @@ const handle = {
   address: "10.0.0.9:7125",
 };
 
-afterEach(() => {
-  globalThis.fetch = realFetch;
+const { preconnect } = globalThis.fetch;
+const fetchSpy = spyOn(globalThis, "fetch");
+
+afterAll(() => {
+  fetchSpy.mockRestore();
 });
 
 function fakeFetch(respond: (url: string, init?: RequestInit) => Promise<Response>) {
   const calls: { url: string; init?: RequestInit }[] = [];
-  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+  const impl = async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), init });
     return respond(String(url), init);
-  }) as typeof fetch;
+  };
+  fetchSpy.mockImplementation(Object.assign(impl, { preconnect }));
   return calls;
 }
 
@@ -29,6 +32,13 @@ describe("moonraker cancel", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe("http://10.0.0.9:7125/printer/print/cancel");
     expect(calls[0].init?.method).toBe("POST");
+  });
+
+  test("bounds the stop request with a timeout signal", async () => {
+    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
+    await moonraker.cancel?.(handle);
+    expect(calls[0].init?.signal).toBeInstanceOf(AbortSignal);
+    expect(calls[0].init?.signal?.aborted).toBe(false);
   });
 
   test("a rejected cancel throws", async () => {

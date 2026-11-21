@@ -114,9 +114,10 @@ sequenceDiagram
 
 ### Cancel rules
 
-- The cancel flag `job:<id>:cancel` is a Redis key with a 7-day TTL. The worker checks it right after it subscribes to the control channel and between stages, so a cancel sent before the worker subscribed is not lost. Pub/sub is only the fast path.
+- The cancel flag `job:<id>:cancel` is a Redis key with a 7-day TTL. The worker checks it right after it subscribes to the control channel, between stages, right after `submit()`, after every status event and every 2 s while printing. A cancel whose pub/sub message was lost still takes effect. Pub/sub is only the fast path.
+- Completion wins. If the printer reports `done` before the cancel is processed, the job settles `done` and no stop is sent to the idle printer.
 - Unknown ids return 404. Cancelling twice returns the same answer and does nothing more.
-- If the printer refuses or times out the stop request, the job settles as `failed` with a reason that says the stop was not confirmed. It is never recorded as `canceled` while the printer may still be printing.
+- If the printer refuses, times out or drops the stop request without acknowledging it, the job settles as `failed` with a reason that says the stop was not confirmed. That includes a cancel that interrupted `submit()`, because the start command may already have reached the printer. It is never recorded as `canceled` while the printer may still be printing.
 - A print cancelled on the printer itself settles as `canceled`.
 - Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `shared/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
 

@@ -63,15 +63,10 @@ export const elegoo: TransportPlugin = {
     const filename = basename(gcode.path);
     if (STUB) {
       ctx.log(`[stub] elegoo upload ${gcode.path} → ${target.address}`);
-      return {
-        transportId: "elegoo",
-        printerId: target.id,
-        ref: filename,
-        address: target.address,
-      };
+      return elegooHandle(target, filename);
     }
 
-    const mainboardId = target.secrets?.mainboardId ?? target.id;
+    const mainboardId = mainboardIdOf(target);
     // 1) upload the gcode over HTTP (see VERIFY note #1).
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
@@ -84,14 +79,10 @@ export const elegoo: TransportPlugin = {
       ctx,
     );
 
-    return {
-      transportId: "elegoo",
-      printerId: target.id,
-      ref: filename,
-      address: target.address,
-      deviceId: mainboardId,
-    };
+    return elegooHandle(target, filename);
   },
+
+  handleFor: elegooHandle,
 
   async *status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus> {
     if (STUB) {
@@ -116,9 +107,23 @@ export const elegoo: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
     const mainboardId = handle.deviceId ?? handle.printerId;
-    await sendCommandRaw(handle.address, mainboardId, SDCP_CMD.STOP_PRINT, {});
+    await sendCommandRaw(handle.address, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
   },
 };
+
+function mainboardIdOf(target: PrinterTarget): string {
+  return target.secrets?.mainboardId ?? target.id;
+}
+
+function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
+  return {
+    transportId: "elegoo",
+    printerId: target.id,
+    ref,
+    address: target.address,
+    deviceId: mainboardIdOf(target),
+  };
+}
 
 // ─── SDCP discovery (UDP broadcast) ──────────────────────────────────────────
 
@@ -158,14 +163,19 @@ function sendCommand(
   ctx: StageCtx,
 ): Promise<void> {
   ctx.log(`elegoo SDCP cmd ${cmd} → ${address}`);
-  return sendCommandRaw(address, mainboardId, cmd, data);
+  return sendCommandRaw(address, { mainboardId, cmd, data });
+}
+
+interface SdcpCommand {
+  mainboardId: string;
+  cmd: number;
+  data: Record<string, unknown>;
 }
 
 function sendCommandRaw(
   address: string,
-  mainboardId: string,
-  cmd: number,
-  data: Record<string, unknown>,
+  { mainboardId, cmd, data }: SdcpCommand,
+  requireAck = false,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://${address}:${WS_PORT}/websocket`);
@@ -174,6 +184,7 @@ function sendCommandRaw(
     const done = (err?: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       try {
         ws.close();
       } catch {
@@ -208,7 +219,12 @@ function sendCommandRaw(
     };
     ws.onerror = () =>
       done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
-    ws.onclose = () => done(); // resolve if closed after ack
+    ws.onclose = () =>
+      done(
+        requireAck
+          ? new StageError("transport", `elegoo cmd ${cmd}: socket closed before the printer acked`)
+          : undefined,
+      );
   });
 }
 

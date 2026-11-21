@@ -8,6 +8,7 @@ import {
   jobChannel,
   jobControlChannel,
   jobSnapshotKey,
+  parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
@@ -66,13 +67,8 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     const active: JobStatusEvent[] = [];
     const stale: string[] = [];
     for (let i = 0; i < ids.length; i++) {
-      const raw = snapshots[i];
-      if (!raw) {
-        stale.push(ids[i]);
-        continue;
-      }
-      const evt = JSON.parse(raw) as JobStatusEvent;
-      if (isTerminal(evt.state)) stale.push(ids[i]);
+      const evt = parseStatusEvent(snapshots[i]);
+      if (!evt || isTerminal(evt.state)) stale.push(ids[i]);
       else active.push(evt);
     }
     // Opportunistically prune members whose snapshot is gone or already terminal so
@@ -118,10 +114,7 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const result = await cancelJob(req.params.id, {
       getJob: (id) => jobQueue.getJob(id),
-      readSnapshot: async (id) => {
-        const raw = await redis.get(jobSnapshotKey(id));
-        return raw ? (JSON.parse(raw) as JobStatusEvent) : undefined;
-      },
+      readSnapshot: async (id) => parseStatusEvent(await redis.get(jobSnapshotKey(id))),
       requestCancel: async (id) => {
         await redis
           .multi()
@@ -159,8 +152,8 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     void sub.subscribe(channel);
     sub.on("message", (_chan, payload) => {
       socket.send(payload);
-      const evt = JSON.parse(payload) as JobStatusEvent;
-      if (isTerminal(evt.state)) socket.close();
+      const evt = parseStatusEvent(payload);
+      if (evt && isTerminal(evt.state)) socket.close();
     });
 
     socket.on("close", () => void sub.quit());

@@ -84,8 +84,9 @@ export interface TransportPlugin extends PluginManifest {
   acceptsFlavors: string[];                // gcode flavors it can print
   discover?(): Promise<PrinterTarget[]>;   // optional mDNS/network discovery
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
-  status(handle: PrintHandle): AsyncIterable<PrintStatus>;
-  cancel?(handle: PrintHandle): Promise<void>;
+  status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>; // stop when signal aborts
+  cancel?(handle: PrintHandle): Promise<void>;     // resolve only once the printer confirmed the stop
+  handleFor?(target: PrinterTarget, ref: string): PrintHandle; // handle for a submit() that never returned
 }
 
 export interface PrinterTarget {

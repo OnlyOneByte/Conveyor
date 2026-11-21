@@ -213,7 +213,7 @@
       "suppressions": 0
     },
     "plugins/transports/elegoo/src/index.ts": {
-      "comments": 35,
+      "comments": 34,
       "suppressions": 0
     },
     "plugins/transports/elegoo/src/sdcp.ts": {
