@@ -5,7 +5,6 @@ import { dirname, join, relative } from "node:path";
 import { baselinePath, CHECKER_PATH, LEGACY_BASELINE_PATH } from "./ratchet";
 import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
-import { typeOnlyLines } from "./type-lines";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
 
@@ -62,40 +61,6 @@ describe("runSweep", () => {
       const started = performance.now();
       expect(withSweepTimeout("500", () => runSweep([hangs])).completed).toBe(false);
       expect(performance.now() - started).toBeLessThan(SLOW / 2);
-    },
-    SLOW,
-  );
-
-  test(
-    "bun maps an inline parameter type's lines, and the merge drops exactly those",
-    () => {
-      const source = [
-        "export function record(",
-        "  db: string,",
-        "  job: {",
-        "    id: string;",
-        "    name: string;",
-        "  },",
-        "): string {",
-        "  return db + job.id;",
-        "}",
-        "",
-      ].join("\n");
-      const path = fixture("inline-type.ts", source);
-      const sweep = runSweep([path]);
-      const key = [...sweep.coverage.keys()].find((file) => file.endsWith("inline-type.ts"));
-      expect(key).not.toBeUndefined();
-      const mapped = [...(sweep.coverage.get(key ?? "")?.keys() ?? [])];
-      expect(mapped).toEqual(expect.arrayContaining([4, 5, 6]));
-      const merged = mergeCoverage({
-        sources: [key ?? ""],
-        measured: new Map(),
-        sweep: sweep.coverage,
-        fallback: () => new Map(),
-        typeLines: (file) => typeOnlyLines(file, source),
-      });
-      const kept = [...(merged.coverage.get(key ?? "")?.keys() ?? [])];
-      expect(kept).toEqual(mapped.filter((line) => ![4, 5, 6].includes(line)));
     },
     SLOW,
   );

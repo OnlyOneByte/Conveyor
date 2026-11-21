@@ -6,7 +6,9 @@ const SEPARATORS: ReadonlySet<ts.SyntaxKind> = new Set([
 ]);
 
 const isTypeOnly = (node: ts.Node) =>
-  (ts.isTypeNode(node) && !ts.isExpressionWithTypeArguments(node)) ||
+  (ts.isTypeNode(node) &&
+    !ts.isExpressionWithTypeArguments(node) &&
+    !ts.isVoidExpression(node.parent)) ||
   ts.isInterfaceDeclaration(node) ||
   ts.isTypeAliasDeclaration(node);
 
