@@ -47,6 +47,13 @@ removes it on any terminal state. The API reads the set, then each job's snapsho
 `GET /jobs/active` without scanning keys. A set keeps the read O(active jobs), and a stale id simply
 resolves to a terminal snapshot that the API filters out.
 
+## exhaustive.ts
+
+`exhaustive(value: never): never` closes every `switch` or `if` chain over a union. Each member gets its own
+branch and the default calls `exhaustive(value)`, so a new member is a type error at every chain that misses
+it. A value outside the union that still reaches it at runtime (a plugin yielding an unknown state) throws
+`unhandled value: <value>`.
+
 ## job.ts
 
 `JobRequest` is what the PWA submits: a generator (with optional params, since a generator may take none),
@@ -54,6 +61,11 @@ a printer and a profile. Nothing else is needed, because the printer determines 
 profile determines the slicer and the g-code flavour. This used to be a single `stationId`, a saved
 (printer, profile) pairing; the pairing was always derivable from the two ids, so the extra catalog object
 was removed.
+
+`jobRequestSchema` is the zod schema for that shape, and `JobRequest` is inferred from it
+(`z.infer<typeof jobRequestSchema>`), so the type and the check cannot drift. It is parsed at both edges a
+request crosses: `POST /jobs` parses the HTTP body, and the worker parses the queued BullMQ payload before
+running the pipeline.
 
 `JobTarget` is a job's print target with everything resolved: the printer and profile the request named,
 plus what they imply. The API and the worker build it from the catalog and hand it to `validateJob()`.
