@@ -1,9 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { PNG } from "pngjs";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MARKER, buildMarkdown, isChanged, pairUp, pixelDiff } from "./compare.ts";
+import { MARKER, buildMarkdown, isChanged, manifestNotes, pairUp, pixelDiff, readNotes, type Pair } from "./compare.ts";
 import { sampleFrames } from "./gif.ts";
 
 function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
@@ -33,34 +33,96 @@ describe("pixelDiff", () => {
 });
 
 describe("pairUp and buildMarkdown", () => {
-  const before = mkdtempSync(join(tmpdir(), "vis-before-"));
-  const after = mkdtempSync(join(tmpdir(), "vis-after-"));
-  writeFileSync(join(before, "home-1440.png"), solid(4, 4, [0, 0, 0]));
-  writeFileSync(join(after, "home-1440.png"), solid(4, 4, [0, 0, 0]));
-  writeFileSync(join(before, "settings-390.png"), solid(4, 4, [0, 0, 0]));
-  writeFileSync(join(after, "settings-390.png"), solid(4, 4, [255, 255, 255]));
-  writeFileSync(join(after, "history-1440.png"), solid(4, 4, [0, 0, 0]));
-  writeFileSync(join(before, "settings-390.gif"), "gif");
-  writeFileSync(join(after, "settings-390.gif"), "gif");
-  writeFileSync(join(after, "notes.txt"), "ignored");
+  const dirs: string[] = [];
+  let before = "";
+  let after = "";
+  let pairs: Pair[] = [];
+  const byFile = (file: string) => pairs.find((p) => p.file === file);
 
-  const pairs = pairUp(before, after);
+  beforeAll(() => {
+    before = mkdtempSync(join(tmpdir(), "vis-before-"));
+    after = mkdtempSync(join(tmpdir(), "vis-after-"));
+    dirs.push(before, after);
+    writeFileSync(join(before, "home-1440.png"), solid(4, 4, [0, 0, 0]));
+    writeFileSync(join(after, "home-1440.png"), solid(4, 4, [0, 0, 0]));
+    writeFileSync(join(before, "home-1440.gif"), "gif");
+    writeFileSync(join(after, "home-1440.gif"), "gif");
+    writeFileSync(join(before, "settings-390.png"), solid(4, 4, [0, 0, 0]));
+    writeFileSync(join(after, "settings-390.png"), solid(4, 4, [255, 255, 255]));
+    writeFileSync(join(before, "settings-390.gif"), "gif");
+    writeFileSync(join(after, "settings-390.gif"), "gif");
+    writeFileSync(join(after, "history-1440.png"), solid(4, 4, [0, 0, 0]));
+    writeFileSync(join(after, "notes.txt"), "ignored");
+    pairs = pairUp(before, after);
+  });
+
+  afterAll(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+  });
 
   test("pairs every media file once, widest first", () => {
-    expect(pairs.map((p) => p.file)).toEqual(["history-1440.png", "home-1440.png", "settings-390.gif", "settings-390.png"]);
+    expect(pairs.map((p) => p.file)).toEqual([
+      "history-1440.png",
+      "home-1440.gif",
+      "home-1440.png",
+      "settings-390.gif",
+      "settings-390.png",
+    ]);
   });
 
-  test("flags new and changed files, not identical ones, and gifs follow their png", () => {
-    expect(pairs.map(isChanged)).toEqual([true, false, true, true]);
+  test("a gif takes its png's diff", () => {
+    expect(byFile("home-1440.gif")?.diff).toBe(0);
+    expect(byFile("settings-390.gif")?.diff).toBe(1);
   });
 
-  test("renders a sticky table with raw links and folds unchanged rows", () => {
-    const md = buildMarkdown({ pairs, beforeUrl: "https://raw/b", afterUrl: "https://raw/a" });
+  test("a gif whose png is unchanged is not flagged", () => {
+    expect(isChanged(byFile("home-1440.gif") ?? pairs[0])).toBe(false);
+  });
+
+  test("flags new and changed files, not identical ones", () => {
+    expect(pairs.map(isChanged)).toEqual([true, false, false, true, true]);
+  });
+
+  test("renders a sticky table with raw links, warnings and folded unchanged rows", () => {
+    const md = buildMarkdown({
+      pairs,
+      beforeUrl: "https://raw/b",
+      afterUrl: "https://raw/a",
+      notes: ["after · job-progress@390: final stage not reached"],
+    });
     expect(md.startsWith(MARKER)).toBe(true);
     expect(md).toContain('<img src="https://raw/a/settings-390.png" width="200">');
     expect(md).toContain("| **history** · 1440px | _none_ |");
-    expect(md).toContain("<details><summary>1 unchanged</summary>");
+    expect(md).toContain("<details><summary>2 unchanged</summary>");
+    expect(md).toContain("> [!WARNING]\n> - after · job-progress@390: final stage not reached");
     expect(md).toContain("100.0%");
+  });
+
+  test("a missing manifest becomes a note", () => {
+    expect(readNotes(before, "before")).toEqual(["before: no manifest.json (capture did not finish)"]);
+  });
+});
+
+describe("manifestNotes", () => {
+  test("collects run warnings, scene warnings and scene errors", () => {
+    const notes = manifestNotes(
+      {
+        warnings: ["warm-up /: timeout"],
+        results: [
+          { scene: "job-progress", width: 390, warnings: ["final stage not reached"] },
+          { scene: "home", width: 1440, warnings: [], error: "ready never appeared" },
+        ],
+      },
+      "after",
+    );
+    expect(notes).toEqual([
+      "after: warm-up /: timeout",
+      "after · job-progress@390: final stage not reached",
+      "after · home@1440: **failed**: ready never appeared",
+    ]);
+  });
+  test("rejects a non-object manifest", () => {
+    expect(manifestNotes(null, "before")).toEqual(["before: manifest.json is not an object"]);
   });
 });
 

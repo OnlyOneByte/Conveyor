@@ -8,6 +8,7 @@ import { registerJobRoutes } from "./routes/jobs.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
+const HOST = process.env.HOST ?? "0.0.0.0";
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);
 
 const app = Fastify({ logger: true });
@@ -25,5 +26,5 @@ await registerUploadRoutes(app);
 await registerCatalogRoutes(app);
 await registerJobRoutes(app);
 
-await app.listen({ host: "0.0.0.0", port: PORT });
+await app.listen({ host: HOST, port: PORT });
 app.log.info(`conveyor api listening on :${PORT}`);

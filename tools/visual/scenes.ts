@@ -3,7 +3,7 @@ export type Step =
   | { type: string; text: string }
   | { press: string }
   | { scroll: string }
-  | { waitFor: string; timeout?: number; optional?: boolean }
+  | { waitFor: string; timeout?: number; warn?: string }
   | { wait: number };
 
 export interface Scene {
@@ -50,7 +50,11 @@ export const scenes: Scene[] = [
       { wait: 800 },
       { click: "button.desktop-print:visible, .mobile-cta button:visible" },
       { scroll: "ol.stages, .status" },
-      { waitFor: "ol.stages li.done:last-child, .status .failed", timeout: 12000, optional: true },
+      {
+        waitFor: "ol.stages li.done:last-child, .status .failed",
+        timeout: 12000,
+        warn: "final stage not reached in 12 s, see #52",
+      },
       { wait: 800 },
     ],
   },

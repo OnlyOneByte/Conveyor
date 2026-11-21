@@ -1,6 +1,5 @@
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import { PNG } from "pngjs";
-import { stat } from "node:fs/promises";
 
 export const MAX_GIF_BYTES = 5 * 1024 * 1024;
 
@@ -20,10 +19,6 @@ const ATTEMPTS: Attempt[] = [
   { maxWidth: 480, fps: 4 },
   { maxWidth: 360, fps: 3 },
 ];
-
-export function hasFfmpeg(): boolean {
-  return Bun.which("ffmpeg") !== null;
-}
 
 function downscale(src: PNG, maxWidth: number): { data: Uint8Array; width: number; height: number } {
   const factor = Math.max(1, Math.ceil(src.width / maxWidth));
@@ -101,21 +96,10 @@ export async function framesToGif(frames: Frame[], out: string): Promise<number>
   if (frames.length === 0) throw new Error("no frames were captured for the GIF");
   for (const attempt of ATTEMPTS) {
     const bytes = encodeOnce(frames, attempt);
-    if (bytes.byteLength <= MAX_GIF_BYTES || attempt === ATTEMPTS[ATTEMPTS.length - 1]) {
+    if (bytes.byteLength <= MAX_GIF_BYTES) {
       await Bun.write(out, bytes);
       return bytes.byteLength;
     }
   }
-  return 0;
-}
-
-export async function videoToGif(video: string, out: string): Promise<number> {
-  for (const attempt of ATTEMPTS) {
-    const filter = `fps=${attempt.fps},scale='min(${attempt.maxWidth},iw)':-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5`;
-    const run = Bun.spawnSync(["ffmpeg", "-y", "-loglevel", "error", "-i", video, "-vf", filter, "-loop", "0", out]);
-    if (run.exitCode !== 0) throw new Error(`ffmpeg failed: ${run.stderr.toString()}`);
-    const { size } = await stat(out);
-    if (size <= MAX_GIF_BYTES) return size;
-  }
-  return (await stat(out)).size;
+  throw new Error(`GIF stays over ${MAX_GIF_BYTES} bytes even at the smallest size`);
 }

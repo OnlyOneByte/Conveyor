@@ -3,52 +3,61 @@ name: Visual evidence
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, closed]
     paths:
       - "packages/web/**"
+      - "packages/api/**"
+      - "packages/shared/**"
+      - "profiles/**"
+      - "package.json"
+      - "bun.lock"
       - "tools/visual/**"
       - ".github/workflows/visual.yml"
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: visual-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  PR: ${{ github.event.pull_request.number }}
+  REPO: ${{ github.repository }}
+
 jobs:
   visual:
     name: visual
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     env:
-      PR: ${{ github.event.pull_request.number }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      MERGE_SHA: ${{ github.sha }}
       OUT: ${{ github.workspace }}/visual-out
-      SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
-      - name: Checkout head
-        uses: actions/checkout@v4
+      - name: Checkout merge commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ env.HEAD_SHA }}
+          ref: ${{ env.MERGE_SHA }}
           path: head
           persist-credentials: false
 
       - name: Checkout base
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ env.BASE_SHA }}
           path: base
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: "1.3.14"
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.bun/install/cache
           key: bun-visual-${{ runner.os }}-${{ hashFiles('head/bun.lock', 'base/bun.lock', 'head/tools/visual/bun.lock') }}
@@ -75,94 +84,165 @@ jobs:
         continue-on-error: true
         run: bun head/tools/visual/capture.ts --root base --out "$OUT/before"
 
-      - name: Capture head
+      - name: Capture merge commit
         id: after
         continue-on-error: true
         run: bun head/tools/visual/capture.ts --root head --out "$OUT/after"
 
-      - name: Publish to pr-assets
-        id: publish
-        if: env.SAME_REPO == 'true'
+      - name: Build comparison
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BEFORE_OUTCOME: ${{ steps.before.outcome }}
+          AFTER_OUTCOME: ${{ steps.after.outcome }}
         run: |
           set -euo pipefail
-          dir="$RUNNER_TEMP/assets"
-          mkdir -p "$dir" && cd "$dir"
-          git init -q
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          raw="https://raw.githubusercontent.com/$REPO/__ASSETS_SHA__/pr-$PR"
+          footer="base \`${BASE_SHA::7}\` (capture: $BEFORE_OUTCOME) → merge \`${MERGE_SHA::7}\` (capture: $AFTER_OUTCOME) · stub mode · [run]($RUN_URL)"
+          bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \
+            --before-url "$raw/before" --after-url "$raw/after" \
+            --title "Visual changes" --footer "$footer" --out "$OUT/comment.md"
+          {
+            echo "Captures: base $BEFORE_OUTCOME, merge commit $AFTER_OUTCOME. Images are in the \`visual-pr-$PR\` artifact; same-repo PRs also get the sticky comment."
+            grep '^> - ' "$OUT/comment.md" || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: visual-pr-${{ env.PR }}
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Require merge-commit capture
+        if: steps.after.outcome != 'success'
+        run: |
+          echo "::error::Merge-commit capture failed; see the Capture merge commit step and the visual artifact."
+          exit 1
+
+  publish:
+    needs: visual
+    if: >-
+      always() &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (needs.visual.result == 'success' || needs.visual.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Download captures
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: visual-pr-${{ env.PR }}
+          path: ${{ runner.temp }}/visual
+
+      - name: Push to pr-assets
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SRC: ${{ runner.temp }}/visual
+        run: |
+          set -euo pipefail
           remote="https://github.com/$REPO.git"
-          stage() {
-            if git -c http.extraheader="$auth" fetch -q --depth 1 "$remote" pr-assets 2>/dev/null; then
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          work="$RUNNER_TEMP/assets"
+          for attempt in 1 2 3; do
+            cd "$RUNNER_TEMP"
+            rm -rf "$work"
+            git init -q -b pr-assets "$work"
+            cd "$work"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            code=0
+            git -c http.extraheader="$auth" ls-remote --exit-code "$remote" refs/heads/pr-assets > /dev/null || code=$?
+            if [ "$code" -eq 0 ]; then
+              git -c http.extraheader="$auth" fetch -q --depth 1 "$remote" pr-assets
               git checkout -q -B pr-assets FETCH_HEAD
-            else
-              git checkout -q --orphan pr-assets
-              git rm -rq --cached . 2>/dev/null || true
+            elif [ "$code" -ne 2 ]; then
+              echo "::error::git ls-remote failed with exit $code"
+              exit 1
             fi
             rm -rf "pr-$PR"
             mkdir -p "pr-$PR"
             for side in before after; do
-              if [ -d "$OUT/$side" ]; then cp -r "$OUT/$side" "pr-$PR/$side"; fi
+              if [ -d "$SRC/$side" ]; then cp -r "$SRC/$side" "pr-$PR/$side"; fi
             done
             git add -A "pr-$PR"
-            git commit -q --allow-empty -m "pr-$PR: ${BASE_SHA::7} -> ${HEAD_SHA::7}"
-          }
-          for attempt in 1 2 3 4 5; do
-            stage
+            git commit -q --allow-empty -m "pr-$PR: assets for run $GITHUB_RUN_ID"
             if git -c http.extraheader="$auth" push -q "$remote" HEAD:refs/heads/pr-assets; then
               echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            sleep $((attempt * 3))
+            echo "::warning::push attempt $attempt was rejected; refetching pr-assets"
+            sleep $((attempt * 5))
           done
+          echo "::error::could not push pr-assets after 3 attempts"
           exit 1
 
-      - name: Build comparison
-        env:
-          REPO: ${{ github.repository }}
-          ASSETS_SHA: ${{ steps.publish.outputs.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          args=()
-          if [ -n "${ASSETS_SHA:-}" ]; then
-            raw="https://raw.githubusercontent.com/$REPO/$ASSETS_SHA/pr-$PR"
-            args+=(--before-url "$raw/before" --after-url "$raw/after")
-          fi
-          footer="base \`${BASE_SHA::7}\` (capture: ${{ steps.before.outcome }}) → head \`${HEAD_SHA::7}\` (capture: ${{ steps.after.outcome }}) · stub mode · [run]($RUN_URL)"
-          bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \
-            --title "Visual changes" --footer "$footer" --out "$OUT/comment.md" "${args[@]}"
-          cat "$OUT/comment.md" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Post sticky comment
-        if: env.SAME_REPO == 'true' && steps.publish.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+          ASSETS_SHA: ${{ steps.push.outputs.sha }}
+          SRC: ${{ runner.temp }}/visual
         run: |
           set -euo pipefail
+          sed "s/__ASSETS_SHA__/$ASSETS_SHA/g" "$SRC/comment.md" > "$RUNNER_TEMP/comment.md"
           id=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- conveyor-visual -->"))) | .id' | head -n1)
           if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$OUT/comment.md" > /dev/null
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$RUNNER_TEMP/comment.md" > /dev/null
           else
-            gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$OUT/comment.md" > /dev/null
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$RUNNER_TEMP/comment.md" > /dev/null
           fi
 
-      - name: Upload captures
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-pr-${{ env.PR }}
-          path: ${{ env.OUT }}
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Require head capture
-        if: steps.after.outcome != 'success'
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Remove pr-<number>/ from pr-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "::error::Head capture failed; see the Capture head step and the visual artifact."
+          set -euo pipefail
+          remote="https://github.com/$REPO.git"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          work="$RUNNER_TEMP/assets"
+          for attempt in 1 2 3; do
+            cd "$RUNNER_TEMP"
+            rm -rf "$work"
+            git init -q -b pr-assets "$work"
+            cd "$work"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            code=0
+            git -c http.extraheader="$auth" ls-remote --exit-code "$remote" refs/heads/pr-assets > /dev/null || code=$?
+            if [ "$code" -eq 2 ]; then
+              echo "pr-assets does not exist; nothing to clean"
+              exit 0
+            elif [ "$code" -ne 0 ]; then
+              echo "::error::git ls-remote failed with exit $code"
+              exit 1
+            fi
+            git -c http.extraheader="$auth" fetch -q --depth 1 "$remote" pr-assets
+            git checkout -q -B pr-assets FETCH_HEAD
+            if [ ! -d "pr-$PR" ]; then
+              echo "pr-$PR/ is not on pr-assets; nothing to clean"
+              exit 0
+            fi
+            git rm -rq "pr-$PR"
+            git commit -q -m "pr-$PR: remove assets after close"
+            if git -c http.extraheader="$auth" push -q "$remote" HEAD:refs/heads/pr-assets; then
+              exit 0
+            fi
+            echo "::warning::push attempt $attempt was rejected; refetching pr-assets"
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push pr-assets after 3 attempts"
           exit 1

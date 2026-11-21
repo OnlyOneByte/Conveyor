@@ -2,6 +2,7 @@ import { PNG } from "pngjs";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { messageOf } from "./errors.ts";
 
 export const MARKER = "<!-- conveyor-visual -->";
 
@@ -40,24 +41,25 @@ export function pixelDiff(a: Buffer, b: Buffer): number {
   return changed / (x.width * x.height);
 }
 
+function parseName(file: string): Pick<Pair, "file" | "scene" | "width" | "kind"> | undefined {
+  const match = NAME.exec(file);
+  if (!match) return undefined;
+  const [, scene, width, kind] = match;
+  if (kind !== "png" && kind !== "gif") return undefined;
+  return { file, scene, width: Number(width), kind };
+}
+
 export function pairUp(beforeDir: string, afterDir: string): Pair[] {
   const before = new Set(listMedia(beforeDir));
   const after = new Set(listMedia(afterDir));
-  const files = [...new Set([...before, ...after])];
-  const pairs = files.map((file): Pair => {
-    const [, scene, width, kind] = NAME.exec(file) ?? [];
-    const pair: Pair = {
-      file,
-      scene,
-      width: Number(width),
-      kind: kind as Pair["kind"],
-      before: before.has(file),
-      after: after.has(file),
-    };
+  const pairs = [...new Set([...before, ...after])].flatMap((file): Pair[] => {
+    const name = parseName(file);
+    if (!name) return [];
+    const pair: Pair = { ...name, before: before.has(file), after: after.has(file) };
     if (pair.kind === "png" && pair.before && pair.after) {
       pair.diff = pixelDiff(readFileSync(join(beforeDir, file)), readFileSync(join(afterDir, file)));
     }
-    return pair;
+    return [pair];
   });
   for (const gif of pairs.filter((p) => p.kind === "gif" && p.before && p.after)) {
     gif.diff = pairs.find((p) => p.kind === "png" && p.scene === gif.scene && p.width === gif.width)?.diff;
@@ -92,18 +94,50 @@ function table(pairs: Pair[], beforeUrl: string, afterUrl: string): string {
   return ["| Scene | Before | After | Δ pixels |", "|---|---|---|---|", ...rows].join("\n");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+export function manifestNotes(manifest: unknown, side: string): string[] {
+  if (!isRecord(manifest)) return [`${side}: manifest.json is not an object`];
+  const notes = strings(manifest.warnings).map((w) => `${side}: ${w}`);
+  const results = Array.isArray(manifest.results) ? manifest.results.filter(isRecord) : [];
+  for (const r of results) {
+    const where = `${side} · ${String(r.scene)}@${String(r.width)}`;
+    for (const w of strings(r.warnings)) notes.push(`${where}: ${w}`);
+    if (typeof r.error === "string") notes.push(`${where}: **failed**: ${r.error}`);
+  }
+  return notes;
+}
+
+export function readNotes(dir: string, side: string): string[] {
+  const path = join(dir, "manifest.json");
+  if (!existsSync(path)) return [`${side}: no manifest.json (capture did not finish)`];
+  try {
+    return manifestNotes(JSON.parse(readFileSync(path, "utf8")), side);
+  } catch (err) {
+    return [`${side}: manifest.json unreadable: ${messageOf(err)}`];
+  }
+}
+
 export interface Report {
   pairs: Pair[];
   beforeUrl: string;
   afterUrl: string;
+  notes?: string[];
   title?: string;
   footer?: string;
 }
 
-export function buildMarkdown({ pairs, beforeUrl, afterUrl, title, footer }: Report): string {
+export function buildMarkdown({ pairs, beforeUrl, afterUrl, notes = [], title, footer }: Report): string {
   const changed = pairs.filter(isChanged);
   const same = pairs.filter((p) => !isChanged(p));
   const parts = [MARKER, `### ${title ?? "Visual changes"}`];
+  if (notes.length > 0) parts.push(["> [!WARNING]", ...notes.map((n) => `> - ${n}`)].join("\n"));
   if (pairs.length === 0) parts.push("No screenshots were captured.");
   else if (changed.length === 0) parts.push("No visible changes in any scene.");
   else parts.push(table(changed, beforeUrl, afterUrl));
@@ -138,6 +172,7 @@ if (import.meta.main) {
     pairs: pairUp(beforeDir, afterDir),
     beforeUrl: values["before-url"] ?? beforeDir,
     afterUrl: values["after-url"] ?? afterDir,
+    notes: [...readNotes(beforeDir, "before"), ...readNotes(afterDir, "after")],
     title: values.title,
     footer: values.footer,
   });

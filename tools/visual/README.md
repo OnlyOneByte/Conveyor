@@ -1,6 +1,6 @@
 # Visual evidence
 
-Screenshots and GIFs of the web UI for every UI pull request.
+Screenshots and GIFs of the web UI for every UI pull request. Why it is built this way: [ADR 0003](../../docs/adr/0003-visual-evidence.md).
 
 ## Local use
 
@@ -12,24 +12,33 @@ bun capture.ts --out /tmp/visual/after
 bun compare.ts --before /tmp/visual/before --after /tmp/visual/after
 ```
 
-`capture.ts` boots the whole stack from `--root` (default: this checkout) in stub mode: Redis in Docker on a random `127.0.0.1` port (or `REDIS_URL` if set), the api and worker under `bun --preload loopback.ts` so every listener binds to `127.0.0.1`, and `vite dev` for the web app. Auth is off and the database lives in a temp directory, so runs start clean. Pass `--url http://127.0.0.1:5173` to shoot an app you already run instead.
+`capture.ts` boots the whole stack from `--root` (default: this checkout) in stub mode:
 
-Options: `--only home,settings` limits scenes, `--gif-mode frames|ffmpeg` forces the GIF path, and `--verbose` streams service logs to stderr.
+- Redis runs in Docker on a random `127.0.0.1` port, or uses `REDIS_URL` if that is set.
+- The api and worker run from source. The api gets `HOST=127.0.0.1`. Its default stays `0.0.0.0` for compose.
+- The web app is built with `vite build` and served with `vite preview` on `127.0.0.1`, reusing the dev proxy config. Dev mode is not used: its lazy dependency optimisation reloads pages mid-scene.
+- Auth is off and the database lives in a temp directory, so every run starts clean.
+
+Pass `--url http://127.0.0.1:5173` to shoot an app you already run. `--only home,settings` limits the scenes, and `--verbose` streams service logs to stderr.
 
 Output, per scene and width (1440 and 390):
 
-- `<scene>-<width>.png` is a full-page screenshot after the scene's steps.
-- `<scene>-<width>.gif` is made for scenes with `record: true`. With `ffmpeg` on `PATH` it comes from Playwright's video; without it, viewport screenshots are sampled and encoded with `gifenc`. GIFs are shrunk until they fit in 5 MB.
-- `manifest.json` lists every shot and any scene error. The exit code is 1 if any scene failed.
+- `<scene>-<width>.png` is a full-page screenshot taken after the scene's steps.
+- `<scene>-<width>.gif` is made for scenes with `record: true`. Viewport screenshots are sampled while the steps run, then encoded with `gifenc`. A GIF over 5 MB is re-encoded smaller; if it still does not fit, the scene fails.
+- `manifest.json` lists every shot, its warnings and any error. The exit code is 1 if any scene failed.
 
-`compare.ts` pairs files by name across two directories and prints a markdown table with before, after and the share of changed pixels. Unchanged rows fold into a `<details>` block. `--before-url` and `--after-url` set the image link prefixes.
+`compare.ts` pairs files by name across two directories. It prints a markdown table with before, after and the share of changed pixels. A GIF takes its PNG's diff, and rows under 0.5% fold into a `<details>` block. Warnings and failures from both manifests are listed at the top. `--before-url` and `--after-url` set the image link prefixes.
 
 ## Scenes
 
-Scenes live in `scenes.ts`: a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `scroll`, `waitFor`, `wait`) and `record`. Add a scene when you add a page, and keep the selectors on stable text or roles.
+Scenes live in `scenes.ts`. Each has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `scroll`, `waitFor`, `wait`) and an optional `record`. When you add a page, add a scene for it, and keep selectors on stable text or roles.
 
-`job-progress` submits a real stub job. Its wait for the last stage is `optional` because the job status card can miss fast stub events (snapshot fetched before the socket subscribes), so the final frame may show a job that looks stuck.
+A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. `job-progress` uses this because of [#52](https://github.com/OnlyOneByte/Conveyor/issues/52): the status card can miss fast stub events, so the stepper may freeze.
 
 ## CI
 
-`.github/workflows/visual.yml` runs on pull requests that touch `packages/web/**`, `tools/visual/**` or the workflow. It captures the base and head commits with the head's tooling, pushes both sets to the orphan `pr-assets` branch under `pr-<number>/`, and keeps one sticky comment on the PR with the comparison table, linked through `raw.githubusercontent.com` at the pinned assets commit. Pull requests from forks get the table in the job summary and the images as a run artifact, since their token cannot push. The `visual` job fails when the head capture fails; a failing base capture is reported in the comment footer.
+`.github/workflows/visual.yml` runs on pull requests that touch `packages/{web,api,shared}/**`, `profiles/**`, the root `package.json` or `bun.lock`, `tools/visual/**`, or the workflow itself. It has three jobs:
+
+- `visual` has a read-only token. It captures the base commit and the PR merge commit (`refs/pull/N/merge`), builds `comment.md` with a placeholder for the assets commit, and uploads everything as the `visual-pr-<number>` artifact. It fails when the merge-commit capture fails.
+- `publish` has write access and runs no PR code. It downloads the artifact, pushes it to the orphan `pr-assets` branch under `pr-<number>/` (3 attempts, refetching each time), fills in the pinned commit and keeps one sticky comment on the PR. It is skipped for forks, which only get the artifact and the job summary.
+- `cleanup` runs when the PR closes and deletes `pr-<number>/` from `pr-assets`.
