@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { dbUpsertPrinter } from "../db/index.ts";
+import type { StageTiming } from "../job.ts";
 import { claimJob, type Lease, releaseLease } from "./lease.ts";
-import { failResume, RESUME_FAILED_REASON, readPrintHandle } from "./resume.ts";
+import { failResume, RESUME_FAILED_REASON, readResumeState } from "./resume.ts";
 import { tailEvents } from "./status.ts";
 import { markSubmitted, takePrinterSlot } from "./submit.ts";
 
@@ -31,19 +32,32 @@ function orphanResumed(): Lease {
   return claim();
 }
 
-describe("readPrintHandle", () => {
-  test("returns the stored handle to the job's owner only", () => {
+describe("readResumeState", () => {
+  test("returns the stored handle, artifacts and timings to the job's owner only", () => {
     const lease = orphanResumed();
-    expect(readPrintHandle(h.db, lease, h.timing)).toEqual(handle);
-    expect(readPrintHandle(h.db, { ...lease, token: lease.token - 1 }, h.timing)).toBeNull();
+    const timings: StageTiming[] = [
+      { stage: "generator", enteredAt: 1, durationMs: 4 },
+      { stage: "transport", enteredAt: 5 },
+    ];
+    h.set(
+      "a",
+      `model_path = '/data/m.stl', gcode_path = '/data/m.gcode', timings_json = '${JSON.stringify(timings)}'`,
+    );
+    expect(readResumeState(h.db, lease, h.timing)).toEqual({
+      handle,
+      modelPath: "/data/m.stl",
+      gcodePath: "/data/m.gcode",
+      timings,
+    });
+    expect(readResumeState(h.db, { ...lease, token: lease.token - 1 }, h.timing)).toBeNull();
     h.set("a", `print_handle_json = '{"ref": 1}'`);
-    expect(readPrintHandle(h.db, lease, h.timing)).toBeNull();
+    expect(readResumeState(h.db, lease, h.timing)).toBeNull();
   });
 
   test("returns nothing for a job that has not reached the printer", () => {
     h = queueHarness();
     h.enqueue("a");
-    expect(readPrintHandle(h.db, claim(), h.timing)).toBeNull();
+    expect(readResumeState(h.db, claim(), h.timing)).toBeNull();
   });
 });
 
@@ -66,7 +80,11 @@ describe("failResume", () => {
   test("changes nothing for a stale lease or a job that never reached the printer", () => {
     const lease = orphanResumed();
     expect(failResume(h.db, { ...lease, owner: "w2" }, h.timing)).toBe(false);
-    expect(h.row("a").state).toBe("transferring");
+    expect(failResume(h.db, { ...lease, token: lease.token - 1 }, h.timing)).toBe(false);
+    h.advance(30_001);
+    expect(failResume(h.db, lease, h.timing)).toBe(false);
+    expect(h.row("a")).toMatchObject({ state: "transferring", lease_token: lease.token });
+    expect(holdOf()).toEqual({ hold_job_id: null, hold_reason: null });
     h.close();
     h = queueHarness();
     h.enqueue("a");

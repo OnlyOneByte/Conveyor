@@ -403,8 +403,10 @@ queued one and `202 canceling` for one in flight.
 
 What the worker needs to resume a job that was already on the printer when its last worker stopped.
 
-- `readPrintHandle(lease)` returns the handle `markSubmitted` stored, only to the job's live owner and only for
-  a job with the marker. A stored value that does not parse as a `PrintHandle` reads as `null`.
+- `readResumeState(lease)` returns what a resumed run needs, only to the job's live owner and only for a job
+  with the marker: the handle `markSubmitted` stored, the artifact paths and the stage timings. A stored handle
+  that does not parse as a `PrintHandle` reads as `null`. The timings come through `readSnapshot`, so they are
+  validated like any status event.
 - `failResume(lease)` settles a resumed job `failed` with `RESUME_FAILED_REASON` and holds its printer, in one
   immediate transaction, then records the event. It is fenced and only acts on a job with the marker. The
   printer may still be printing the job the worker lost track of, so nothing else may be sent to it until an

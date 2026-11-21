@@ -11,7 +11,7 @@ import {
   type Lease,
   markSubmitted,
   type QueueTiming,
-  readPrintHandle,
+  readResumeState,
   requestCancel,
   type StatusUpdate,
   settleCancel,
@@ -97,13 +97,17 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
         inImmediate(db, timing.now, (at) =>
           db
             .query(
-              `UPDATE jobs SET model_path = $model, gcode_path = $gcode, notes = $notes WHERE ${FENCE}`,
+              `UPDATE jobs SET model_path = $model, gcode_path = $gcode, notes = $notes,
+                 message = $notes, progress = NULL, stage = COALESCE($stage, stage),
+                 timings_json = COALESCE($timings, timings_json) WHERE ${FENCE}`,
             )
             .run({
               ...fenceOf(lease, at),
               $model: outcome.modelPath ?? null,
               $gcode: outcome.gcodePath ?? null,
               $notes: outcome.notes ?? null,
+              $stage: outcome.stage ?? null,
+              $timings: outcome.timings?.length ? JSON.stringify(outcome.timings) : null,
             }),
         );
       },
@@ -126,9 +130,10 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
           }
         },
         markSubmitted: async (handle) => {
+          dispose();
           if (!markSubmitted(db, lease, handle, timing)) throw lose();
         },
-        printHandle: () => readPrintHandle(db, lease, timing),
+        resumeState: () => readResumeState(db, lease, timing),
         failResume: async (): Promise<TerminalState> => {
           dispose();
           if (!failResume(db, lease, timing)) throw lose();
