@@ -10,9 +10,9 @@ import {
   StageError,
 } from "@conveyor/shared";
 
-const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const ORCA_BIN = process.env.ORCA_BIN ?? "orca-slicer";
-const ORCA_DATADIR = process.env.ORCA_DATADIR ?? "/opt/orca/squashfs-root/resources/profiles";
+const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
+const orcaBin = () => process.env.ORCA_BIN ?? "orca-slicer";
+const orcaDatadir = () => process.env.ORCA_DATADIR ?? "/opt/orca/squashfs-root/resources/profiles";
 
 const PROFILES: ProfileRef[] = [
   { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/orca-klipper-pla-0.2" },
@@ -30,7 +30,7 @@ export const orca: SlicerPlugin = {
   async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");
 
-    if (STUB) {
+    if (stub()) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
       await writeFile(
         out,
@@ -41,7 +41,7 @@ export const orca: SlicerPlugin = {
 
     const args = [
       "--datadir",
-      ORCA_DATADIR,
+      orcaDatadir(),
       "--load-settings",
       `${join(profile.path, "machine.json")};${join(profile.path, "process.json")}`,
       "--load-filaments",
@@ -52,8 +52,9 @@ export const orca: SlicerPlugin = {
       ctx.workDir,
       model.path,
     ];
-    ctx.log(`xvfb-run -a ${ORCA_BIN} ${args.join(" ")}`);
-    await run("xvfb-run", ["-a", ORCA_BIN, ...args], ctx);
+    const bin = orcaBin();
+    ctx.log(`xvfb-run -a ${bin} ${args.join(" ")}`);
+    await run("xvfb-run", ["-a", bin, ...args], ctx);
 
     await copyFile(join(ctx.workDir, "plate_1.gcode"), out);
     return { path: out, format: "gcode", meta: { profileId: profile.id } };
