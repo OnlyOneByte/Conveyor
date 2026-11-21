@@ -58,6 +58,20 @@ describe("reapExpired", () => {
     expect(claimJob(h.db, "w1", h.timing)).toBeNull();
   });
 
+  test("keeps the first hold when a printer that is already held loses another job", () => {
+    claimed("state = 'transferring', submit_started_at = 1");
+    dbUpsertPrinter(h.db, { id: "p1", transportId: "fake", name: "P1", address: "10.0.0.2" });
+    h.db.exec(
+      "UPDATE printers SET hold_job_id = 'first', hold_reason = 'r', hold_at = 1 WHERE id = 'p1'",
+    );
+    h.advance(30_001);
+    expect(reapExpired(h.db, h.timing)).toEqual([{ jobId: "a", outcome: "unknown" }]);
+    const hold = h.db
+      .query("SELECT hold_job_id, hold_reason, hold_at FROM printers WHERE id = 'p1'")
+      .get();
+    expect(hold).toEqual({ hold_job_id: "first", hold_reason: "r", hold_at: 1 });
+  });
+
   test("turns an expired submitted job into an orphan the next claim resumes", () => {
     claimed("state = 'printing', submitted_at = 1");
     h.advance(30_001);
