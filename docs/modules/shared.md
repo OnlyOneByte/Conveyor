@@ -288,7 +288,14 @@ added to the DDL is absent from any database created before it, and the first in
 fails. `migrate()`, in `db/migrate.ts`, reshapes existing tables, each step guarded on the live table
 shape and safe on every boot. `openDb` runs it in one `BEGIN IMMEDIATE` transaction, so when the api and the worker
 start together the second waits for the first and then sees its columns, instead of failing on a
-duplicate `ADD COLUMN` (#8).
+duplicate `ADD COLUMN` (#8). The waiting process uses the normal
+`busy_timeout` of 5 s, and that is enough on purpose. Every step but one is a constant-time `ADD COLUMN`.
+The exception, the one-off station rebuild in step 1, copies `jobs` row by row and takes milliseconds at
+self-hosted history sizes. If a migration ever did run past 5 s, the waiting process would fail with
+`SQLITE_BUSY` and exit, and compose's `restart: unless-stopped` would start it again after the migration
+had committed. A longer timeout only for the migration would have to be reset afterwards and could not be
+tested without a wait of more than 5 s, so it is not used. A future step that rewrites a large table must
+raise `busy_timeout` around the transaction.
 
 1. **`jobs.station_id` → `printer_id` and `profile_id`.** A full table rebuild, because `station_id` was
    `NOT NULL`: adding columns would leave it in place and every later insert would fail. SQLite cannot drop
@@ -339,6 +346,27 @@ to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
 - `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an
   orphan for the next claim. It refuses (`submitting`) between the submit intent and the marker, because
   the outcome of that submit is still unknown.
+
+## queue/reaper.ts
+
+`reapExpired` takes over in-flight jobs whose worker has stopped renewing. It runs in `inImmediate`, so it
+reads the clock only after it holds the write lock. A renewal another process committed while the reaper
+waited for the lock therefore never looks like a lease set too far ahead (#124).
+
+It matches an in-flight row when one of three things holds:
+
+- `lease_until` has passed;
+- `lease_until` lies more than one lease length ahead, which only a backward clock step produces;
+- the row has no lease and no submit marker, which no correct write leaves behind.
+
+Every takeover bumps `lease_token`, so the old owner's later writes are refused. Each row gets one outcome:
+
+| Row | Outcome |
+|---|---|
+| No submit intent, attempts left | `queued`, after 5 s, then 10 s, of backoff |
+| No submit intent, attempts used up | `failed`: the worker lost the job before it reached the printer |
+| Submit intent but no marker | `failed`: check the printer. The printer hold lands with the hold columns, in a later step |
+| Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
 ## db/schema.sql.ts
 
