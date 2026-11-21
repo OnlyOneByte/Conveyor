@@ -80,46 +80,6 @@
       "comments": 12,
       "suppressions": 0
     },
-    "packages/shared/src/artifacts.ts": {
-      "comments": 5,
-      "suppressions": 0
-    },
-    "packages/shared/src/context.ts": {
-      "comments": 5,
-      "suppressions": 0
-    },
-    "packages/shared/src/db/index.ts": {
-      "comments": 96,
-      "suppressions": 0
-    },
-    "packages/shared/src/db/schema.sql.ts": {
-      "comments": 13,
-      "suppressions": 0
-    },
-    "packages/shared/src/db/seed.ts": {
-      "comments": 7,
-      "suppressions": 0
-    },
-    "packages/shared/src/events.ts": {
-      "comments": 21,
-      "suppressions": 0
-    },
-    "packages/shared/src/job.ts": {
-      "comments": 37,
-      "suppressions": 0
-    },
-    "packages/shared/src/plugins.ts": {
-      "comments": 57,
-      "suppressions": 0
-    },
-    "packages/shared/src/profile.ts": {
-      "comments": 50,
-      "suppressions": 0
-    },
-    "packages/shared/src/registry.ts": {
-      "comments": 23,
-      "suppressions": 0
-    },
     "packages/web/Dockerfile": {
       "comments": 5,
       "suppressions": 0
