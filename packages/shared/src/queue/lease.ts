@@ -37,9 +37,10 @@ export function inImmediate<T>(db: Database, now: () => number, step: (at: numbe
   return db.transaction(() => step(now())).immediate();
 }
 
-const FENCE = "id = $id AND lease_owner = $owner AND lease_token = $token AND lease_until >= $now";
+export const FENCE =
+  "id = $id AND lease_owner = $owner AND lease_token = $token AND lease_until >= $now";
 
-function fenceOf(lease: Lease, at: number) {
+export function fenceOf(lease: Lease, at: number) {
   return { $id: lease.jobId, $owner: lease.owner, $token: lease.token, $now: at };
 }
 
