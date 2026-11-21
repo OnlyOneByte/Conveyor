@@ -78,7 +78,8 @@ confirm first.
 4. Unset the stub, submit to the Elegoo printer, watch the stepper; then test cancel.
 
 Env: `ELEGOO_WS_PORT` (3030), `ELEGOO_DISCOVERY_PORT` (3000), `ELEGOO_DISCOVERY_MS`,
-`ELEGOO_STATUS_TIMEOUT_MS` (10 minutes without a print status fails the job; see `docs/modules/plugins.md`).
+`ELEGOO_STATUS_TIMEOUT_MS` (10 minutes without a print status fails the job, and the stream sends a `Cmd 0` status
+request every half of it; see `docs/modules/plugins.md`).
 
 ## Note on the handle
 `PrintHandle` now carries an optional `address` so `status()`/`cancel()` reach the device

@@ -78,7 +78,12 @@ export const elegoo: TransportPlugin = {
       throw new StageError("transport", "elegoo status: missing printer address on handle");
 
     yield { state: "transferring" };
-    for await (const s of streamStatus(handle.address, STATUS_IDLE_TIMEOUT_MS, signal)) {
+    const stream = {
+      address: handle.address,
+      mainboardId: handle.deviceId ?? handle.printerId,
+      idleTimeoutMs: STATUS_IDLE_TIMEOUT_MS,
+    };
+    for await (const s of streamStatus(stream, signal)) {
       yield s;
       if (s.state === "done" || s.state === "failed" || s.state === "canceled") return;
     }

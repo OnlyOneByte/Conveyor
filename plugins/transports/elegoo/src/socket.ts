@@ -5,6 +5,7 @@ import {
   buildCommand,
   exhaustive,
   parsePushFrame,
+  SDCP_CMD,
   type SdcpPush,
   type SdcpRead,
   type SdcpStatusFrame,
@@ -13,6 +14,12 @@ import {
 export const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const COMMAND_TIMEOUT_MS = 15000;
 export const MAX_BAD_STATUS_FRAMES = 3;
+
+export interface StatusStream {
+  address: string;
+  mainboardId: string;
+  idleTimeoutMs: number;
+}
 
 export interface SdcpCommand {
   mainboardId: string;
@@ -124,8 +131,7 @@ function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
 }
 
 export async function* streamStatus(
-  address: string,
-  idleTimeoutMs: number,
+  { address, mainboardId, idleTimeoutMs }: StatusStream,
   signal?: AbortSignal,
 ): AsyncIterable<PrintStatus> {
   const queue: PrintStatus[] = [];
@@ -135,6 +141,7 @@ export async function* streamStatus(
   let badFrames = 0;
   let printing: PrintStatus | undefined;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let refreshTimer: ReturnType<typeof setInterval> | undefined;
   const notify = () => {
     wake?.();
     wake = null;
@@ -162,6 +169,13 @@ export async function* streamStatus(
   };
 
   const ws = new WebSocket(socketUrl(address));
+  const requestStatus = () =>
+    ws.send(
+      buildCommand(mainboardId, SDCP_CMD.STATUS, {}, randomUUID(), Math.floor(nowMs() / 1000)),
+    );
+  ws.onopen = () => {
+    refreshTimer = setInterval(requestStatus, idleTimeoutMs / 2);
+  };
   ws.onmessage = (ev) => {
     const read = parsePushFrame(String(ev.data));
     badFrames = badCountAfter(read, badFrames);
@@ -180,7 +194,7 @@ export async function* streamStatus(
         const status = toPrintStatus(read.frame, printing);
         if (!status) return;
         if (status.state === "printing") printing = status;
-        restartIdleTimer();
+        if (read.frame.kind === "status") restartIdleTimer();
         queue.push(status);
         return notify();
       }
@@ -200,6 +214,7 @@ export async function* streamStatus(
     }
   } finally {
     clearTimeout(idleTimer);
+    clearInterval(refreshTimer);
     signal?.removeEventListener("abort", stop);
     ws.close();
   }
