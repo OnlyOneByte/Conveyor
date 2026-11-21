@@ -105,6 +105,35 @@ describe("moonraker status", () => {
     ]);
   });
 
+  test("does not read an idle printer still showing 100% from an earlier print as done", async () => {
+    const { handle } = printer([
+      { ...stats("standby"), virtual_sdcard: { progress: 1 } },
+      { ...stats("printing"), virtual_sdcard: { progress: 0.1 } },
+      stats("complete"),
+    ]);
+    expect(await collect(plugin.status(handle))).toEqual([
+      { state: "transferring" },
+      { state: "printing", progress: 0.1, message: undefined },
+      { state: "done", progress: 1 },
+    ]);
+  });
+
+  test("reads standby after printing as done only from 99.9%", async () => {
+    const short = printer([
+      { ...stats("printing"), virtual_sdcard: { progress: 0.5 } },
+      { ...stats("standby"), virtual_sdcard: { progress: 0.99 } },
+      stats("cancelled"),
+    ]);
+    expect((await collect(plugin.status(short.handle))).at(-1)?.state).toBe("canceled");
+    const full = printer([
+      { ...stats("printing"), virtual_sdcard: { progress: 0.5 } },
+      { ...stats("standby"), virtual_sdcard: { progress: 0.999 } },
+      stats("cancelled"),
+    ]);
+    expect((await collect(plugin.status(full.handle))).at(-1)?.state).toBe("done");
+    expect(full.keys).toHaveLength(2);
+  });
+
   test("fails on a query error, a missing address, or an abort while waiting", async () => {
     await expect(collect(plugin.status(printer([503]).handle))).rejects.toThrow(
       "moonraker status query failed: 503",
