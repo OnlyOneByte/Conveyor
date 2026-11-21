@@ -46,7 +46,7 @@ export interface HarnessOptions {
 export interface Harness {
   controller: AbortController;
   events: { state: JobState; message?: string; reason?: string }[];
-  records: { state: TerminalState; reason?: string }[];
+  records: { state: TerminalState; reason?: string; notes?: string }[];
   cancels: PrintHandle[];
   order: string[];
   submits: number;
@@ -123,7 +123,7 @@ function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     },
     record: (_id, _req, extra) => {
       opts.record?.();
-      h.records.push({ state: extra.state, reason: extra.reason });
+      h.records.push({ state: extra.state, reason: extra.reason, notes: extra.notes });
     },
     resolveJobTarget: () => ({
       printerId: "p1",
@@ -169,6 +169,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
           controller: h.controller,
           cancelPollMs: opts.cancelPollMs,
           streamCloseMs: opts.streamCloseMs,
+          historyRetryMs: 0,
         },
         deps,
       );

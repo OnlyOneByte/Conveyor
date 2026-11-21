@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   model_path    TEXT,
   gcode_path    TEXT,
   timings_json  TEXT,
+  notes         TEXT,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
 );

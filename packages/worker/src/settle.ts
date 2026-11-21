@@ -1,7 +1,18 @@
 import { rm } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { computeStageTimings, StageError } from "@conveyor/shared";
 import { fallbackHandle } from "./print.js";
-import { JobCanceledError, messageOf, type Run, type TerminalState } from "./run.js";
+import {
+  JobCanceledError,
+  messageOf,
+  type PublishExtra,
+  type Run,
+  type TerminalRecord,
+  type TerminalState,
+} from "./run.js";
+
+const HISTORY_ATTEMPTS = 3;
+const DEFAULT_HISTORY_RETRY_MS = 250;
 
 async function stopPrinter(run: Run): Promise<string | undefined> {
   const attempt = run.print;
@@ -33,54 +44,77 @@ async function cleanup(run: Run): Promise<void> {
   if (failure) run.notes.push(failure);
 }
 
+async function writeHistory(run: Run, outcome: TerminalRecord): Promise<Error | undefined> {
+  const baseMs = run.opts.historyRetryMs ?? DEFAULT_HISTORY_RETRY_MS;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < HISTORY_ATTEMPTS; attempt++) {
+    if (attempt > 0) await delay(baseMs * 2 ** (attempt - 1));
+    try {
+      run.deps.record(run.opts.jobId, run.opts.req, outcome);
+      return undefined;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  return new Error(
+    `history not recorded after ${HISTORY_ATTEMPTS} attempts: ${messageOf(lastError)}`,
+    { cause: lastError },
+  );
+}
+
+async function recordThenPublish(
+  run: Run,
+  outcome: TerminalRecord,
+  extra: () => PublishExtra,
+): Promise<Error | undefined> {
+  const failure = await writeHistory(run, outcome);
+  if (failure) run.notes.push(failure.message);
+  await run.deps.publish(run.opts.jobId, outcome.state, extra());
+  return failure;
+}
+
 export async function settleDone(run: Run): Promise<TerminalState> {
   const timings = computeStageTimings(run.enters, Date.now());
-  await run.deps.publish(run.opts.jobId, "done", {
-    stage: run.stage,
-    message: noted(run),
-    timings,
-  });
-  run.deps.record(run.opts.jobId, run.opts.req, {
-    state: "done",
-    modelPath: run.modelPath,
-    gcodePath: run.gcodePath,
-    timings,
-  });
+  const failure = await recordThenPublish(
+    run,
+    {
+      state: "done",
+      modelPath: run.modelPath,
+      gcodePath: run.gcodePath,
+      notes: noted(run),
+      timings,
+    },
+    () => ({ stage: run.stage, message: noted(run), timings }),
+  );
+  if (failure) throw failure;
   return "done";
 }
 
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
   await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
-  await run.deps.publish(run.opts.jobId, "canceled", {
-    stage: run.stage,
-    message: noted(run, message),
-    timings,
-  });
-  run.deps.record(run.opts.jobId, run.opts.req, {
-    state: "canceled",
-    stage: run.stage,
-    reason: noted(run),
-    timings,
-  });
+  const failure = await recordThenPublish(
+    run,
+    { state: "canceled", stage: run.stage, notes: noted(run), timings },
+    () => ({ stage: run.stage, message: noted(run, message), timings }),
+  );
+  if (failure) throw failure;
   return "canceled";
 }
 
 async function settleFailed(run: Run, se: StageError): Promise<never> {
   await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
-  const reason = noted(run, se.reason) ?? se.reason;
-  await run.deps.publish(run.opts.jobId, "failed", {
-    stage: se.stage,
-    error: { stage: se.stage, reason },
-    timings,
-  });
-  run.deps.record(run.opts.jobId, run.opts.req, {
-    state: "failed",
-    stage: se.stage,
-    reason,
-    timings,
-  });
+  const failure = await recordThenPublish(
+    run,
+    { state: "failed", stage: se.stage, reason: noted(run, se.reason) ?? se.reason, timings },
+    () => ({
+      stage: se.stage,
+      error: { stage: se.stage, reason: noted(run, se.reason) ?? se.reason },
+      timings,
+    }),
+  );
+  if (failure) throw new AggregateError([se, failure], `${se.message}; ${failure.message}`);
   throw se;
 }
 
