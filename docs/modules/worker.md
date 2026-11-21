@@ -35,13 +35,24 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
   parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
-- A job history write that fails is not swallowed: the error rejects the BullMQ job, which marks it failed.
+- `recordTerminal` writes the settled job to SQLite. Notes go to `notes` and only a failed job's reason goes
+  to `error`.
 
 ## pipeline.ts
 
 - Settlement runs outside the stage `try`, so an error while settling a finished or printer-canceled job
   (such as the history write) propagates as is. It is not re-settled as `failed`, and the finished job's work
   directory is kept.
+
+## settle.ts
+
+- History is written before the terminal status is published, so a job the bus calls `done`, `canceled` or
+  `failed` has already been offered to SQLite.
+- The history write gets 3 attempts, waiting `historyRetryMs` (default 250 ms) and then twice that between
+  them.
+- When every attempt fails, `history not recorded after 3 attempts: <error>` is added to the job's notes, so
+  it appears in the published status, and the job then rejects so BullMQ marks it failed. A failed job
+  rejects with an `AggregateError` carrying both its stage error and the history error.
 - A materialized profile that cannot be removed after slicing does not fail the job; it is added to the
   job's notes, which appear in the terminal status message.
 

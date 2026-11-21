@@ -5,8 +5,10 @@ import { join } from "node:path";
 import {
   dbDeletePrinter,
   dbDeleteProfile,
+  dbGetJob,
   dbListPrinters,
   dbListProfiles,
+  dbRecordJob,
   dbResolveJobTarget,
   openDb,
 } from "./index";
@@ -104,5 +106,31 @@ openDb(${JSON.stringify(path)});`;
     const db = reopen(path);
     expect(dbListPrinters(db)).toHaveLength(DEFAULT_PRINTERS.length);
     expect(dbListProfiles(db)).toHaveLength(DEFAULT_PROFILES.length);
+  });
+});
+
+describe("dbRecordJob notes", () => {
+  const settled = {
+    id: "job-1",
+    generatorId: "gen",
+    printerId: "p1",
+    profileId: "prof",
+    state: "canceled",
+    stage: "transport",
+  } as const;
+
+  test("a canceled job keeps its notes apart from the error", () => {
+    const db = openDb(":memory:");
+    dbRecordJob(db, { ...settled, notes: "work dir not removed: EACCES" });
+    const job = dbGetJob(db, "job-1");
+    expect(job?.notes).toBe("work dir not removed: EACCES");
+    expect(job?.error).toBeUndefined();
+  });
+
+  test("re-recording a job replaces its notes", () => {
+    const db = openDb(":memory:");
+    dbRecordJob(db, { ...settled, notes: "first" });
+    dbRecordJob(db, settled);
+    expect(dbGetJob(db, "job-1")?.notes).toBeUndefined();
   });
 });
