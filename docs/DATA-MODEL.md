@@ -187,7 +187,7 @@ from `printers` and writes the settled `Job` row on every terminal state.
 Catalog CRUD lives behind `/catalog/*` (printers/profiles/transports) + `/jobs-history`; printer
 secrets are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New
 A printer's `transportId` is validated against the registry before persist. Both surfaces are gated by
-`registerAuthGuard` when `CONVEYOR_PASSWORD` is set, and open when it is not — there is a single
+`registerAuthGuard`, which is on by default and off only under an explicit `CONVEYOR_AUTH=disabled` — there is a single
 access tier, so holding the password grants the catalog too.
 
 Full catalog + history surface (2026-09-02):
