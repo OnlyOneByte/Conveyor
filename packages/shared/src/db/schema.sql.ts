@@ -36,7 +36,19 @@ CREATE TABLE IF NOT EXISTS jobs (
   timings_json  TEXT,
   notes         TEXT,
   created_at    INTEGER NOT NULL,
-  updated_at    INTEGER NOT NULL
+  updated_at    INTEGER NOT NULL,
+  progress            REAL,
+  message             TEXT,
+  attempts            INTEGER NOT NULL DEFAULT 0,
+  max_attempts        INTEGER NOT NULL DEFAULT 3,
+  run_after           INTEGER NOT NULL DEFAULT 0,
+  lease_owner         TEXT,
+  lease_token         INTEGER NOT NULL DEFAULT 0,
+  lease_until         INTEGER,
+  cancel_requested_at INTEGER,
+  submit_started_at   INTEGER,
+  submitted_at        INTEGER,
+  print_handle_json   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs (created_at DESC);
