@@ -16,10 +16,11 @@ function hasSession(req: FastifyRequest): boolean {
   return verifyToken(readSessionCookie(req.headers.cookie));
 }
 
-const PUBLIC_PREFIXES = ["/health", "/auth/"];
+const PUBLIC_PATHS = ["/health"];
+const PUBLIC_PREFIXES = ["/auth/"];
 
 function isPublic(url: string): boolean {
-  return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p));
+  return PUBLIC_PATHS.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
 }
 
 export function registerAuthGuard(app: FastifyInstance): void {

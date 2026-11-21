@@ -1,0 +1,84 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-"));
+const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "index.ts")], {
+  env: {
+    ...process.env,
+    CONVEYOR_AUTH: "enabled",
+    CONVEYOR_PASSWORD: "guard-test-password",
+    CONVEYOR_AUTH_SECRET: "guard-test-secret-guard-test-secret!",
+    CONVEYOR_HOST: "127.0.0.1",
+    PORT: "0",
+    DB_PATH: join(dir, "conveyor.db"),
+    DATA_DIR: dir,
+    REDIS_URL: "redis://127.0.0.1:1",
+  },
+  stdout: "pipe",
+  stderr: "ignore",
+});
+let base = "";
+
+async function drain(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+  while (!(await reader.read()).done) {}
+}
+
+async function listeningUrl(): Promise<string> {
+  const reader = api.stdout.getReader();
+  const decoder = new TextDecoder();
+  let seen = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) throw new Error(`api exited before listening: ${seen}`);
+    seen += decoder.decode(value);
+    const match = seen.match(/listening at (http:\/\/127\.0\.0\.1:\d+)/);
+    if (match?.[1]) {
+      void drain(reader);
+      return match[1];
+    }
+  }
+}
+
+beforeAll(async () => {
+  base = await listeningUrl();
+}, 15_000);
+
+afterAll(() => {
+  api.kill();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+const send = (method: string, path: string) =>
+  fetch(`${base}${path}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: method === "GET" ? undefined : "{}",
+  });
+
+describe("the global auth guard on a booted api", () => {
+  test.each([
+    ["POST", "/catalog/printers/p1/release"],
+    ["POST", "/jobs"],
+    ["POST", "/jobs/j1/cancel"],
+    ["POST", "/uploads"],
+    ["PUT", "/catalog/printers"],
+    ["DELETE", "/catalog/printers/p1"],
+    ["PUT", "/catalog/profiles"],
+    ["PUT", "/catalog/profiles/x/content"],
+    ["DELETE", "/catalog/profiles/x/content"],
+    ["DELETE", "/catalog/profiles/x"],
+  ])("refuses %s %s without a session", async (method, path) => {
+    const response = await send(method, path);
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "authentication required" });
+  });
+
+  test("keeps /health and /auth/ public, and only /health exactly", async () => {
+    expect((await send("GET", "/health")).status).toBe(200);
+    expect((await send("GET", "/auth/status")).status).toBe(200);
+    expect((await send("GET", "/health-report")).status).toBe(401);
+    expect((await send("GET", "/healthz")).status).toBe(401);
+  });
+});
