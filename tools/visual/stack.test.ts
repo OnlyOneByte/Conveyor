@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { redisContainer, stackEnv } from "./stack.ts";
+import { EventEmitter } from "node:events";
+import { existsSync } from "node:fs";
+import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } from "./stack.ts";
+import { EXIT_TRIGGERS } from "./teardown.ts";
 
 const opts = {
   redisUrl: "redis://127.0.0.1:6379",
@@ -52,5 +55,119 @@ describe("redisContainer", () => {
       "127.0.0.1:6390:6379",
       "redis:7-alpine",
     ]);
+  });
+});
+
+interface FakeStack {
+  deps: StackDeps;
+  children: { name: string; signals: string[] }[];
+  dockerCalls: string[][];
+  dataDirs: string[];
+  listenersAtSpawn: number[][];
+  emitter: EventEmitter;
+}
+
+function closedStream(): ReadableStream<Uint8Array> {
+  return new ReadableStream({ start: (controller) => controller.close() });
+}
+
+function nameOf(cmd: string[]): string {
+  if (cmd.includes("preview")) return "web";
+  if (cmd.includes("build")) return "build";
+  return "service";
+}
+
+function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: number }): FakeStack {
+  const emitter = new EventEmitter();
+  const fake: FakeStack = {
+    children: [],
+    dockerCalls: [],
+    dataDirs: [],
+    listenersAtSpawn: [],
+    emitter,
+    deps: {
+      events: {
+        on: (event, listener) => emitter.on(event, listener),
+        off: (event, listener) => emitter.off(event, listener),
+      },
+      exit: () => {},
+      sleep: () => new Promise<void>(() => {}),
+      spawnSync: (cmd) => {
+        fake.dockerCalls.push(cmd);
+        const isRm = cmd[1] === "rm";
+        return {
+          exitCode: isRm ? options.dockerRmExitCode : 0,
+          stdout: Buffer.from(cmd[1] === "exec" ? "PONG\n" : "cid-1\n"),
+          stderr: Buffer.from(isRm ? "daemon gone" : ""),
+        };
+      },
+      spawn: ({ cmd, cwd, env }) => {
+        const name = cmd.includes("vite") ? nameOf(cmd) : (cwd.split("/").at(-1) ?? "");
+        fake.dataDirs.push(env.DATA_DIR ?? "");
+        fake.listenersAtSpawn.push(EXIT_TRIGGERS.map((t) => emitter.listenerCount(t)));
+        const record = { name, signals: [] as string[] };
+        fake.children.push(record);
+        const { promise, resolve } = Promise.withResolvers<number>();
+        const port = name === "api" ? env.PORT : cmd[cmd.indexOf("--port") + 1];
+        const exitCode = name === "build" ? 0 : name === "api" ? options.apiExitCode : null;
+        const server =
+          exitCode === null && (name === "api" || name === "web")
+            ? Bun.serve({
+                hostname: "127.0.0.1",
+                port: Number(port),
+                fetch: () => new Response("ok"),
+              })
+            : undefined;
+        if (exitCode !== null) resolve(exitCode);
+        const child: StackChild = {
+          exitCode,
+          exited: promise,
+          stdout: closedStream(),
+          stderr: closedStream(),
+          kill: (signal) => {
+            record.signals.push(signal ?? "SIGTERM");
+            server?.stop(true);
+            resolve(143);
+          },
+        };
+        return child;
+      },
+    },
+  };
+  return fake;
+}
+
+describe("bootStack teardown wiring", () => {
+  test("stop kills every child, removes the container and the data dir, and detaches", async () => {
+    const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
+    const stack = await bootStack("/repo", () => {}, fake.deps);
+    expect(fake.children.map((c) => c.name)).toEqual(["api", "worker", "build", "web"]);
+    expect(fake.listenersAtSpawn[0]).toEqual([1, 1, 1, 1]);
+    expect(existsSync(fake.dataDirs[0] ?? "")).toBe(true);
+    await stack.stop();
+    expect(fake.children.map((c) => c.signals)).toEqual([
+      ["SIGTERM"],
+      ["SIGTERM"],
+      ["SIGTERM"],
+      ["SIGTERM"],
+    ]);
+    expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-1"]);
+    expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
+    expect(EXIT_TRIGGERS.map((t) => fake.emitter.listenerCount(t))).toEqual([0, 0, 0, 0]);
+  });
+
+  test("a failed docker rm makes stop reject with docker's message", async () => {
+    const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 1 });
+    const stack = await bootStack("/repo", () => {}, fake.deps);
+    await expect(stack.stop()).rejects.toThrow("docker rm -f cid-1 failed: daemon gone");
+    expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
+  });
+
+  test("a boot failure tears down what already started and rethrows the cause", async () => {
+    const fake = fakeStack({ apiExitCode: 1, dockerRmExitCode: 0 });
+    await expect(bootStack("/repo", () => {}, fake.deps)).rejects.toThrow("exited with 1");
+    expect(fake.children.map((c) => c.signals)).toEqual([["SIGTERM"]]);
+    expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-1"]);
+    expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
   });
 });
