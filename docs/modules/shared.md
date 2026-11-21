@@ -1,0 +1,309 @@
+# packages/shared
+
+Domain types, plugin contracts, profile validation and SQLite access shared by `api`, `worker`, `web` and
+the plugins. Code in this package carries no comments; the reasons behind it live here, one section per
+module.
+
+## artifacts.ts
+
+An `Artifact` is a file on the shared `/data` volume that one stage hands to the next.
+
+- `path` is absolute and lies under `/data`.
+- `format` is the file kind: `stl`, `3mf`, `obj`, `gcode` and so on.
+- `ModelArtifact` is what a generator emits and a slicer reads. `GcodeArtifact` is what a slicer emits and a
+  transport reads. Both are plain aliases of `Artifact` today.
+
+## context.ts
+
+`StageCtx` is the per-job context the worker hands to every stage.
+
+- `workDir` is the job's absolute working directory under `/data`.
+- `report(progress, message)` takes progress from 0 to 1 within the current stage and surfaces it on the
+  status bus.
+- `signal` is cooperative cancellation. Adapters pass it to every spawned engine and every `fetch`.
+
+`StageError` is the typed failure a stage adapter throws. It records which stage failed and why, and its
+message reads `[stage] reason`.
+
+## events.ts
+
+`JobStatusEvent` is one message on the Redis status bus. The API forwards it verbatim to the WebSocket, and
+the PWA is a pure projection of these events.
+
+- `progress` runs from 0 to 1 within the current stage.
+- `timings` is the per-stage wall clock so far, with the last stage left open while it runs. Live events
+  carry it once the worker has entered its first stage, so a monitoring view can show "3m in slicing"
+  without waiting for the job to settle.
+- `at` is epoch milliseconds.
+
+`JOB_QUEUE` is the BullMQ queue name shared by the API (producer) and the worker (consumer). BullMQ forbids
+`:` in queue names, so it uses a hyphen.
+
+`jobChannel` and `jobSnapshotKey` are the single source of truth for the pub/sub channel and snapshot key
+on both ends.
+
+`ACTIVE_JOBS_KEY` names a Redis set of the job ids in flight. The worker adds an id when it starts a job and
+removes it on any terminal state. The API reads the set, then each job's snapshot, to answer
+`GET /jobs/active` without scanning keys. A set keeps the read O(active jobs), and a stale id simply
+resolves to a terminal snapshot that the API filters out.
+
+## job.ts
+
+`JobRequest` is what the PWA submits: a generator (with optional params, since a generator may take none),
+a printer and a profile. Nothing else is needed, because the printer determines the transport and the
+profile determines the slicer and the g-code flavour. This used to be a single `stationId`, a saved
+(printer, profile) pairing; the pairing was always derivable from the two ids, so the extra catalog object
+was removed.
+
+`JobTarget` is a job's print target with everything resolved: the printer and profile the request named,
+plus what they imply. The API and the worker build it from the catalog and hand it to `validateJob()`.
+
+| Field | Comes from |
+|---|---|
+| `transportId` | the printer row |
+| `profileName` | the profile row; passed to the slicer adapter at runtime |
+| `profilePath` | the profile row; a bundled path today, a per-job materialized directory later |
+| `slicerId` | the profile row |
+| `gcodeFlavor` | the profile row: the flavour this profile emits |
+| `allowedGenerators` | the printer row: `undefined` means no restriction, `[]` permits nothing |
+
+`Job` is the durable record, persisted to SQLite on a terminal state. `timings` is captured as the worker
+enters each stage.
+
+`StageTiming` is one stage's wall-clock span. `enteredAt` (epoch ms) is stamped when the worker begins the
+stage. `durationMs` is filled once the next stage starts or the job settles, so an in-flight stage has
+`enteredAt` set and `durationMs` undefined.
+
+`computeStageTimings(enters, settledAt)` folds an ordered list of stage-enter timestamps into
+`StageTiming`s. `settledAt` closes the final stage for a terminal job; omit it to leave the last stage open.
+The input must be in entry order, which is how the worker records it.
+
+## plugins.ts
+
+The three stage contracts and the shapes they exchange. The full contract is in [../PLUGINS.md](../PLUGINS.md).
+
+`JSONSchema7` is re-exported so plugins depend only on `@conveyor/shared`, not on `json-schema` directly.
+
+`PluginManifest.id` is stable and unique within a stage (`gridfinity`, `orca`, `moonraker`); `name` is the
+label the UI shows.
+
+`PreviewDescriptor` points the client-side viewport at a client module that builds Three.js geometry from
+the params, which keeps preview rendering off the server (ADR 0002).
+
+### Form presentation hints
+
+The PWA renders a generator's config form straight from `paramSchema`, with no per-generator UI code.
+`FormUiHints` lets a generator say how its fields are grouped and which are advanced, without the form
+component learning any generator-specific field names. A generator that omits them renders as a flat list
+of controls.
+
+- `FormControl` is the preferred control for a field; when omitted it is inferred from the JSON Schema type.
+- `FormGroup.title` is the heading above the group; omit it for an unlabelled cluster. `fields` are field
+  keys in render order.
+- `FormGroup.layout`: `pair` puts two controls on one row separated by `×`; `stack` (the default) puts one
+  control per row; `grid` is a two-column grid for compact booleans.
+- `groups` are always visible; `advanced` sits behind a disclosure; `controls` overrides the control per
+  field.
+- `unitMm` is the millimetres one unit of a field represents. It drives the live size readout beside a
+  group heading, for example gridfinity's 42 mm footprint and 7 mm height units.
+- `note` is a small static legend under the primary groups.
+
+### Generator
+
+`paramSchema` is a zod-derived JSON Schema the PWA renders the form from. `outputs` lists the model formats
+the generator can emit (`["stl", "3mf"]`). `generate` is the exact, server-side model generation that
+shells out to OpenSCAD and similar.
+
+### Slicer
+
+`ProfileRef.id` looks like `orca/elegoo-pla-0.2`; `name` is shown in Settings, never to end users; `path` is
+a bundled or per-job materialized profile directory.
+
+`SlicerPlugin.accepts` lists input formats, and `gcodeFlavor` is the flavour the slicer declares (`marlin`,
+`klipper`). `profiles` is the plugin's bundled defaults, not an allowlist for runtime profiles.
+
+`slice` receives a profile the worker has already resolved. Adapters consume its path; they do not own
+profile persistence or look ids up in a hard-coded list. That is what lets the worker materialize edited
+JSON into a per-job directory and pass that directory to Orca without coupling the plugin to SQLite.
+
+### Transport
+
+`PrinterTarget.id` looks like `klipper-garage`; `transportId` names the owning transport; `address` is a
+`host:port`, serial device or MQTT topic; `secrets` (API keys and the like) are resolved server-side and
+never sent to the client.
+
+`PrintHandle.ref` is the transport-specific job reference (a filename, a task id). `address` is the device
+address, carried so `status()` and `cancel()` can reach the printer without re-resolving it. It is
+server-side only and never leaves the worker.
+
+`PrintStatus.progress` runs from 0 to 1. `TransportPlugin.acceptsFlavors` lists the g-code flavours it can
+print, and `discover` is optional mDNS or network discovery.
+
+## registry.ts
+
+`Registry` is the startup-populated map of available plugins per stage.
+
+`validateJob(request, target, registry)` is the pre-flight check the API runs before enqueueing. It throws
+`CompatibilityError` when the resolved generator → slicer → transport chain cannot interoperate, so an
+incompatible combination fails fast with a 4xx instead of dying mid-pipeline. The checks, in order:
+
+1. The generator exists.
+2. The printer's generator allowlist admits it. This runs before the capability checks because it is a
+   policy refusal, not an incompatibility: the pair might slice fine and still be disallowed. `undefined`
+   means unrestricted while `[]` allows nothing, so the test is on presence, not on the contents.
+3. The slicer and the transport exist.
+4. `generator.outputs` and `slicer.accepts` intersect.
+5. The profile's g-code flavour is in `transport.acceptsFlavors`.
+
+The flavour check uses the profile's `gcodeFlavor`, not the slicer's. A slicer declares one flavour but can
+offer profiles emitting others: `prusa` declares `klipper` yet ships `prusa/marlin-pla-0.2`.
+
+`slicer.profiles` is not consulted. The profile row has already been resolved from SQLite and its
+`slicerId` selected the adapter; edited and duplicated runtime profiles are valid without being compiled
+into the adapter.
+
+## profile.ts
+
+Editable slicer profile content and its trust-boundary validation. See also
+[../SLICER-PROFILES.md](../SLICER-PROFILES.md).
+
+### Orca
+
+An editable Orca profile is three JSON documents: `machine`, `process` and `filament`. Values are raw JSON
+text rather than parsed objects on purpose: this is a raw editor, so whitespace and key order survive a
+save and reload. The API parses each document to validate it before persistence; the worker writes the
+validated text verbatim into a per-job directory before invoking Orca.
+
+`MAX_ORCA_DOCUMENT_BYTES` (256 KiB) is generous relative to the shipped bundle (about 14 KiB in total) and
+bounded against denial of service.
+
+`validateOrcaProfileDocuments` is shared validation: the API runs it before persistence and the worker runs
+it again before writing files, so a direct database edit cannot bypass it. Text is never normalized;
+callers store and materialize the exact validated bytes.
+
+`OrcaEditableProfile` is format-tagged so another slicer's format can be added without weakening the Orca
+contract.
+
+### Prusa
+
+A Prusa profile is edited as a single `config.ini` document, kept as raw text for the same reason as Orca:
+key order and comments survive a save and reload. `MAX_PRUSA_DOCUMENT_BYTES` is 512 KiB because PrusaSlicer
+configs (printer, filament and print in one file) run larger than Orca's.
+
+`validatePrusaProfileContent` (SAX-04, SAX-10) runs in the API before persistence and in the worker before
+writing the file. INI is permissive, so the checks are structural rather than a full parse:
+
+- Bounded size.
+- No NUL or C0 control bytes other than tab, newline and carriage return. This rejects binary blobs and
+  log or CRLF injection while leaving normal INI text, with comments and either line ending, untouched.
+- Every non-blank line that is not a `#` or `;` comment or a `[section]` header is a `key = value` setting
+  with an allowlisted key. Section headers are optional; PrusaSlicer configs are flat.
+- At least one setting, so an empty or junk blob is refused.
+
+PrusaSlicer itself is the arbiter of semantic validity: a parseable but wrong config only surfaces when a
+job slices, exactly as for Orca.
+
+### Format routing
+
+`slicerFormat(slicerId)` is the single source of truth for which editable format a slicer's profiles use,
+shared by the API (route dispatch), the worker (materialization) and the web client (which editor to open).
+A slicer with no editable format returns `null` and is read-only in the editor. Adding a slicer's format
+there makes its profiles editable everywhere at once.
+
+## db/index.ts
+
+Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the same on aarch64 and x86_64).
+The API (config reads, job history) and the worker (print-target resolution, terminal job writes) open the
+same file on the shared `/data` volume. `openDb()` is a process-wide singleton, idempotent per path.
+
+### Printers and profiles
+
+`Printer.secrets` is parsed from `secrets_json`, is server-side only and is never serialized to clients.
+`Printer.allowedGenerators` is returned to clients so a form can round-trip it. `undefined` means no
+restriction, which is deliberately distinct from `[]`, an empty allowlist that permits nothing; a stored
+`"[]"` must parse to `[]` and never collapse into "no restriction".
+
+`dbUpsertPrinter` treats the two columns differently, on purpose:
+
+| Column | On update | Why |
+|---|---|---|
+| `secrets_json` | `COALESCE(new, stored)` | Reads strip secrets, so a client cannot round-trip them. Assigning directly wiped the stored credential whenever someone changed only the address. Omitted keeps what is stored, `{}` clears, `{...}` replaces. |
+| `allowed_generators_json` | assigned directly | It is returned on read, so omitting it is a deliberate "no restriction". COALESCE would make an allowlist impossible to remove. |
+
+`Profile.hasEditableContent` is true when the profile has an edit: all three Orca documents, or the Prusa
+config, stored in SQLite.
+
+`dbGetOrcaProfileDocuments` returns `null` while the profile still uses its immutable bundled files. A
+partial set is an integrity error and throws: save and reset update all three columns in one statement, so
+silently mixing database and bundled content would hide corruption and make a slice irreproducible.
+`dbSaveOrcaProfileDocuments` and `dbResetOrcaProfileDocuments` replace or clear all three atomically.
+
+The Prusa equivalents work on the single `prusa_ini` column, so there is no partial state. The save and
+reset functions return `false` when no such profile exists.
+
+`dbResolveJobTarget(printerId, profileId)` builds a `JobTarget`, deriving the transport from the printer and
+the slicer and flavour from the profile. It returns `null` when either id is unknown, so callers answer 400
+instead of enqueueing a job that cannot run.
+
+### Jobs
+
+`dbRecordJob` writes the settled record of a finished run. A job migrated from a station that had already
+been deleted has a null printer and profile; `rowToJob` surfaces them as empty strings rather than invent
+values.
+
+`dbGetJob(id)` exists because `dbListJobs()` is windowed (50 by default, 200 at most): a deep link to an
+older job would otherwise resolve to "not found" only because it fell off the window.
+
+### Migrations
+
+`SCHEMA_SQL` is `CREATE TABLE IF NOT EXISTS` only, so it cannot change a table that already exists: a column
+added to the DDL is absent from any database created before it, and the first insert naming that column
+fails. `migrate()` reshapes existing tables, each step guarded on the live table shape and safe on every
+boot.
+
+1. **`jobs.station_id` → `printer_id` and `profile_id`.** A full table rebuild, because `station_id` was
+   `NOT NULL`: adding columns would leave it in place and every later insert would fail. SQLite cannot drop
+   a constraint in place, so the rebuild is the supported route. The backfill is lossless, since a station
+   was exactly the (printer, profile) pair; a job whose station was already deleted backfills to `NULL`.
+2. **`printers.allowed_generators_json`.** Additive and nullable, so `ADD COLUMN`.
+3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
+   files.
+4. **`jobs.timings_json`.** Additive and nullable; `NULL` on rows recorded before timings existed.
+5. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
+   already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
+   it.
+
+### Startup
+
+`openDb` sets `busy_timeout = 5000` and retries `journal_mode = WAL` on `SQLITE_BUSY` (up to 50 attempts,
+100 ms apart), since the API and the worker can open the file at the same moment. Seeding runs in an
+immediate transaction and only once per database, recorded as `meta.seeded`; it is skipped when any
+printer or profile already exists, so an operator who deleted every printer keeps zero printers across
+restarts.
+
+## db/schema.sql.ts
+
+The idempotent DDL applied on every boot; `CREATE TABLE IF NOT EXISTS` makes first run and restart
+identical. Column reference: [../DATA-MODEL.md](../DATA-MODEL.md).
+
+- The schema declares no foreign keys even though `openDb()` sets `PRAGMA foreign_keys = ON`. A job stores
+  the printer and profile ids it used as historical facts about a finished run; deleting a printer today
+  must not rewrite what a job printed on last week. Job history therefore keeps ids that may no longer
+  resolve, surfaced as empty.
+- Time columns are epoch-ms integers.
+- `profiles.orca_*_json` are written and cleared together; `NULL` falls back to the immutable files under
+  the bundled profile path. `profiles.prusa_ini` is `NULL` for the bundled config.
+- `printers.allowed_generators_json` is a JSON array of generator ids; `NULL` allows all.
+- `jobs.timings_json` is a JSON array of `{stage, enteredAt, durationMs}`; `NULL` for rows recorded before
+  timings existed and for jobs that failed before entering any stage.
+
+## db/seed.ts
+
+The default catalog: the printers you can print to and the profiles you can print with. A job names one of
+each.
+
+- `orca/klipper-pla-0.2` is an OrcaSlicer Klipper bundle exported from the Creality K1 family, verified
+  slicing a cube to Klipper g-code in the worker image on 2026-06-30.
+- The `prusa/*` profiles use PrusaSlicer, which is multi-arch (apt) and verified headless.
+
+Both are described in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
