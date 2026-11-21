@@ -2,6 +2,7 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  isBundledProfilePath,
   MAX_ORCA_DOCUMENT_BYTES,
   MAX_PRUSA_DOCUMENT_BYTES,
   ORCA_PROFILE_DOCUMENT_NAMES,
@@ -46,13 +47,10 @@ async function bundledDirectory(logicalPath: string): Promise<{ root: string; di
   if (!logicalPath.startsWith(LOGICAL_PREFIX)) {
     throw new ProfileContentError("profile does not reference a bundled /profiles path", 409);
   }
-  const suffix = logicalPath.slice(LOGICAL_PREFIX.length);
-  const segments = suffix.split("/");
-  // Allowlist profile-directory characters rather than trying to enumerate traversal
-  // encodings. Existing bundles use lowercase letters, digits, dashes and dots.
-  if (!suffix || segments.some((segment) => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(segment))) {
+  if (!isBundledProfilePath(logicalPath)) {
     throw new ProfileContentError("profile has an invalid bundled path", 409);
   }
+  const suffix = logicalPath.slice(LOGICAL_PREFIX.length);
 
   try {
     const root = await realpath(profilesRoot);

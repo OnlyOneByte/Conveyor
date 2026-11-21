@@ -1,3 +1,5 @@
+import { ORCA_CONFIG_KEYS, PRUSA_CONFIG_KEYS } from "./slicer-keys.js";
+
 /**
  * The three files that make up an editable Orca profile bundle.
  *
@@ -52,6 +54,13 @@ export function validateOrcaProfileDocuments(documents: OrcaProfileDocuments): v
       throw new OrcaProfileValidationError(
         `${name}.json has type ${JSON.stringify(declaredType)}; expected ${JSON.stringify(name)}`,
       );
+    }
+    for (const key of Object.keys(value)) {
+      if (!ORCA_CONFIG_KEYS.has(key)) {
+        throw new OrcaProfileValidationError(
+          `${name}.json: setting ${JSON.stringify(key)} is not permitted`,
+        );
+      }
     }
   }
   if (total > MAX_ORCA_CONTENT_BYTES) {
@@ -120,17 +129,32 @@ export function validatePrusaProfileContent(document: PrusaProfileDocument): voi
   if (hasDisallowedControlChar(text)) {
     throw new PrusaProfileValidationError("config.ini contains control characters");
   }
-  // Structural floor: at least one `key = value` assignment on a non-comment line.
   // (PrusaSlicer configs are flat key=value; section headers are optional.)
-  const hasAssignment = text.split(/\r?\n/).some((line) => {
+  let assignments = 0;
+  for (const [index, line] of text.split(/\r?\n/).entries()) {
     const t = line.trim();
-    if (!t || t.startsWith("#") || t.startsWith(";") || t.startsWith("[")) return false;
+    if (!t || t.startsWith("#") || t.startsWith(";") || t.startsWith("[")) continue;
     const eq = t.indexOf("=");
-    return eq > 0; // a key before the '='
-  });
-  if (!hasAssignment) {
+    if (eq <= 0) {
+      throw new PrusaProfileValidationError(
+        `config.ini line ${index + 1} is not a key = value setting`,
+      );
+    }
+    const key = t.slice(0, eq).trim();
+    if (!PRUSA_CONFIG_KEYS.has(key)) {
+      throw new PrusaProfileValidationError(
+        `config.ini: setting ${JSON.stringify(key)} is not permitted`,
+      );
+    }
+    assignments++;
+  }
+  if (assignments === 0) {
     throw new PrusaProfileValidationError("config.ini has no key = value settings");
   }
+}
+
+export function isBundledProfilePath(path: string): boolean {
+  return /^\/profiles\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path) && !path.includes("..");
 }
 
 // ─── Format routing ──────────────────────────────────────────────────────────
