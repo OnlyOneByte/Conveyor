@@ -8,8 +8,11 @@ It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only i
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
 routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
-registered in. Requests whose path (query string removed) starts with an entry in `PUBLIC_PREFIXES` (today
-`/health` and `/auth/`) skip it; everything else needs a valid session.
+registered in. Requests whose path (query string removed) is exactly an entry in `PUBLIC_PATHS` (today `/health`) or
+starts with an entry in `PUBLIC_PREFIXES` (today `/auth/`) skip it; everything else needs a valid session.
+`/health` is an exact match so that a later route such as `/health-report` is not public by accident.
+`routes/auth-guard.test.ts` boots the real `index.ts` with auth on and checks that every mutating route
+answers `401` without a session.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
@@ -19,8 +22,8 @@ registered in. Requests whose path (query string removed) starts with an entry i
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
-- The public paths live in one list, `PUBLIC_PREFIXES` (`/health`, `/auth/`), so a new route cannot fall
-  outside the protected tree by accident. Everything else needs a valid session.
+- The public paths live in two short lists, `PUBLIC_PATHS` (exact, `/health`) and `PUBLIC_PREFIXES`
+  (`/auth/`), so a new route cannot fall outside the protected tree by accident. Everything else needs a valid session.
 - With auth disabled there is no gate (a warning is logged at boot), and `POST /auth/login` answers `ok`.
 - `GET /auth/status` tells the client whether to show a login screen.
 - A successful login sets `cache-control: private, no-store` so the gated response is never cached or
@@ -128,8 +131,8 @@ prepared for a held printer until someone checks the printer and releases it.
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold
   is cleared.
-- It is a mutating route behind the same global auth guard as every other non-public route. It does not
-  start with a `PUBLIC_PREFIXES` entry, so without a session it gets `401`.
+- It is a mutating route behind the same global auth guard as every other non-public route. It is not a
+  public path, so without a session it gets `401`; `routes/auth-guard.test.ts` checks this on a booted api.
 
 ## Redis (`queue.ts`)
 
