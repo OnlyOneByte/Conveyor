@@ -42,17 +42,16 @@ async function waitHttp(url: string, timeoutMs: number, proc?: Subprocess): Prom
   throw new Error(`timed out waiting for ${url} (last: ${last})`);
 }
 
+export function redisContainer(port: number): { url: string; dockerRun: string[] } {
+  return {
+    url: `redis://127.0.0.1:${port}`,
+    dockerRun: ["docker", "run", "-d", "--rm", "-p", `127.0.0.1:${port}:6379`, "redis:7-alpine"],
+  };
+}
+
 async function startRedis(log: Log): Promise<{ url: string; stop: () => Promise<void> }> {
-  const port = await freePort();
-  const run = Bun.spawnSync([
-    "docker",
-    "run",
-    "-d",
-    "--rm",
-    "-p",
-    `127.0.0.1:${port}:6379`,
-    "redis:7-alpine",
-  ]);
+  const container = redisContainer(await freePort());
+  const run = Bun.spawnSync(container.dockerRun);
   if (run.exitCode !== 0) throw new Error(`docker run redis failed: ${run.stderr.toString()}`);
   const id = run.stdout.toString().trim();
   const until = Date.now() + 30000;
@@ -68,7 +67,7 @@ async function startRedis(log: Log): Promise<{ url: string; stop: () => Promise<
     throw new Error("redis did not answer PING within 30 s");
   }
   return {
-    url: `redis://127.0.0.1:${port}`,
+    url: container.url,
     stop: async () => {
       const removed = Bun.spawnSync(["docker", "rm", "-f", id]);
       if (removed.exitCode !== 0)
