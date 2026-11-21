@@ -2,9 +2,15 @@ import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type PrintHandle, PrintNotStartedError, type StageCtx } from "@conveyor/shared";
+import {
+  type PrintHandle,
+  PrintNotStartedError,
+  type PrintStatus,
+  type StageCtx,
+} from "@conveyor/shared";
 import { elegoo } from "./index";
 import { SDCP_CMD } from "./sdcp";
+import { MAX_BAD_STATUS_FRAMES } from "./socket";
 
 const RealWebSocket = globalThis.WebSocket;
 
@@ -12,10 +18,11 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
-type Mode = "ack" | "nack" | "close" | "silent" | "garbage" | "chatter" | "status-garbage";
+type Mode = "ack" | "nack" | "close" | "silent" | "garbage" | "chatter" | "hangup";
 
 class FakeWebSocket {
   static mode: Mode = "ack";
+  static pushes: string[] = [];
   static sent: { url: string; frame: { Data: { Cmd: number; MainboardID: string } } }[] = [];
   static closed = 0;
   onopen: (() => void) | null = null;
@@ -24,8 +31,8 @@ class FakeWebSocket {
   onclose: (() => void) | null = null;
   constructor(readonly url: string) {
     queueMicrotask(() => this.onopen?.());
-    if (FakeWebSocket.mode === "status-garbage")
-      queueMicrotask(() => this.onmessage?.({ data: "<html>busy</html>" }));
+    for (const data of FakeWebSocket.pushes) queueMicrotask(() => this.onmessage?.({ data }));
+    if (FakeWebSocket.mode === "hangup") queueMicrotask(() => this.onclose?.());
   }
   send(raw: string) {
     const frame = JSON.parse(raw);
@@ -38,7 +45,7 @@ class FakeWebSocket {
         this.onmessage?.({ data: JSON.stringify({ Topic: "sdcp/status/x", Data: {} }) }),
       );
     if (FakeWebSocket.mode === "garbage" || FakeWebSocket.mode === "close") return;
-    if (FakeWebSocket.mode === "silent" || FakeWebSocket.mode === "status-garbage") return;
+    if (FakeWebSocket.mode === "silent") return;
     const code = FakeWebSocket.mode === "nack" ? 1 : 0;
     const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: code } } };
     queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
@@ -48,8 +55,9 @@ class FakeWebSocket {
   }
 }
 
-function useFakeSocket(mode: Mode) {
+function useFakeSocket(mode: Mode, pushes: string[] = []) {
   FakeWebSocket.mode = mode;
+  FakeWebSocket.pushes = pushes;
   FakeWebSocket.sent = [];
   FakeWebSocket.closed = 0;
   Reflect.set(globalThis, "WebSocket", FakeWebSocket);
@@ -178,16 +186,46 @@ describe("elegoo status", () => {
     expect(FakeWebSocket.closed).toBe(1);
   });
 
-  test("an unreadable status frame ends the stream with a transport error", async () => {
-    useFakeSocket("status-garbage");
+  test("three unreadable status frames in a row end the stream with a transport error", async () => {
+    useFakeSocket("silent", Array(MAX_BAD_STATUS_FRAMES).fill("<html>busy</html>"));
     const seen: string[] = [];
     const drain = (async () => {
       for await (const s of elegoo.status(handle)) seen.push(s.state);
     })();
     await expect(withinMs(drain, 1000, "elegoo status")).rejects.toThrow(
-      "elegoo status from 10.0.0.8: JSON Parse error",
+      "elegoo status from 10.0.0.8: 3 unreadable frames in a row, last: JSON Parse error",
     );
     expect(seen).toEqual(["transferring"]);
     expect(FakeWebSocket.closed).toBe(1);
   });
+
+  test("a readable frame resets the unreadable-frame count", async () => {
+    const bad = Array(MAX_BAD_STATUS_FRAMES - 1).fill("<html>busy</html>");
+    useFakeSocket("hangup", [...bad, statusFrame(13, 40), ...bad]);
+    const seen = await withinMs(drainStatus(), 1000, "elegoo status");
+    expect(seen.map((s) => s.state)).toEqual(["transferring", "printing"]);
+  });
+
+  test("a printer-pushed sdcp/error frame fails the print with its code", async () => {
+    const error = JSON.stringify({ Topic: "sdcp/error/mb", Data: { Data: { ErrorCode: 4 } } });
+    useFakeSocket("silent", [statusFrame(13, 10), error]);
+    const seen = await withinMs(drainStatus(), 1000, "elegoo status");
+    expect(seen.map((s) => s.state)).toEqual(["transferring", "printing", "failed"]);
+    expect(seen[2]?.message).toBe("printer reported SDCP error 4");
+  });
 });
+
+async function drainStatus(): Promise<PrintStatus[]> {
+  const seen: PrintStatus[] = [];
+  for await (const s of elegoo.status(handle)) seen.push(s);
+  return seen;
+}
+
+function statusFrame(printStatus: number, progress: number): string {
+  return JSON.stringify({
+    Topic: "sdcp/status/mb",
+    Data: {
+      Status: { CurrentStatus: [1], PrintInfo: { Status: printStatus, Progress: progress } },
+    },
+  });
+}

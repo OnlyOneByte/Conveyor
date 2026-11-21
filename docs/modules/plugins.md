@@ -116,10 +116,17 @@ SDCP (Smart Device Control Protocol), written from the
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
-  up to 15 s for its ack. JSON frames for other requests are skipped; a non-JSON frame rejects the command,
-  and on the status stream it ends `status()` with a `StageError` that quotes the frame.
-- Parsing: `parseDiscovery`, `parseStatusFrame` and `ackCode` return an `SdcpRead` (`frame`, `other` or
-  `malformed` with a reason) and never throw; each caller switches over all three.
+  up to 15 s for its ack. JSON frames for other requests are skipped; an unreadable frame rejects the command.
+  The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames in a row, so one
+  garbled push does not fail a running print; the third in a row ends `status()` with a `StageError` that
+  names the count and quotes the last frame. Any readable frame resets the count.
+- Parsing: every frame is checked against a zod schema in `src/frames.ts` (discovery reply, push envelope,
+  status, error and ack shapes). `parseDiscovery`, `parsePushFrame` and `ackCode` return an `SdcpRead`
+  (`frame`, `other` or `malformed` with the failing field path) and never throw; each caller switches over all
+  three.
+- Printer errors: an `sdcp/error/<id>` push (`Data.Data.ErrorCode`) yields `failed` with the message
+  "printer reported SDCP error <code>", which ends the job. `sdcp/notice/<id>` and `sdcp/attributes/<id>`
+  pushes are informational and skipped.
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
 - Cancel: `cancel()` sends `Cmd 130` (STOP_PRINT) to the handle's `deviceId`, which is the stored
   `mainboardId`. It resolves only on a matching ack with `Ack 0`. A non-zero ack, a socket close before the

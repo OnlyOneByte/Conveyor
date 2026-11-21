@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { discoveryOutcome, parseDiscovery, parseStatusFrame } from "./sdcp";
+import { discoveryOutcome, parseDiscovery, parsePushFrame } from "./sdcp";
 import { ackCode } from "./socket";
 
 const printerReply = JSON.stringify({
@@ -36,6 +36,22 @@ describe("parseDiscovery", () => {
     expect(read.kind === "malformed" && read.reason).toEndWith('in "M99999"');
   });
 
+  test("lower-case field names from older firmware are read", () => {
+    const raw = JSON.stringify({ data: { mainboardIP: "10.0.0.9", mainboardID: "mb-2" } });
+    const read = parseDiscovery(raw);
+    expect(read.kind === "frame" && [read.frame.mainboardIp, read.frame.mainboardId]).toEqual([
+      "10.0.0.9",
+      "mb-2",
+    ]);
+  });
+
+  test("a non-string MainboardIP is malformed with the field named", () => {
+    const read = parseDiscovery(JSON.stringify({ Data: { MainboardIP: 7, MainboardID: "mb-1" } }));
+    expect(read.kind === "malformed" && read.reason).toStartWith(
+      "Data.MainboardIP: Expected string",
+    );
+  });
+
   test("a JSON null reply is malformed rather than a crash", () => {
     expect(parseDiscovery("null").kind).toBe("malformed");
   });
@@ -68,35 +84,86 @@ describe("discoveryOutcome", () => {
   });
 });
 
-describe("parseStatusFrame", () => {
+describe("parsePushFrame", () => {
   test("reads progress from a status frame", () => {
     const raw = JSON.stringify({
       Topic: "sdcp/status/mb-1",
       Data: { Status: { CurrentStatus: [1], PrintInfo: { Status: 13, Progress: 40 } } },
     });
-    const read = parseStatusFrame(raw);
+    const read = parsePushFrame(raw);
     expect(read.kind === "frame" && read.frame).toEqual({
+      kind: "status",
+      status: {
+        currentStatus: [1],
+        printStatus: 13,
+        progress: 0.4,
+        currentLayer: null,
+        totalLayer: null,
+      },
+    });
+  });
+
+  test("a scalar CurrentStatus and layer counts give layer progress", () => {
+    const raw = JSON.stringify({
+      Topic: "sdcp/status/mb-1",
+      Data: { Status: { CurrentStatus: 1, PrintInfo: { CurrentLayer: 30, TotalLayer: 120 } } },
+    });
+    const read = parsePushFrame(raw);
+    expect(read.kind === "frame" && read.frame.kind === "status" && read.frame.status).toEqual({
       currentStatus: [1],
-      printStatus: 13,
-      progress: 0.4,
+      printStatus: null,
+      progress: 0.25,
+      currentLayer: 30,
+      totalLayer: 120,
+    });
+  });
+
+  test("a status frame with no Data reads as idle with no progress", () => {
+    const read = parsePushFrame(JSON.stringify({ Topic: "sdcp/status/mb-1" }));
+    expect(read.kind === "frame" && read.frame.kind === "status" && read.frame.status).toEqual({
+      currentStatus: [],
+      printStatus: null,
+      progress: 0,
       currentLayer: null,
       totalLayer: null,
     });
   });
 
-  test("a frame on another topic is skipped with its topic named", () => {
-    expect(parseStatusFrame(JSON.stringify({ Topic: "sdcp/attributes/mb-1" }))).toEqual({
+  test("an error frame carries the printer's error code", () => {
+    const raw = JSON.stringify({ Topic: "sdcp/error/mb-1", Data: { Data: { ErrorCode: 2 } } });
+    expect(parsePushFrame(raw)).toEqual({ kind: "frame", frame: { kind: "error", errorCode: 2 } });
+  });
+
+  test("an error frame without a numeric ErrorCode is malformed with the field named", () => {
+    const raw = JSON.stringify({ Topic: "sdcp/error/mb-1", Data: { Data: { ErrorCode: "x" } } });
+    const read = parsePushFrame(raw);
+    expect(read.kind === "malformed" && read.reason).toStartWith("Data.ErrorCode: Expected number");
+  });
+
+  test("a status field of the wrong type is malformed with its path named", () => {
+    const raw = JSON.stringify({
+      Topic: "sdcp/status/mb-1",
+      Data: { Status: { PrintInfo: { Progress: "40%" } } },
+    });
+    const read = parsePushFrame(raw);
+    expect(read.kind === "malformed" && read.reason).toStartWith(
+      "Status.PrintInfo.Progress: Expected number",
+    );
+  });
+
+  test("a notice or attributes frame is skipped with its topic named", () => {
+    expect(parsePushFrame(JSON.stringify({ Topic: "sdcp/notice/mb-1" }))).toEqual({
       kind: "other",
-      reason: 'topic "sdcp/attributes/mb-1"',
+      reason: 'topic "sdcp/notice/mb-1"',
     });
   });
 
   test("a frame that is not JSON is malformed", () => {
-    expect(parseStatusFrame("{").kind).toBe("malformed");
+    expect(parsePushFrame("{").kind).toBe("malformed");
   });
 
   test("a non-string topic is malformed rather than a crash", () => {
-    expect(parseStatusFrame(JSON.stringify({ Topic: 7 })).kind).toBe("malformed");
+    expect(parsePushFrame(JSON.stringify({ Topic: 7 })).kind).toBe("malformed");
   });
 });
 
@@ -113,5 +180,11 @@ describe("ackCode", () => {
 
   test("an unreadable reply is malformed", () => {
     expect(ackCode("pong", "r1").kind).toBe("malformed");
+  });
+
+  test("a non-numeric Ack is malformed instead of read as a code", () => {
+    const raw = JSON.stringify({ Data: { RequestID: "r1", Data: { Ack: "ok" } } });
+    const read = ackCode(raw, "r1");
+    expect(read.kind === "malformed" && read.reason).toStartWith("Data.Data.Ack: Expected number");
   });
 });

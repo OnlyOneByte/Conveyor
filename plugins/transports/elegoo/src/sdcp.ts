@@ -1,3 +1,12 @@
+import {
+  DiscoveryReply,
+  decodeFrame,
+  decodeShape,
+  ErrorData,
+  PushEnvelope,
+  StatusData,
+} from "./frames.js";
+
 export const SDCP_CMD = {
   STATUS: 0,
   ATTRIBUTES: 1,
@@ -45,34 +54,26 @@ export function exhaustive(value: never): never {
   throw new Error(`unhandled SDCP read: ${JSON.stringify(value)}`);
 }
 
-export function malformed(raw: string, e: unknown): { kind: "malformed"; reason: string } {
-  const why = e instanceof Error ? e.message : String(e);
-  return { kind: "malformed", reason: `${why} in ${JSON.stringify(raw.slice(0, 80))}` };
-}
-
 export function parseDiscovery(buf: string): SdcpRead<SdcpDiscovery> {
-  try {
-    const j = JSON.parse(buf);
-    const d = j.Data ?? j.data ?? {};
-    const mainboardIp = d.MainboardIP ?? d.mainboardIP;
-    const mainboardId = d.MainboardID ?? d.mainboardID;
-    if (!mainboardIp || !mainboardId)
-      return { kind: "other", reason: "reply has no MainboardIP or MainboardID" };
-    return {
-      kind: "frame",
-      frame: {
-        name: d.Name ?? d.name ?? "Elegoo printer",
-        machineName: d.MachineName ?? d.machineName ?? "",
-        brand: d.BrandName ?? d.brandName ?? "Elegoo",
-        mainboardIp,
-        mainboardId,
-        protocolVersion: d.ProtocolVersion,
-        firmwareVersion: d.FirmwareVersion,
-      },
-    };
-  } catch (e) {
-    return malformed(buf, e);
-  }
+  const decoded = decodeFrame(DiscoveryReply, buf);
+  if (decoded.kind === "malformed") return decoded;
+  const d = { ...decoded.value.data, ...decoded.value.Data };
+  const mainboardIp = d.MainboardIP ?? d.mainboardIP;
+  const mainboardId = d.MainboardID ?? d.mainboardID;
+  if (!mainboardIp || !mainboardId)
+    return { kind: "other", reason: "reply has no MainboardIP or MainboardID" };
+  return {
+    kind: "frame",
+    frame: {
+      name: d.Name ?? d.name ?? "Elegoo printer",
+      machineName: d.MachineName ?? d.machineName ?? "",
+      brand: d.BrandName ?? d.brandName ?? "Elegoo",
+      mainboardIp,
+      mainboardId,
+      protocolVersion: d.ProtocolVersion,
+      firmwareVersion: d.FirmwareVersion,
+    },
+  };
 }
 
 export function discoveryOutcome(reads: SdcpRead<SdcpDiscovery>[]): DiscoveryOutcome {
@@ -124,34 +125,42 @@ export interface SdcpStatusFrame {
   totalLayer: number | null;
 }
 
-export function parseStatusFrame(buf: string): SdcpRead<SdcpStatusFrame> {
-  try {
-    const j = JSON.parse(buf);
-    const topic: string = j.Topic ?? "";
-    if (!topic.startsWith("sdcp/status/"))
-      return { kind: "other", reason: `topic ${JSON.stringify(topic)}` };
-    const status = j.Data?.Status ?? {};
-    const pi = status.PrintInfo ?? {};
-    const cur: number[] = Array.isArray(status.CurrentStatus)
-      ? status.CurrentStatus
-      : status.CurrentStatus != null
-        ? [status.CurrentStatus]
-        : [];
-    let progress = 0;
-    if (typeof pi.Progress === "number")
-      progress = pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
-    else if (pi.TotalLayer) progress = (pi.CurrentLayer ?? 0) / pi.TotalLayer;
-    return {
-      kind: "frame",
-      frame: {
-        currentStatus: cur,
-        printStatus: typeof pi.Status === "number" ? pi.Status : null,
-        progress: Math.max(0, Math.min(1, progress)),
-        currentLayer: pi.CurrentLayer ?? null,
-        totalLayer: pi.TotalLayer ?? null,
-      },
-    };
-  } catch (e) {
-    return malformed(buf, e);
-  }
+export type SdcpPush =
+  | { kind: "status"; status: SdcpStatusFrame }
+  | { kind: "error"; errorCode: number };
+
+function progressOf(pi: { Progress?: number; CurrentLayer?: number; TotalLayer?: number }): number {
+  if (pi.Progress !== undefined) return pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
+  if (pi.TotalLayer) return (pi.CurrentLayer ?? 0) / pi.TotalLayer;
+  return 0;
+}
+
+function readStatus(data: unknown, buf: string): SdcpRead<SdcpPush> {
+  const decoded = decodeShape(StatusData, data, buf);
+  if (decoded.kind === "malformed") return decoded;
+  const { CurrentStatus, PrintInfo: pi } = decoded.value.Status;
+  const currentStatus = CurrentStatus === undefined ? [] : [CurrentStatus].flat();
+  const status: SdcpStatusFrame = {
+    currentStatus,
+    printStatus: pi.Status ?? null,
+    progress: Math.max(0, Math.min(1, progressOf(pi))),
+    currentLayer: pi.CurrentLayer ?? null,
+    totalLayer: pi.TotalLayer ?? null,
+  };
+  return { kind: "frame", frame: { kind: "status", status } };
+}
+
+function readError(data: unknown, buf: string): SdcpRead<SdcpPush> {
+  const decoded = decodeShape(ErrorData, data, buf);
+  if (decoded.kind === "malformed") return decoded;
+  return { kind: "frame", frame: { kind: "error", errorCode: decoded.value.Data.ErrorCode } };
+}
+
+export function parsePushFrame(buf: string): SdcpRead<SdcpPush> {
+  const envelope = decodeFrame(PushEnvelope, buf);
+  if (envelope.kind === "malformed") return envelope;
+  const { Topic, Data } = envelope.value;
+  if (Topic.startsWith("sdcp/status/")) return readStatus(Data, buf);
+  if (Topic.startsWith("sdcp/error/")) return readError(Data, buf);
+  return { kind: "other", reason: `topic ${JSON.stringify(Topic)}` };
 }
