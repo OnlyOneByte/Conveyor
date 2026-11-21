@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { copyFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
   type ModelArtifact,
   type ProfileRef,
   type SlicerPlugin,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
 
 /** M0 engine-stub: emit a placeholder gcode so the pipeline runs without Orca installed. */
@@ -43,7 +43,10 @@ export const orca: SlicerPlugin = {
 
     if (STUB) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
-      await writeFile(out, `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`);
+      await writeFile(
+        out,
+        `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`,
+      );
       return { path: out, format: "gcode", meta: { profileId: profile.id, stub: true } };
     }
 
@@ -59,11 +62,16 @@ export const orca: SlicerPlugin = {
     //     NOT a file named after the model
     //   • leaf presets `inherit` → --datadir must point at the vendor profile tree
     const args = [
-      "--datadir", ORCA_DATADIR,
-      "--load-settings", `${join(profile.path, "machine.json")};${join(profile.path, "process.json")}`,
-      "--load-filaments", join(profile.path, "filament.json"),
-      "--slice", "0",
-      "--outputdir", ctx.workDir,
+      "--datadir",
+      ORCA_DATADIR,
+      "--load-settings",
+      `${join(profile.path, "machine.json")};${join(profile.path, "process.json")}`,
+      "--load-filaments",
+      join(profile.path, "filament.json"),
+      "--slice",
+      "0",
+      "--outputdir",
+      ctx.workDir,
       model.path,
     ];
     ctx.log(`xvfb-run -a ${ORCA_BIN} ${args.join(" ")}`);

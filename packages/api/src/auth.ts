@@ -1,4 +1,4 @@
-import { createHmac, createHash, timingSafeEqual, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 /**
  * Shared-password auth with an HMAC-signed session cookie (SPEC decision: Auth A).

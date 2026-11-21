@@ -1,21 +1,21 @@
-import { Worker } from "bullmq";
-import { Redis } from "ioredis";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  JOB_QUEUE,
-  StageError,
   computeStageTimings,
+  JOB_QUEUE,
   type JobRequest,
   type PrinterTarget,
   type Stage,
   type StageCtx,
+  StageError,
   type StageTiming,
 } from "@conveyor/shared";
-import { openDb, dbGetPrinter, dbRecordJob, dbResolveJobTarget } from "@conveyor/shared/db";
+import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { Worker } from "bullmq";
+import { Redis } from "ioredis";
+import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
-import { resolveProfileForSlice } from "./profile.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -27,7 +27,8 @@ const bus = new StatusBus();
 const worker = new Worker<JobRequest>(
   JOB_QUEUE,
   async (job) => {
-    const jobId = job.id!;
+    const jobId = job.id;
+    if (!jobId) throw new Error("job has no id");
     const req = job.data;
     const workDir = join(DATA_DIR, jobId);
     await mkdir(workDir, { recursive: true });
@@ -42,7 +43,8 @@ const worker = new Worker<JobRequest>(
       jobId,
       workDir,
       signal: controller.signal,
-      report: (progress, message) => void bus.publish(jobId, currentState, { stage, progress, message }),
+      report: (progress, message) =>
+        void bus.publish(jobId, currentState, { stage, progress, message }),
       log: (msg) => console.log(`[${jobId}] ${msg}`),
     };
 
@@ -65,7 +67,10 @@ const worker = new Worker<JobRequest>(
       // derived from it — what a Station used to hold.
       const jobTarget = dbResolveJobTarget(openDb(), req.printerId, req.profileId);
       if (!jobTarget) {
-        throw new StageError("generator", `unknown printer ${req.printerId} or profile ${req.profileId}`);
+        throw new StageError(
+          "generator",
+          `unknown printer ${req.printerId} or profile ${req.profileId}`,
+        );
       }
 
       // ── Generate ───────────────────────────────────────────────
@@ -85,15 +90,15 @@ const worker = new Worker<JobRequest>(
       if (!slicer) throw new StageError("slicer", `unknown slicer ${jobTarget.slicerId}`);
       const profileForSlice = await resolveProfileForSlice(jobTarget, workDir);
       ctx.log(`profile ${jobTarget.profileId}: ${profileForSlice.source}`);
-      const gcode = await slicer
-        .slice(model, profileForSlice.profile, ctx)
-        .finally(async () => {
-          // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
-          // best-effort and must not turn a successful slice into a failed print.
-          await profileForSlice.cleanup().catch((error) =>
+      const gcode = await slicer.slice(model, profileForSlice.profile, ctx).finally(async () => {
+        // Profile JSON is temporary input, unlike model/gcode artifacts. Cleanup is
+        // best-effort and must not turn a successful slice into a failed print.
+        await profileForSlice
+          .cleanup()
+          .catch((error) =>
             ctx.log(`warning: failed to clean materialized profile: ${(error as Error).message}`),
           );
-        });
+      });
       gcodePath = gcode.path;
 
       // ── Transport ──────────────────────────────────────────────
@@ -101,8 +106,9 @@ const worker = new Worker<JobRequest>(
       currentState = "transferring";
       await bus.publish(jobId, "transferring", { stage, timings: enterStage("transport") });
       const transport = registry.transports.get(jobTarget.transportId);
-      if (!transport) throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
-      const target = await resolveTarget(jobTarget.printerId, jobTarget.transportId);
+      if (!transport)
+        throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
+      const target = await resolveTarget(jobTarget.printerId);
       const handle = await transport.submit(gcode, target, ctx);
 
       currentState = "printing";
@@ -136,7 +142,11 @@ const worker = new Worker<JobRequest>(
         error: { stage: se.stage, reason: se.reason },
         timings: failTimings,
       });
-      recordTerminal(jobId, req, "failed", { stage: se.stage, reason: se.reason, timings: failTimings });
+      recordTerminal(jobId, req, "failed", {
+        stage: se.stage,
+        reason: se.reason,
+        timings: failTimings,
+      });
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
       throw se;
     } finally {
@@ -150,7 +160,7 @@ worker.on("ready", () => console.log("conveyor worker ready"));
 worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
 
 /** Resolve the PrinterTarget (incl. server-only secrets) from the SQLite store. */
-async function resolveTarget(printerId: string, transportId: string): Promise<PrinterTarget> {
+async function resolveTarget(printerId: string): Promise<PrinterTarget> {
   const p = dbGetPrinter(openDb(), printerId);
   if (!p) throw new StageError("transport", `unknown printer ${printerId}`);
   return { id: p.id, transportId: p.transportId, address: p.address, secrets: p.secrets };
@@ -161,7 +171,13 @@ function recordTerminal(
   jobId: string,
   req: JobRequest,
   state: "done" | "failed",
-  extra: { modelPath?: string; gcodePath?: string; stage?: Stage; reason?: string; timings?: StageTiming[] },
+  extra: {
+    modelPath?: string;
+    gcodePath?: string;
+    stage?: Stage;
+    reason?: string;
+    timings?: StageTiming[];
+  },
 ): void {
   try {
     dbRecordJob(openDb(), {

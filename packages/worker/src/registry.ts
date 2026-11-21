@@ -1,10 +1,10 @@
-import { createRegistry, type Registry } from "@conveyor/shared";
 import { gridfinity } from "@conveyor/generator-gridfinity";
 import { passthrough } from "@conveyor/generator-passthrough";
+import { createRegistry, type Registry } from "@conveyor/shared";
 import { orca } from "@conveyor/slicer-orca";
 import { prusa } from "@conveyor/slicer-prusa";
-import { moonraker } from "@conveyor/transport-moonraker";
 import { elegoo } from "@conveyor/transport-elegoo";
+import { moonraker } from "@conveyor/transport-moonraker";
 
 /**
  * The worker is the only process that loads real adapters. Plugins self-register

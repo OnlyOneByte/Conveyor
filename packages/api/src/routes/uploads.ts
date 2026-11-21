@@ -1,7 +1,7 @@
-import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { FastifyInstance } from "fastify";
 
 /**
  * STL upload endpoint for the passthrough generator (SPEC §8 → v1). Stores the

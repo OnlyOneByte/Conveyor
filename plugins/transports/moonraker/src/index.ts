@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
-  type PrintHandle,
   type PrinterTarget,
+  type PrintHandle,
   type PrintStatus,
   type StageCtx,
+  StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
 
@@ -41,7 +41,12 @@ export const moonraker: TransportPlugin = {
     const filename = basename(gcode.path);
     if (STUB) {
       ctx.log(`[stub] upload ${filename} → ${target.address} and start`);
-      return { transportId: "moonraker", printerId: target.id, ref: filename, address: target.address };
+      return {
+        transportId: "moonraker",
+        printerId: target.id,
+        ref: filename,
+        address: target.address,
+      };
     }
 
     const base = baseUrl(target.address);
@@ -60,15 +65,23 @@ export const moonraker: TransportPlugin = {
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
 
     // 2) start the print
-    const start = await fetch(`${base}/printer/print/start?filename=${encodeURIComponent(filename)}`, {
-      method: "POST",
-      headers,
-      signal: ctx.signal,
-    });
+    const start = await fetch(
+      `${base}/printer/print/start?filename=${encodeURIComponent(filename)}`,
+      {
+        method: "POST",
+        headers,
+        signal: ctx.signal,
+      },
+    );
     if (!start.ok) throw new StageError("transport", `moonraker start failed: ${start.status}`);
 
     // Carry address forward so status()/cancel() can reach the printer.
-    return { transportId: "moonraker", printerId: target.id, ref: filename, address: target.address };
+    return {
+      transportId: "moonraker",
+      printerId: target.id,
+      ref: filename,
+      address: target.address,
+    };
   },
 
   async *status(handle: PrintHandle): AsyncIterable<PrintStatus> {
@@ -79,7 +92,8 @@ export const moonraker: TransportPlugin = {
       return;
     }
 
-    if (!handle.address) throw new StageError("transport", "moonraker status: missing printer address on handle");
+    if (!handle.address)
+      throw new StageError("transport", "moonraker status: missing printer address on handle");
     const base = baseUrl(handle.address);
     const query = `${base}/printer/objects/query?print_stats&virtual_sdcard&display_status`;
 
@@ -93,7 +107,8 @@ export const moonraker: TransportPlugin = {
       const res = await fetch(query, { headers: keyHeaderFromEnv() }).catch((e) => {
         throw new StageError("transport", `moonraker status query failed: ${(e as Error).message}`);
       });
-      if (!res.ok) throw new StageError("transport", `moonraker status query failed: ${res.status}`);
+      if (!res.ok)
+        throw new StageError("transport", `moonraker status query failed: ${res.status}`);
 
       const json = (await res.json()) as MoonrakerQueryResponse;
       const ps = json.result?.status?.print_stats;
@@ -136,9 +151,13 @@ export const moonraker: TransportPlugin = {
 
   async cancel(handle: PrintHandle): Promise<void> {
     if (STUB) return;
-    if (!handle.address) throw new StageError("transport", "moonraker cancel: missing printer address on handle");
+    if (!handle.address)
+      throw new StageError("transport", "moonraker cancel: missing printer address on handle");
     const base = baseUrl(handle.address);
-    const res = await fetch(`${base}/printer/print/cancel`, { method: "POST", headers: keyHeaderFromEnv() });
+    const res = await fetch(`${base}/printer/print/cancel`, {
+      method: "POST",
+      headers: keyHeaderFromEnv(),
+    });
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);
   },
 };
@@ -147,7 +166,8 @@ export const moonraker: TransportPlugin = {
 
 /** Accept "host", "host:port", or a full URL; default to http. */
 function baseUrl(address: string): string {
-  if (address.startsWith("http://") || address.startsWith("https://")) return address.replace(/\/$/, "");
+  if (address.startsWith("http://") || address.startsWith("https://"))
+    return address.replace(/\/$/, "");
   return `http://${address}`;
 }
 

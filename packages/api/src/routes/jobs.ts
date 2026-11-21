@@ -1,22 +1,22 @@
-import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 import {
+  ACTIVE_JOBS_KEY,
+  isTerminal,
+  type JobStatusEvent,
   jobChannel,
   jobSnapshotKey,
-  isTerminal,
-  ACTIVE_JOBS_KEY,
-  type JobStatusEvent,
 } from "@conveyor/shared";
-import { jobQueue, redis } from "../queue.js";
-import { openDb, dbResolveJobTarget } from "@conveyor/shared/db";
-import { validateJobRequest } from "../validate.js";
+import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
-  resolveJobArtifact,
-  openArtifactStream,
   ArtifactError,
   type ArtifactKind,
+  openArtifactStream,
+  resolveJobArtifact,
 } from "../artifact-download.js";
+import { jobQueue, redis } from "../queue.js";
+import { validateJobRequest } from "../validate.js";
 
 const jobRequestSchema = z.object({
   generator: z.object({ id: z.string(), params: z.unknown() }),
@@ -34,9 +34,9 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     // transport, the profile supplies the slicer and g-code flavour.
     const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
     if (!target) {
-      return reply
-        .code(404)
-        .send({ error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}` });
+      return reply.code(404).send({
+        error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
+      });
     }
 
     try {
@@ -88,23 +88,27 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   // enum; the path comes from the job's own record and is containment-checked under
   // its work dir (see artifact-download.ts). 404 = unknown/never-produced, 410 = the
   // file was recorded but has since been reaped.
-  app.get<{ Params: { id: string; kind: string } }>("/jobs/:id/artifact/:kind", async (req, reply) => {
-    const kind = req.params.kind;
-    if (kind !== "model" && kind !== "gcode") {
-      return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
-    }
-    try {
-      const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
-      reply
-        .header("content-type", art.contentType)
-        .header("content-length", art.size)
-        .header("content-disposition", `attachment; filename="${art.filename}"`);
-      return reply.send(openArtifactStream(art.path));
-    } catch (err) {
-      if (err instanceof ArtifactError) return reply.code(err.statusCode).send({ error: err.message });
-      throw err;
-    }
-  });
+  app.get<{ Params: { id: string; kind: string } }>(
+    "/jobs/:id/artifact/:kind",
+    async (req, reply) => {
+      const kind = req.params.kind;
+      if (kind !== "model" && kind !== "gcode") {
+        return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
+      }
+      try {
+        const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
+        reply
+          .header("content-type", art.contentType)
+          .header("content-length", art.size)
+          .header("content-disposition", `attachment; filename="${art.filename}"`);
+        return reply.send(openArtifactStream(art.path));
+      } catch (err) {
+        if (err instanceof ArtifactError)
+          return reply.code(err.statusCode).send({ error: err.message });
+        throw err;
+      }
+    },
+  );
 
   // Cancel.
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {

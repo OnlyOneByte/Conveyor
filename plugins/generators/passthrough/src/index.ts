@@ -1,14 +1,14 @@
 import { copyFile, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { basename, join } from "node:path";
 import {
-  StageError,
   type GeneratorPlugin,
   type JSONSchema7,
   type ModelArtifact,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
-import { passthroughParams, type PassthroughParams } from "./params.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { type PassthroughParams, passthroughParams } from "./params.js";
 
 /**
  * Passthrough generator: the user's uploaded STL IS the model. No engine, no
@@ -34,7 +34,8 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = passthroughParams.safeParse(rawParams);
-    if (!parsed.success) throw new StageError("generator", `invalid params: ${parsed.error.message}`);
+    if (!parsed.success)
+      throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
     // basename() is a defense-in-depth backstop on top of the slug regex — the
     // joined path can never resolve outside UPLOAD_DIR.

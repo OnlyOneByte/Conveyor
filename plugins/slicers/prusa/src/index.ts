@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
   type ModelArtifact,
   type ProfileRef,
   type SlicerPlugin,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
 
 /** M0 engine-stub: emit placeholder gcode so the pipeline runs without PrusaSlicer installed. */
@@ -21,8 +21,16 @@ const PRUSA_BIN = process.env.PRUSA_BIN ?? "prusa-slicer";
 // `prusa-slicer --load config.ini -g --output model.gcode model.stl` slices
 // headlessly (NO xvfb) on Debian trixie / arm64 — see docs/M1-WORKER-ENGINES.md.
 const PROFILES: ProfileRef[] = [
-  { id: "prusa/klipper-pla-0.2", name: "Klipper PLA 0.2mm (Prusa)", path: "/profiles/prusa-klipper-pla-0.2" },
-  { id: "prusa/marlin-pla-0.2", name: "Marlin PLA 0.2mm (Prusa)", path: "/profiles/prusa-marlin-pla-0.2" },
+  {
+    id: "prusa/klipper-pla-0.2",
+    name: "Klipper PLA 0.2mm (Prusa)",
+    path: "/profiles/prusa-klipper-pla-0.2",
+  },
+  {
+    id: "prusa/marlin-pla-0.2",
+    name: "Marlin PLA 0.2mm (Prusa)",
+    path: "/profiles/prusa-marlin-pla-0.2",
+  },
 ];
 
 export const prusa: SlicerPlugin = {
@@ -42,7 +50,10 @@ export const prusa: SlicerPlugin = {
 
     if (STUB) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
-      await writeFile(out, `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`);
+      await writeFile(
+        out,
+        `; conveyor stub gcode\n; profile=${profile.id}\n; source=${model.path}\n`,
+      );
       return { path: out, format: "gcode", meta: { profileId: profile.id, stub: true } };
     }
 
@@ -73,7 +84,10 @@ async function loadConfigs(profilePath: string): Promise<string[]> {
   try {
     entries = await readdir(profilePath);
   } catch (e) {
-    throw new StageError("slicer", `profile bundle not found at ${profilePath}: ${(e as Error).message}`);
+    throw new StageError(
+      "slicer",
+      `profile bundle not found at ${profilePath}: ${(e as Error).message}`,
+    );
   }
   const inis = entries.filter((f) => f.toLowerCase().endsWith(".ini")).sort();
   if (inis.includes("config.ini")) return [join(profilePath, "config.ini")];

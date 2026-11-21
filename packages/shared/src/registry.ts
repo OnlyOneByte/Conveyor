@@ -1,5 +1,5 @@
-import type { GeneratorPlugin, SlicerPlugin, TransportPlugin } from "./plugins.js";
 import type { JobRequest, JobTarget } from "./job.js";
+import type { GeneratorPlugin, SlicerPlugin, TransportPlugin } from "./plugins.js";
 
 /** Startup-populated map of available plugins per stage. */
 export interface Registry {

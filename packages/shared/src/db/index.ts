@@ -3,7 +3,7 @@ import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
-import { DEFAULT_PROFILES, DEFAULT_PRINTERS } from "./seed.js";
+import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 
 /**
  * Conveyor's durable store, backed by bun:sqlite (synchronous, no native build —
@@ -156,9 +156,17 @@ function seedDefaults(db: Database): void {
   );
 
   const tx = db.transaction(() => {
-    for (const p of DEFAULT_PROFILES) insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
+    for (const p of DEFAULT_PROFILES)
+      insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
     for (const p of DEFAULT_PRINTERS)
-      insertPrinter.run(p.id, p.transportId, p.name, p.address, p.secrets ? JSON.stringify(p.secrets) : null, now);
+      insertPrinter.run(
+        p.id,
+        p.transportId,
+        p.name,
+        p.address,
+        p.secrets ? JSON.stringify(p.secrets) : null,
+        now,
+      );
   });
   tx();
 }
@@ -166,7 +174,6 @@ function seedDefaults(db: Database): void {
 function epochMs(): number {
   return Date.now();
 }
-
 
 // ─── Printers ────────────────────────────────────────────────────────────────
 
@@ -258,9 +265,7 @@ function rowToProfile(r: ProfileRow): Profile {
   // "Has an edit" is per-slicer: all three Orca docs present, or the Prusa config
   // present. A profile is editable-content when either holds.
   const orcaEdited =
-    r.orca_machine_json !== null &&
-    r.orca_process_json !== null &&
-    r.orca_filament_json !== null;
+    r.orca_machine_json !== null && r.orca_process_json !== null && r.orca_filament_json !== null;
   const prusaEdited = r.prusa_ini !== null;
   return {
     id: r.id,
@@ -295,17 +300,21 @@ interface OrcaDocumentsRow {
  */
 export function dbGetOrcaProfileDocuments(db: Database, id: string): OrcaProfileDocuments | null {
   const row = db
-    .query("SELECT orca_machine_json, orca_process_json, orca_filament_json FROM profiles WHERE id = ?")
+    .query(
+      "SELECT orca_machine_json, orca_process_json, orca_filament_json FROM profiles WHERE id = ?",
+    )
     .get(id) as OrcaDocumentsRow | null;
   if (!row) return null;
-  const values = [row.orca_machine_json, row.orca_process_json, row.orca_filament_json];
-  if (values.every((v) => v === null)) return null;
-  if (values.some((v) => v === null)) throw new Error(`profile ${id} has incomplete Orca content`);
-  return {
-    machine: row.orca_machine_json!,
-    process: row.orca_process_json!,
-    filament: row.orca_filament_json!,
-  };
+  const {
+    orca_machine_json: machine,
+    orca_process_json: processDoc,
+    orca_filament_json: filament,
+  } = row;
+  if (machine === null && processDoc === null && filament === null) return null;
+  if (machine === null || processDoc === null || filament === null) {
+    throw new Error(`profile ${id} has incomplete Orca content`);
+  }
+  return { machine, process: processDoc, filament };
 }
 
 /** Atomically replace all three editable documents. False means no such profile. */
@@ -341,16 +350,22 @@ export function dbResetOrcaProfileDocuments(db: Database, id: string): boolean {
  * its bundled config. Single column, so no partial-state concern (unlike Orca's three).
  */
 export function dbGetPrusaProfileContent(db: Database, id: string): PrusaProfileDocument | null {
-  const row = db.query("SELECT prusa_ini FROM profiles WHERE id = ?").get(id) as
-    | { prusa_ini: string | null }
-    | null;
+  const row = db.query("SELECT prusa_ini FROM profiles WHERE id = ?").get(id) as {
+    prusa_ini: string | null;
+  } | null;
   if (!row || row.prusa_ini === null) return null;
   return { config: row.prusa_ini };
 }
 
 /** Replace the editable config.ini. False means no such profile. */
-export function dbSavePrusaProfileContent(db: Database, id: string, document: PrusaProfileDocument): boolean {
-  const result = db.prepare("UPDATE profiles SET prusa_ini = ? WHERE id = ?").run(document.config, id);
+export function dbSavePrusaProfileContent(
+  db: Database,
+  id: string,
+  document: PrusaProfileDocument,
+): boolean {
+  const result = db
+    .prepare("UPDATE profiles SET prusa_ini = ? WHERE id = ?")
+    .run(document.config, id);
   return result.changes > 0;
 }
 
@@ -423,7 +438,10 @@ function rowToJob(r: JobRow): Job {
     // printer/profile can be null on a job migrated from a station that had already
     // been deleted — surfaced as empty rather than fabricated.
     request: {
-      generator: { id: r.generator_id, params: r.params_json ? JSON.parse(r.params_json) : undefined },
+      generator: {
+        id: r.generator_id,
+        params: r.params_json ? JSON.parse(r.params_json) : undefined,
+      },
       printerId: r.printer_id ?? "",
       profileId: r.profile_id ?? "",
     },
@@ -473,14 +491,16 @@ export function dbRecordJob(
     job.error ? JSON.stringify(job.error) : null,
     job.modelPath ?? null,
     job.gcodePath ?? null,
-    job.timings && job.timings.length ? JSON.stringify(job.timings) : null,
+    job.timings?.length ? JSON.stringify(job.timings) : null,
     now,
     now,
   );
 }
 
 export function dbListJobs(db: Database, limit = 50): Job[] {
-  return (db.query("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?").all(limit) as JobRow[]).map(rowToJob);
+  return (
+    db.query("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?").all(limit) as JobRow[]
+  ).map(rowToJob);
 }
 
 /**

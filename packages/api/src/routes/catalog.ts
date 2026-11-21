@@ -1,35 +1,35 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
 import { MAX_ORCA_CONTENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES, slicerFormat } from "@conveyor/shared";
-import { z } from "zod";
 import {
-  openDb,
-  dbListPrinters,
-  dbUpsertPrinter,
   dbDeletePrinter,
-  dbGetPrinter,
-  dbListProfiles,
-  dbGetProfile,
-  dbGetOrcaProfileDocuments,
-  dbSaveOrcaProfileDocuments,
-  dbResetOrcaProfileDocuments,
-  dbGetPrusaProfileContent,
-  dbSavePrusaProfileContent,
-  dbResetPrusaProfileContent,
-  dbUpsertProfile,
   dbDeleteProfile,
-  dbListJobs,
   dbGetJob,
+  dbGetOrcaProfileDocuments,
+  dbGetPrinter,
+  dbGetProfile,
+  dbGetPrusaProfileContent,
+  dbListJobs,
+  dbListPrinters,
+  dbListProfiles,
+  dbResetOrcaProfileDocuments,
+  dbResetPrusaProfileContent,
+  dbSaveOrcaProfileDocuments,
+  dbSavePrusaProfileContent,
+  dbUpsertPrinter,
+  dbUpsertProfile,
+  openDb,
   type Printer,
 } from "@conveyor/shared/db";
-import { validatePrinterTransport, listTransports } from "../validate.js";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { z } from "zod";
 import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
   readBundledOrcaDocuments,
-  validateOrcaDocuments,
   readBundledPrusaConfig,
+  validateOrcaDocuments,
   validatePrusaContent,
 } from "../profile-content.js";
+import { listTransports, validatePrinterTransport } from "../validate.js";
 
 /**
  * Catalog + history surface: the durable catalog (printers, profiles) plus the job
@@ -90,7 +90,6 @@ function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boo
   const { secrets, ...rest } = p;
   return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
 }
-
 
 function sendProfileContentError(reply: FastifyReply, error: unknown) {
   if (error instanceof ProfileContentError) {
@@ -171,25 +170,30 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
     const format = slicerFormat(profile.slicerId);
     if (format === null) {
-      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+      return reply
+        .code(409)
+        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {
       if (format === "orca-json") {
         const edited = dbGetOrcaProfileDocuments(db, profile.id);
-        if (edited) return { format: "orca-json" as const, source: "edited" as const, documents: edited };
+        if (edited)
+          return { format: "orca-json" as const, source: "edited" as const, documents: edited };
         const documents = await readBundledOrcaDocuments(profile.path);
         try {
           validateOrcaDocuments(documents);
         } catch (error) {
-          if (error instanceof ProfileContentError) throw new ProfileContentError(`bundled ${error.message}`, 409);
+          if (error instanceof ProfileContentError)
+            throw new ProfileContentError(`bundled ${error.message}`, 409);
           throw error;
         }
         return { format: "orca-json" as const, source: "bundled" as const, documents };
       }
       // prusa-ini
       const edited = dbGetPrusaProfileContent(db, profile.id);
-      if (edited) return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
+      if (edited)
+        return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
       const document = await readBundledPrusaConfig(profile.path);
       return { format: "prusa-ini" as const, source: "bundled" as const, document };
     } catch (error) {
@@ -209,7 +213,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
       const format = slicerFormat(profile.slicerId);
       if (format === null) {
-        return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+        return reply
+          .code(409)
+          .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
       }
 
       try {
@@ -243,7 +249,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
     const format = slicerFormat(profile.slicerId);
     if (format === null) {
-      return reply.code(409).send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
+      return reply
+        .code(409)
+        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
     }
 
     try {

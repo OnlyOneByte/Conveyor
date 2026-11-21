@@ -1,14 +1,14 @@
-import { Redis } from "ioredis";
 import {
   ACTIVE_JOBS_KEY,
   isTerminal,
-  jobChannel,
-  jobSnapshotKey,
   type JobState,
   type JobStatusEvent,
+  jobChannel,
+  jobSnapshotKey,
   type Stage,
   type StageTiming,
 } from "@conveyor/shared";
+import { Redis } from "ioredis";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 
