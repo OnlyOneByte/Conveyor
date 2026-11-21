@@ -60,6 +60,13 @@ answers `401` without a session.
   escape. Size is checked both from `stat` and after reading.
 - Shared validation errors become a `ProfileContentError` with status 400.
 
+## Job submission and artifact routes (`routes/job-common.ts`)
+
+`parseSubmission` and `registerArtifactRoute` are shared by the job routes of each queue. `parseSubmission`
+parses the body with `jobRequestSchema`, resolves the printer and profile pair (404 when either is unknown)
+and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute` serves
+`GET /jobs/:id/artifact/:kind`, described below.
+
 ## Artifact downloads (`artifact-download.ts`)
 
 - The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/`. The API resolves the same root;

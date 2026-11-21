@@ -1,4 +1,5 @@
-import { queueMode, workerConcurrency } from "./mode.js";
+import { queueMode } from "@conveyor/shared";
+import { workerConcurrency } from "./mode.js";
 
 let mode: string;
 let concurrency = 0;

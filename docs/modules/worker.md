@@ -32,16 +32,15 @@ Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
 
 ## main.ts and mode.ts
 
-`main.ts` is the image's entry point. It picks the queue from `CONVEYOR_QUEUE` (`redis`, the default, or
-`sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
+`main.ts` is the image's entry point. It picks the queue with `queueMode` from `@conveyor/shared`, which reads
+`CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
 code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
 with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
 `SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
 `process.once`, so a second signal during the grace period kills the process at once; a job caught between
 intent and marker is then failed by the reaper with its printer held, as for any crash in that window.
-`sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, because the api does not
-enqueue to the SQLite queue yet: a `sqlite` worker beside a `redis` api would never see a job. The api
-step removes that guard and documents the flag.
+`sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, while the SQLite queue is still
+experimental. The api reads the flag through the same `queueMode`, so the two cannot parse it differently.
 
 ## sqlite.ts
 
