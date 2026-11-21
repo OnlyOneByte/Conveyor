@@ -94,3 +94,33 @@ Before you expose Conveyor beyond the host:
 ## Local development without Docker
 
 `bun run dev:api` reads the same variables from your shell. Export `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET`, or `CONVEYOR_AUTH=disabled`, before you start it. Over plain HTTP, also set `CONVEYOR_COOKIE_INSECURE=1` so the browser keeps the session cookie.
+
+## Printers on the LAN
+
+The worker talks to printers over your network. By default it runs on the Compose bridge network, so store each printer's explicit IP address in its address field. If you need mDNS or other LAN discovery, add `network_mode: host` to the `worker` service instead.
+
+`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`) and the SQLite database live there. `./profiles` holds the locked slicer profiles (read-only), and `./scad` is the gridfinity-rebuilt-openscad submodule.
+
+## Routing in the Caddyfile
+
+Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) to `api` and everything else to `web`. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
+
+```
+{
+	email you@example.com
+}
+```
+
+## Slicer and CAD engines in the worker image
+
+`scripts/install-openscad.sh` installs the newest OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). Pin a build with `OPENSCAD_RELEASE=YYYY.MM.DD`, or `OPENSCAD_APPIMAGE_URL=<url>` (which wins). The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
+
+`scripts/install-orca.sh <latest|x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the latest GitHub release, or the version given. The `ORCA_ENABLE` build argument picks the mode:
+
+| `ORCA_ENABLE` | Behaviour |
+| --- | --- |
+| `1` | Required: any failure fails the build. |
+| `auto` (default) | Best effort: API rate limits and network errors are retried; if Orca still cannot be installed, the build continues, writes `/opt/orca/NOT_INSTALLED` with the reason, and Orca-profile jobs fail at the slice stage. PrusaSlicer still works. |
+| `0` | Skipped. |
+
+Orca is GUI-linked, so the worker runs it under `xvfb-run`.
