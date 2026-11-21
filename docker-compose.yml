@@ -29,6 +29,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - PORT=3000
+      - CONVEYOR_HOST=0.0.0.0
       - DATA_DIR=/data
       - CONVEYOR_PROFILES_ROOT=/profiles
     volumes:
