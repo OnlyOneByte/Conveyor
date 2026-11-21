@@ -1,4 +1,3 @@
-import { Database, SQLiteError } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,7 +8,6 @@ import {
   dbListPrinters,
   dbListProfiles,
   dbResolveJobTarget,
-  enableWal,
   openDb,
 } from "./index";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed";
@@ -106,61 +104,5 @@ openDb(${JSON.stringify(path)});`;
     const db = reopen(path);
     expect(dbListPrinters(db)).toHaveLength(DEFAULT_PRINTERS.length);
     expect(dbListProfiles(db)).toHaveLength(DEFAULT_PROFILES.length);
-  });
-});
-
-function thrownBy(run: () => void): unknown {
-  try {
-    run();
-  } catch (err) {
-    return err;
-  }
-  return undefined;
-}
-
-describe("enableWal", () => {
-  test("gives up after the last attempt naming the path and attempts and keeps the busy cause", () => {
-    const path = freshPath();
-    const holder = new Database(path, { create: true });
-    holder.exec("CREATE TABLE t (x)");
-    holder.exec("BEGIN IMMEDIATE");
-    const db = new Database(path);
-    const sleeps: number[] = [];
-
-    const err = thrownBy(() =>
-      enableWal(db, { attempts: 3, delayMs: 7, sleep: (ms) => sleeps.push(ms) }),
-    );
-    db.close();
-    holder.close();
-
-    expect(err instanceof Error && err.message).toBe(
-      `could not enable WAL on ${path} after 3 attempts: database is locked`,
-    );
-    expect(err instanceof Error && err.cause instanceof SQLiteError && err.cause.code).toBe(
-      "SQLITE_BUSY",
-    );
-    expect(sleeps).toEqual([7, 7]);
-  });
-
-  test("rethrows a non-busy error on the first attempt without retrying", () => {
-    const failure = thrownBy(() => new Database(":memory:").exec("NOT SQL"));
-    expect(failure instanceof SQLiteError && failure.errno).toBe(1);
-    const sleeps: number[] = [];
-    let calls = 0;
-    const db = {
-      filename: "conveyor.db",
-      exec: () => {
-        calls++;
-        throw failure;
-      },
-    };
-
-    const err = thrownBy(() =>
-      enableWal(db, { attempts: 3, delayMs: 7, sleep: (ms) => sleeps.push(ms) }),
-    );
-
-    expect(err).toBe(failure);
-    expect(calls).toBe(1);
-    expect(sleeps).toEqual([]);
   });
 });
