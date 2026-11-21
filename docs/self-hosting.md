@@ -21,7 +21,7 @@ Conveyor runs as a Docker Compose stack: Caddy (TLS and routing), `web` (the PWA
 
    - `CONVEYOR_PASSWORD` must be 12 to 512 characters. 512 is also the longest password the login form accepts.
    - `CONVEYOR_AUTH_SECRET` must be at least 32 characters, not counting leading or trailing whitespace. Keep it the same across restarts: it signs session cookies, so changing it logs everyone out.
-   - Wrap each value in single quotes. Compose interpolates `$` in unquoted and double-quoted `.env` values, so `pa$$w$ord` would reach the API as `pa$$w`. Inside single quotes every character is literal. A value that itself contains a single quote cannot be single-quoted; pick another value.
+   - Wrap each value in single quotes. Compose interpolates `$` in unquoted and double-quoted `.env` values, so `pa$$w$ord` would reach the API as `pa$w`: `$$` becomes `$` and `$ord` becomes an empty variable. Inside single quotes every character is literal. A value that itself contains a single quote cannot be single-quoted; pick another value.
 
 3. Start the stack:
 
