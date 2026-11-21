@@ -69,6 +69,21 @@ describe("openDb seeding", () => {
     expect(dbListProfiles(reopened)).toHaveLength(DEFAULT_PROFILES.length);
   });
 
+  test("boots an old database with printers but no profiles without seeding", () => {
+    const path = freshPath();
+    const db = openDb(path);
+    for (const p of dbListProfiles(db)) dbDeleteProfile(db, p.id);
+    db.exec("DROP TABLE meta");
+
+    const reopened = reopen(path);
+    expect(
+      dbListPrinters(reopened)
+        .map((p) => p.id)
+        .sort(),
+    ).toEqual(DEFAULT_PRINTERS.map((p) => p.id).sort());
+    expect(dbListProfiles(reopened)).toEqual([]);
+  });
+
   test("three processes opening one new database at once all succeed and seed once", async () => {
     const path = freshPath();
     const startAt = Date.now() + 1500;
