@@ -4,15 +4,18 @@ The why behind the bundled plugins in `plugins/`. Contracts live in [../PLUGINS.
 installs in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md); hardware runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
-Every plugin honours `CONVEYOR_ENGINE_STUB=1`: generators write a placeholder STL, slicers a placeholder
-g-code, transports fake an upload and a short progress run, so the pipeline runs with no engine or printer.
+With `CONVEYOR_ENGINE_STUB=1` the pipeline runs with no engine or printer: the Gridfinity generator writes a
+placeholder STL, slicers write a placeholder g-code, and transports fake an upload and a short progress run.
+The passthrough generator ignores the flag: it always copies the real upload and fails with
+`upload not found` without one.
 
 ## Generators
 
 ### Gridfinity (`plugins/generators/gridfinity`)
 
-- Renders `gridfinity-rebuilt-bins.scad` from gridfinity-rebuilt-openscad (`GRIDFINITY_SCAD` overrides the
-  path). File and variable names were verified by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
+- Renders `gridfinity-rebuilt-bins.scad` from gridfinity-rebuilt-openscad (default
+  `/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad`; `GRIDFINITY_SCAD` overrides it). File and
+  variable names were verified against the library's HEAD as of 2025-08 by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
   measured 83.5×125.5 mm, matching the Gridfinity spec.
 - The worker image installs an OpenSCAD nightly at `OPENSCAD_BIN` (the library needs 2023+); without it the
   plugin runs `openscad` from `PATH`.
@@ -57,8 +60,8 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 
 - Orca is GUI-first, so it runs under `xvfb-run -a`.
 - A bundle is `machine.json`, `process.json` and `filament.json`. Leaf presets use `inherits` chains that only
-  resolve against the full vendor profile tree, so `--datadir` points at `ORCA_DATADIR` (default: the AppImage's
-  own `resources/profiles`).
+  resolve against the full vendor profile tree, so `--datadir` points at `ORCA_DATADIR` (default
+  `/opt/orca/squashfs-root/resources/profiles`, the AppImage's own profile tree).
 - CLI verified 2026-06-30 against OrcaSlicer 2.4.1 (aarch64 AppImage):
   - the action is `--slice 0` (all plates); there is no `--export-gcode`;
   - machine and process load together: `--load-settings "machine.json;process.json"`;
@@ -106,7 +109,9 @@ SDCP (Smart Device Control Protocol), written from the
 - Discovery: UDP broadcast of the probe `M99999` to port 3000 (`ELEGOO_DISCOVERY_PORT`); each printer replies
   with a JSON datagram (`MainboardIP`, `MainboardID`, …).
 - Control: WebSocket `ws://<ip>:3030/websocket` (`ELEGOO_WS_PORT`), JSON request/response plus pushed status
-  topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. Each command waits
+  topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
+  clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
+  import graph stays pure. Each command waits
   up to 15 s for its ack; non-JSON frames are ignored.
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
 
