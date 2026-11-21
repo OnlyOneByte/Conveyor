@@ -73,7 +73,8 @@ describe("the gridfinity generator", () => {
     const args = engineArgs(bin, "openscad");
     expect(args.slice(0, 2)).toEqual(["-o", join(ctx.workDir, "model.stl")]);
     expect(args.at(-1)).toBe("/scad/bins.scad");
-    for (const define of ["gridx=2", "gridy=3", "gridz=6", "divy=2", "scoop=1", "style_tab=5"]) {
+    const defines = ["gridx=2", "gridy=3", "gridz=6", "divx=1", "divy=2", "scoop=1", "style_tab=5"];
+    for (const define of [...defines, "refined_holes=false"]) {
       expect(args).toContain(define);
     }
     expect(args).toContain("magnet_holes=true");
