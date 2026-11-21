@@ -154,7 +154,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `lint` | `bun run lint` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
-| `test` | `bun test --coverage` |
+| `test` | `bun run test:coverage && bun run check:coverage`; after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit `scripts/checks/coverage/baseline.json` |
 | `no-comments` | `bun run check:comments` |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
