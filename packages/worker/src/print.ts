@@ -22,13 +22,6 @@ import {
 const DEFAULT_CANCEL_POLL_MS = 2000;
 const DEFAULT_STREAM_CLOSE_MS = 5000;
 
-export class StreamCloseError extends StageError {
-  constructor(reason: string) {
-    super("transport", `status stream did not close cleanly: ${reason}`);
-    this.name = "StreamCloseError";
-  }
-}
-
 export type PrintOutcome = "done" | "canceled";
 
 export async function printStage(
@@ -78,8 +71,11 @@ async function handleStatus(run: Run, status: PrintStatus): Promise<PrintOutcome
   return undefined;
 }
 
-async function closeStream(run: Run, statuses: AsyncIterator<PrintStatus>): Promise<void> {
-  if (!statuses.return) return;
+async function closeStream(
+  run: Run,
+  statuses: AsyncIterator<PrintStatus>,
+): Promise<string | undefined> {
+  if (!statuses.return) return undefined;
   const ms = run.opts.streamCloseMs ?? DEFAULT_STREAM_CLOSE_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const failure = await Promise.race([
@@ -92,7 +88,7 @@ async function closeStream(run: Run, statuses: AsyncIterator<PrintStatus>): Prom
     }),
   ]);
   clearTimeout(timer);
-  if (failure !== undefined) throw new StreamCloseError(failure);
+  return failure === undefined ? undefined : `status stream did not close cleanly: ${failure}`;
 }
 
 async function watchPrint(
@@ -115,7 +111,10 @@ async function watchPrint(
   } finally {
     stopPolling();
     closing.abort();
-    await closeStream(run, statuses);
+    run.closeNote = await closeStream(run, statuses);
+    if (run.closeNote) {
+      run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${run.closeNote}`);
+    }
   }
 }
 

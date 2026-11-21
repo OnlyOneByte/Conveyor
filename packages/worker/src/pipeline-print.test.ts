@@ -1,5 +1,23 @@
 import { describe, expect, test } from "bun:test";
+import type { PrintStatus } from "@conveyor/shared";
 import { harness, never, states, waitForAbort } from "./pipeline-harness";
+
+function withinMs<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`run did not settle within ${ms} ms`)), ms);
+  });
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer));
+}
+
+const closeRejects = (status: PrintStatus) => () => ({
+  [Symbol.asyncIterator]: () => ({
+    next: async (): Promise<IteratorResult<PrintStatus>> => ({ done: false, value: status }),
+    return: async (): Promise<IteratorResult<PrintStatus>> => {
+      throw new Error("socket reset");
+    },
+  }),
+});
 
 describe("runJob cancel while printing", () => {
   test("cancel while printing stops the printer and settles as canceled", async () => {
@@ -61,27 +79,32 @@ describe("runJob cancel while printing", () => {
         if (signal) await waitForAbort(signal);
       },
     });
-    await expect(h.run()).rejects.toThrow("cancel-flag poll failed: redis down");
+    await expect(withinMs(h.run(), 1000)).rejects.toThrow("cancel-flag poll failed: redis down");
     expect(h.records[0]).toEqual({
       state: "failed",
       reason: "cancel-flag poll failed: redis down",
     });
     expect(h.cancels).toHaveLength(0);
+  }, 2000);
+
+  test("a printer-reported done stays done when the stream close rejects", async () => {
+    const h = harness({ status: closeRejects({ state: "done" }) });
+    expect(await h.run()).toBe("done");
+    expect(h.records[0].state).toBe("done");
+    expect(h.events.at(-1)).toEqual({
+      state: "done",
+      message: "status stream did not close cleanly: socket reset",
+      reason: undefined,
+    });
   });
 
-  test("a status stream whose close rejects settles failed", async () => {
-    const h = harness({
-      status: () => ({
-        [Symbol.asyncIterator]: () => ({
-          next: async () => ({ done: false, value: { state: "done" } }),
-          return: async () => {
-            throw new Error("socket reset");
-          },
-        }),
-      }),
+  test("a printer-reported failure keeps its reason when the stream close rejects", async () => {
+    const h = harness({ status: closeRejects({ state: "failed", message: "thermal runaway" }) });
+    await expect(h.run()).rejects.toThrow("thermal runaway");
+    expect(h.records[0]).toEqual({
+      state: "failed",
+      reason: "thermal runaway; status stream did not close cleanly: socket reset",
     });
-    await expect(h.run()).rejects.toThrow("did not close cleanly: socket reset");
-    expect(h.records[0].state).toBe("failed");
   });
 
   test("a print that reports done before the cancel is processed stays done", async () => {

@@ -81,6 +81,7 @@ export interface Run {
   modelPath?: string;
   gcodePath?: string;
   print?: PrintAttempt;
+  closeNote?: string;
 }
 
 export function messageOf(err: unknown): string {

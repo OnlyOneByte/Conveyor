@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { computeStageTimings, StageError } from "@conveyor/shared";
-import { fallbackHandle, StreamCloseError } from "./print.js";
+import { fallbackHandle } from "./print.js";
 import { JobCanceledError, messageOf, type Run, type TerminalState } from "./run.js";
 
 async function stopPrinter(run: Run): Promise<string | undefined> {
@@ -20,13 +20,26 @@ async function stopPrinter(run: Run): Promise<string | undefined> {
   }
 }
 
+function noted(run: Run, text?: string): string | undefined {
+  if (!run.closeNote) return text;
+  return text ? `${text}; ${run.closeNote}` : run.closeNote;
+}
+
 async function cleanup(run: Run): Promise<void> {
-  await rm(run.opts.workDir, { recursive: true, force: true });
+  await rm(run.opts.workDir, { recursive: true, force: true }).catch((err: unknown) =>
+    run.ctx.log(
+      `job ${run.opts.jobId}: failed to remove work dir ${run.opts.workDir}: ${messageOf(err)}`,
+    ),
+  );
 }
 
 export async function settleDone(run: Run): Promise<TerminalState> {
   const timings = computeStageTimings(run.enters, Date.now());
-  await run.deps.publish(run.opts.jobId, "done", { stage: run.stage, timings });
+  await run.deps.publish(run.opts.jobId, "done", {
+    stage: run.stage,
+    message: noted(run),
+    timings,
+  });
   run.deps.record(run.opts.jobId, run.opts.req, {
     state: "done",
     modelPath: run.modelPath,
@@ -38,7 +51,11 @@ export async function settleDone(run: Run): Promise<TerminalState> {
 
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
   const timings = computeStageTimings(run.enters, Date.now());
-  await run.deps.publish(run.opts.jobId, "canceled", { stage: run.stage, message, timings });
+  await run.deps.publish(run.opts.jobId, "canceled", {
+    stage: run.stage,
+    message: noted(run, message),
+    timings,
+  });
   run.deps.record(run.opts.jobId, run.opts.req, {
     state: "canceled",
     stage: run.stage,
@@ -50,15 +67,16 @@ export async function settleCanceled(run: Run, message?: string): Promise<Termin
 
 async function settleFailed(run: Run, se: StageError): Promise<never> {
   const timings = computeStageTimings(run.enters, Date.now());
+  const reason = noted(run, se.reason) ?? se.reason;
   await run.deps.publish(run.opts.jobId, "failed", {
     stage: se.stage,
-    error: { stage: se.stage, reason: se.reason },
+    error: { stage: se.stage, reason },
     timings,
   });
   run.deps.record(run.opts.jobId, run.opts.req, {
     state: "failed",
     stage: se.stage,
-    reason: se.reason,
+    reason,
     timings,
   });
   await cleanup(run);
@@ -69,7 +87,7 @@ export async function settleError(run: Run, err: unknown): Promise<TerminalState
   if (err instanceof JobCanceledError || run.signal.aborted) {
     const stopError = await stopPrinter(run);
     if (stopError) return settleFailed(run, new StageError("transport", stopError));
-    return settleCanceled(run, err instanceof StreamCloseError ? err.reason : undefined);
+    return settleCanceled(run);
   }
   const se =
     err instanceof StageError ? err : new StageError(run.stage, messageOf(err), { cause: err });
