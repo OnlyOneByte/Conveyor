@@ -1,4 +1,9 @@
-import { MAX_ORCA_CONTENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES, slicerFormat } from "@conveyor/shared";
+import {
+  isBundledProfilePath,
+  MAX_ORCA_CONTENT_BYTES,
+  MAX_PRUSA_DOCUMENT_BYTES,
+  slicerFormat,
+} from "@conveyor/shared";
 import {
   dbDeletePrinter,
   dbDeleteProfile,
@@ -29,7 +34,7 @@ import {
   validateOrcaDocuments,
   validatePrusaContent,
 } from "../profile-content.js";
-import { listTransports, validatePrinterTransport } from "../validate.js";
+import { listTransports, validatePrinterTransport, validateProfileSlicer } from "../validate.js";
 
 /**
  * Catalog + history surface: the durable catalog (printers, profiles) plus the job
@@ -55,7 +60,7 @@ const profileSchema = z.object({
   id: z.string().min(1).max(128),
   slicerId: z.string().min(1),
   name: z.string().min(1).max(200),
-  path: z.string().min(1).max(500),
+  path: z.string().max(500).refine(isBundledProfilePath, "path must be /profiles/<bundle>"),
   gcodeFlavor: z.string().min(1),
 });
 
@@ -155,6 +160,11 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = profileSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+    try {
+      validateProfileSlicer(parsed.data.slicerId);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
     dbUpsertProfile(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });

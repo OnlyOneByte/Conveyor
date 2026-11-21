@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  isBundledProfilePath,
   type JobTarget,
   ORCA_PROFILE_DOCUMENT_NAMES,
   PRUSA_PROFILE_DOCUMENT_NAME,
@@ -41,6 +42,10 @@ export async function resolveProfileForSlice(
     name: target.profileName,
     path: target.profilePath,
   };
+
+  if (!isBundledProfilePath(target.profilePath)) {
+    throw new StageError("slicer", `profile ${target.profileId} has an invalid bundled path`);
+  }
 
   const format = slicerFormat(target.slicerId);
   const directory = join(workDir, "profile");

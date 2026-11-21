@@ -22,6 +22,12 @@ export function validatePrinterTransport(transportId: string): void {
   }
 }
 
+export function validateProfileSlicer(slicerId: string): void {
+  if (!apiRegistry.slicers.get(slicerId)) {
+    throw new CompatibilityError(`unknown slicer: ${slicerId}`);
+  }
+}
+
 /** Registered transports, for the Settings printer form's picker. */
 export function listTransports(): { id: string; name: string; acceptsFlavors: string[] }[] {
   return [...apiRegistry.transports.values()].map((t) => ({
