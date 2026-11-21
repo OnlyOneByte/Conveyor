@@ -1,73 +1,85 @@
 {
-  "url": "http://127.0.0.1:45909",
-  "gifMode": "frames",
+  "url": "http://127.0.0.1:39383",
+  "warnings": [],
   "results": [
     {
       "scene": "home",
       "width": 1440,
+      "warnings": [],
       "png": "home-1440.png"
     },
     {
       "scene": "new-job",
       "width": 1440,
+      "warnings": [],
       "png": "new-job-1440.png",
-      "gif": "new-job-1440.gif",
-      "gifBytes": 441538
+      "gifBytes": 423926,
+      "gif": "new-job-1440.gif"
     },
     {
       "scene": "job-progress",
       "width": 1440,
+      "warnings": [],
       "png": "job-progress-1440.png",
-      "gif": "job-progress-1440.gif",
-      "gifBytes": 244309
+      "gifBytes": 265726,
+      "gif": "job-progress-1440.gif"
     },
     {
       "scene": "history",
       "width": 1440,
+      "warnings": [],
       "png": "history-1440.png"
     },
     {
       "scene": "monitor",
       "width": 1440,
+      "warnings": [],
       "png": "monitor-1440.png"
     },
     {
       "scene": "settings",
       "width": 1440,
+      "warnings": [],
       "png": "settings-1440.png"
     },
     {
       "scene": "home",
       "width": 390,
+      "warnings": [],
       "png": "home-390.png"
     },
     {
       "scene": "new-job",
       "width": 390,
+      "warnings": [],
       "png": "new-job-390.png",
-      "gif": "new-job-390.gif",
-      "gifBytes": 607946
+      "gifBytes": 608245,
+      "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
+      "warnings": [],
       "png": "job-progress-390.png",
-      "gif": "job-progress-390.gif",
-      "gifBytes": 340646
+      "gifBytes": 339789,
+      "gif": "job-progress-390.gif"
     },
     {
       "scene": "history",
       "width": 390,
+      "warnings": [],
       "png": "history-390.png"
     },
     {
       "scene": "monitor",
       "width": 390,
+      "warnings": [],
       "png": "monitor-390.png"
     },
     {
       "scene": "settings",
       "width": 390,
+      "warnings": [],
       "png": "settings-390.png"
     }
   ]
