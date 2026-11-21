@@ -14,6 +14,7 @@ import {
   checkpoint,
   enterStage,
   failRun,
+  JobCanceledError,
   messageOf,
   type PrintAttempt,
   type Run,
@@ -30,6 +31,11 @@ export async function printStage(
   target: JobTarget,
   gcode: GcodeArtifact,
 ): Promise<PrintOutcome> {
+  const queue = run.deps.queue;
+  if (queue) {
+    await checkpoint(run);
+    if ((await queue.takeSlot(run.signal)) === "canceled") throw new JobCanceledError();
+  }
   await enterStage(run, "transport", "transferring");
   const transport = run.deps.registry.transports.get(target.transportId);
   if (!transport) throw new StageError("transport", `unknown transport ${target.transportId}`);
@@ -40,6 +46,7 @@ export async function printStage(
     if (err instanceof PrintNotStartedError) attempt.notStarted = true;
     throw err;
   });
+  await queue?.markSubmitted(attempt.handle);
   await checkpoint(run);
   run.state = "printing";
   return watchPrint(run, transport, attempt.handle);

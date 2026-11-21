@@ -4,8 +4,10 @@ import { computeStageTimings, StageError } from "@conveyor/shared";
 import { fallbackHandle } from "./print.js";
 import {
   JobCanceledError,
+  LeaseLostError,
   messageOf,
   type PublishExtra,
+  type QueueHooks,
   type Run,
   type TerminalRecord,
   type TerminalState,
@@ -90,7 +92,25 @@ export async function settleDone(run: Run): Promise<TerminalState> {
   return "done";
 }
 
+async function settleQueuedCancel(
+  run: Run,
+  queue: QueueHooks,
+  stopError?: string,
+): Promise<TerminalState> {
+  await cleanup(run);
+  const failure = await writeHistory(run, {
+    state: stopError === undefined ? "canceled" : "failed",
+    modelPath: run.modelPath,
+    gcodePath: run.gcodePath,
+    notes: noted(run, stopError),
+  });
+  const state = await queue.settleCancel(stopError === undefined);
+  if (failure) throw failure;
+  return state;
+}
+
 export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
+  if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue);
   await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
   const failure = await recordThenPublish(
@@ -120,8 +140,14 @@ async function settleFailed(run: Run, se: StageError): Promise<never> {
 }
 
 export async function settleError(run: Run, err: unknown): Promise<TerminalState> {
+  const lost = err instanceof LeaseLostError ? err : run.signal.reason;
+  if (lost instanceof LeaseLostError) {
+    await cleanup(run);
+    throw lost;
+  }
   if (err instanceof JobCanceledError || run.signal.aborted) {
     const stopError = await stopPrinter(run);
+    if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue, stopError);
     if (stopError) return settleFailed(run, new StageError("transport", stopError));
     return settleCanceled(run);
   }
