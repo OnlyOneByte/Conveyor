@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379
+      - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
+      - CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}
       - PORT=3000
       - CONVEYOR_HOST=0.0.0.0
       - DATA_DIR=/data
@@ -44,6 +46,8 @@ services:
     stop_grace_period: 60s
     environment:
       - REDIS_URL=redis://redis:6379
+      - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
+      - CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}
       - DB_PATH=/data/conveyor.db
     volumes:
       - ./data:/data
