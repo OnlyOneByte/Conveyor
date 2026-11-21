@@ -4,10 +4,10 @@ function columnsOf(db: Database, table: string): string[] {
   return (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
 }
 
-function indexSqlOf(db: Database, table: string): string[] {
+function indexAndTriggerSqlOf(db: Database, table: string): string[] {
   return db
     .query<{ sql: string }, [string]>(
-      "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
+      "SELECT sql FROM sqlite_master WHERE type IN ('index', 'trigger') AND tbl_name = ? AND sql IS NOT NULL ORDER BY type = 'trigger'",
     )
     .all(table)
     .map((row) => row.sql);
@@ -19,7 +19,7 @@ export function migrate(db: Database): void {
     const stationColumnOrNull = (col: string) =>
       hasStations ? `(SELECT s.${col} FROM stations s WHERE s.id = j.station_id)` : "NULL";
     db.transaction(() => {
-      const indexes = indexSqlOf(db, "jobs");
+      const dependents = indexAndTriggerSqlOf(db, "jobs");
       db.exec(`CREATE TABLE jobs_migrated (
         id            TEXT PRIMARY KEY,
         generator_id  TEXT NOT NULL,
@@ -42,7 +42,7 @@ export function migrate(db: Database): void {
         FROM jobs j`);
       db.exec("DROP TABLE jobs");
       db.exec("ALTER TABLE jobs_migrated RENAME TO jobs");
-      for (const sql of indexes) db.exec(sql);
+      for (const sql of dependents) db.exec(sql);
     })();
   }
 

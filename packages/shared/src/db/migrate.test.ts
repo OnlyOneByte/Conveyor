@@ -9,6 +9,7 @@ import {
   dbGetPrinter,
   dbGetProfile,
   dbGetPrusaProfileContent,
+  dbRecordJob,
   dbSaveOrcaProfileDocuments,
   dbSavePrusaProfileContent,
   dbUpsertPrinter,
@@ -68,9 +69,17 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs (created_at DESC);
 `;
 
-function writeLegacyDb(path: string): void {
+const LEGACY_JOBS_TRIGGER = `
+CREATE TABLE job_state_log (job_id TEXT NOT NULL, state TEXT NOT NULL);
+CREATE TRIGGER trg_jobs_state AFTER UPDATE OF state ON jobs
+BEGIN
+  INSERT INTO job_state_log VALUES (NEW.id, NEW.state);
+END;
+`;
+
+function writeLegacyDb(path: string, extraSql: string): void {
   const legacy = new Database(path, { create: true });
-  legacy.exec(LEGACY_STATION_SCHEMA);
+  legacy.exec(LEGACY_STATION_SCHEMA + extraSql);
   legacy.exec(`INSERT INTO printers VALUES ('printer-a', 'moonraker', 'Legacy A', 'http://a', NULL, 1);
 INSERT INTO profiles VALUES ('profile-a', 'orca', 'Legacy PLA', '/profiles/a', 'klipper', 1);
 INSERT INTO stations VALUES
@@ -83,11 +92,11 @@ INSERT INTO jobs VALUES
   legacy.close();
 }
 
-function openLegacyDb(): Database {
+function openLegacyDb(extraSql = ""): Database {
   const dir = mkdtempSync(join(tmpdir(), "conveyor-migrate-"));
   dirs.push(dir);
   const path = join(dir, "conveyor.db");
-  writeLegacyDb(path);
+  writeLegacyDb(path, extraSql);
   return openDb(path);
 }
 
@@ -129,6 +138,28 @@ describe("openDb legacy station migration", () => {
     expect(
       namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'jobs'"),
     ).toContain("idx_jobs_created_at");
+  });
+
+  test("keeps a legacy trigger on jobs and it still fires after the migration", () => {
+    const db = openLegacyDb(LEGACY_JOBS_TRIGGER);
+    expect(
+      namesOf(db, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'jobs'"),
+    ).toEqual(["trg_jobs_state"]);
+    dbRecordJob(db, {
+      id: "job-a",
+      generatorId: "gen",
+      printerId: "printer-a",
+      profileId: "profile-a",
+      state: "canceled",
+      notes: "work dir not removed",
+    });
+    expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
+      { job_id: "job-a", state: "canceled" },
+    ]);
+    expect(dbGetJob(db, "job-a")).toMatchObject({
+      state: "canceled",
+      notes: "work dir not removed",
+    });
   });
 
   test("adds timings_json to the migrated jobs table", () => {
