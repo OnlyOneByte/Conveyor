@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createSocket } from "node:dgram";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -6,21 +5,16 @@ import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintNotStartedError,
   type PrintStatus,
   type StageCtx,
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import {
-  buildCommand,
-  parseDiscovery,
-  parseStatusFrame,
-  SDCP_CMD,
-  type SdcpDiscovery,
-} from "./sdcp.js";
+import { parseDiscovery, SDCP_CMD, type SdcpDiscovery } from "./sdcp.js";
+import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const DISCOVERY_PORT = Number(process.env.ELEGOO_DISCOVERY_PORT ?? 3000);
 const DISCOVERY_MS = Number(process.env.ELEGOO_DISCOVERY_MS ?? 3000);
 const STATUS_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
@@ -47,29 +41,26 @@ export const elegoo: TransportPlugin = {
     const filename = basename(gcode.path);
     if (STUB) {
       ctx.log(`[stub] elegoo upload ${gcode.path} → ${target.address}`);
-      return {
-        transportId: "elegoo",
-        printerId: target.id,
-        ref: filename,
-        address: target.address,
-      };
+      return elegooHandle(target, filename);
     }
 
-    const mainboardId = target.secrets?.mainboardId ?? target.id;
-    await uploadGcode(target.address, gcode.path, filename, ctx);
+    const mainboardId = mainboardIdOf(target);
+    await uploadGcode(target.address, gcode.path, ctx);
 
-    await sendCommand(
-      target.address,
+    if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
+    ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
+    await sendCommand(target.address, {
       mainboardId,
-      SDCP_CMD.START_PRINT,
-      { Filename: filename, StartLayer: 0 },
-      ctx,
-    );
+      cmd: SDCP_CMD.START_PRINT,
+      data: { Filename: filename, StartLayer: 0 },
+    });
 
-    return { transportId: "elegoo", printerId: target.id, ref: filename, address: target.address };
+    return elegooHandle(target, filename);
   },
 
-  async *status(handle: PrintHandle): AsyncIterable<PrintStatus> {
+  handleFor: elegooHandle,
+
+  async *status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus> {
     if (STUB) {
       yield { state: "transferring" };
       for (let p = 0; p <= 1.0001; p += 0.25) yield { state: "printing", progress: Math.min(p, 1) };
@@ -80,7 +71,7 @@ export const elegoo: TransportPlugin = {
       throw new StageError("transport", "elegoo status: missing printer address on handle");
 
     yield { state: "transferring" };
-    for await (const s of streamStatus(handle.address, STATUS_TIMEOUT_MS)) {
+    for await (const s of streamStatus(handle.address, STATUS_TIMEOUT_MS, signal)) {
       yield s;
       if (s.state === "done" || s.state === "failed" || s.state === "canceled") return;
     }
@@ -90,10 +81,24 @@ export const elegoo: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
-    const mainboardId = handle.printerId;
-    await sendCommandRaw(handle.address, mainboardId, SDCP_CMD.STOP_PRINT, {});
+    const mainboardId = handle.deviceId ?? handle.printerId;
+    await sendCommand(handle.address, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
   },
 };
+
+function mainboardIdOf(target: PrinterTarget): string {
+  return target.secrets?.mainboardId ?? target.id;
+}
+
+function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
+  return {
+    transportId: "elegoo",
+    printerId: target.id,
+    ref,
+    address: target.address,
+    deviceId: mainboardIdOf(target),
+  };
+}
 
 function discoverSdcp(timeoutMs: number): Promise<SdcpDiscovery[]> {
   return new Promise((resolve, reject) => {
@@ -119,123 +124,21 @@ function discoverSdcp(timeoutMs: number): Promise<SdcpDiscovery[]> {
   });
 }
 
-function sendCommand(
-  address: string,
-  mainboardId: string,
-  cmd: number,
-  data: Record<string, unknown>,
-  ctx: StageCtx,
-): Promise<void> {
-  ctx.log(`elegoo SDCP cmd ${cmd} → ${address}`);
-  return sendCommandRaw(address, mainboardId, cmd, data);
-}
-
-function sendCommandRaw(
-  address: string,
-  mainboardId: string,
-  cmd: number,
-  data: Record<string, unknown>,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://${address}:${WS_PORT}/websocket`);
-    const requestId = randomUUID();
-    let settled = false;
-    const done = (err?: Error) => {
-      if (settled) return;
-      settled = true;
-      try {
-        ws.close();
-      } catch {}
-      err ? reject(err) : resolve();
-    };
-    const timer = setTimeout(
-      () => done(new StageError("transport", `elegoo cmd ${cmd} timed out`)),
-      15000,
-    );
-    ws.onopen = () => {
-      ws.send(buildCommand(mainboardId, cmd, data, requestId, Math.floor(nowMs() / 1000)));
-    };
-    ws.onmessage = (ev) => {
-      try {
-        const j = JSON.parse(String(ev.data));
-        const ackId = j?.Data?.RequestID ?? j?.Data?.Data?.RequestID;
-        if (ackId === requestId) {
-          clearTimeout(timer);
-          const code = j?.Data?.Data?.Ack ?? j?.Data?.Ack ?? 0;
-          done(
-            code === 0
-              ? undefined
-              : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${code})`),
-          );
-        }
-      } catch {}
-    };
-    ws.onerror = () =>
-      done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
-    ws.onclose = () => done();
-  });
-}
-
-async function* streamStatus(address: string, timeoutMs: number): AsyncIterable<PrintStatus> {
-  const queue: PrintStatus[] = [];
-  let resolveNext: (() => void) | null = null;
-  let closed = false;
-
-  const ws = new WebSocket(`ws://${address}:${WS_PORT}/websocket`);
-  const push = (s: PrintStatus) => {
-    queue.push(s);
-    resolveNext?.();
-    resolveNext = null;
-  };
-
-  ws.onmessage = (ev) => {
-    const frame = parseStatusFrame(String(ev.data));
-    if (!frame) return;
-    const sub = frame.printStatus;
-    if (sub === 9) push({ state: "done", progress: 1 });
-    else if (sub === 8) push({ state: "canceled", message: "stopped on printer" });
-    else if (frame.currentStatus.includes(1) || sub === 13)
-      push({ state: "printing", progress: frame.progress });
-  };
-  ws.onclose = () => {
-    closed = true;
-    resolveNext?.();
-  };
-  ws.onerror = () => {
-    closed = true;
-    resolveNext?.();
-  };
-
-  const deadline = nowMs() + timeoutMs;
-  while (!closed && nowMs() < deadline) {
-    if (queue.length === 0) await new Promise<void>((r) => (resolveNext = r));
-    for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
-  }
-  try {
-    ws.close();
-  } catch {}
-}
-
-async function uploadGcode(
-  address: string,
-  path: string,
-  filename: string,
-  ctx: StageCtx,
-): Promise<void> {
+async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
+  const filename = basename(path);
   const body = await readFile(path);
   const form = new FormData();
   form.append("File", new Blob([body]), filename);
   const url = `http://${address}:${WS_PORT}/uploadFile/upload`;
   const res = await fetch(url, { method: "POST", body: form, signal: ctx.signal }).catch((e) => {
-    throw new StageError("transport", `elegoo upload failed: ${(e as Error).message}`);
+    const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
+    throw ctx.signal.aborted
+      ? new PrintNotStartedError(reason)
+      : new StageError("transport", reason);
   });
   if (!res.ok)
     throw new StageError(
       "transport",
       `elegoo upload failed: ${res.status} (confirm route — see VERIFY note)`,
     );
-}
-
-function nowMs(): number {
-  return Date.now();
 }

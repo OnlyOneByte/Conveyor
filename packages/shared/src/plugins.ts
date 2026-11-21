@@ -69,6 +69,7 @@ export interface PrintHandle {
   printerId: string;
   ref: string;
   address?: string;
+  deviceId?: string;
 }
 
 export interface PrintStatus {
@@ -82,6 +83,7 @@ export interface TransportPlugin extends PluginManifest {
   acceptsFlavors: string[];
   discover?(): Promise<PrinterTarget[]>;
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
-  status(handle: PrintHandle): AsyncIterable<PrintStatus>;
+  status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>;
   cancel?(handle: PrintHandle): Promise<void>;
+  handleFor?(target: PrinterTarget, ref: string): PrintHandle;
 }
