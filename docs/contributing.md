@@ -31,8 +31,11 @@ bun run test:coverage && bun run check:coverage
 bun run check:comments
 ```
 
-If `check:comments` says the baseline is stale, you removed comments: run `bun run check:comments:update` and
-commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the comment you added.
+The comments baseline is one file per area, `scripts/checks/comments/baseline/<area>.json`: `api`, `worker`,
+`shared` and `web` for `packages/<name>/`, `plugins` for `plugins/**`, and `repo` for everything else. Each lists
+only its own area's files. If `check:comments` says the baseline is stale, you removed comments: run
+`bun run check:comments:update` and commit the area files it names; it rewrites only areas whose counts changed.
+If it says `added:`, delete the comment you added.
 
 The coverage baseline is one file per package, `scripts/checks/coverage/baseline/<package>.json`, each holding
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
@@ -69,7 +72,7 @@ that maps never-imported files fails when the whole sweep takes longer than 30 s
 
 Guardrail paths (`.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`,
 `biome.json`, `biome.jsonc`, `tsconfig*.json`, `bunfig.toml` at any depth) change in their own PR. A PR that
-only lowers `scripts/checks/comments-baseline.json` or `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json` is exempt. A guardrail-path PR needs a passing
+only lowers `scripts/checks/comments/baseline/{api,worker,shared,web,plugins,repo}.json` or `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json` is exempt. A guardrail-path PR needs a passing
 adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
 tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
 after that independent pass.

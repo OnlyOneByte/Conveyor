@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { BASELINE_DIR, readAreas, serializeAreas } from "./areas";
 import { type Baseline, isBaseline, parseBaseline, serializeBaseline } from "./baseline";
-import { BASELINE_PATH, checkRatchet } from "./ratchet";
+import { checkRatchet } from "./ratchet";
 import type { Tree } from "./tree";
 
 type Counts = Record<string, [number, number]>;
@@ -21,8 +22,9 @@ const baseline = (files: Counts): Baseline => ({
 
 const json = (files: Counts) => serializeBaseline(baseline(files));
 
-const baseWith = (files: Counts) =>
-  tree({ [BASELINE_PATH]: json(files), "scripts/checks/comments.ts": "" });
+const areaFiles = (files: Counts) => Object.fromEntries(serializeAreas(baseline(files)));
+
+const baseWith = (files: Counts) => tree({ ...areaFiles(files), "scripts/checks/comments.ts": "" });
 
 interface Case {
   current: Counts;
@@ -35,7 +37,7 @@ const run = ({ current, committed, base, alsoPresent = [] }: Case) =>
   checkRatchet({
     current: baseline(current),
     present: new Set([...Object.keys(current), ...alsoPresent]),
-    committed: committed === null ? null : json(committed ?? current),
+    committed: committed === null ? {} : readAreas(tree(areaFiles(committed ?? current))),
     base,
   }).errors;
 
@@ -46,13 +48,13 @@ describe("checkRatchet", () => {
 
   test("fails when the committed baseline is missing", () => {
     expect(run({ current: {}, committed: null, base: baseWith({}) })).toEqual([
-      `${BASELINE_PATH} is missing`,
+      `${BASELINE_DIR}/ is missing`,
     ]);
   });
 
   test("fails when the base has the checker but no baseline", () => {
     const errors = run({ current: {}, base: tree({ "scripts/checks/comments.ts": "" }) });
-    expect(errors[0]).toContain("no scripts/checks/comments-baseline.json");
+    expect(errors).toEqual(["base has the checker but no scripts/checks/comments/baseline/"]);
   });
 
   test("bootstraps from the measured base tree before the checker exists", () => {
