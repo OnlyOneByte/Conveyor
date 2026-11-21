@@ -89,22 +89,29 @@ async function pipeLines(
   }
 }
 
+export function stackEnv(
+  base: Record<string, string | undefined>,
+  opts: { redisUrl: string; dataDir: string; apiPort: number },
+): Record<string, string | undefined> {
+  return {
+    ...base,
+    CONVEYOR_ENGINE_STUB: "1",
+    CONVEYOR_AUTH: "disabled",
+    CONVEYOR_HOST: "127.0.0.1",
+    REDIS_URL: opts.redisUrl,
+    DATA_DIR: opts.dataDir,
+    DB_PATH: join(opts.dataDir, "conveyor.db"),
+    PORT: String(opts.apiPort),
+    CONVEYOR_API_TARGET: `http://127.0.0.1:${opts.apiPort}`,
+  };
+}
+
 export async function bootStack(root: string, log: Log): Promise<Stack> {
   const dataDir = await mkdtemp(join(tmpdir(), "conveyor-visual-"));
   const redis = await startRedis(log);
   const apiPort = await freePort();
   const webPort = await freePort();
-  const env = {
-    ...process.env,
-    CONVEYOR_ENGINE_STUB: "1",
-    CONVEYOR_PASSWORD: "",
-    CONVEYOR_HOST: "127.0.0.1",
-    REDIS_URL: redis.url,
-    DATA_DIR: dataDir,
-    DB_PATH: join(dataDir, "conveyor.db"),
-    PORT: String(apiPort),
-    CONVEYOR_API_TARGET: `http://127.0.0.1:${apiPort}`,
-  };
+  const env = stackEnv(process.env, { redisUrl: redis.url, dataDir, apiPort });
   const procs: Subprocess<"ignore", "pipe", "pipe">[] = [];
   const launch = (name: string, cmd: string[], cwd: string) => {
     const proc = spawn({ cmd, cwd, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
