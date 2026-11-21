@@ -19,11 +19,13 @@
     "format:check": "biome format .",
     "check": "biome check .",
     "test": "bun test",
-    "test:coverage": "bun test --coverage",
+    "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "check:comments": "bun scripts/checks/comments.ts",
     "check:comments:update": "bun scripts/checks/comments.ts --update",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
-    "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check"
+    "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",
+    "check:coverage": "bun scripts/checks/coverage/main.ts",
+    "check:coverage:update": "bun scripts/checks/coverage/main.ts --update"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
