@@ -316,7 +316,9 @@ raise `busy_timeout` around the transaction.
 5. **`jobs.notes`.** Additive and nullable; `NULL` on rows recorded before notes were split from `error`.
 6. **The queue columns on `jobs`** (`attempts`, `run_after`, `lease_*`, `cancel_requested_at`,
    `submit_started_at`, `submitted_at`, `print_handle_json`, `progress`, `message`) and the `idx_jobs_claim`
-   and `idx_jobs_lease` indexes. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
+   and `idx_jobs_lease` indexes, plus the partial index `idx_jobs_printer_live` over in-flight jobs, which
+   the claim's per-printer check reads. `printers.hold_job_id`, `hold_reason` and `hold_at` are added in
+   the same step. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
    `migrate()`, not `SCHEMA_SQL`, because `SCHEMA_SQL` runs first and an old table has no such columns yet.
 7. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
    already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
@@ -340,7 +342,10 @@ to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
 - `inImmediate` is the only way the queue writes. It runs its step in `BEGIN IMMEDIATE` and reads the clock
   only after the write lock is held, so a step that waited on `busy_timeout` never acts on a stale `now`.
 - `claimJob` takes the oldest due queued job, or first a submitted orphan to resume, and bumps
-  `lease_token`. A queued job is skipped while another job for its printer is generating or slicing.
+  `lease_token`. A queued job is skipped while another job for its printer is generating or slicing, and
+  while its printer is held. A hold means the printer may still have a job the queue lost track of, so no
+  job is prepared for it until an operator releases it with `releasePrinterHold`, which the api exposes as
+  `POST /catalog/printers/:id/release`.
 - Every write against a held lease (`renewLease`, `releaseLease`) checks owner, token and an unexpired
   `lease_until`. A worker past its own lease cannot write, even before anyone takes the job over.
 - `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an
@@ -365,7 +370,7 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 |---|---|
 | No submit intent, attempts left | `queued`, after 5 s, then 10 s, of backoff |
 | No submit intent, attempts used up | `failed`: the worker lost the job before it reached the printer |
-| Submit intent but no marker | `failed`: check the printer. The printer hold lands with the hold columns, in a later step |
+| Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`), unless the printer is already held |
 | Submit marker | an orphan: the lease is cleared and the next claim resumes the job |
 
 ## db/schema.sql.ts

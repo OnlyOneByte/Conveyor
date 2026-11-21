@@ -16,6 +16,17 @@ describe("claimJob", () => {
     expect(claimJob(h.db, "w1", h.timing)).toBeNull();
   });
 
+  test("skips jobs for a held printer until the hold is cleared", () => {
+    h = queueHarness();
+    h.db.exec(
+      "INSERT INTO printers (id, transport_id, name, address, created_at, hold_job_id) VALUES ('p1', 'f', 'P1', 'x', 0, 'old')",
+    );
+    h.enqueue("a");
+    expect(claimJob(h.db, "w1", h.timing)).toBeNull();
+    h.db.exec("UPDATE printers SET hold_job_id = NULL WHERE id = 'p1'");
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("a");
+  });
+
   test("skips jobs not yet due and jobs with a cancel request", () => {
     h = queueHarness();
     h.enqueue("later");

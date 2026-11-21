@@ -180,7 +180,10 @@ describe("openDb legacy station migration", () => {
       ]),
     );
     expect(namesOf(db, "PRAGMA index_list(jobs)")).toEqual(
-      expect.arrayContaining(["idx_jobs_claim", "idx_jobs_lease"]),
+      expect.arrayContaining(["idx_jobs_claim", "idx_jobs_lease", "idx_jobs_printer_live"]),
+    );
+    expect(namesOf(db, "PRAGMA table_info(printers)")).toEqual(
+      expect.arrayContaining(["hold_job_id", "hold_reason", "hold_at"]),
     );
     expect(db.query<{ synchronous: number }, []>("PRAGMA synchronous").get()).toEqual({
       synchronous: 1,

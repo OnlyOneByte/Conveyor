@@ -27,6 +27,12 @@ const QUEUE_COLUMNS = [
   ["print_handle_json", "TEXT"],
 ] as const;
 
+const HOLD_COLUMNS = [
+  ["hold_job_id", "TEXT"],
+  ["hold_reason", "TEXT"],
+  ["hold_at", "INTEGER"],
+] as const;
+
 function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
   return db
     .query<SchemaObject, [string]>(
@@ -116,6 +122,13 @@ export function migrate(db: Database): void {
   }
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs (state, run_after, created_at)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_lease ON jobs (state, lease_until)");
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_printer_live ON jobs (printer_id, state)
+    WHERE state IN ('generating', 'slicing', 'transferring', 'printing')`);
+
+  const printerColumns = new Set(columnsOf(db, "printers"));
+  for (const [column, type] of HOLD_COLUMNS) {
+    if (!printerColumns.has(column)) db.exec(`ALTER TABLE printers ADD COLUMN ${column} ${type}`);
+  }
 
   if (columnsOf(db, "stations").length > 0) {
     db.exec("DROP TABLE stations");

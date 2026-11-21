@@ -7,7 +7,7 @@ It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only i
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
-routes. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
+routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
 registered in. Requests whose path (query string removed) starts with an entry in `PUBLIC_PREFIXES` (today
 `/health` and `/auth/`) skip it; everything else needs a valid session.
 
@@ -116,6 +116,21 @@ registered in. Requests whose path (query string removed) starts with an entry i
   `probePrinter` always resolves, with `latencyMs` on success and the socket error code or `timeout` as
   `reason` on failure.
 
+## Printer holds (`routes/printer-holds.ts`)
+
+`POST /catalog/printers/:id/release` clears a printer hold. The queue sets a hold when it cannot know whether a
+printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
+prepared for a held printer until someone checks the printer and releases it.
+
+- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
+  namespace to the api.
+- The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
+  cannot release a hold.
+- `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold
+  is cleared.
+- It is a mutating route behind the same global auth guard as every other non-public route. It does not
+  start with a `PUBLIC_PREFIXES` entry, so without a session it gets `401`.
+
 ## Redis (`queue.ts`)
 
 Two connections: `connection`, with `maxRetriesPerRequest: null` as BullMQ requires for blocking commands,
@@ -126,3 +141,5 @@ and `redis`, a plain client for snapshot reads and pub/sub fan-out.
 The API image carries no engines; bun runs the TypeScript entrypoint directly. `bun install --frozen-lockfile`
 validates the whole workspace against `bun.lock`, so the deps stage copies every workspace member's
 `package.json`, including ones the API never imports, or bun reports "lockfile had changes" and aborts.
+The image sets `CONVEYOR_HOST=0.0.0.0` so caddy can reach it over the compose network. The api's own default
+is loopback, and the image publishes no port: caddy's publish, on `CONVEYOR_BIND`, is the boundary.
