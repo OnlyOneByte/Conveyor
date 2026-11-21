@@ -63,6 +63,26 @@
           }
         }
       }
+    },
+    {
+      "includes": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": {
+              "level": "error",
+              "options": { "maxAllowedComplexity": 12 }
+            },
+            "useMaxParams": {
+              "level": "error",
+              "options": { "max": 3 }
+            }
+          },
+          "style": {
+            "noNonNullAssertion": "error"
+          }
+        }
+      }
     }
   ],
   "html": {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { commentLines, compare, languageOf } from "./comments";
+import { commentLines, languageOf, tallyFile } from "./tally";
 
 const ts = (src: string) => commentLines(src, "script");
 const svelte = (src: string) => commentLines(src, "svelte");
@@ -21,6 +21,7 @@ describe("script comments", () => {
     expect(ts("const t = `http://x/* y */`;\n")).toEqual([]);
     expect(ts(`const t = \`a \${b ? \`//nested\` : { c: 1 }.c} // tail\`;\n`)).toEqual([]);
     expect(ts(`const t = \`\${x}\`; // after\n`)).toEqual([1]);
+    expect(ts(`const t = \`\${ /* c */ x}\`;\n`)).toEqual([1]);
     expect(ts("const t = `line1\n// line2\n`;\n")).toEqual([]);
   });
 
@@ -36,9 +37,10 @@ describe("script comments", () => {
     expect(ts("const q = (a) / 2 / c;\n")).toEqual([]);
   });
 
-  test("allows biome-ignore directives and shebangs", () => {
+  test("skips a shebang but counts every directive", () => {
     expect(ts("#!/usr/bin/env bun\nconst a = 1;\n")).toEqual([]);
-    expect(ts("// biome-ignore lint/style/noNonNullAssertion: reason\nfoo!.bar;\n")).toEqual([]);
+    expect(ts("// biome-ignore lint/style/noNonNullAssertion: reason\nfoo!.bar;\n")).toEqual([1]);
+    expect(ts("// biome-ignore any free prose\n")).toEqual([1]);
   });
 
   test("counts an unterminated block comment to the end", () => {
@@ -53,24 +55,36 @@ describe("svelte comments", () => {
       "  // script comment",
       '  const href = "https://example.com";',
       "</script>",
-      "",
       "<!-- markup comment -->",
       '<a href="https://example.com/a//b">link // text</a>',
-      "",
       "<style>",
       "  /* style comment */",
       '  a { background: url("//cdn/x.png"); }',
       "</style>",
     ].join("\n");
-    expect(svelte(src)).toEqual([2, 6, 10]);
+    expect(svelte(src)).toEqual([2, 5, 8]);
   });
 
   test("counts multi-line HTML comments on every line", () => {
     expect(svelte("<div>\n<!--\n  note\n-->\n</div>\n")).toEqual([2, 3, 4]);
   });
 
-  test("allows svelte-ignore directives", () => {
-    expect(svelte("<!-- svelte-ignore a11y-autofocus -->\n<input autofocus />\n")).toEqual([]);
+  test("counts block and line comments inside markup expressions", () => {
+    expect(svelte("<p>{/* secret */ x}</p>\n")).toEqual([1]);
+    expect(svelte("<p>{// secret\n x}</p>\n")).toEqual([1]);
+  });
+
+  test("treats block closers as markup, not regex", () => {
+    expect(svelte("{#if a}x{/if} <b>/</b> <!-- c -->\n")).toEqual([1]);
+    expect(svelte("{#each xs as x}<b>{x}</b>{/each}\n<!-- after -->\n")).toEqual([2]);
+  });
+
+  test("does not open a style or script block for components with that prefix", () => {
+    expect(
+      svelte("<StylePicker value={v} />\n<!-- hidden -->\n<script>\n// too\n</script>\n"),
+    ).toEqual([2, 4]);
+    expect(svelte("<ScriptEditor />\n<!-- hidden -->\n")).toEqual([2]);
+    expect(svelte("<styled-box></styled-box>\n<!-- hidden -->\n")).toEqual([2]);
   });
 
   test("ignores markers in string expressions and CSS content", () => {
@@ -78,7 +92,7 @@ describe("svelte comments", () => {
     expect(svelte(src)).toEqual([]);
   });
 
-  test("counts JS comments inside markup expressions only", () => {
+  test("counts JS comments inside handlers only", () => {
     const src = [
       "<button",
       "  on:click={() => {",
@@ -90,27 +104,51 @@ describe("svelte comments", () => {
     expect(svelte(src)).toEqual([3]);
   });
 
-  test("treats block closers as markup, not regex", () => {
-    const src = "{#each xs as x}<b>{x}</b>{/each}\n<!-- after -->\n";
-    expect(svelte(src)).toEqual([2]);
-  });
-
   test("does not treat an HTML comment marker inside script as markup", () => {
     expect(svelte('<script>\n  const s = "<!-- x -->";\n</script>\n')).toEqual([]);
   });
 });
 
-describe("helpers", () => {
-  test("languageOf picks svelte by extension", () => {
-    expect(languageOf("a/b.svelte")).toBe("svelte");
-    expect(languageOf("a/b.ts")).toBe("script");
+describe("other languages", () => {
+  test("html has no markup expressions", () => {
+    expect(commentLines("<p>{ // not js }</p>\n<!-- c -->\n", "html")).toEqual([2]);
   });
 
-  test("compare flags only files that grew when the total rose", () => {
-    const baseline = { total: 3, files: { "a.ts": 2, "b.ts": 1 } };
-    expect(compare({ total: 3, files: { "a.ts": 1, "b.ts": 2 } }, baseline)).toEqual([]);
-    expect(compare({ total: 4, files: { "a.ts": 2, "b.ts": 1, "c.ts": 1 } }, baseline)).toEqual([
-      "c.ts: 1 (baseline 0)",
-    ]);
+  test("css block comments outside strings", () => {
+    expect(commentLines('a { content: "/* no */"; }\n/* yes */\n', "css")).toEqual([2]);
+  });
+
+  test("hash comments at word start, outside quotes, after a shebang", () => {
+    const sh = "#!/bin/sh\n# yes\necho \"# no\" '# no' a#b $#\nls # yes\n";
+    expect(commentLines(sh, "hash")).toEqual([2, 4]);
+    expect(commentLines("url: http://x/#frag\nk: v # yes\n", "hash")).toEqual([2]);
+  });
+
+  test("toml comments may follow a value directly", () => {
+    expect(commentLines('a = "#no"#yes\n', "toml")).toEqual([1]);
+  });
+});
+
+describe("tally", () => {
+  test("counts suppressions separately from comment lines", () => {
+    const src = "// biome-ignore lint/x: y\n// @ts-expect-error\n// plain\n";
+    expect(tallyFile(src, "script")).toEqual({ comments: 3, suppressions: 2 });
+    expect(tallyFile("<!-- svelte-ignore a11y-autofocus -->\n", "svelte")).toEqual({
+      comments: 1,
+      suppressions: 1,
+    });
+  });
+
+  test("languageOf maps every scanned type", () => {
+    expect(languageOf("a/b.svelte")).toBe("svelte");
+    expect(languageOf("a/b.mjs")).toBe("script");
+    expect(languageOf("docs/x.html")).toBe("html");
+    expect(languageOf("x.css")).toBe("css");
+    expect(languageOf("packages/api/Dockerfile")).toBe("hash");
+    expect(languageOf("Caddyfile")).toBe("hash");
+    expect(languageOf(".github/workflows/ci.yaml")).toBe("hash");
+    expect(languageOf("mise.toml")).toBe("toml");
+    expect(languageOf("README.md")).toBeNull();
+    expect(languageOf("LICENSE")).toBeNull();
   });
 });
