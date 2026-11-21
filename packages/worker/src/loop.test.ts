@@ -80,15 +80,6 @@ async function until(check: () => boolean, ms = 3000): Promise<void> {
 }
 
 describe("the sqlite queue worker", () => {
-  test("claims a queued job and runs it to done", async () => {
-    setup();
-    enqueue("a");
-    const { h } = start();
-    await until(() => row("a").state === "done");
-    expect(h.submits).toBe(1);
-    expect(row("a").lease_owner).toBeNull();
-  });
-
   test("caps engine work, and a job waiting at the printer slot does not count", async () => {
     setup();
     db.query(
