@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { copyFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
   type ModelArtifact,
   type ProfileRef,
   type SlicerPlugin,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
 
 /** M0 engine-stub: emit a placeholder gcode so the pipeline runs without Orca installed. */

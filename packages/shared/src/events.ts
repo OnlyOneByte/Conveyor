@@ -1,5 +1,4 @@
-import type { JobState } from "./job.js";
-import type { StageTiming } from "./job.js";
+import type { JobState, StageTiming } from "./job.js";
 import type { Stage } from "./plugins.js";
 
 /**

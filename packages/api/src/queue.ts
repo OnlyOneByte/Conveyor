@@ -1,6 +1,6 @@
+import { JOB_QUEUE, type JobRequest } from "@conveyor/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
-import { JOB_QUEUE, type JobRequest } from "@conveyor/shared";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 

@@ -1,13 +1,13 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   authEnabled,
   checkPassword,
-  issueToken,
-  verifyToken,
-  sessionCookie,
   clearCookie,
+  issueToken,
   readSessionCookie,
+  sessionCookie,
+  verifyToken,
 } from "../auth.js";
 
 const loginSchema = z.object({ password: z.string().min(1).max(512) });

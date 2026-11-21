@@ -86,6 +86,16 @@ export const MAX_PRUSA_DOCUMENT_BYTES = 512 * 1024;
 
 export class PrusaProfileValidationError extends Error {}
 
+const ALLOWED_CONTROL_CHARS = new Set([0x09, 0x0a, 0x0d]);
+
+function hasDisallowedControlChar(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x20 && !ALLOWED_CONTROL_CHARS.has(code)) return true;
+  }
+  return false;
+}
+
 /**
  * Shared trust-boundary validation for a Prusa `config.ini` (SAX-04/SAX-10): the API
  * runs it before persistence and the worker runs it again before writing the file, so
@@ -107,8 +117,7 @@ export function validatePrusaProfileContent(document: PrusaProfileDocument): voi
   // Reject NUL and C0 control bytes other than tab/newline/carriage-return. This
   // blocks binary blobs and control-character injection while leaving normal INI
   // (which is ASCII/UTF-8 text with comments and CRLF or LF line endings) untouched.
-  // eslint-disable-next-line no-control-regex
-  if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text)) {
+  if (hasDisallowedControlChar(text)) {
     throw new PrusaProfileValidationError("config.ini contains control characters");
   }
   // Structural floor: at least one `key = value` assignment on a non-comment line.

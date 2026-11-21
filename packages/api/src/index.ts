@@ -1,11 +1,11 @@
-import Fastify from "fastify";
-import websocket from "@fastify/websocket";
 import multipart from "@fastify/multipart";
-import { registerJobRoutes } from "./routes/jobs.js";
-import { registerGeneratorRoutes } from "./routes/generators.js";
-import { registerUploadRoutes } from "./routes/uploads.js";
+import websocket from "@fastify/websocket";
+import Fastify from "fastify";
+import { registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
-import { registerAuthRoutes, registerAuthGuard } from "./routes/auth.js";
+import { registerGeneratorRoutes } from "./routes/generators.js";
+import { registerJobRoutes } from "./routes/jobs.js";
+import { registerUploadRoutes } from "./routes/uploads.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);

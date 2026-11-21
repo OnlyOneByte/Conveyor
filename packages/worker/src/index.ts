@@ -1,21 +1,21 @@
-import { Worker } from "bullmq";
-import { Redis } from "ioredis";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  JOB_QUEUE,
-  StageError,
   computeStageTimings,
+  JOB_QUEUE,
   type JobRequest,
   type PrinterTarget,
   type Stage,
   type StageCtx,
+  StageError,
   type StageTiming,
 } from "@conveyor/shared";
-import { openDb, dbGetPrinter, dbRecordJob, dbResolveJobTarget } from "@conveyor/shared/db";
+import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { Worker } from "bullmq";
+import { Redis } from "ioredis";
+import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
-import { resolveProfileForSlice } from "./profile.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -27,7 +27,8 @@ const bus = new StatusBus();
 const worker = new Worker<JobRequest>(
   JOB_QUEUE,
   async (job) => {
-    const jobId = job.id!;
+    const jobId = job.id;
+    if (!jobId) throw new Error("job has no id");
     const req = job.data;
     const workDir = join(DATA_DIR, jobId);
     await mkdir(workDir, { recursive: true });
@@ -107,7 +108,7 @@ const worker = new Worker<JobRequest>(
       const transport = registry.transports.get(jobTarget.transportId);
       if (!transport)
         throw new StageError("transport", `unknown transport ${jobTarget.transportId}`);
-      const target = await resolveTarget(jobTarget.printerId, jobTarget.transportId);
+      const target = await resolveTarget(jobTarget.printerId);
       const handle = await transport.submit(gcode, target, ctx);
 
       currentState = "printing";
@@ -159,7 +160,7 @@ worker.on("ready", () => console.log("conveyor worker ready"));
 worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
 
 /** Resolve the PrinterTarget (incl. server-only secrets) from the SQLite store. */
-async function resolveTarget(printerId: string, transportId: string): Promise<PrinterTarget> {
+async function resolveTarget(printerId: string): Promise<PrinterTarget> {
   const p = dbGetPrinter(openDb(), printerId);
   if (!p) throw new StageError("transport", `unknown printer ${printerId}`);
   return { id: p.id, transportId: p.transportId, address: p.address, secrets: p.secrets };

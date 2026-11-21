@@ -1,15 +1,15 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import {
-  StageError,
   type GeneratorPlugin,
   type JSONSchema7,
   type ModelArtifact,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
-import { gridfinityParams, type GridfinityParams } from "./params.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { type GridfinityParams, gridfinityParams } from "./params.js";
 
 // Entry file + variable names verified against gridfinity-rebuilt-openscad @ HEAD
 // (2025-08) by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin

@@ -1,14 +1,14 @@
 import { copyFile, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { basename, join } from "node:path";
 import {
-  StageError,
   type GeneratorPlugin,
   type JSONSchema7,
   type ModelArtifact,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
-import { passthroughParams, type PassthroughParams } from "./params.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { type PassthroughParams, passthroughParams } from "./params.js";
 
 /**
  * Passthrough generator: the user's uploaded STL IS the model. No engine, no

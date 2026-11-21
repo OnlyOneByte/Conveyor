@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { openDb, dbGetJob } from "@conveyor/shared/db";
+import { dbGetJob, openDb } from "@conveyor/shared/db";
 
 /**
  * The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/` (see

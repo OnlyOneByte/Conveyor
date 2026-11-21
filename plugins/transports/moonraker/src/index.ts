@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
-  type PrintHandle,
   type PrinterTarget,
+  type PrintHandle,
   type PrintStatus,
   type StageCtx,
+  StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
 

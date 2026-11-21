@@ -1,22 +1,22 @@
-import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 import {
+  ACTIVE_JOBS_KEY,
+  isTerminal,
+  type JobStatusEvent,
   jobChannel,
   jobSnapshotKey,
-  isTerminal,
-  ACTIVE_JOBS_KEY,
-  type JobStatusEvent,
 } from "@conveyor/shared";
-import { jobQueue, redis } from "../queue.js";
-import { openDb, dbResolveJobTarget } from "@conveyor/shared/db";
-import { validateJobRequest } from "../validate.js";
+import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
-  resolveJobArtifact,
-  openArtifactStream,
   ArtifactError,
   type ArtifactKind,
+  openArtifactStream,
+  resolveJobArtifact,
 } from "../artifact-download.js";
+import { jobQueue, redis } from "../queue.js";
+import { validateJobRequest } from "../validate.js";
 
 const jobRequestSchema = z.object({
   generator: z.object({ id: z.string(), params: z.unknown() }),
@@ -34,11 +34,9 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     // transport, the profile supplies the slicer and g-code flavour.
     const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
     if (!target) {
-      return reply
-        .code(404)
-        .send({
-          error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
-        });
+      return reply.code(404).send({
+        error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
+      });
     }
 
     try {

@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  StageError,
   type GcodeArtifact,
   type ModelArtifact,
   type ProfileRef,
   type SlicerPlugin,
   type StageCtx,
+  StageError,
 } from "@conveyor/shared";
 
 /** M0 engine-stub: emit placeholder gcode so the pipeline runs without PrusaSlicer installed. */
