@@ -121,6 +121,18 @@ SDCP (Smart Device Control Protocol), written from the
   status frame, so one garbled push does not fail a running print; the third ends `status()` with a
   `StageError` that names the count and quotes the last frame. Only a readable status frame resets the
   count: notice, attributes and response frames leave it as it is, so they cannot keep a broken stream alive.
+- Idle timeout: `ELEGOO_STATUS_TIMEOUT_MS` (default 10 minutes) is an inactivity limit, not a limit on the
+  whole print. A timer starts when the stream opens and restarts on every frame that reports a print status
+  (`printing`, `done`, `canceled`, `failed`, or a `printing` note for a mid-print error). When it fires,
+  `status()` throws a `StageError` "no print status for <ms> ms" and the job fails. Frames that report
+  nothing do not restart it: notice, attributes and response frames, unreadable frames, and status frames
+  that map to no state, such as idle (`CurrentStatus: [0]` without `PrintInfo.Status` 8 or 9). A print of any
+  length completes as long as the printer keeps reporting it.
+- Fatal errors mid-print: SDCP V3.0.0 has no "print aborted" push, so a printer that stops after an
+  `sdcp/error` and then sends only idle frames gives no end signal. Because idle frames do not restart the
+  timer, such a job stays `printing` for at most `ELEGOO_STATUS_TIMEOUT_MS` after its last print status, then
+  fails. A firmware that pushes status only on change, with gaps longer than the timeout, needs a larger
+  `ELEGOO_STATUS_TIMEOUT_MS`.
 - Parsing: every frame is checked against a zod schema in `src/frames.ts` (discovery reply, push envelope,
   status, error and ack shapes). `parseDiscovery`, `parsePushFrame` and `ackCode` return an `SdcpRead`
   (`frame`, `other` or `malformed` with the failing field path) and never throw; each caller switches over all

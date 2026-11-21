@@ -24,7 +24,7 @@ import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const DISCOVERY_PORT = Number(process.env.ELEGOO_DISCOVERY_PORT ?? 3000);
 const DISCOVERY_MS = Number(process.env.ELEGOO_DISCOVERY_MS ?? 3000);
-const STATUS_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
+const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
 
 export const elegoo: TransportPlugin = {
   id: "elegoo",
@@ -78,7 +78,7 @@ export const elegoo: TransportPlugin = {
       throw new StageError("transport", "elegoo status: missing printer address on handle");
 
     yield { state: "transferring" };
-    for await (const s of streamStatus(handle.address, STATUS_TIMEOUT_MS, signal)) {
+    for await (const s of streamStatus(handle.address, STATUS_IDLE_TIMEOUT_MS, signal)) {
       yield s;
       if (s.state === "done" || s.state === "failed" || s.state === "canceled") return;
     }

@@ -125,7 +125,7 @@ function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
 
 export async function* streamStatus(
   address: string,
-  timeoutMs: number,
+  idleTimeoutMs: number,
   signal?: AbortSignal,
 ): AsyncIterable<PrintStatus> {
   const queue: PrintStatus[] = [];
@@ -134,6 +134,7 @@ export async function* streamStatus(
   let failure: StageError | null = null;
   let badFrames = 0;
   let printing: PrintStatus | undefined;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const notify = () => {
     wake?.();
     wake = null;
@@ -141,6 +142,23 @@ export async function* streamStatus(
   const stop = () => {
     closed = true;
     notify();
+  };
+  const fail = (error: StageError) => {
+    failure = error;
+    stop();
+  };
+  const restartIdleTimer = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(
+      () =>
+        fail(
+          new StageError(
+            "transport",
+            `elegoo status from ${address}: no print status for ${idleTimeoutMs} ms`,
+          ),
+        ),
+      idleTimeoutMs,
+    );
   };
 
   const ws = new WebSocket(socketUrl(address));
@@ -152,15 +170,17 @@ export async function* streamStatus(
         return;
       case "malformed":
         if (badFrames < MAX_BAD_STATUS_FRAMES) return;
-        failure = new StageError(
-          "transport",
-          `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
+        return fail(
+          new StageError(
+            "transport",
+            `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
+          ),
         );
-        return stop();
       case "frame": {
         const status = toPrintStatus(read.frame, printing);
         if (!status) return;
         if (status.state === "printing") printing = status;
+        restartIdleTimer();
         queue.push(status);
         return notify();
       }
@@ -171,12 +191,17 @@ export async function* streamStatus(
   ws.onclose = stop;
   ws.onerror = stop;
   signal?.addEventListener("abort", stop, { once: true });
+  restartIdleTimer();
 
-  const deadline = nowMs() + timeoutMs;
-  while (!closed && !signal?.aborted && nowMs() < deadline) {
-    if (queue.length === 0) await new Promise<void>((r) => (wake = r));
-    for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
+  try {
+    while (!closed && !signal?.aborted) {
+      if (queue.length === 0) await new Promise<void>((r) => (wake = r));
+      for (let next = queue.shift(); next !== undefined; next = queue.shift()) yield next;
+    }
+  } finally {
+    clearTimeout(idleTimer);
+    signal?.removeEventListener("abort", stop);
+    ws.close();
   }
-  ws.close();
   if (failure) throw failure;
 }
