@@ -11,7 +11,14 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { parseDiscovery, SDCP_CMD, type SdcpDiscovery } from "./sdcp.js";
+import {
+  discoveryOutcome,
+  exhaustive,
+  parseDiscovery,
+  SDCP_CMD,
+  type SdcpDiscovery,
+  type SdcpRead,
+} from "./sdcp.js";
 import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
@@ -103,14 +110,13 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
 function discoverSdcp(timeoutMs: number): Promise<SdcpDiscovery[]> {
   return new Promise((resolve, reject) => {
     const sock = createSocket("udp4");
-    const found = new Map<string, SdcpDiscovery>();
+    const reads: SdcpRead<SdcpDiscovery>[] = [];
     sock.on("error", (e) => {
       sock.close();
       reject(new StageError("transport", `elegoo discovery socket error: ${e.message}`));
     });
     sock.on("message", (msg) => {
-      const d = parseDiscovery(msg.toString());
-      if (d) found.set(d.mainboardId, d);
+      reads.push(parseDiscovery(msg.toString()));
     });
     sock.bind(() => {
       sock.setBroadcast(true);
@@ -119,7 +125,20 @@ function discoverSdcp(timeoutMs: number): Promise<SdcpDiscovery[]> {
     });
     setTimeout(() => {
       sock.close();
-      resolve([...found.values()]);
+      const outcome = discoveryOutcome(reads);
+      switch (outcome.kind) {
+        case "found":
+          return resolve(outcome.printers);
+        case "none":
+          return reject(
+            new StageError(
+              "transport",
+              `elegoo discovery: no SDCP printer among ${outcome.reasons.length} replies: ${outcome.reasons.join("; ")}`,
+            ),
+          );
+        default:
+          return exhaustive(outcome);
+      }
     }, timeoutMs);
   });
 }

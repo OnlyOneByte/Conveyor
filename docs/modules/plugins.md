@@ -110,12 +110,16 @@ SDCP (Smart Device Control Protocol), written from the
 [SDCP V3.0.0 spec](https://github.com/cbd-tech/SDCP-Smart-Device-Control-Protocol-V3.0.0):
 
 - Discovery: UDP broadcast of the probe `M99999` to port 3000 (`ELEGOO_DISCOVERY_PORT`); each printer replies
-  with a JSON datagram (`MainboardIP`, `MainboardID`, …).
+  with a JSON datagram (`MainboardIP`, `MainboardID`, …). Replies without those fields or that are not JSON
+  are left out; when replies arrive but none is a printer, `discover()` rejects with every reason.
 - Control: WebSocket `ws://<ip>:3030/websocket` (`ELEGOO_WS_PORT`), JSON request/response plus pushed status
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
-  up to 15 s for its ack; non-JSON frames are ignored.
+  up to 15 s for its ack. JSON frames for other requests are skipped; a non-JSON frame rejects the command,
+  and on the status stream it ends `status()` with a `StageError` that quotes the frame.
+- Parsing: `parseDiscovery`, `parseStatusFrame` and `ackCode` return an `SdcpRead` (`frame`, `other` or
+  `malformed` with a reason) and never throw; each caller switches over all three.
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
 - Cancel: `cancel()` sends `Cmd 130` (STOP_PRINT) to the handle's `deviceId`, which is the stored
   `mainboardId`. It resolves only on a matching ack with `Ack 0`. A non-zero ack, a socket close before the

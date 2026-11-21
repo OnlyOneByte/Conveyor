@@ -32,25 +32,67 @@ export interface SdcpDiscovery {
   firmwareVersion?: string;
 }
 
-export function parseDiscovery(buf: string): SdcpDiscovery | null {
+export type SdcpRead<T> =
+  | { kind: "frame"; frame: T }
+  | { kind: "other"; reason: string }
+  | { kind: "malformed"; reason: string };
+
+export type DiscoveryOutcome =
+  | { kind: "found"; printers: SdcpDiscovery[] }
+  | { kind: "none"; reasons: string[] };
+
+export function exhaustive(value: never): never {
+  throw new Error(`unhandled SDCP read: ${JSON.stringify(value)}`);
+}
+
+export function malformed(raw: string, e: unknown): { kind: "malformed"; reason: string } {
+  const why = e instanceof Error ? e.message : String(e);
+  return { kind: "malformed", reason: `${why} in ${JSON.stringify(raw.slice(0, 80))}` };
+}
+
+export function parseDiscovery(buf: string): SdcpRead<SdcpDiscovery> {
   try {
     const j = JSON.parse(buf);
     const d = j.Data ?? j.data ?? {};
     const mainboardIp = d.MainboardIP ?? d.mainboardIP;
     const mainboardId = d.MainboardID ?? d.mainboardID;
-    if (!mainboardIp || !mainboardId) return null;
+    if (!mainboardIp || !mainboardId)
+      return { kind: "other", reason: "reply has no MainboardIP or MainboardID" };
     return {
-      name: d.Name ?? d.name ?? "Elegoo printer",
-      machineName: d.MachineName ?? d.machineName ?? "",
-      brand: d.BrandName ?? d.brandName ?? "Elegoo",
-      mainboardIp,
-      mainboardId,
-      protocolVersion: d.ProtocolVersion,
-      firmwareVersion: d.FirmwareVersion,
+      kind: "frame",
+      frame: {
+        name: d.Name ?? d.name ?? "Elegoo printer",
+        machineName: d.MachineName ?? d.machineName ?? "",
+        brand: d.BrandName ?? d.brandName ?? "Elegoo",
+        mainboardIp,
+        mainboardId,
+        protocolVersion: d.ProtocolVersion,
+        firmwareVersion: d.FirmwareVersion,
+      },
     };
-  } catch {
-    return null;
+  } catch (e) {
+    return malformed(buf, e);
   }
+}
+
+export function discoveryOutcome(reads: SdcpRead<SdcpDiscovery>[]): DiscoveryOutcome {
+  const printers = new Map<string, SdcpDiscovery>();
+  const reasons: string[] = [];
+  for (const read of reads) {
+    switch (read.kind) {
+      case "frame":
+        printers.set(read.frame.mainboardId, read.frame);
+        break;
+      case "other":
+      case "malformed":
+        reasons.push(read.reason);
+        break;
+      default:
+        exhaustive(read);
+    }
+  }
+  if (printers.size === 0 && reasons.length > 0) return { kind: "none", reasons };
+  return { kind: "found", printers: [...printers.values()] };
 }
 
 export function buildCommand(
@@ -82,11 +124,12 @@ export interface SdcpStatusFrame {
   totalLayer: number | null;
 }
 
-export function parseStatusFrame(buf: string): SdcpStatusFrame | null {
+export function parseStatusFrame(buf: string): SdcpRead<SdcpStatusFrame> {
   try {
     const j = JSON.parse(buf);
     const topic: string = j.Topic ?? "";
-    if (!topic.startsWith("sdcp/status/")) return null;
+    if (!topic.startsWith("sdcp/status/"))
+      return { kind: "other", reason: `topic ${JSON.stringify(topic)}` };
     const status = j.Data?.Status ?? {};
     const pi = status.PrintInfo ?? {};
     const cur: number[] = Array.isArray(status.CurrentStatus)
@@ -99,13 +142,16 @@ export function parseStatusFrame(buf: string): SdcpStatusFrame | null {
       progress = pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
     else if (pi.TotalLayer) progress = (pi.CurrentLayer ?? 0) / pi.TotalLayer;
     return {
-      currentStatus: cur,
-      printStatus: typeof pi.Status === "number" ? pi.Status : null,
-      progress: Math.max(0, Math.min(1, progress)),
-      currentLayer: pi.CurrentLayer ?? null,
-      totalLayer: pi.TotalLayer ?? null,
+      kind: "frame",
+      frame: {
+        currentStatus: cur,
+        printStatus: typeof pi.Status === "number" ? pi.Status : null,
+        progress: Math.max(0, Math.min(1, progress)),
+        currentLayer: pi.CurrentLayer ?? null,
+        totalLayer: pi.TotalLayer ?? null,
+      },
     };
-  } catch {
-    return null;
+  } catch (e) {
+    return malformed(buf, e);
   }
 }
