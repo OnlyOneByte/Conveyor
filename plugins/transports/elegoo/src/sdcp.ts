@@ -127,7 +127,7 @@ export interface SdcpStatusFrame {
 
 export type SdcpPush =
   | { kind: "status"; status: SdcpStatusFrame }
-  | { kind: "error"; errorCode: number };
+  | { kind: "error"; errorCode: number | string };
 
 function progressOf(pi: { Progress?: number; CurrentLayer?: number; TotalLayer?: number }): number {
   if (pi.Progress !== undefined) return pi.Progress > 1 ? pi.Progress / 100 : pi.Progress;
@@ -159,8 +159,9 @@ function readError(data: unknown, buf: string): SdcpRead<SdcpPush> {
 export function parsePushFrame(buf: string): SdcpRead<SdcpPush> {
   const envelope = decodeFrame(PushEnvelope, buf);
   if (envelope.kind === "malformed") return envelope;
-  const { Topic, Data } = envelope.value;
-  if (Topic.startsWith("sdcp/status/")) return readStatus(Data, buf);
+  const { Topic, Data, Status } = envelope.value;
+  if (Topic.startsWith("sdcp/status/"))
+    return readStatus(Status === undefined ? Data : { Status }, buf);
   if (Topic.startsWith("sdcp/error/")) return readError(Data, buf);
   return { kind: "other", reason: `topic ${JSON.stringify(Topic)}` };
 }

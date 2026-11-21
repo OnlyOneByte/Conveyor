@@ -117,23 +117,30 @@ SDCP (Smart Device Control Protocol), written from the
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
   up to 15 s for its ack. JSON frames for other requests are skipped; an unreadable frame rejects the command.
-  The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames in a row, so one
-  garbled push does not fail a running print; the third in a row ends `status()` with a `StageError` that
-  names the count and quotes the last frame. Any readable frame resets the count.
+  The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames since the last readable
+  status frame, so one garbled push does not fail a running print; the third ends `status()` with a
+  `StageError` that names the count and quotes the last frame. Only a readable status frame resets the
+  count: notice, attributes and response frames leave it as it is, so they cannot keep a broken stream alive.
 - Parsing: every frame is checked against a zod schema in `src/frames.ts` (discovery reply, push envelope,
   status, error and ack shapes). `parseDiscovery`, `parsePushFrame` and `ackCode` return an `SdcpRead`
   (`frame`, `other` or `malformed` with the failing field path) and never throw; each caller switches over all
   three.
-- Printer errors: an `sdcp/error/<id>` push (`Data.Data.ErrorCode`) yields `failed` with the message
-  "printer reported SDCP error <code>", which ends the job. `sdcp/notice/<id>` and `sdcp/attributes/<id>`
-  pushes are informational and skipped.
+- Printer errors: SDCP V3.0.0 defines `ErrorCode` 1 (MD5 check failed) and 2 (file format incorrect), both
+  file-transfer errors; the code is accepted as a number or a string. An `sdcp/error/<id>` push
+  (`Data.Data.ErrorCode`) before printing has been observed yields `failed` with the message
+  "printer reported SDCP error <code>", which ends the job. Once printing has been observed it is kept as a
+  note: the last `printing` status is re-emitted with "printer reported SDCP error <code> while printing",
+  and the print carries on. `sdcp/notice/<id>` and `sdcp/attributes/<id>` pushes are informational and
+  skipped.
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
 - Cancel: `cancel()` sends `Cmd 130` (STOP_PRINT) to the handle's `deviceId`, which is the stored
   `mainboardId`. It resolves only on a matching ack with `Ack 0`. A non-zero ack, a socket close before the
   ack, an error or the 15 s timeout rejects it. `handleFor()` builds the same handle for an interrupted
   `submit()`. The socket, ack and status-stream code lives in `src/socket.ts`.
 
-Status mapping from a pushed `sdcp/status/<id>` frame:
+Status mapping from a pushed `sdcp/status/<id>` frame. `Status` is read from the top level of the frame, as the
+spec shows it, or from `Data.Status`, as the fixtures carry it. The `PrintInfo` numbers accept a number or a
+numeric string (`"40"`); any other string (`"40%"`) makes the frame malformed.
 
 - `CurrentStatus`: 0 idle, 1 printing, 2 transferring.
 - `PrintInfo.Status`: 9 complete → `done`; 8 stopped → `canceled` ("stopped on printer"); 13 is the generic

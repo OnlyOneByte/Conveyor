@@ -135,19 +135,34 @@ describe("parsePushFrame", () => {
   });
 
   test("an error frame without a numeric ErrorCode is malformed with the field named", () => {
-    const raw = JSON.stringify({ Topic: "sdcp/error/mb-1", Data: { Data: { ErrorCode: "x" } } });
+    const raw = JSON.stringify({ Topic: "sdcp/error/mb-1", Data: { Data: { ErrorCode: true } } });
     const read = parsePushFrame(raw);
-    expect(read.kind === "malformed" && read.reason).toStartWith("Data.ErrorCode: Expected number");
+    expect(read.kind === "malformed" && read.reason).toStartWith("Data.ErrorCode: Invalid input");
   });
 
-  test("a status field of the wrong type is malformed with its path named", () => {
+  test("a numeric-string Progress is read as a number", () => {
+    const raw = JSON.stringify({
+      Topic: "sdcp/status/mb-1",
+      Data: { Status: { PrintInfo: { Status: "13", Progress: "40" } } },
+    });
+    const read = parsePushFrame(raw);
+    expect(read.kind === "frame" && read.frame.kind === "status" && read.frame.status).toEqual({
+      currentStatus: [],
+      printStatus: 13,
+      progress: 0.4,
+      currentLayer: null,
+      totalLayer: null,
+    });
+  });
+
+  test("a non-numeric Progress string is malformed with its path named", () => {
     const raw = JSON.stringify({
       Topic: "sdcp/status/mb-1",
       Data: { Status: { PrintInfo: { Progress: "40%" } } },
     });
     const read = parsePushFrame(raw);
     expect(read.kind === "malformed" && read.reason).toStartWith(
-      "Status.PrintInfo.Progress: Expected number",
+      "Status.PrintInfo.Progress: Invalid input",
     );
   });
 

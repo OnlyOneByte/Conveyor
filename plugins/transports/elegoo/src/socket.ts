@@ -91,9 +91,14 @@ export function sendCommand(
   });
 }
 
-export function toPrintStatus(push: SdcpPush): PrintStatus | undefined {
+export function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | undefined {
   switch (push.kind) {
     case "error":
+      if (printing)
+        return {
+          ...printing,
+          message: `printer reported SDCP error ${push.errorCode} while printing`,
+        };
       return { state: "failed", message: `printer reported SDCP error ${push.errorCode}` };
     case "status":
       return printStatusOf(push.status);
@@ -112,6 +117,12 @@ function printStatusOf(frame: SdcpStatusFrame): PrintStatus | undefined {
   return undefined;
 }
 
+function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
+  if (read.kind === "malformed") return count + 1;
+  if (read.kind === "frame" && read.frame.kind === "status") return 0;
+  return count;
+}
+
 export async function* streamStatus(
   address: string,
   timeoutMs: number,
@@ -122,6 +133,7 @@ export async function* streamStatus(
   let closed = false;
   let failure: StageError | null = null;
   let badFrames = 0;
+  let printing: PrintStatus | undefined;
   const notify = () => {
     wake?.();
     wake = null;
@@ -134,7 +146,7 @@ export async function* streamStatus(
   const ws = new WebSocket(socketUrl(address));
   ws.onmessage = (ev) => {
     const read = parsePushFrame(String(ev.data));
-    badFrames = read.kind === "malformed" ? badFrames + 1 : 0;
+    badFrames = badCountAfter(read, badFrames);
     switch (read.kind) {
       case "other":
         return;
@@ -142,12 +154,13 @@ export async function* streamStatus(
         if (badFrames < MAX_BAD_STATUS_FRAMES) return;
         failure = new StageError(
           "transport",
-          `elegoo status from ${address}: ${badFrames} unreadable frames in a row, last: ${read.reason}`,
+          `elegoo status from ${address}: ${badFrames} unreadable frames since the last status, last: ${read.reason}`,
         );
         return stop();
       case "frame": {
-        const status = toPrintStatus(read.frame);
+        const status = toPrintStatus(read.frame, printing);
         if (!status) return;
+        if (status.state === "printing") printing = status;
         queue.push(status);
         return notify();
       }

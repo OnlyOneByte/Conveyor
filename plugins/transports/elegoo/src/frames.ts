@@ -34,6 +34,15 @@ export function decodeFrame<T>(schema: Schema<T>, raw: string): Decoded<T> {
 
 const text = z.string().optional();
 const count = z.number().optional();
+const reading = z
+  .union([
+    z.number(),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .transform(Number),
+  ])
+  .optional();
 
 const DiscoveryFields = z.object({
   Name: text,
@@ -58,6 +67,7 @@ export const DiscoveryReply = z.object({
 export const PushEnvelope = z.object({
   Topic: z.string().default(""),
   Data: z.unknown(),
+  Status: z.unknown(),
 });
 
 export const StatusData = z
@@ -66,14 +76,21 @@ export const StatusData = z
       .object({
         CurrentStatus: z.union([z.array(z.number()), z.number()]).optional(),
         PrintInfo: z
-          .object({ Status: count, Progress: count, CurrentLayer: count, TotalLayer: count })
+          .object({
+            Status: reading,
+            Progress: reading,
+            CurrentLayer: reading,
+            TotalLayer: reading,
+          })
           .default({}),
       })
       .default({}),
   })
   .default({});
 
-export const ErrorData = z.object({ Data: z.object({ ErrorCode: z.number() }) });
+export const ErrorData = z.object({
+  Data: z.object({ ErrorCode: z.union([z.number(), z.string()]) }),
+});
 
 const AckFields = z.object({ RequestID: text, Ack: count });
 
