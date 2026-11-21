@@ -2,7 +2,7 @@
 
 The reviewer's job is to find the reason this PR should not merge. A PR passes only when you looked for that reason in every section below and did not find one. "I did not check" is not a pass: either check it, or write it down as an S1 `could not verify`.
 
-The repo's `AGENTS.md` is the source of truth for limits and conventions. Where it exists and disagrees with a number here, `AGENTS.md` wins. Until it lands, the numbers here come from `plans/stack-and-guidelines.md` §4.
+The repo's `AGENTS.md` is the source of truth for limits and conventions. Where it exists and disagrees with a number here, `AGENTS.md` wins.
 
 ## Severity levels
 

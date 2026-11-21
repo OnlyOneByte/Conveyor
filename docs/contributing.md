@@ -53,5 +53,7 @@ commit `scripts/checks/comments-baseline.json`. If it says `added:`, delete the 
 ## Changing the rules
 
 Guardrail paths (`.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
-`biome.jsonc`, `tsconfig*.json`, `bunfig.toml`) change in their own PR. The merge tooling holds such a PR
-until it has had at least 2 adversarial review rounds; GitHub itself does not enforce this.
+`biome.jsonc`, `tsconfig*.json`, `bunfig.toml`) change in their own PR. A guardrail-path PR needs a passing
+adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
+tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
+after that independent pass.

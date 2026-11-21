@@ -28,8 +28,9 @@ tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
 
-How it fits together, including the allowed dependency directions: [docs/architecture.md](docs/architecture.md).
-An import against the documented direction is S1. [review]
+How it fits together: [docs/architecture.md](docs/architecture.md). Dependency rule: nothing imports from
+`api`, `worker` or `web`; generator plugins import only `shared`. An import against the documented direction
+is S1. [review]
 
 ## 2. No comments
 
@@ -89,7 +90,7 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
   off. [review]
 - No explicit `any`. [CI: `lint`, outside `packages/web`; review inside it] No implied `any` either (untyped
   `JSON.parse`, a `catch (e)` used as an object): use `unknown` and narrow. [review]
-- No non-null `!`. [CI: `lint`, in `scripts/**`; review elsewhere]
+- No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
 - No `as` casts except `as const`. Parse values; don't assert them. [review]
 - No `enum`. Use a string-literal union with a `const` array:
   `export const JOB_STATES = ["queued", "slicing", "done"] as const; export type JobState = (typeof JOB_STATES)[number];` [review]
@@ -193,9 +194,11 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 ## 12. Guardrail paths
 
-A PR touching `.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
-`biome.jsonc`, `tsconfig*.json` or `bunfig.toml` needs at least 2 adversarial review rounds before merge. The
-merge tooling enforces this, not GitHub. Keep guardrail changes in their own PR.
+Guardrail paths: `.github/**`, `scripts/checks/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `biome.json`,
+`biome.jsonc`, `tsconfig*.json` and `bunfig.toml`. A guardrail-path PR needs a passing adversarial review from
+a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
+guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that
+independent pass. Keep guardrail changes in their own PR.
 
 ## 13. Docs
 
