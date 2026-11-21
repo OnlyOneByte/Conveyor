@@ -294,8 +294,9 @@ shape and safe on every boot.
    was exactly the (printer, profile) pair; a job whose station was already deleted backfills to `NULL`.
    Dropping the old table drops its indexes and triggers, so the rebuild reads every `jobs` index and
    trigger definition first and recreates each one in the same transaction, indexes before triggers;
-   `idx_jobs_created_at` never goes missing. A trigger whose SQL names `station_id` is not recreated:
-   SQLite checks a trigger body's columns only when it fires, so it would fail every later update to
+   `idx_jobs_created_at` never goes missing. A trigger whose SQL names `station_id` or the `stations`
+   table, in any case and quoted or not, is not recreated: SQLite checks a trigger body's columns and
+   tables only when it fires, and step 6 drops `stations`, so it would fail every later update to
    `jobs`. Its SQL is kept in `meta` under `dropped_trigger:<name>` and `openDb()` warns with that key once
    the migration commits. A station was a (printer, profile) pair, so no single new column can stand in
    for `station_id` in a rewritten body.
