@@ -6,9 +6,10 @@ It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only i
 
 ## Boot order (`index.ts`)
 
-`index.ts` registers `GET /health` first, then the auth guard (a root `onRequest` hook), then the login routes it
-lets through, then the generator, upload, catalog and job routes. The guard covers every route registered after
-it. `/health` comes before it and is public by design: it is also in `PUBLIC_PREFIXES`.
+`index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
+routes. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
+registered in. Requests whose path (query string removed) starts with an entry in `PUBLIC_PREFIXES` (today
+`/health` and `/auth/`) skip it; everything else needs a valid session.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
@@ -18,7 +19,7 @@ it. `/health` comes before it and is public by design: it is also in `PUBLIC_PRE
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
-- The public paths live in one list, `PUBLIC_PREFIXES` (`/health`, `/auth/*`), so a new route cannot fall
+- The public paths live in one list, `PUBLIC_PREFIXES` (`/health`, `/auth/`), so a new route cannot fall
   outside the protected tree by accident. Everything else needs a valid session.
 - With auth disabled there is no gate (a warning is logged at boot), and `POST /auth/login` answers `ok`.
 - `GET /auth/status` tells the client whether to show a login screen.
