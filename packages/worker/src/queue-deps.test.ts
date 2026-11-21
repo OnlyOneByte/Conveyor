@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dbUpsertPrinter, openDb } from "@conveyor/shared/db";
+import { dbGetJob, dbUpsertPrinter, openDb } from "@conveyor/shared/db";
 import {
   claimJob,
   enqueueJob,
@@ -70,6 +70,8 @@ const row = () =>
   db.query<Record<string, unknown>, []>("SELECT * FROM jobs WHERE id = 'job-1'").get() ?? {};
 const events = () => tailEvents(db, "job-1", 0).map((e) => e.event);
 const states = () => events().map((e) => e.state);
+const bumpToken = () =>
+  db.query("UPDATE jobs SET lease_token = lease_token + 1 WHERE id = 'job-1'").run();
 const hold = () => db.query("SELECT hold_job_id, hold_reason FROM printers WHERE id = 'p1'").get();
 
 describe("a job run on the sqlite queue", () => {
@@ -157,6 +159,29 @@ describe("a job run on the sqlite queue", () => {
     expect(h.cancels).toHaveLength(1);
     expect(row()).toMatchObject({ state: "canceled", lease_owner: null });
     expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
+    expect(dbGetJob(db, "job-1")?.timings?.at(-1)).toMatchObject({ stage: "transport" });
+    expect(dbGetJob(db, "job-1")?.timings?.at(-1)?.durationMs).toBeNumber();
+  });
+
+  test("a cancel while waiting at the slot keeps the stage timings and clears the wait message", async () => {
+    const h = queued({
+      generate: async () => {
+        db.query(
+          "INSERT INTO jobs (id, generator_id, printer_id, profile_id, state, created_at, updated_at) VALUES ('other', 'gen', 'p1', 'prof', 'printing', 0, 0)",
+        ).run();
+      },
+      slice: async () => {
+        setTimeout(() => {
+          requestCancel(db, "job-1");
+          h.controller.abort();
+        }, 30);
+      },
+    });
+    expect(await h.run()).toBe("canceled");
+    expect(dbGetJob(db, "job-1")?.timings?.map((t) => t.stage)).toEqual(["generator", "slicer"]);
+    expect(dbGetJob(db, "job-1")?.timings?.at(-1)?.durationMs).toBeNumber();
+    expect(row()).toMatchObject({ state: "canceled", progress: null, message: null });
+    expect(h.submits).toBe(0);
   });
 
   test("a print the printer itself cancels settles canceled", async () => {
@@ -196,6 +221,91 @@ describe("a job run on the sqlite queue", () => {
     expect(row().state).toBe("failed");
     expect(hold()).toEqual({ hold_job_id: "job-1", hold_reason: UPLOAD_SETTLE_REASON });
     expect(h.submits).toBe(1);
+  });
+
+  test("a slot the queue refuses never reaches submit()", async () => {
+    const h = queued({
+      slice: async () => {
+        db.query("UPDATE jobs SET submit_started_at = 1 WHERE id = 'job-1'").run();
+      },
+    });
+    await expect(h.run()).rejects.toThrow("printer slot refused");
+    expect(h.submits).toBe(0);
+  });
+
+  test("a refused marker stops the run before it watches the print", async () => {
+    let watched = false;
+    const h = queued({
+      submit: async () => void bumpToken(),
+      status: async function* () {
+        watched = true;
+        yield { state: "done" };
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(row().submitted_at).toBeNull();
+    expect(watched).toBe(false);
+  });
+
+  test("a refused status write aborts the running engine", async () => {
+    let first = "";
+    const h = queued({
+      generate: async () => void bumpToken(),
+      slice: async (ctx) => {
+        first = await Promise.race([
+          waitForAbort(ctx.signal).catch(() => "aborted"),
+          Bun.sleep(500).then(() => "still running"),
+        ]);
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(first).toBe("aborted");
+  });
+
+  test("a refused terminal write is a lost lease, not done, and records nothing", async () => {
+    const h = queued({
+      status: async function* () {
+        yield { state: "printing", progress: 0.5 };
+        bumpToken();
+        yield { state: "done" };
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(row()).toMatchObject({ state: "printing", model_path: null });
+  });
+
+  test("a cancel that settleCancel refuses is a lost lease, not canceled", async () => {
+    const h = queued({
+      status: async function* (_handle, signal) {
+        yield { state: "printing", progress: 0.1 };
+        bumpToken();
+        requestCancel(db, "job-1");
+        h.controller.abort();
+        if (signal) await waitForAbort(signal);
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(row().state).toBe("printing");
+  });
+
+  test("progress still pending at a new state or at the marker is dropped, not flushed late", async () => {
+    const h = queued({
+      slice: async (ctx) => {
+        ctx.report(0.4);
+        ctx.report(0.8);
+      },
+      submit: async (ctx) => {
+        await Bun.sleep(80);
+        ctx.report(0.4);
+        ctx.report(0.8);
+      },
+      status: async function* () {
+        await Bun.sleep(120);
+        yield { state: "printing", progress: 0.5 };
+        yield { state: "done" };
+      },
+    });
+    expect(await h.run()).toBe("done");
   });
 
   test("a lost lease stops the run without writing anything more", async () => {
