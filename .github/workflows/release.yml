@@ -1,25 +1,16 @@
 name: Release images
 
-# Build the three service images (api / web / worker) and publish multi-arch
-# (amd64 + arm64) manifests to GHCR. Triggered by a v* tag (the release cut) or
-# manually. Native runners per arch (no QEMU) — the worker downloads + extracts
-# the OpenSCAD nightly and OrcaSlicer AppImages and apt-installs the GL/GTK stack,
-# which is too heavy to emulate reliably. Each (service, arch) pushes an untagged
-# image by digest; a per-service merge job stitches the two digests into one
-# multi-arch tag. Auth uses the built-in GITHUB_TOKEN — no secrets to manage.
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
-# Cancel an in-progress run for the same ref if a newer one starts.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ── Per-(service, arch) build, pushed to GHCR by digest (no tag yet) ──────────
   build:
     name: build ${{ matrix.service }} (${{ matrix.platform.arch }})
     runs-on: ${{ matrix.platform.runner }}
@@ -36,9 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive # worker bakes in the scad/ gridfinity lib (COPY . .)
+          submodules: recursive
 
-      # GHCR requires a lowercase image path; the owner (OnlyOneByte) is mixed-case.
       - name: Compute image name
         run: echo "REGISTRY_IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/conveyor-${{ matrix.service }}" >> "$GITHUB_ENV"
 
@@ -66,16 +56,8 @@ jobs:
           file: packages/${{ matrix.service }}/Dockerfile
           platforms: ${{ matrix.platform.name }}
           labels: ${{ steps.meta.outputs.labels }}
-          # worker resolves LATEST OpenSCAD/Orca at build time (Angelo: track-latest,
-          # don't pin); ORCA_ENABLE defaults to `auto` in the Dockerfile so the real
-          # engines are baked in — unlike ci.yml which disables Orca for a fast gate.
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
-          # mode=min, not max. max exports EVERY intermediate layer to the Actions
-          # cache; the worker image is ~2.25GB with heavy engine layers, and that
-          # export is the leading suspect for the v0.1.0 arm64 job failing inside
-          # this step (which covers build + push + cache export). min keeps the
-          # useful final-layer cache without the multi-GB export.
           cache-to: type=gha,mode=min,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
 
       - name: Export digest
@@ -93,7 +75,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # ── Per-service: merge the two arch digests into one multi-arch tag ───────────
   merge:
     name: publish ${{ matrix.service }}
     runs-on: ubuntu-24.04
@@ -124,9 +105,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-          # v1.2.3 -> :1.2.3 + :1.2 + :latest + :sha-<short>. A manual run on a
-          # branch gets only :sha-<short> (semver/latest disabled off-tag) so it
-          # never clobbers the release :latest.
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
