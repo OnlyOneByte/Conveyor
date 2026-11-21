@@ -11,6 +11,7 @@ import {
 import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
+import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
@@ -24,12 +25,14 @@ const commands = new Redis(REDIS_URL);
 const registry = buildRegistry();
 const bus = new StatusBus();
 
-const worker = new Worker<JobRequest>(
+const worker = new Worker<unknown>(
   JOB_QUEUE,
   async (job) => {
     const jobId = job.id;
     if (!jobId) throw new Error("job has no id");
-    const req = job.data;
+    const req = await readJobPayload(jobId, job.data, (id, state, extra) =>
+      bus.publish(id, state, extra),
+    );
     const workDir = join(DATA_DIR, jobId);
     await mkdir(workDir, { recursive: true });
 
@@ -69,24 +72,17 @@ async function resolveTarget(printerId: string): Promise<PrinterTarget> {
 }
 
 function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
-  try {
-    dbRecordJob(openDb(), {
-      id: jobId,
-      generatorId: req.generator.id,
-      params: req.generator.params,
-      printerId: req.printerId,
-      profileId: req.profileId,
-      state: extra.state,
-      stage: extra.stage ?? null,
-      error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
-      modelPath: extra.modelPath,
-      gcodePath: extra.gcodePath,
-      timings: extra.timings,
-    });
-  } catch (e) {
-    console.error(
-      `[${jobId}] failed to record job history:`,
-      e instanceof Error ? e.message : String(e),
-    );
-  }
+  dbRecordJob(openDb(), {
+    id: jobId,
+    generatorId: req.generator.id,
+    params: req.generator.params,
+    printerId: req.printerId,
+    profileId: req.profileId,
+    state: extra.state,
+    stage: extra.stage ?? null,
+    error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
+    modelPath: extra.modelPath,
+    gcodePath: extra.gcodePath,
+    timings: extra.timings,
+  });
 }

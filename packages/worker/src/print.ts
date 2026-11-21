@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import {
   computeStageTimings,
+  exhaustive,
   type GcodeArtifact,
   type JobTarget,
   type PrintHandle,
@@ -56,19 +57,26 @@ function pollCancelFlag(run: Run): () => void {
 }
 
 async function handleStatus(run: Run, status: PrintStatus): Promise<PrintOutcome | undefined> {
-  if (status.state === "done" || status.state === "canceled") return status.state;
-  if (status.state === "failed") {
-    throw new StageError("transport", status.message ?? status.state);
+  const { state } = status;
+  switch (state) {
+    case "done":
+    case "canceled":
+      return state;
+    case "failed":
+      throw new StageError("transport", status.message ?? state);
+    case "printing":
+      await run.deps.publish(run.opts.jobId, "printing", {
+        stage: run.stage,
+        progress: status.progress,
+        message: status.message,
+        timings: computeStageTimings(run.enters),
+      });
+      return undefined;
+    case "transferring":
+      return undefined;
+    default:
+      return exhaustive(state);
   }
-  if (status.state === "printing") {
-    await run.deps.publish(run.opts.jobId, "printing", {
-      stage: run.stage,
-      progress: status.progress,
-      message: status.message,
-      timings: computeStageTimings(run.enters),
-    });
-  }
-  return undefined;
 }
 
 async function closeStream(

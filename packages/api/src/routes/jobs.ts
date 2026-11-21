@@ -7,13 +7,13 @@ import {
   jobCancelKey,
   jobChannel,
   jobControlChannel,
+  jobRequestSchema,
   jobSnapshotKey,
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
 import {
   ArtifactError,
   type ArtifactKind,
@@ -23,12 +23,6 @@ import {
 import { cancelJob } from "../cancel.js";
 import { jobQueue, redis } from "../queue.js";
 import { validateJobRequest } from "../validate.js";
-
-const jobRequestSchema = z.object({
-  generator: z.object({ id: z.string(), params: z.unknown() }),
-  printerId: z.string(),
-  profileId: z.string(),
-});
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   // Submit a job → validate compatibility → enqueue.

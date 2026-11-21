@@ -1,10 +1,11 @@
 import {
+  exhaustive,
   type GcodeArtifact,
   type JobTarget,
   type ModelArtifact,
   StageError,
 } from "@conveyor/shared";
-import { printStage } from "./print.js";
+import { type PrintOutcome, printStage } from "./print.js";
 import {
   checkpoint,
   createRun,
@@ -47,37 +48,45 @@ async function sliceStage(
   if (!slicer) throw new StageError("slicer", `unknown slicer ${target.slicerId}`);
   const profile = await run.deps.resolveProfile(target, run.opts.workDir);
   run.ctx.log(`profile ${target.profileId}: ${profile.source}`);
-  const sliced = slicer
-    .slice(model, profile.profile, run.ctx)
-    .finally(() =>
-      profile
-        .cleanup()
-        .catch((error) =>
-          run.ctx.log(`warning: failed to clean materialized profile: ${messageOf(error)}`),
-        ),
-    );
+  const sliced = slicer.slice(model, profile.profile, run.ctx).finally(() =>
+    profile.cleanup().catch((error: unknown) => {
+      run.notes.push(`materialized profile not removed: ${messageOf(error)}`);
+    }),
+  );
   const gcode = await race(run, sliced);
   run.gcodePath = gcode.path;
   return gcode;
 }
 
+async function runStages(run: Run): Promise<PrintOutcome> {
+  await checkpoint(run);
+  const { req } = run.opts;
+  const target = run.deps.resolveJobTarget(req);
+  if (!target) {
+    throw new StageError(
+      "generator",
+      `unknown printer ${req.printerId} or profile ${req.profileId}`,
+    );
+  }
+  const model = await generateStage(run);
+  const gcode = await sliceStage(run, target, model);
+  return printStage(run, target, gcode);
+}
+
 export async function runJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
   const run = createRun(opts, deps);
+  let outcome: PrintOutcome;
   try {
-    await checkpoint(run);
-    const target = deps.resolveJobTarget(opts.req);
-    if (!target) {
-      throw new StageError(
-        "generator",
-        `unknown printer ${opts.req.printerId} or profile ${opts.req.profileId}`,
-      );
-    }
-    const model = await generateStage(run);
-    const gcode = await sliceStage(run, target, model);
-    const outcome = await printStage(run, target, gcode);
-    if (outcome === "canceled") return await settleCanceled(run, "canceled on printer");
-    return await settleDone(run);
+    outcome = await runStages(run);
   } catch (err) {
     return settleError(run, err);
+  }
+  switch (outcome) {
+    case "canceled":
+      return settleCanceled(run, "canceled on printer");
+    case "done":
+      return settleDone(run);
+    default:
+      return exhaustive(outcome);
   }
 }

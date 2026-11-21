@@ -174,3 +174,17 @@ describe("runJob print outcomes", () => {
     expect(h.records[0]).toEqual({ state: "failed", reason: "thermal runaway" });
   });
 });
+
+describe("runJob transport status contract", () => {
+  test("a status outside the PrintStatus union fails the job naming the value", async () => {
+    const paused: PrintStatus = JSON.parse('{"state":"paused"}');
+    const h = harness({
+      status: async function* () {
+        yield paused;
+      },
+    });
+    await expect(withinMs(h.run(), 1000)).rejects.toThrow('unhandled value: "paused"');
+    expect(states(h).at(-1)).toBe("failed");
+    expect(h.records).toEqual([{ state: "failed", reason: 'unhandled value: "paused"' }]);
+  });
+});

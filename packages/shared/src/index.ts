@@ -1,6 +1,7 @@
 export * from "./artifacts.js";
 export * from "./context.js";
 export * from "./events.js";
+export * from "./exhaustive.js";
 export * from "./job.js";
 export * from "./plugins.js";
 export * from "./profile.js";
