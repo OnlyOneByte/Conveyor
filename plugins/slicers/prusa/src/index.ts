@@ -10,8 +10,8 @@ import {
   StageError,
 } from "@conveyor/shared";
 
-const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const PRUSA_BIN = process.env.PRUSA_BIN ?? "prusa-slicer";
+const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
+const prusaBin = () => process.env.PRUSA_BIN ?? "prusa-slicer";
 
 const PROFILES: ProfileRef[] = [
   {
@@ -38,7 +38,7 @@ export const prusa: SlicerPlugin = {
   async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");
 
-    if (STUB) {
+    if (stub()) {
       ctx.log(`[stub] slice ${model.path} with ${profile.id}`);
       await writeFile(
         out,
@@ -52,8 +52,9 @@ export const prusa: SlicerPlugin = {
     for (const cfg of configs) args.push("--load", cfg);
     args.push("--export-gcode", "--output", out, model.path);
 
-    ctx.log(`${PRUSA_BIN} ${args.join(" ")}`);
-    await run(PRUSA_BIN, args, ctx);
+    const bin = prusaBin();
+    ctx.log(`${bin} ${args.join(" ")}`);
+    await run(bin, args, ctx);
 
     return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },

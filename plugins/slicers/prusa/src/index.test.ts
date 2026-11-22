@@ -9,8 +9,8 @@ import {
   setEnv,
   testCtx,
 } from "../../../../packages/shared/test/helpers/index.ts";
+import { prusa } from "./index.ts";
 
-let n = 0;
 const cleanups: (() => void)[] = [];
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
@@ -24,14 +24,13 @@ async function setup(env: Record<string, string | undefined>, prusaBody = "") {
   cleanups.push(ctx.cleanup, () => rmSync(dir, { recursive: true, force: true }));
   const bin = fakeEngine(dir, "prusa-slicer", prusaBody);
   cleanups.push(setEnv({ PRUSA_BIN: bin, ...env }));
-  const mod: typeof import("./index.ts") = await import(`./index.ts?case=${++n}`);
   const profileDir = (files: string[]) => {
-    const path = join(dir, `profile-${n}`);
+    const path = join(dir, "profile");
     mkdirSync(path);
     for (const f of files) writeFileSync(join(path, f), "");
     return { id: "prusa/p", name: "P", path };
   };
-  return { ctx, dir, profileDir, plugin: mod.prusa };
+  return { ctx, dir, profileDir, plugin: prusa };
 }
 
 const real = { CONVEYOR_ENGINE_STUB: undefined };

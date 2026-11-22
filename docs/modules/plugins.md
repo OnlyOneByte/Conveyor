@@ -9,6 +9,11 @@ placeholder STL, slicers write a placeholder g-code, and transports fake an uplo
 The passthrough generator ignores the flag: it always copies the real upload and fails with
 `upload not found` without one.
 
+The Gridfinity, Orca and Prusa plugins read their environment (`CONVEYOR_ENGINE_STUB`, `GRIDFINITY_SCAD`,
+`ORCA_BIN`, `ORCA_DATADIR`, `PRUSA_BIN`, and `OPENSCAD_BIN` as before) each time they run, not when they are
+loaded. So their tests share one loaded copy per file and set the environment per test, and coverage counts
+every path they run: `bun test` reports only the last copy of a module it loads.
+
 ## Generators
 
 ### Gridfinity (`plugins/generators/gridfinity`)
