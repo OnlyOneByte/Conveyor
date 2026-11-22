@@ -1,6 +1,5 @@
 import type { Database } from "bun:sqlite";
 import type { OrcaProfileDocuments, PrusaProfileDocument } from "../profile.js";
-import { epochMs } from "./epoch-ms.js";
 
 export interface Profile {
   id: string;
@@ -127,7 +126,7 @@ export function dbUpsertProfile(db: Database, p: Profile): void {
      VALUES (?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        slicer_id=excluded.slicer_id, name=excluded.name, path=excluded.path, gcode_flavor=excluded.gcode_flavor`,
-  ).run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, epochMs());
+  ).run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, Date.now());
 }
 
 export function dbDeleteProfile(db: Database, id: string): void {

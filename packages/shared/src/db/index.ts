@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-import { epochMs } from "./epoch-ms.js";
 import { migrate } from "./migrate.js";
 import {
   bindSecretsKey,
@@ -48,7 +47,7 @@ function countRows(db: Database, table: "printers" | "profiles"): number {
 }
 
 function seedDefaults(db: Database): void {
-  const now = epochMs();
+  const now = Date.now();
   const insertProfile = db.prepare(
     "INSERT INTO profiles (id, slicer_id, name, path, gcode_flavor, created_at) VALUES (?,?,?,?,?,?)",
   );

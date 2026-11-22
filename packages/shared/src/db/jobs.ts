@@ -1,7 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
-import { epochMs } from "./epoch-ms.js";
 import { dbListPrinters } from "./printers.js";
 import { dbListProfiles } from "./profiles.js";
 
@@ -80,7 +79,7 @@ export interface SettledJob {
 }
 
 export function dbRecordJob(db: Database, job: SettledJob): void {
-  const now = epochMs();
+  const now = Date.now();
   db.prepare(
     `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, timings_json, notes, created_at, updated_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
