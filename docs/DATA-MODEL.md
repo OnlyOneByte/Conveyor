@@ -53,9 +53,15 @@ optional per-profile edited JSON overriding the bundled files.
 > `dbGetOrcaProfileDocuments` returns `null` when all three are NULL (a pristine
 > bundled profile) and throws on a partial set (a would-be half-edited profile is never
 > valid). A Prusa profile's edit is the single `prusa_ini` column, served and saved as the
-> `prusa-ini` format. The content routes answer 409 for a slicer with no raw-edit format,
-> and `GET /catalog/profiles/:id/content` also answers 409 when an unedited Orca profile's
-> bundled files fail validation (`bundled …`, `catalog.ts`).
+> `prusa-ini` format. The content routes answer 409 when:
+>
+> - the profile's slicer has no raw-edit format (`GET`, `PUT` and `DELETE`);
+> - the profile's `path` is not a valid bundled `/profiles/<bundle>` path;
+> - the path, or a bundled file in it, resolves outside the profile root (a symlink escape);
+> - a bundled file is not a regular file;
+> - `GET` reads an unedited Orca profile whose bundled files fail validation (`bundled …`).
+>
+> A missing bundle directory or file is 404 (`packages/api/src/profile-content.ts`).
 >
 > **Routes** (`packages/api/src/routes/catalog.ts`):
 > `GET /catalog/profiles/:id/content` returns the effective documents plus a per-document
@@ -293,8 +299,8 @@ printed with, which is history rather than a live reference: deleting a printer 
 not rewrite what ran last week. The history shows an id that no longer resolves as-is, and an
 empty one as `—`, instead of hiding the row.
 
-In Redis mode only **terminal** jobs get a `jobs` row (the worker calls `recordTerminal` on
-done/failed), so `/jobs-history` never contains a job in flight. In SQLite mode every job has a row from
+In Redis mode only **terminal** jobs get a `jobs` row, so `/jobs-history` never contains a job in
+flight. In SQLite mode every job has a row from
 enqueue. That is why the PWA keeps a per-browser
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
 home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
