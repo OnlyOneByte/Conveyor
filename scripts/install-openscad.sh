@@ -46,4 +46,5 @@ rm -f openscad.AppImage
 mkdir -p /opt/openscad/bin
 printf '%s\n' '#!/bin/sh' 'exec env LD_LIBRARY_PATH=/opt/openscad/usr/lib /opt/openscad/usr/bin/openscad "$@"' > /opt/openscad/bin/openscad
 chmod +x /opt/openscad/bin/openscad
+chmod -R a+rX /opt/openscad
 echo "[install-openscad] extracted ${URL##*/} → wrapper at /opt/openscad/bin/openscad"

@@ -129,6 +129,15 @@ Upgrade the api and the worker together; `docker compose up -d --build` does bot
 
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 
+## Containers run as uid 10001
+
+The api, worker and web processes run as the unprivileged user `conveyor`, uid and gid `10001`, not as root. The web image starts as that user. The api and worker images start in a small entrypoint (`scripts/docker-entrypoint.sh`) that does one thing as root: if `/data` is not owned by `10001:10001`, it changes the owner of `/data` and everything in it, then drops to `10001` with `setpriv --no-new-privs` before the app starts. `secrets.key` keeps its `0600` mode, now for uid `10001`.
+
+- **New installs** need no step. Docker creates `./data` owned by root on the first `up`, and the entrypoint hands it over.
+- **Upgrading an install whose `./data` is owned by root** needs no step either. The first start after the upgrade logs `conveyor: /data is not owned by 10001:10001, changing its owner once`. On the host, `./data` then belongs to uid `10001`, so use `sudo` to read it or to take a backup.
+- **A file that is root-owned later**, for example one restored from a backup as root, is not fixed automatically, because the entrypoint only checks `/data` itself. Fix it with `sudo chown -R 10001:10001 data`, then start the stack.
+- `chown` runs with `-P -h`, so it changes symlinks in `./data` themselves and never the files they point to.
+
 ## Releasing a held printer
 
 When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got

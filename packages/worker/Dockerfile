@@ -42,5 +42,14 @@ ENV ORCA_DATADIR=/opt/orca/squashfs-root/resources/profiles
 WORKDIR /app
 COPY --from=deps /app ./
 COPY . .
+RUN groupadd --system --gid 10001 conveyor \
+ && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/conveyor conveyor
+ENV HOME=/home/conveyor
+COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/conveyor-entrypoint
+ENTRYPOINT ["conveyor-entrypoint"]
+RUN orca=true \
+ && if [ -e /opt/orca/AppRun ]; then orca='test -x /opt/orca/AppRun && test -r "$ORCA_DATADIR"'; fi \
+ && setpriv --reuid=10001 --regid=10001 --clear-groups sh -c "test -x /opt/openscad/usr/bin/openscad && $orca" \
+ || { echo "uid 10001 cannot run OpenSCAD or OrcaSlicer" >&2; exit 1; }
 
 CMD ["bun", "packages/worker/src/main.ts"]

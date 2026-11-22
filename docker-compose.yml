@@ -4,6 +4,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     ports:
       - "${CONVEYOR_BIND:-127.0.0.1}:80:80"
       - "${CONVEYOR_BIND:-127.0.0.1}:443:443"
@@ -19,6 +20,7 @@ services:
   web:
     build: { context: ., dockerfile: packages/web/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     environment:
       - PUBLIC_API_URL=${PUBLIC_API_URL:-https://localhost}
     depends_on: [api]
@@ -26,6 +28,7 @@ services:
   api:
     build: { context: ., dockerfile: packages/api/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     environment:
       - REDIS_URL=redis://redis:6379
       - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
@@ -48,6 +51,7 @@ services:
   worker:
     build: { context: ., dockerfile: packages/worker/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     stop_grace_period: 60s
     environment:
       - REDIS_URL=redis://redis:6379
@@ -65,6 +69,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
     healthcheck:

@@ -225,6 +225,21 @@ jobs:
           test "$(docker compose ps --services --status running | sort | tr '\n' ' ')" = "api caddy redis web worker "
           docker inspect -f '{{.Name}} restarts={{.RestartCount}}' $(docker compose ps -q) | tee restarts.txt
           ! grep -v 'restarts=0$' restarts.txt
+      - name: Every app container runs unprivileged as uid 10001 and owns secrets.key at 0600
+        run: |
+          for service in api worker web; do
+            docker compose exec -T "$service" cat /proc/1/status > status.txt
+            field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
+            echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] NoNewPrivs=[$(field NoNewPrivs)]"
+            test "$(field Uid)" = "10001 10001 10001 10001"
+            test "$(field Gid)" = "10001 10001 10001 10001"
+            case "$(field Groups)" in ""|10001|"10001 ") ;; *) exit 1 ;; esac
+            test "$(field CapEff)" = 0000000000000000
+            test "$(field NoNewPrivs)" = 1
+          done
+          key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
+          echo "secrets.key: $key"
+          test "$key" = "10001:10001 600"
       - name: Logs
         if: failure()
         run: |
