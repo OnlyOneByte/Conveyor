@@ -33,6 +33,11 @@ later event follows once and in order, and the server closes the socket with a c
 | `1011` | `job stream failed` | the snapshot, the event tail or the Redis subscribe failed |
 | `1013` | `too many job streams` | SQLite only: the polling cap below |
 
+Both queues ping every job socket every 30 s (`DEFAULT_HEARTBEAT` in `heartbeat.ts`). A socket that has
+not answered the last 2 pings is terminated without a close frame, which runs the same release as any
+other close: the SQLite cap slot is freed and the Redis viewer leaves the shared subscriber. A half-open
+socket (a sleeping phone, a dropped link behind Caddy) is therefore reaped within about 90 s.
+
 On Redis (`routes/job-stream.ts`) every socket in an api process shares one subscriber connection
 (`status-hub.ts`): one `SUBSCRIBE` per job with viewers, fanned out in process, an `UNSUBSCRIBE` when a
 job's last viewer leaves, and the connection closed when no viewer is left. A socket subscribes first and
