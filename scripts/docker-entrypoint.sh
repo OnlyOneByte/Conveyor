@@ -3,7 +3,7 @@ set -eu
 
 app_uid=10001
 app_gid=10001
-data_dir="${DATA_DIR:-/data}"
+data_dir=/data
 
 if [ "$(id -u)" != 0 ]; then
   exec "$@"
