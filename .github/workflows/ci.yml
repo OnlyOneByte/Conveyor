@@ -321,7 +321,7 @@ jobs:
           test "$(tail -n 2 caddy-before.txt)" = "$(cat after.txt)"
           served=$(openssl s_client -connect 127.0.0.1:443 -servername localhost </dev/null 2>/dev/null \
             | openssl x509 -outform der | sha256sum)
-          stored=$(docker run --rm -v conveyor_caddy_data:/data alpine/openssl x509 -in "$leaf" -outform der | sha256sum)
+          stored=$(docker compose exec -T caddy cat "$leaf" | openssl x509 -outform der | sha256sum)
           echo "served $served stored $stored"
           test "$served" = "$stored"
       - name: Caddy and Redis run with no capabilities on a read-only root
