@@ -119,47 +119,43 @@ describe("job routes on the sqlite queue", () => {
   });
 });
 
-async function frames(url: string): Promise<{ states: string[]; ws: WebSocket }> {
+async function frames(url: string) {
   const ws = new WebSocket(`${base.replace("http", "ws")}${url}`);
   const states: string[] = [];
   ws.addEventListener("message", (e) => states.push(JSON.parse(String(e.data)).state));
+  const closed = new Promise<number>((resolve) =>
+    ws.addEventListener("close", (e) => resolve(e.code), { once: true }),
+  );
   await new Promise((resolve, reject) => {
     ws.addEventListener("open", resolve, { once: true });
     ws.addEventListener("error", reject, { once: true });
   });
-  return { states, ws };
+  return { states, closed };
 }
-
-const closed = (ws: WebSocket) =>
-  new Promise<void>((resolve) => {
-    if (ws.readyState === WebSocket.CLOSED) resolve();
-    else ws.addEventListener("close", () => resolve(), { once: true });
-  });
 
 describe("GET /jobs/:id/ws on the sqlite queue", () => {
   test("sends the snapshot, then every later event once, and closes after the terminal one", async () => {
     const lease = claimed();
-    const { states, ws } = await frames(`/jobs/${lease.jobId}/ws`);
-    const done = closed(ws);
+    const { states, closed } = await frames(`/jobs/${lease.jobId}/ws`);
     writeStatus(db, lease, { state: "slicing", stage: "slicer" });
     writeStatus(db, lease, { state: "slicing", stage: "slicer", progress: 0.5 });
     await Bun.sleep(300);
     writeStatus(db, lease, { state: "failed", error: { stage: "slicer", reason: "boom" } });
-    await done;
+    expect(await closed).toBe(1000);
     expect(states).toEqual(["generating", "slicing", "slicing", "failed"]);
   });
 
   test("a job already finished sends its snapshot and closes", async () => {
     const id = queued();
     db.query("UPDATE jobs SET state = 'done' WHERE id = ?").run(id);
-    const { states, ws } = await frames(`/jobs/${id}/ws`);
-    await closed(ws);
+    const { states, closed } = await frames(`/jobs/${id}/ws`);
+    expect(await closed).toBe(1000);
     expect(states).toEqual(["done"]);
   });
 
-  test("an unknown job closes without a frame", async () => {
-    const { states, ws } = await frames("/jobs/nope/ws");
-    await closed(ws);
+  test("an unknown job closes with 4404 and no frame", async () => {
+    const { states, closed } = await frames("/jobs/nope/ws");
+    expect(await closed).toBe(4404);
     expect(states).toEqual([]);
   });
 });
