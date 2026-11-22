@@ -2,6 +2,10 @@
 
 How one job travels `Generate → Slice → Transport`, and how live status flows back to the PWA.
 
+These diagrams show the default queue, `CONVEYOR_QUEUE=redis`. In SQLite mode the Redis lane is the `jobs` and
+`job_events` tables: the worker claims a leased row, cancel sets `cancel_requested_at`, and the api polls
+`job_events` for the WebSocket. See [architecture.md](architecture.md#queue-modes).
+
 ## Participants
 
 - **PWA** — SvelteKit client on the user's phone/browser.

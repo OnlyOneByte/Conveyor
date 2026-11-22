@@ -41,6 +41,7 @@ experiment) gets one. Take the next free number.
 | [0001](adr/0001-plugin-isolation.md) | Plugins are in-process adapters; engines run out of process |
 | [0002](adr/0002-dual-model-preview.md) | Procedural client preview plus an exact server model |
 | [0003](adr/0003-visual-evidence.md) | Visual evidence captured automatically for UI pull requests |
+| [0004](adr/0004-sqlite-job-queue.md) | A job queue in SQLite instead of BullMQ and Redis |
 
 ## Design docs
 
@@ -48,7 +49,7 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 
 | Design | Status |
 |---|---|
-| [design/sqlite-queue.md](design/sqlite-queue.md) | Proposed: replace BullMQ and Redis with a job queue in SQLite (#5) |
+| [design/sqlite-queue.md](design/sqlite-queue.md) | Accepted, in progress: a job queue in SQLite behind `CONVEYOR_QUEUE=sqlite`; Redis is still the default (#5) |
 
 ## Keeping docs true
 
@@ -58,7 +59,7 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 
 Pages here get created by the PR that first needs them, then linked above:
 
-- `modules/<module>.md`: what used to be code comments (invariants, why, gotchas), one page per package.
+- `modules/web.md`: the web package's page, written with the UI rewrite. The other packages already have one.
 - `design/`: design tokens, principles, mockups and screenshots for the UI rewrite, alongside the design docs
   listed above.
 - `audits/YYYY-MM-DD.md`: doc audit reports.

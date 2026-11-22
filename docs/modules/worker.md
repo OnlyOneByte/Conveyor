@@ -1,6 +1,7 @@
 # packages/worker
 
-The BullMQ worker that drives a job through generate, slice and transport. Code in this package carries no
+The worker that drives a job through generate, slice and transport, on BullMQ by default or on the SQLite queue
+when `CONVEYOR_QUEUE=sqlite` ([main.ts and mode.ts](#maints-and-modets)). Code in this package carries no
 comments; the reasons behind it live here, one section per file.
 
 ## Dockerfile

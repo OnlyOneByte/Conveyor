@@ -61,8 +61,8 @@ The render must feel instant, so we never round-trip the real model on a slider 
 
 ## 6. Architecture
 
-- **pnpm monorepo**, TypeScript end-to-end so the `Job`/param contracts are shared verbatim.
-- Services: `web` (SvelteKit PWA) · `api` (REST + WebSocket) · `worker` (runs the stages) · `redis` (BullMQ queue + status pubsub).
+- **Bun workspace monorepo**, TypeScript end-to-end so the `Job`/param contracts are shared verbatim.
+- Services: `web` (SvelteKit PWA) · `api` (REST + WebSocket) · `worker` (runs the stages) · `redis` (BullMQ queue + status pubsub, the default queue). A job queue in SQLite is rolling out behind `CONVEYOR_QUEUE=sqlite` and will replace `redis`; see `docs/design/sqlite-queue.md`.
 - `docker-compose`, **Caddy** for auto-HTTPS (PWA service workers require it).
 - Job state streamed to the PWA over WS: `queued → generating → slicing → transferring → printing → done | failed | canceled`.
 
