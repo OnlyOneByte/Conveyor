@@ -225,7 +225,7 @@ Full catalog + history surface (2026-09-02):
 | Route | Notes |
 | --- | --- |
 | `GET/PUT /catalog/printers`, `DELETE /catalog/printers/:id` | `transportId` validated against the registry; secrets stripped on read |
-| `GET/PUT /catalog/profiles`, `DELETE /catalog/profiles/:id` | |
+| `GET/PUT /catalog/profiles`, `DELETE /catalog/profiles/:id` | `slicerId` and `gcodeFlavor` validated against the registry |
 | `GET /catalog/transports` | capability metadata; drives the Settings printer form's picker |
 | `GET /jobs-history?limit=` | windowed list, default 50, max 200 |
 | `GET /jobs-history/:id` | one settled job; 404 when absent |

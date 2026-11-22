@@ -77,6 +77,12 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - Printer `secrets` are accepted on write and never returned on read; reads return `hasSecrets` instead.
   Omitting `secrets` on a write keeps the stored value (see `dbUpsertPrinter`).
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
+- Every catalog write is parsed by the schemas in `catalog-validation.ts` and the content schemas in
+  `routes/catalog.ts`. A rejected write answers `400 { error }` naming each field, e.g.
+  `gcodeFlavor: unknown gcode flavor` or `allowedGenerators.1: unknown generator`. Profiles: `slicerId` must be
+  a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
+  registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
+  entries with names up to 64 and values up to 4096 characters.
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.

@@ -1,10 +1,4 @@
-import {
-  CompatibilityError,
-  type JobRequest,
-  type JobTarget,
-  type ParamIssue,
-  validateJob,
-} from "@conveyor/shared";
+import { type JobRequest, type JobTarget, type ParamIssue, validateJob } from "@conveyor/shared";
 import type { ZodIssue } from "zod";
 import { apiRegistry } from "./registry-view.js";
 
@@ -14,33 +8,36 @@ export function validateJobRequest(req: JobRequest, target: JobTarget): void {
 
 export type ParamsResult = { ok: true; params: unknown } | { ok: false; error: string };
 
-const paramField = (path: readonly (string | number)[]) => ["generator.params", ...path].join(".");
+type FieldPath = readonly (string | number)[];
 
-function describeIssue(issue: ZodIssue): string[] {
+const fieldName = (path: FieldPath) => (path.length > 0 ? path.join(".") : "body");
+
+function describeIssue(issue: ZodIssue, prefix: FieldPath): string[] {
   if (issue.code === "unrecognized_keys") {
-    return issue.keys.map((key) => `${paramField([...issue.path, key])}: unknown field`);
+    return issue.keys.map((key) => `${fieldName([...prefix, ...issue.path, key])}: unknown field`);
   }
-  return [`${paramField(issue.path)}: ${issue.message}`];
+  return [`${fieldName([...prefix, ...issue.path])}: ${issue.message}`];
 }
 
-const describeHookIssue = (issue: ParamIssue) => `${paramField([issue.field])}: ${issue.message}`;
+export function describeIssues(issues: readonly ZodIssue[], prefix: FieldPath = []): string {
+  return issues.flatMap((issue) => describeIssue(issue, prefix)).join("; ");
+}
+
+const PARAMS: FieldPath = ["generator", "params"];
+
+const describeHookIssue = (issue: ParamIssue) =>
+  `${fieldName([...PARAMS, issue.field])}: ${issue.message}`;
 
 export function parseGeneratorParams(req: JobRequest): ParamsResult {
   const generator = apiRegistry.generators.get(req.generator.id);
   if (!generator) return { ok: false, error: `unknown generator: ${req.generator.id}` };
   const parsed = generator.params.safeParse(req.generator.params);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues.flatMap(describeIssue).join("; ") };
+    return { ok: false, error: describeIssues(parsed.error.issues, PARAMS) };
   }
   const issue = generator.validateRequest?.(parsed.data) ?? null;
   if (issue) return { ok: false, error: describeHookIssue(issue) };
   return { ok: true, params: parsed.data };
-}
-
-export function validatePrinterTransport(transportId: string): void {
-  if (!apiRegistry.transports.get(transportId)) {
-    throw new CompatibilityError(`unknown transport: ${transportId}`);
-  }
 }
 
 export function listTransports(): { id: string; name: string; acceptsFlavors: string[] }[] {
