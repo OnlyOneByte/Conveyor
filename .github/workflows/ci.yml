@@ -268,7 +268,7 @@ jobs:
             case "$service" in web) bounding=0000000000000000 ;; *) bounding=00000000000000c5 ;; esac
             echo "$service: CapBnd=[$(field CapBnd)]"
             test "$(field CapBnd)" = "$bounding"
-            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts)
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
             echo "$service: / mounted ${root%%,*}"
             test "${root%%,*}" = ro
           done
