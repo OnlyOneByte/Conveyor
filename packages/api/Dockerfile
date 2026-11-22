@@ -11,7 +11,7 @@ COPY plugins/slicers/orca/package.json plugins/slicers/orca/
 COPY plugins/slicers/prusa/package.json plugins/slicers/prusa/
 COPY plugins/transports/moonraker/package.json plugins/transports/moonraker/
 COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --production
 
 FROM oven/bun:debian
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
