@@ -138,6 +138,16 @@ The api, worker and web processes run as the unprivileged user `conveyor`, uid a
 - **A file that is root-owned later**, for example one restored from a backup as root, is not fixed automatically, because the entrypoint only checks `/data` itself. Fix it with `sudo chown -R 10001:10001 data`, then start the stack.
 - `chown` runs with `-P -h`, so it changes symlinks in `./data` themselves and never the files they point to.
 
+Compose also locks the three app containers down:
+
+| Service | Capabilities | Root filesystem | Writable paths |
+| --- | --- | --- | --- |
+| `api` | all dropped, then `CHOWN`, `SETUID`, `SETGID`, `DAC_READ_SEARCH` added back for the entrypoint | read-only | `/data` |
+| `worker` | same as `api` | read-only | `/data`, and a tmpfs `/tmp` for `xvfb-run`, OrcaSlicer, PrusaSlicer and OpenSCAD |
+| `web` | all dropped | read-only | none |
+
+The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH` let the one-time `chown -R` change and walk a root-owned `./data` that already holds `0700` job directories, and `SETUID` and `SETGID` let `setpriv` switch to `10001`. The app itself has no effective capabilities, and `no-new-privileges` stops it gaining any. If you add a tool to the worker that writes outside `/data` and `/tmp`, it fails with `Read-only file system`: give it a `tmpfs` entry in `docker-compose.yml` rather than turning `read_only` off.
+
 ## Releasing a held printer
 
 When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
