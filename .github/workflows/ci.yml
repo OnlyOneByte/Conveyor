@@ -268,10 +268,9 @@ jobs:
             case "$service" in web) bounding=0000000000000000 ;; *) bounding=00000000000000c5 ;; esac
             echo "$service: CapBnd=[$(field CapBnd)]"
             test "$(field CapBnd)" = "$bounding"
-            if docker compose exec -T "$service" touch /probe 2>/dev/null; then
-              echo "$service: root filesystem is writable"
-              exit 1
-            fi
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
           done
           key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
           echo "secrets.key: $key"
