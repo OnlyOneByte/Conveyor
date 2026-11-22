@@ -22,12 +22,13 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
   mesa GL/EGL drivers, gstreamer) are the minimal set found by running `--slice` in this image until it
   produced gcode. `ORCA_DATADIR` points at the bundled vendor profile tree, because Orca leaf presets resolve
   `inherits` against it.
-- **OpenSCAD** is the nightly AppImage, extracted so FUSE is not needed at runtime. The distro `openscad`
-  (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+ nightly.
-  `scripts/install-openscad.sh` installs one pinned snapshot per arch from files.openscad.org and checks
-  its sha256, and on x86_64 its GnuPG signature from the OpenSCAD release key, before running it. The script writes a wrapper that
-  scopes the AppImage's bundled libraries to the openscad process. A global `LD_LIBRARY_PATH` would shadow
-  system libraries and break prusa-slicer, so the image never sets one.
+- **OpenSCAD** is built from source in the `openscad` builder stage, on `debian:trixie-slim`, for every arch.
+  The distro `openscad` (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+
+  build. `scripts/fetch-openscad-source.sh` downloads the upstream `openscad-2026.11-RC0.src.tar.gz` and checks its
+  pinned sha256, its GnuPG signature from the OpenSCAD release key and the commit in its `COMMIT.txt`; then
+  `scripts/build-openscad.sh` builds it headless (`NULLGL`, STL export only) and installs it to `/opt/openscad`. It links only against
+  Debian trixie's shared libraries, so no `LD_LIBRARY_PATH` is set; the final stage installs their runtime
+  packages. `/opt/openscad/share/doc/openscad/SOURCE` names the commit, tarball URL and sha256.
 
 Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md).
 

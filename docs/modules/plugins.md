@@ -22,8 +22,8 @@ every path they run: `bun test` reports only the last copy of a module it loads.
   `/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad`; `GRIDFINITY_SCAD` overrides it). File and
   variable names were verified against the library's HEAD as of 2025-08 by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
   measured 83.5×125.5 mm, matching the Gridfinity spec.
-- The worker image installs an OpenSCAD nightly at `OPENSCAD_BIN` (the library needs 2023+); without it the
-  plugin runs `openscad` from `PATH`.
+- The worker image builds OpenSCAD 2026.11-RC0 from source and installs it at `OPENSCAD_BIN` (the library
+  needs 2023+); without it the plugin runs `openscad` from `PATH`.
 - `gridfinityParams` (zod) is the single source of truth: the worker validates against it and the PWA renders
   the form from its JSON Schema. The `ui` block is presentation only. Footprint and height are shown first;
   everything else sits behind "More options". `unitMm` drives the live millimetre readout.
