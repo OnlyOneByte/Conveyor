@@ -60,6 +60,15 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /auth/status` tells the client whether to show a login screen.
 - A successful login sets `cache-control: private, no-store` so the gated response is never cached or
   cross-served.
+- Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
+  login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
+  successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
+  oldest is dropped first), and resets when the api restarts.
+- The client is `clientKey(req.ip)` (`trusted-proxies.ts`): an IPv4 address as is, an IPv4-mapped IPv6
+  address as its IPv4, and any other IPv6 address as its /64. `req.ip` is the socket peer, unless the peer is
+  in `CONVEYOR_TRUSTED_PROXIES`, which `index.ts` passes to Fastify's `trustProxy`; then it is the client
+  that proxy reports in `X-Forwarded-For`. The setting is parsed strictly at boot (IPs or CIDRs, an invalid
+  entry exits 1), and unset trusts nothing. Compose trusts Caddy's fixed address only.
 
 ## Catalog and history (`routes/catalog.ts`)
 

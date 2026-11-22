@@ -9,6 +9,8 @@ import {
   sessionCookie,
   verifyToken,
 } from "../auth.js";
+import { type LoginLimiter, loginLimiter } from "../login-limit.js";
+import { clientKey } from "../trusted-proxies.js";
 
 const loginSchema = z.object({ password: z.string().min(1).max(512) });
 
@@ -33,19 +35,31 @@ export function registerAuthGuard(app: FastifyInstance): void {
   });
 }
 
-export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
+export async function registerAuthRoutes(
+  app: FastifyInstance,
+  limiter: LoginLimiter = loginLimiter(),
+  now: () => number = Date.now,
+): Promise<void> {
   app.get("/auth/status", async (req) => {
     return { authEnabled, authenticated: hasSession(req) };
   });
 
   app.post("/auth/login", async (req, reply) => {
     if (!authEnabled) return reply.send({ ok: true });
+    const client = clientKey(req.ip);
+    const waitMs = limiter.retryAfterMs(client, now());
+    if (waitMs > 0) {
+      reply.header("retry-after", String(Math.ceil(waitMs / 1000)));
+      return reply.code(429).send({ error: "too many failed logins; try again later" });
+    }
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "password required" });
 
     if (!checkPassword(parsed.data.password)) {
+      limiter.failed(client, now());
       return reply.code(401).send({ error: "invalid password" });
     }
+    limiter.succeeded(client);
 
     reply.header("set-cookie", sessionCookie(issueToken()));
     reply.header("cache-control", "private, no-store");

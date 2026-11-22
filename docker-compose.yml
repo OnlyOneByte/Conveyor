@@ -11,6 +11,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      default:
+        ipv4_address: 172.31.250.2
     depends_on: [web, api]
 
   web:
@@ -34,6 +37,7 @@ services:
       - CONVEYOR_AUTH=${CONVEYOR_AUTH:-}
       - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
+      - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
@@ -71,3 +75,10 @@ volumes:
   caddy_data:
   caddy_config:
   redis_data:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+          ip_range: 172.31.250.128/25
