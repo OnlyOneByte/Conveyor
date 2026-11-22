@@ -40,12 +40,10 @@ All fixed in `plugins/generators/gridfinity/src/index.ts` `toScadDefines()`.
 the stable **2021.01** can't parse (`syntax error … line 125`). It needs a 2023+
 **nightly/development snapshot** (the lib README recommends this; also a 10min→sec render
 speedup). The worker Dockerfile extracts a nightly AppImage, not the distro stable.
-`scripts/install-openscad.sh` tracks the **latest** snapshot for the host arch from
-`files.openscad.org/snapshots/` (scrapes the listing, picks the newest date across both
-the `.ai-<arch>` and `-<arch>` naming patterns; `OPENSCAD_RELEASE`/`OPENSCAD_APPIMAGE_URL`
-override). Note: upstream currently ships **aarch64** nightlies only up to **2023.09.11**
-(the verified-working build), while x86_64 gets ongoing nightlies — so on this box "latest"
-resolves to 2023.09.11.
+`scripts/install-openscad.sh` installs one pinned snapshot per arch from
+`files.openscad.org/snapshots/` and checks its sha256 before running it: 2026.11.21 on
+x86_64, and 2023.09.11 on **aarch64**, the newest aarch64 nightly upstream ships and the
+verified-working build. Bumping: [self-hosting.md](self-hosting.md#bumping-the-openscad-pin).
 
 The SCAD lib is vendored as a submodule (`scad/gridfinity-rebuilt-openscad`, HEAD @ 2025-08).
 Run `git submodule update --init` after clone.

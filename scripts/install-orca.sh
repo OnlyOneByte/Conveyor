@@ -4,7 +4,7 @@ set -euo pipefail
 RELEASE="${1:-${ORCA_RELEASE:-2.4.1}}"
 ENABLE="${2:-auto}"
 ARCH="$(uname -m)"
-REPO="SoftFever/OrcaSlicer"
+REPO="OrcaSlicer/OrcaSlicer"
 
 give_up() {
   local reason="$1"
@@ -56,7 +56,7 @@ API="https://api.github.com/repos/${REPO}/releases/tags/v${RELEASE#v}"
 
 echo "[install-orca] resolving ${RELEASE} release assets from ${API}"
 JSON=""
-fetch_api() { JSON="$(curl -fsSL -H "Accept: application/vnd.github+json" "$API")"; }
+fetch_api() { JSON="$(curl --proto '=https' --proto-redir '=https' -fsSL -H "Accept: application/vnd.github+json" "$API")"; }
 retry 4 fetch_api || give_up "failed to query the GitHub releases API ($API)"
 
 mapfile -t URLS < <(printf '%s' "$JSON" \
@@ -84,7 +84,7 @@ SHA256="$(pinned_sha256 "${URL##*/}")"
 echo "[install-orca] downloading ${URL##*/}"
 mkdir -p /opt/orca && cd /opt/orca
 img="orca.AppImage"
-download() { curl -fSL "$URL" -o "$img"; }
+download() { curl --proto '=https' --proto-redir '=https' -fSL "$URL" -o "$img"; }
 retry 3 download || give_up "failed to download ${URL##*/}"
 if ! printf '%s  %s\n' "$SHA256" "$img" | sha256sum -c - >/dev/null; then
   echo "[install-orca] ERROR: sha256 of ${URL##*/} does not match the pinned $SHA256" >&2
