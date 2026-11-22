@@ -62,6 +62,6 @@ A deploy `compose.yml` can then swap the `build:` blocks for `image:` pins — e
 > **Status.** M0 (contracts + skeleton) is **verified**: typechecks clean and the full
 > queue → worker → status-WS pipeline runs end-to-end in stub mode (gridfinity → slicer →
 > moonraker/elegoo, live progress events). M1 (real worker image) is **verified green** on
-> aarch64: OpenSCAD generates real STLs and **both** slicers — PrusaSlicer (default) and
+> aarch64: OpenSCAD generates real STLs and **both** slicers — PrusaSlicer and
 > OrcaSlicer (v2.4.1 aarch64 AppImage) — slice headless; full generate→slice E2E proven in
 > the worker image. See `docs/M1-WORKER-ENGINES.md`.
