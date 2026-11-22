@@ -209,6 +209,11 @@ jobs:
           docker compose logs --no-log-prefix api | grep -oE '"remoteAddress":"[^"]*"' | sort | uniq -c | tee seen.txt
           test -s seen.txt
           ! grep -q '"172.31.250.2"' seen.txt
+      - name: Every service is still up and never restarted
+        run: |
+          test "$(docker compose ps --services --status running | sort | tr '\n' ' ')" = "api caddy redis web worker "
+          docker inspect -f '{{.Name}} restarts={{.RestartCount}}' $(docker compose ps -q) | tee restarts.txt
+          ! grep -v 'restarts=0$' restarts.txt
       - name: Logs
         if: failure()
         run: |
