@@ -42,5 +42,10 @@ ENV ORCA_DATADIR=/opt/orca/squashfs-root/resources/profiles
 WORKDIR /app
 COPY --from=deps /app ./
 COPY . .
+RUN groupadd --system --gid 10001 conveyor \
+ && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/conveyor conveyor
+ENV HOME=/home/conveyor
+COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/conveyor-entrypoint
+ENTRYPOINT ["conveyor-entrypoint"]
 
 CMD ["bun", "packages/worker/src/main.ts"]

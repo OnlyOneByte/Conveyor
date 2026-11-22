@@ -28,5 +28,6 @@ WORKDIR /app/packages/web
 COPY --from=build /app/packages/web/build ./build
 COPY --from=build /app/node_modules /app/node_modules
 ENV PORT=3000
+USER 10001:10001
 EXPOSE 3000
 CMD ["node", "build/index.js"]
