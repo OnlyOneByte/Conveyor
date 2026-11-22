@@ -140,7 +140,7 @@ The worker talks to printers over your network. By default it runs on the Compos
 
 ## Routing in the Caddyfile
 
-Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) to `api` and everything else to `web`. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
+Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) and the exact path `/health` to `api`, and everything else to `web`. `https://localhost/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
 
 ```
 {

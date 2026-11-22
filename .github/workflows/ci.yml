@@ -155,3 +155,65 @@ jobs:
             ORCA_ENABLE=0
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOGIN_URL: https://localhost/auth/login
+      WRONG: '{"password":"not-the-password"}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Throwaway login for this run
+        run: |
+          echo "CONVEYOR_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "CONVEYOR_AUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Build the images from source
+        run: docker compose build --build-arg ORCA_ENABLE=0
+      - name: docker compose up
+        run: docker compose up -d --no-build --wait --wait-timeout 120
+      - name: Only Caddy publishes, on loopback only
+        run: |
+          docker compose ps --format '{{.Service}} {{.Ports}}' | tee ports.txt
+          test "$(awk '/->/ {print $1}' ports.txt | sort -u)" = caddy
+          test "$(grep -oE '[^ ,]+->' ports.txt | LC_ALL=C sort -u | tr '\n' ' ')" = "127.0.0.1:443-> 127.0.0.1:80-> "
+          caddy_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q caddy)")
+          echo "caddy: $caddy_ip"
+          test "$caddy_ip" = 172.31.250.2
+      - name: Caddy answers /health with 200 on 127.0.0.1
+        run: |
+          for _ in $(seq 60); do
+            code=$(curl -sk -o health.json -w '%{http_code}' --resolve localhost:443:127.0.0.1 https://localhost/health || true)
+            if [ "$code" = 200 ] && grep -q '"ok":true' health.json; then exit 0; fi
+            sleep 2
+          done
+          echo "last answer: $code"
+          exit 1
+      - name: The api keys the real client, not Caddy or a forged header
+        run: |
+          login() {
+            curl -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:127.0.0.1 \
+              -H 'content-type: application/json' "$@" -d "$WRONG" "$LOGIN_URL"
+          }
+          for i in 1 2 3 4 5; do
+            test "$(login -H "X-Forwarded-For: 203.0.113.$i")" = 401
+          done
+          test "$(login)" = 429
+          test "$(login -H 'X-Forwarded-For: 198.51.100.7')" = 429
+          other=$(docker run --rm --network conveyor_default curlimages/curl:8.11.1 \
+            -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:172.31.250.2 \
+            -H 'content-type: application/json' -d "$WRONG" "$LOGIN_URL")
+          echo "another client on the network: $other"
+          test "$other" = 401
+          docker compose logs --no-log-prefix api | grep -oE '"remoteAddress":"[^"]*"' | sort | uniq -c | tee seen.txt
+          test -s seen.txt
+          ! grep -q '"172.31.250.2"' seen.txt
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color
+      - name: docker compose down -v
+        if: always()
+        run: docker compose down -v

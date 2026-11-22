@@ -66,7 +66,8 @@ with any other token stays counted, and so do `extends`/`implements` clauses and
    names the issue (`Closes #N` or `Part of #N`). Agent PRs carry the `agent` label and one `area/*` label.
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
-6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments` and the three Docker builds.
+6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, the three Docker builds and `compose`, which
+   brings the whole stack up and checks it through Caddy.
 7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`, following
    [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
    `[S1]` finding, then push; the reviewer re-reviews the new head.
