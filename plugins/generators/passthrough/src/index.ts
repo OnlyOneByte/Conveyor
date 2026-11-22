@@ -6,8 +6,8 @@ import {
   type ModelArtifact,
   type StageCtx,
   StageError,
-  uploadSettings,
 } from "@conveyor/shared";
+import { uploadSettings } from "@conveyor/shared/uploads";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { type PassthroughParams, passthroughParams } from "./params.js";
 import { checkUpload } from "./upload.js";

@@ -1,5 +1,6 @@
-import { queueMode, uploadSettings } from "@conveyor/shared";
+import { queueMode } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
+import { uploadSettings } from "@conveyor/shared/uploads";
 import { workerConcurrency } from "./mode.js";
 
 let mode: string;

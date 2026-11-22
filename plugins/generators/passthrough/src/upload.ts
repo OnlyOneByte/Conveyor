@@ -1,6 +1,7 @@
 import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
 import { basename, join } from "node:path";
-import type { ParamIssue, UploadSettings } from "@conveyor/shared";
+import type { ParamIssue } from "@conveyor/shared";
+import type { UploadSettings } from "@conveyor/shared/uploads";
 
 const BINARY_STL_HEADER_BYTES = 84;
 const BINARY_STL_TRIANGLE_BYTES = 50;

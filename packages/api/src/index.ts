@@ -1,5 +1,6 @@
-import { queueMode, type UploadSettings, uploadSettings } from "@conveyor/shared";
+import { queueMode } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
+import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";

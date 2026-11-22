@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type UploadSettings, uploadSettings } from "@conveyor/shared";
+import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance } from "fastify";
 
 export async function registerUploadRoutes(
