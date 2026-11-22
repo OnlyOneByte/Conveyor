@@ -11,13 +11,13 @@ COPY plugins/slicers/orca/package.json plugins/slicers/orca/
 COPY plugins/slicers/prusa/package.json plugins/slicers/prusa/
 COPY plugins/transports/moonraker/package.json plugins/transports/moonraker/
 COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --production
 
 FROM oven/bun:debian
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor worker — OpenSCAD generator + PrusaSlicer/OrcaSlicer engines" \
       org.opencontainers.image.licenses="MIT"
-ARG ORCA_RELEASE=latest
+ARG ORCA_RELEASE=2.4.1
 ARG ORCA_ENABLE=auto
 ENV ORCA_BIN=/opt/orca/AppRun
 
@@ -40,7 +40,16 @@ RUN chmod +x /tmp/install-orca.sh && /tmp/install-orca.sh "${ORCA_RELEASE}" "${O
 ENV ORCA_DATADIR=/opt/orca/squashfs-root/resources/profiles
 
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app ./
 COPY . .
+RUN groupadd --system --gid 10001 conveyor \
+ && useradd --system --uid 10001 --gid 10001 --create-home --home-dir /home/conveyor conveyor
+ENV HOME=/home/conveyor
+COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/conveyor-entrypoint
+ENTRYPOINT ["conveyor-entrypoint"]
+RUN orca=true \
+ && if [ -e /opt/orca/AppRun ]; then orca='test -x /opt/orca/AppRun && test -r "$ORCA_DATADIR"'; fi \
+ && setpriv --reuid=10001 --regid=10001 --clear-groups sh -c "test -x /opt/openscad/usr/bin/openscad && $orca" \
+ || { echo "uid 10001 cannot run OpenSCAD or OrcaSlicer" >&2; exit 1; }
 
 CMD ["bun", "packages/worker/src/main.ts"]

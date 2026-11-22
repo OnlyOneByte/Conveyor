@@ -4,6 +4,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     ports:
       - "${CONVEYOR_BIND:-127.0.0.1}:80:80"
       - "${CONVEYOR_BIND:-127.0.0.1}:443:443"
@@ -19,6 +20,9 @@ services:
   web:
     build: { context: ., dockerfile: packages/web/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    cap_drop: [ALL]
     environment:
       - PUBLIC_API_URL=${PUBLIC_API_URL:-https://localhost}
     depends_on: [api]
@@ -26,6 +30,10 @@ services:
   api:
     build: { context: ., dockerfile: packages/api/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_READ_SEARCH]
     environment:
       - REDIS_URL=redis://redis:6379
       - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
@@ -37,6 +45,7 @@ services:
       - CONVEYOR_AUTH=${CONVEYOR_AUTH:-}
       - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
+      - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
       - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
     volumes:
       - ./data:/data
@@ -47,12 +56,18 @@ services:
   worker:
     build: { context: ., dockerfile: packages/worker/Dockerfile }
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_READ_SEARCH]
+    tmpfs: ["/tmp:mode=1777"]
     stop_grace_period: 60s
     environment:
       - REDIS_URL=redis://redis:6379
       - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
       - CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}
       - DB_PATH=/data/conveyor.db
+      - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
@@ -63,6 +78,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
     healthcheck:

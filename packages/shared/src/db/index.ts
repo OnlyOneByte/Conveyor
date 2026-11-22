@@ -1,26 +1,41 @@
 import { Database } from "bun:sqlite";
 import { epochMs } from "./epoch-ms.js";
 import { migrate } from "./migrate.js";
+import {
+  bindSecretsKey,
+  encryptPlaintextSecrets,
+  resolveSecretsKey,
+  sealPrinterSecrets,
+} from "./printer-secrets.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 import { enableWal } from "./wal.js";
 
 export * from "./jobs.js";
+export { dbGetPrinterSecrets, SecretsKeyError } from "./printer-secrets.js";
 export * from "./printers.js";
 export * from "./profiles.js";
 
 let singleton: Database | null = null;
 let singletonPath: string | null = null;
 
-export function openDb(path = process.env.DB_PATH ?? "/data/conveyor.db"): Database {
+export function openDb(
+  path = process.env.DB_PATH ?? "/data/conveyor.db",
+  env: Record<string, string | undefined> = process.env,
+): Database {
   if (singleton && singletonPath === path) return singleton;
+  const key = resolveSecretsKey(path, env);
   const db = new Database(path, { create: true });
+  bindSecretsKey(db, key);
   db.exec("PRAGMA busy_timeout = 5000;");
   enableWal(db);
   db.exec("PRAGMA synchronous = NORMAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA_SQL);
-  db.transaction(() => migrate(db)).immediate();
+  db.transaction(() => {
+    migrate(db);
+    encryptPlaintextSecrets(db);
+  }).immediate();
   seedDefaults(db);
   singleton = db;
   singletonPath = path;
@@ -53,7 +68,7 @@ function seedDefaults(db: Database): void {
         p.transportId,
         p.name,
         p.address,
-        p.secrets ? JSON.stringify(p.secrets) : null,
+        p.secrets ? sealPrinterSecrets(db, p.id, p.secrets) : null,
         now,
       );
   });

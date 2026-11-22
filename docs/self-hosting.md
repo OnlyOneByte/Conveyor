@@ -99,11 +99,54 @@ Before you expose Conveyor beyond the host:
 | --- | --- | --- |
 | `CONVEYOR_PASSWORD` | none, required | Shared login password, 12 to 512 characters. |
 | `CONVEYOR_AUTH_SECRET` | none, required | HMAC key for session cookies, 32 characters or more after trimming whitespace. |
+| `CONVEYOR_SECRETS_KEY` | unset: generated into `./data/secrets.key` | Key that encrypts printer secrets, 32 bytes in base64 (`openssl rand -base64 32`). |
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
 | `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
+
+## Printer secrets and backups
+
+Printer credentials (Moonraker API keys, Elegoo mainboard ids) are encrypted in the database with AES-256-GCM. With `CONVEYOR_SECRETS_KEY` unset, the first start writes a random key to `./data/secrets.key` (readable only by its owner), and the api and worker both use it, so an existing install needs no manual step. The first start also encrypts any credentials already stored, once.
+
+To keep the key out of the data volume, set it in `.env` instead:
+
+```sh
+CONVEYOR_SECRETS_KEY='paste-the-output-of-openssl-rand-base64-32'
+```
+
+To move an install that already generated a key, paste the contents of `./data/secrets.key` into it, then delete the file.
+
+- Back up the key separately from `conveyor.db`. A copy of the database alone does not reveal printer credentials; the database and the key together do. Encryption protects copies and backups of the database, not a host where someone can read both.
+- A malformed key, or a key other than the one the database was encrypted with, stops the api and worker at startup with a `[secrets] refusing to start` error. Neither ever prints the key.
+- If `secrets.key` is readable or writable by anyone but its owner, both services print a `[secrets]` warning at startup. Fix it with `chmod 600 data/secrets.key`.
+- If the key is lost, the stored credentials cannot be recovered. Clear them and enter them again: stop the stack, run `sqlite3 data/conveyor.db "UPDATE printers SET secrets_json = NULL; DELETE FROM meta WHERE key = 'secrets_key_check';"`, start it, and save each printer's credentials again.
+
+### Upgrading and rolling back
+
+Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
+
+Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
+
+## Containers run as uid 10001
+
+The api, worker and web processes run as the unprivileged user `conveyor`, uid and gid `10001`, not as root. The web image starts as that user. The api and worker images start in a small entrypoint (`scripts/docker-entrypoint.sh`) that does one thing as root: if `/data` is not owned by `10001:10001`, it changes the owner of `/data` and everything in it, then drops to `10001` with `setpriv --no-new-privs` before the app starts. `secrets.key` keeps its `0600` mode, now for uid `10001`.
+
+- **New installs** need no step. Docker creates `./data` owned by root on the first `up`, and the entrypoint hands it over.
+- **Upgrading an install whose `./data` is owned by root** needs no step either. The first start after the upgrade logs `conveyor: /data is not owned by 10001:10001, changing its owner once`. On the host, `./data` then belongs to uid `10001`, so use `sudo` to read it or to take a backup.
+- **A file that is root-owned later**, for example one restored from a backup as root, is not fixed automatically, because the entrypoint only checks `/data` itself. Fix it with `sudo chown -R 10001:10001 data`, then start the stack.
+- `chown` runs with `-P -h`, so it changes symlinks in `./data` themselves and never the files they point to.
+
+Compose also locks the three app containers down:
+
+| Service | Capabilities | Root filesystem | Writable paths |
+| --- | --- | --- | --- |
+| `api` | all dropped, then `CHOWN`, `SETUID`, `SETGID`, `DAC_READ_SEARCH` added back for the entrypoint | read-only | `/data` |
+| `worker` | same as `api` | read-only | `/data`, and a tmpfs `/tmp` for `xvfb-run`, OrcaSlicer, PrusaSlicer and OpenSCAD |
+| `web` | all dropped | read-only | none |
+
+The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH` let the one-time `chown -R` change and walk a root-owned `./data` that already holds `0700` job directories, and `SETUID` and `SETGID` let `setpriv` switch to `10001`. The app itself has no effective capabilities, and `no-new-privileges` stops it gaining any. If you add a tool to the worker that writes outside `/data` and `/tmp`, it fails with `Read-only file system`: give it a `tmpfs` entry in `docker-compose.yml` rather than turning `read_only` off.
 
 ## Releasing a held printer
 
@@ -136,11 +179,11 @@ certificate, add `-k` or trust Caddy's root.
 
 The worker talks to printers over your network. By default it runs on the Compose bridge network, so store each printer's explicit IP address in its address field. If you need mDNS or other LAN discovery, add `network_mode: host` to the `worker` service instead.
 
-`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`) and the SQLite database live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
+`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`), the SQLite database and, unless `CONVEYOR_SECRETS_KEY` is set, `secrets.key` live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
 
 ## Routing in the Caddyfile
 
-Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) to `api` and everything else to `web`. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
+Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) and the exact path `/health` to `api`, and everything else to `web`. `https://localhost/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
 
 ```
 {
@@ -150,9 +193,9 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 ## Slicer and CAD engines in the worker image
 
-`scripts/install-openscad.sh` installs the newest OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). Pin a build with `OPENSCAD_RELEASE=YYYY.MM.DD`, or `OPENSCAD_APPIMAGE_URL=<url>` (which wins). The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
+`scripts/install-openscad.sh` installs a pinned OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). It checks the download against a pinned sha256 before making it executable, and a mismatch fails the build. The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
 
-`scripts/install-orca.sh <latest|x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the latest GitHub release, or the version given. The `ORCA_ENABLE` build argument picks the mode:
+`scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
 
 | `ORCA_ENABLE` | Behaviour |
 | --- | --- |
@@ -161,3 +204,20 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 | `0` | Skipped. |
 
 Orca is GUI-linked, so the worker runs it under `xvfb-run`.
+
+### Bumping the OpenSCAD pin
+
+Upstream deletes old nightly snapshots (the x86_64 listing keeps about ten months), so a pinned x86_64 snapshot eventually fails to download and has to be bumped:
+
+1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch. Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
+2. Set the `ASSET` and `SHA256` pair for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download.
+3. Open the PR. CI's `orca slice` job renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
+
+### Bumping the OrcaSlicer pin
+
+The bundled profile in `profiles/orca-klipper-pla-0.2/` only loads in the Orca release it was exported from. A newer release can reject it with "Preset was not found in the loaded bundle", so bump the release and the profile together:
+
+1. In the new OrcaSlicer, re-export the three leaf presets (machine, process, filament) into `profiles/orca-klipper-pla-0.2/`, and update the version in its `README.md`.
+2. Set the new version as the `ORCA_RELEASE` default in `packages/worker/Dockerfile` and `scripts/install-orca.sh`.
+3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/OrcaSlicer/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads.
+4. Open the PR. CI's `orca slice` job builds the worker with `ORCA_ENABLE=1` and slices a cube with the bundled profile as uid 10001, so a profile the new release rejects fails there.

@@ -124,7 +124,10 @@ of controls.
 
 ### Generator
 
-`paramSchema` is a zod-derived JSON Schema the PWA renders the form from. `outputs` lists the model formats
+`params` is the generator's strict zod schema: `POST /jobs` parses the request's params with it, applies its
+defaults, and rejects unknown keys. `validateRequest`, when present, checks the parsed params against the
+outside world (passthrough: the upload is a regular `.stl` file in the uploads dir, within
+`MAX_UPLOAD_BYTES`, with an STL header). `paramSchema` is the JSON Schema derived from `params`; the PWA renders the form from it. `outputs` lists the model formats
 the generator can emit (`["stl", "3mf"]`). `generate` is the exact, server-side model generation that
 shells out to OpenSCAD and similar.
 

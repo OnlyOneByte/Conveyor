@@ -35,8 +35,14 @@ import type { JSONSchema7 } from "json-schema";
 
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
+  // Strict zod schema; POST /jobs parses params with it (defaults applied) and answers 400 naming the field.
+  params: ZodType<P, ZodTypeDef, unknown>;
   // Zod-derived JSON Schema → the PWA renders the config form from this.
   paramSchema: JSONSchema7;
+  // Optional request-time check on parsed params, e.g. that an upload exists; null means OK.
+  validateRequest?(params: P): ParamIssue | null;
+  // Optional layout hints for that form: groups, an advanced section, controls, units.
+  ui?: FormUiHints;
   // Optional procedural-preview descriptor for the client-side fast viewport.
   preview?: PreviewDescriptor;
   // Declares the model format(s) this generator can emit.
@@ -52,8 +58,12 @@ export interface PreviewDescriptor {
 }
 ```
 
-Default: **`gridfinity`** wraps `gridfinity-rebuilt-openscad`:
-`openscad -o out.stl -D 'gridx=2;gridy=3;...' gridfinity.scad`.
+`FormUiHints` (groups, `advanced`, `controls`, `unitMm`, `note`) is in `packages/shared/src/plugins.ts`; what each
+field does is in [modules/shared.md](modules/shared.md#form-presentation-hints).
+
+Bundled: **`gridfinity`** wraps `gridfinity-rebuilt-openscad`, running
+`openscad -o model.stl -D gridx=2 -D gridy=3 ... gridfinity-rebuilt-bins.scad` (override the file with
+`GRIDFINITY_SCAD`), and **`passthrough`** hands an uploaded STL to the slicer unchanged.
 
 ## Stage 2 — Slicer
 
@@ -63,18 +73,18 @@ export interface SlicerPlugin extends PluginManifest {
   accepts: string[];                       // input formats, e.g. ["stl", "3mf"]
   gcodeFlavor: string;                     // emitted flavor, e.g. "marlin", "klipper"
   profiles: ProfileRef[];                  // curated, locked, server-side only
-  slice(model: ModelArtifact, profileId: string, ctx: StageCtx): Promise<GcodeArtifact>;
+  slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
 export interface ProfileRef {
-  id: string;                              // "orca/elegoo-pla-0.2"
+  id: string;                              // "orca/klipper-pla-0.2"
   name: string;                            // shown in Settings, not to end users
   path: string;                            // path to the locked profile bundle
 }
 ```
 
-Default: **`orca`** runs the OrcaSlicer CLI under `xvfb` in the worker image.
-A 2nd adapter (PrusaSlicer CLI) is the contract's proof-of-pluggability.
+Bundled: **`orca`** runs the OrcaSlicer CLI under `xvfb-run`, and **`prusa`** runs the PrusaSlicer CLI. Neither
+is a default: a job's profile names its slicer, and the seed ships profiles for both.
 
 ## Stage 3 — Transport
 
@@ -113,15 +123,17 @@ First adapters: **`moonraker`** (Klipper HTTP API) and **`elegoo`** (ElegooLink 
 
 ```ts
 // A job names a printer and a profile. The transport comes from the printer and the
-// slicer from the profile, so the pair is the whole print configuration — there is no
-// separate saved binding to curate.
+// slicer and flavour from the profile, so the pair is the whole print configuration —
+// there is no separate saved binding to curate. The api resolves the pair into this.
 export interface JobTarget {
-  id: string;
-  name: string;                            // "Garage Klipper — PLA 0.2mm"
-  transportId: string;
   printerId: string;                       // a PrinterTarget.id
-  slicerId: string;
+  transportId: string;                     // from the printer
   profileId: string;                       // a ProfileRef.id
+  profileName: string;
+  profilePath: string;                     // bundle dir under /profiles
+  slicerId: string;                        // from the profile
+  gcodeFlavor: string;                     // from the profile
+  allowedGenerators?: string[];            // the printer's allowlist; absent = unrestricted
 }
 ```
 
@@ -149,15 +161,19 @@ export interface Registry {
   transports: Map<string, TransportPlugin>;
 }
 
-// Validated before enqueue:
+// Validated before enqueue, in this order; the first failure throws CompatibilityError:
+//   the generator exists
+//   generator.id ∈ target.allowedGenerators (when the printer has an allowlist)
+//   the slicer and the transport exist
 //   generator.outputs ∩ slicer.accepts ≠ ∅
-//   slicer.gcodeFlavor ∈ transport.acceptsFlavors
-export function validateJob(req: JobRequest, reg: Registry): void;
+//   target.gcodeFlavor (the profile's) ∈ transport.acceptsFlavors
+export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): void;
 ```
 
 ## Adding a plugin (the whole checklist)
 
-1. Create `plugins/<stage>/<id>/` exporting an object that satisfies the stage interface.
-2. Declare `capabilities` (formats / flavors) and (generators) a Zod param schema.
-3. Register it in the worker's startup registry.
-4. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.
+1. Create `plugins/<stage>/<id>/` (a Bun workspace package) exporting an object that satisfies the stage interface.
+2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts`, `gcodeFlavor` and `profiles` for a slicer, `acceptsFlavors` for a transport.
+3. Register it in the worker's `buildRegistry` (`packages/worker/src/registry.ts`).
+4. Make the api know it too (`packages/api/src/registry-view.ts`): a generator is imported and registered as-is, while a slicer or transport is declared inline as metadata, because the api never runs one.
+5. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.

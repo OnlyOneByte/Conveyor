@@ -15,16 +15,16 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
 - **PrusaSlicer** comes from apt (Debian trixie). It is multi-arch and truly headless (no xvfb), and its apt
   package pulls its own runtime libraries. It is installed on every arch.
 - **OrcaSlicer** ships x86_64 and aarch64 Linux AppImages from v2.4.1. `scripts/install-orca.sh` resolves the
-  AppImage for this arch from GitHub's release API and extracts it. `ORCA_RELEASE` defaults to `latest`; pass
-  `x.y.z` to pin a build. Orca runs headless under xvfb: the Orca slicer plugin spawns it through
+  AppImage for this arch from GitHub's release API and extracts it. `ORCA_RELEASE` is pinned to `2.4.1`, the release the
+  bundled profile was exported from, and each AppImage is checked against a pinned sha256. Orca runs headless under xvfb: the Orca slicer plugin spawns it through
   `xvfb-run -a`. The GL/GTK libraries in the apt line (`libopengl0`, `libglu1-mesa`, `libwebkit2gtk`, the
   mesa GL/EGL drivers, gstreamer) are the minimal set found by running `--slice` in this image until it
   produced gcode. `ORCA_DATADIR` points at the bundled vendor profile tree, because Orca leaf presets resolve
   `inherits` against it.
 - **OpenSCAD** is the nightly AppImage, extracted so FUSE is not needed at runtime. The distro `openscad`
   (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+ nightly.
-  `scripts/install-openscad.sh` resolves the latest snapshot for this arch from files.openscad.org; set
-  `OPENSCAD_RELEASE=YYYY.MM.DD` or `OPENSCAD_APPIMAGE_URL=<url>` to pin one. The script writes a wrapper that
+  `scripts/install-openscad.sh` installs one pinned snapshot per arch from files.openscad.org and checks
+  its sha256 before running it. The script writes a wrapper that
   scopes the AppImage's bundled libraries to the openscad process. A global `LD_LIBRARY_PATH` would shadow
   system libraries and break prusa-slicer, so the image never sets one.
 
