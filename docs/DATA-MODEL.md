@@ -299,9 +299,9 @@ printed with, which is history rather than a live reference: deleting a printer 
 not rewrite what ran last week. The history shows an id that no longer resolves as-is, and an
 empty one as `—`, instead of hiding the row.
 
-In Redis mode only **terminal** jobs get a `jobs` row, so `/jobs-history` never contains a job in
-flight. In SQLite mode every job has a row from
-enqueue. That is why the PWA keeps a per-browser
+Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those are the only rows; in
+SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
+`/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
 home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
 
