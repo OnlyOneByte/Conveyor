@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:36685",
+  "url": "http://127.0.0.1:45079",
   "warnings": [],
   "results": [
     {
@@ -13,7 +13,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 424063,
+      "gifBytes": 441538,
       "gif": "new-job-1440.gif"
     },
     {
@@ -53,7 +53,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 566482,
+      "gifBytes": 608251,
       "gif": "new-job-390.gif"
     },
     {
