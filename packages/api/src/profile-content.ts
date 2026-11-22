@@ -1,5 +1,5 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isBundledProfilePath,
@@ -14,6 +14,7 @@ import {
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
 } from "@conveyor/shared";
+import { isWithin } from "@conveyor/shared/node";
 
 const defaultProfilesRoot = fileURLToPath(new URL("../../../profiles", import.meta.url));
 const profilesRoot = resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
@@ -26,11 +27,6 @@ export class ProfileContentError extends Error {
   ) {
     super(message);
   }
-}
-
-function isWithin(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate);
-  return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
 
 async function bundledDirectory(logicalPath: string): Promise<{ root: string; directory: string }> {

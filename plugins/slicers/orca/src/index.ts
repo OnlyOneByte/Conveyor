@@ -1,14 +1,13 @@
-import { spawn } from "node:child_process";
 import { copyFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  type GcodeArtifact,
-  type ModelArtifact,
-  type ProfileRef,
-  type SlicerPlugin,
-  type StageCtx,
-  StageError,
+import type {
+  GcodeArtifact,
+  ModelArtifact,
+  ProfileRef,
+  SlicerPlugin,
+  StageCtx,
 } from "@conveyor/shared";
+import { runEngine } from "@conveyor/shared/node";
 
 const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 const orcaBin = () => process.env.ORCA_BIN ?? "orca-slicer";
@@ -49,23 +48,9 @@ export const orca: SlicerPlugin = {
     ];
     const bin = orcaBin();
     ctx.log(`xvfb-run -a ${bin} ${args.join(" ")}`);
-    await run("xvfb-run", ["-a", bin, ...args], ctx);
+    await runEngine("slicer", "xvfb-run", ["-a", bin, ...args], ctx);
 
     await copyFile(join(ctx.workDir, "plate_1.gcode"), out);
     return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },
 };
-
-function run(cmd: string, args: string[], ctx: StageCtx): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { signal: ctx.signal });
-    let stderr = "";
-    child.stderr.on("data", (b) => (stderr += b.toString()));
-    child.on("error", (e) => reject(new StageError("slicer", e.message, { cause: e })));
-    child.on("close", (code) =>
-      code === 0
-        ? resolve()
-        : reject(new StageError("slicer", `${cmd} exited ${code}: ${stderr.slice(-500)}`)),
-    );
-  });
-}

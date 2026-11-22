@@ -233,6 +233,16 @@ there makes its profiles editable everywhere at once.
 throws on anything else. `sqlite` also throws unless `CONVEYOR_QUEUE_UNSTABLE=1` is set. The worker and the
 api both call it at startup and exit with code 1 on a throw, so they always agree on what a value means.
 
+## node/ (`@conveyor/shared/node`)
+
+Server-only helpers, kept off the main entry so the web bundle never pulls in `node:` modules:
+
+- `runEngine(stage, cmd, args, ctx)` spawns an engine with the job's `AbortSignal`. A spawn error or a non-zero
+  exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
+  generator and both slicers use it.
+- `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
+  reads use. It refuses `..` escapes and, on Windows, another drive.
+
 ## db/index.ts
 
 Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the same on aarch64 and x86_64).
@@ -247,7 +257,6 @@ same file on the shared `/data` volume. `openDb()` is a process-wide singleton, 
 | `db/profiles.ts` | `Profile` and the profile and profile-content queries |
 | `db/jobs.ts` | `SettledJob`, `dbResolveJobTarget` and the job queries. `dbListJobs` lists finished jobs only (done, failed, canceled), because on the SQLite queue a job has a row from the moment it is queued |
 | `db/migrate.ts` | `migrate()`, see [Migrations](#migrations) |
-| `db/epoch-ms.ts` | `epochMs()`, the one clock every write reads |
 
 Callers import from `@conveyor/shared/db` only; the module split is not part of the public surface.
 

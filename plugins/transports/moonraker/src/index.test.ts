@@ -75,6 +75,57 @@ describe("moonraker submit", () => {
   });
 });
 
+describe("moonraker submit, the printer answers", () => {
+  async function gcodeCtx() {
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const path = join(dir, "bin 1.gcode");
+    await writeFile(path, "G28\n");
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: new AbortController().signal,
+      report: () => {},
+      log: () => {},
+    };
+    return { path, ctx };
+  }
+  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+
+  test("uploads the file, starts it and returns a handle naming it", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(async () => new Response("{}", { status: 201 }));
+    expect(await moonraker.submit({ path, format: "gcode" }, target, ctx)).toEqual({
+      transportId: "moonraker",
+      printerId: "p",
+      ref: "bin 1.gcode",
+      address: "10.0.0.9:7125",
+    });
+    expect(calls.map((c) => c.url)).toEqual([
+      "http://10.0.0.9:7125/server/files/upload",
+      "http://10.0.0.9:7125/printer/print/start?filename=bin%201.gcode",
+    ]);
+  });
+
+  test("a rejected upload fails the transport stage and starts nothing", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(async () => new Response("no", { status: 507 }));
+    await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toThrow(
+      "moonraker upload failed: 507",
+    );
+    expect(calls).toHaveLength(1);
+  });
+
+  test("a rejected start fails the transport stage", async () => {
+    const { path, ctx } = await gcodeCtx();
+    fakeFetch(
+      async (url) => new Response("{}", { status: url.includes("/print/start") ? 409 : 201 }),
+    );
+    await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toThrow(
+      "moonraker start failed: 409",
+    );
+  });
+});
+
 describe("moonraker status", () => {
   test("stops polling when the signal aborts", async () => {
     const calls = fakeFetch(
