@@ -1,8 +1,8 @@
-export const MIN_SECRET_LENGTH = 32;
-export const MIN_PASSWORD_LENGTH = 12;
-export const MAX_PASSWORD_LENGTH = 512;
+const MIN_SECRET_LENGTH = 32;
+const MIN_PASSWORD_LENGTH = 12;
+const MAX_PASSWORD_LENGTH = 512;
 
-export type AuthConfig =
+type AuthConfig =
   | { enabled: true; password: string; secret: string }
   | { enabled: false; password: ""; secret: string };
 

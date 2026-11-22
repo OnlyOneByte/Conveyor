@@ -3,7 +3,7 @@ import { z } from "zod";
 import { apiRegistry } from "./registry.js";
 
 export const MAX_SECRETS = 16;
-export const MAX_SECRET_KEY_LENGTH = 64;
+const MAX_SECRET_KEY_LENGTH = 64;
 export const MAX_SECRET_VALUE_LENGTH = 4096;
 
 const knownFlavors = () =>

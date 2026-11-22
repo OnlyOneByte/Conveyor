@@ -18,7 +18,7 @@ export interface TailOptions {
   read: typeof tailEvents;
 }
 
-export const TAIL_PAGE = 100;
+const TAIL_PAGE = 100;
 export const DEFAULT_TAIL: TailOptions = {
   fastMs: 250,
   slowMs: 1000,

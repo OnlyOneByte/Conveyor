@@ -1,99 +1,19 @@
-import {
-  DiscoveryReply,
-  decodeFrame,
-  decodeShape,
-  ErrorData,
-  PushEnvelope,
-  StatusData,
-} from "./frames.js";
+import { decodeFrame, decodeShape, ErrorData, PushEnvelope, StatusData } from "./frames.js";
 
 export const SDCP_CMD = {
   STATUS: 0,
   ATTRIBUTES: 1,
   START_PRINT: 128,
-  PAUSE_PRINT: 129,
   STOP_PRINT: 130,
-  RESUME_PRINT: 131,
 } as const;
-
-export const SDCP_PRINT_STATUS: Record<number, string> = {
-  0: "idle",
-  1: "homing",
-  2: "dropping",
-  3: "exposuring",
-  4: "lifting",
-  5: "pausing",
-  6: "paused",
-  7: "stopping",
-  8: "stopped",
-  9: "complete",
-  10: "filechecking",
-  13: "printing",
-} as const;
-
-export interface SdcpDiscovery {
-  name: string;
-  machineName: string;
-  brand: string;
-  mainboardIp: string;
-  mainboardId: string;
-  protocolVersion?: string;
-  firmwareVersion?: string;
-}
 
 export type SdcpRead<T> =
   | { kind: "frame"; frame: T }
   | { kind: "other"; reason: string }
   | { kind: "malformed"; reason: string };
 
-export type DiscoveryOutcome =
-  | { kind: "found"; printers: SdcpDiscovery[] }
-  | { kind: "none"; reasons: string[] };
-
 export function exhaustive(value: never): never {
   throw new Error(`unhandled SDCP read: ${JSON.stringify(value)}`);
-}
-
-export function parseDiscovery(buf: string): SdcpRead<SdcpDiscovery> {
-  const decoded = decodeFrame(DiscoveryReply, buf);
-  if (decoded.kind === "malformed") return decoded;
-  const d = { ...decoded.value.data, ...decoded.value.Data };
-  const mainboardIp = d.MainboardIP ?? d.mainboardIP;
-  const mainboardId = d.MainboardID ?? d.mainboardID;
-  if (!mainboardIp || !mainboardId)
-    return { kind: "other", reason: "reply has no MainboardIP or MainboardID" };
-  return {
-    kind: "frame",
-    frame: {
-      name: d.Name ?? d.name ?? "Elegoo printer",
-      machineName: d.MachineName ?? d.machineName ?? "",
-      brand: d.BrandName ?? d.brandName ?? "Elegoo",
-      mainboardIp,
-      mainboardId,
-      protocolVersion: d.ProtocolVersion,
-      firmwareVersion: d.FirmwareVersion,
-    },
-  };
-}
-
-export function discoveryOutcome(reads: SdcpRead<SdcpDiscovery>[]): DiscoveryOutcome {
-  const printers = new Map<string, SdcpDiscovery>();
-  const reasons: string[] = [];
-  for (const read of reads) {
-    switch (read.kind) {
-      case "frame":
-        printers.set(read.frame.mainboardId, read.frame);
-        break;
-      case "other":
-      case "malformed":
-        reasons.push(read.reason);
-        break;
-      default:
-        exhaustive(read);
-    }
-  }
-  if (printers.size === 0 && reasons.length > 0) return { kind: "none", reasons };
-  return { kind: "found", printers: [...printers.values()] };
 }
 
 export function buildCommand(
