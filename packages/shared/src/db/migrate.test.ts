@@ -213,7 +213,7 @@ describe("openDb legacy printers and profiles columns", () => {
       transportId: "moonraker",
       name: "Legacy A",
       address: "http://a",
-      secrets: undefined,
+      hasSecrets: false,
       allowedGenerators: undefined,
     });
     dbUpsertPrinter(db, {

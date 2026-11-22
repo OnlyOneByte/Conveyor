@@ -86,13 +86,13 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `transport_id` | text | `"moonraker"` \| `"elegoo"` |
 | `name` | text | operator label |
 | `address` | text | host:port / mqtt topic / serial |
-| `secrets_json` | text (encrypted-at-rest) | API keys/tokens; resolved server-side only |
+| `secrets_json` | text null | API keys/tokens as an AES-256-GCM envelope, `v1:<iv>:<tag>:<ciphertext>` (base64 parts); decrypted only by the worker |
 | `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
-> COALESCEing `secrets_json`. Omitting it on write means "no restriction"; COALESCE
+> keeping the stored `secrets_json` when `secrets` is omitted. Omitting it on write means "no restriction"; COALESCE
 > would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
 > load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
 > presence-not-truthiness when checking it, and an explicit toggle in the Settings form
@@ -166,9 +166,21 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 
 ## Secrets
 
-Printer credentials live only in `printer.secrets_json` (encrypted at rest), are read solely by
-the worker's transport adapter, and are **never** included in any API response. The PWA only ever
-knows a `printerId` and a `profileId`. (Friends-only deployment; app-level auth is an open decision in `SPEC.md`.)
+Printer credentials live only in `printer.secrets_json`, encrypted with AES-256-GCM
+(`packages/shared/src/secrets/`). Each write uses a fresh random 12-byte IV and stores the 16-byte
+auth tag; the printer id is bound in as associated data, so a value copied to another row does not
+decrypt. The `v1:` prefix names the envelope format so a later key or cipher can be rotated in.
+
+- **Key.** `CONVEYOR_SECRETS_KEY` (32 bytes, canonical base64) when set; otherwise `secrets.key` next
+  to the database, generated once with mode `0600`. `openDb` refuses a malformed key and never logs it.
+- **Migration.** On first open, one `BEGIN IMMEDIATE` transaction encrypts every plaintext row and
+  stores an encrypted key check in `meta.secrets_key_check`. After that, plaintext is refused on read
+  and `openDb` refuses a different key.
+- **Who decrypts.** Only the worker, in `resolvePrinterTarget`, right before a transport call. The api
+  encrypts on write and reports `hasSecrets` (the column is non-null); no API response carries secrets.
+
+This protects copies of `conveyor.db` and its backups. It does not protect against anyone who can read
+both the database and the key.
 
 ## Retention
 
@@ -220,8 +232,7 @@ Full catalog + history surface (2026-09-02):
 
 One integrity rule is enforced in the API rather than the database:
 
-- **A printer upsert that omits `secrets` keeps the stored value** (`COALESCE` in
-  `dbUpsertPrinter`). Reads strip secrets, so a client editing a printer cannot round-trip them;
+- **A printer upsert that omits `secrets` keeps the stored value** (`dbUpsertPrinter`). Reads strip secrets, so a client editing a printer cannot round-trip them;
   assigning the incoming value directly used to wipe the credential on any address-only edit.
   Pass `secrets: {}` to clear deliberately.
 

@@ -1,4 +1,4 @@
-import type { Printer } from "./printers.js";
+import type { PrinterInput } from "./printers.js";
 import type { Profile } from "./profiles.js";
 
 export const DEFAULT_PROFILES: Profile[] = [
@@ -25,7 +25,7 @@ export const DEFAULT_PROFILES: Profile[] = [
   },
 ];
 
-export const DEFAULT_PRINTERS: Printer[] = [
+export const DEFAULT_PRINTERS: PrinterInput[] = [
   {
     id: "klipper-garage",
     transportId: "moonraker",
