@@ -116,6 +116,27 @@ describe("DELETE /catalog/profiles/:id", () => {
     finish("profile-job");
     expect((await del("/catalog/profiles/custom")).status).toBe(200);
   });
+
+  test.each(["generating", "slicing", "transferring", "printing"])(
+    "a profile a %s job uses is a 409",
+    async (state) => {
+      const db = openDb();
+      const id = `running-profile-${state}`;
+      dbUpsertProfile(db, {
+        id,
+        slicerId: "prusa",
+        name: "Running",
+        path: "/profiles/prusa-marlin-pla-0.2",
+        gcodeFlavor: "marlin",
+      });
+      enqueueJob(db, { id: `profile-${state}`, request: request("klipper-garage", id) });
+      setState(`profile-${state}`, state);
+      expect(await del(`/catalog/profiles/${id}`)).toEqual({
+        status: 409,
+        body: { error: `profile ${id} is used by 1 queued or running job(s)` },
+      });
+    },
+  );
 });
 
 describe("countLiveJobs on the Redis queue", () => {

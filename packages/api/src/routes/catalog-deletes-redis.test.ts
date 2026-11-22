@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
   throw new Error("REDIS_URL must be set in CI for the Redis delete tests");
 
-const PRINTER = "redis-delete-busy";
+const PRINTER = `redis-delete-${randomUUID()}`;
 const dir = mkdtempSync(join(tmpdir(), "conveyor-catalog-redis-"));
 let api: BootedApi | undefined;
 let queue: Queue<JobRequest> | undefined;
@@ -81,7 +82,7 @@ describe.skipIf(!url)(
           printerId: PRINTER,
           profileId: "orca/klipper-pla-0.2",
         },
-        { jobId: `redis-delete-${Date.now()}` },
+        { jobId: PRINTER },
       );
       added = job;
       expect(await deletePrinter()).toBe(409);
