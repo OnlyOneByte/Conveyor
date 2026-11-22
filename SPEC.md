@@ -44,13 +44,11 @@ Anything with a CLI can become a slicer. Anything with an upload+start API can b
 
 ## 4. Plugin model
 
-- Every plugin ships a **manifest** (`id`, `name`, `version`, `capabilities`) and self-registers into its stage registry at startup.
 - Plugins are thin **in-process TypeScript adapters** that wrap external tools (OpenSCAD, Orca CLI, Moonraker HTTP, Elegoo). Process isolation already happens naturally at the tool boundary, so adding a CLI slicer ≈ writing one adapter file.
-- A generator declares a **param schema** (Zod → JSON Schema). The PWA renders its config form **dynamically** from that schema — zero per-generator UI code.
-- Stages negotiate via **capabilities**: a generator's output format must be in the slicer's accepted inputs; the slicer profile's gcode flavor must be in the transport's accepted flavors. The orchestrator validates a Job's stage compatibility before it is enqueued.
-- Contracts live in the `shared` package — the single source of truth imported by web, api, and worker.
+- A generator's **param schema** drives the PWA's config form, so a new generator needs no per-generator UI code.
+- A job's stages are checked for compatibility before it is enqueued.
 
-See `docs/PLUGINS.md` for the full interface definitions.
+The contracts, the registry and the compatibility rules are defined once, in [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## 5. Wicked-fast preview (dual-model)
 
@@ -66,13 +64,8 @@ The render must feel instant, so we never round-trip the real model on a slider 
 - `docker-compose`, **Caddy** for auto-HTTPS (PWA service workers require it).
 - Job state streamed to the PWA over WS: `queued → generating → slicing → transferring → printing → done | failed | canceled`.
 
-```
-packages/  shared · web · api · worker
-plugins/   generators/* · slicers/* · transports/*
-profiles/  locked slicer profiles (operator-managed)
-scad/      gridfinity-rebuilt-openscad (submodule)
-data/      job artifacts (*.stl, *.gcode) — mounted volume
-```
+The repository layout is in [AGENTS.md §1](AGENTS.md#1-repository-layout-today), and the system as built is
+in [docs/architecture.md](docs/architecture.md).
 
 ## 7. v1 scope
 
