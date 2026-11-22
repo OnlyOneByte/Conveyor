@@ -1,6 +1,6 @@
 import { isIP, isIPv4 } from "node:net";
 
-export class TrustedProxiesError extends Error {
+class TrustedProxiesError extends Error {
   override name = "TrustedProxiesError";
 }
 

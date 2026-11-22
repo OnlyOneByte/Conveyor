@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type Decoded<T> = { kind: "decoded"; value: T } | { kind: "malformed"; reason: string };
+type Decoded<T> = { kind: "decoded"; value: T } | { kind: "malformed"; reason: string };
 
 type Schema<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
 
@@ -43,26 +43,6 @@ const reading = z
       .transform(Number),
   ])
   .optional();
-
-const DiscoveryFields = z.object({
-  Name: text,
-  name: text,
-  MachineName: text,
-  machineName: text,
-  BrandName: text,
-  brandName: text,
-  MainboardIP: text,
-  mainboardIP: text,
-  MainboardID: text,
-  mainboardID: text,
-  ProtocolVersion: text,
-  FirmwareVersion: text,
-});
-
-export const DiscoveryReply = z.object({
-  Data: DiscoveryFields.optional(),
-  data: DiscoveryFields.optional(),
-});
 
 export const PushEnvelope = z.object({
   Topic: z.string().default(""),

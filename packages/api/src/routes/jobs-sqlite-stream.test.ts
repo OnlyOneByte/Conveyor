@@ -7,6 +7,7 @@ import { openDb } from "@conveyor/shared/db";
 import { claimJob, enqueueJob, type Lease, tailEvents, writeStatus } from "@conveyor/shared/queue";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
+import { silentClient } from "../../test/silent-client.ts";
 import { DEFAULT_TAIL, registerJobRoutes, type TailOptions } from "./jobs-sqlite.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-stream-"));
@@ -61,6 +62,11 @@ function claimed(): Lease {
   return lease;
 }
 
+async function until(done: () => boolean) {
+  for (let i = 0; i < 400 && !done(); i++) await Bun.sleep(5);
+  if (!done()) throw new Error("condition not reached");
+}
+
 async function connect(url: string) {
   const ws = new WebSocket(url);
   const frames: unknown[] = [];
@@ -78,15 +84,56 @@ async function connect(url: string) {
 
 describe("the sqlite job stream's limits", () => {
   test("polls fast while events arrive, then slows once idle", async () => {
-    const base = await serve({ fastMs: 10, slowMs: 400, idleMs: 60 });
+    let now = 0;
+    const delays: number[] = [];
+    let next = () => {};
+    const base = await serve({
+      fastMs: 10,
+      slowMs: 400,
+      idleMs: 60,
+      now: () => now,
+      schedule: (tick, ms) => {
+        delays.push(ms);
+        next = tick;
+        return () => {};
+      },
+    });
     const lease = claimed();
     await connect(`${base}/jobs/${lease.jobId}/ws`);
-    await Bun.sleep(50);
-    expect(reads).toBeGreaterThanOrEqual(3);
-    await Bun.sleep(150);
-    const before = reads;
-    await Bun.sleep(300);
-    expect(reads - before).toBeLessThanOrEqual(2);
+    await until(() => delays.length === 1);
+    now = 30;
+    next();
+    writeStatus(db, lease, { state: "slicing", stage: "slicer" });
+    now = 50;
+    next();
+    now = 100;
+    next();
+    now = 111;
+    next();
+    expect(delays).toEqual([10, 10, 10, 10, 400]);
+  });
+
+  test("terminates a viewer that stops answering pings, and frees its slot", async () => {
+    const base = await serve({ maxSockets: 1, heartbeat: { intervalMs: 10, missed: 1 } });
+    const lease = claimed();
+    const silent = await silentClient(base, `/jobs/${lease.jobId}/ws`);
+    await silent.closed;
+    let admitted = false;
+    for (let i = 0; i < 50 && !admitted; i++) {
+      const next = await connect(`${base}/jobs/${lease.jobId}/ws`);
+      await until(() => next.frames.length > 0 || next.code() !== 0);
+      admitted = next.code() === 0;
+      if (!admitted) await Bun.sleep(10);
+    }
+    expect(admitted).toBe(true);
+  });
+
+  test("keeps a viewer that answers pings", async () => {
+    const base = await serve({ heartbeat: { intervalMs: 10, missed: 25 } });
+    const lease = claimed();
+    const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
+    await Bun.sleep(400);
+    expect([socket.ws.readyState, socket.code()]).toEqual([WebSocket.OPEN, 0]);
   });
 
   test("stops polling once the client disconnects", async () => {
@@ -141,7 +188,7 @@ describe("the sqlite job stream's limits", () => {
     const lease = claimed();
     const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await socket.closed;
-    expect(socket.frames).toHaveLength(1);
+    expect([socket.code(), socket.frames.length]).toEqual([1011, 1]);
     const after = reads;
     await Bun.sleep(50);
     expect(reads).toBe(after);
@@ -173,6 +220,6 @@ describe("an unreadable job row", () => {
     expect(ids).not.toContain(lease.jobId);
     const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await socket.closed;
-    expect(socket.frames).toEqual([]);
+    expect([socket.code(), socket.frames]).toEqual([1011, []]);
   });
 });

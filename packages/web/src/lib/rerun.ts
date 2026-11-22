@@ -7,7 +7,7 @@
  */
 const KEY = "conveyor.rerun";
 
-export interface RerunPayload {
+interface RerunPayload {
   generatorId: string;
   params?: unknown;
   printerId: string;

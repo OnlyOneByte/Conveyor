@@ -53,7 +53,6 @@ export const scenes: Scene[] = [
       {
         waitFor: "ol.stages li.done:last-child, .status .failed",
         timeout: 12000,
-        warn: "final stage not reached in 12 s, see #52",
       },
       { wait: 800 },
     ],
