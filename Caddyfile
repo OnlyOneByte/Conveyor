@@ -1,3 +1,7 @@
+{
+	skip_install_trust
+}
+
 localhost {
 	encode gzip zstd
 

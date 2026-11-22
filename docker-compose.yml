@@ -5,6 +5,10 @@ services:
     image: caddy:2
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
+    read_only: true
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
     ports:
       - "${CONVEYOR_BIND:-127.0.0.1}:80:80"
       - "${CONVEYOR_BIND:-127.0.0.1}:443:443"
@@ -78,7 +82,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    user: "999:1000"
     security_opt: ["no-new-privileges:true"]
+    read_only: true
+    cap_drop: [ALL]
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
     healthcheck:

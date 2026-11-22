@@ -142,15 +142,19 @@ The api, worker and web processes run as the unprivileged user `conveyor`, uid a
 - **A file that is root-owned later**, for example one restored from a backup as root, is not fixed automatically, because the entrypoint only checks `/data` itself. Fix it with `sudo chown -R 10001:10001 data`, then start the stack.
 - `chown` runs with `-P -h`, so it changes symlinks in `./data` themselves and never the files they point to.
 
-Compose also locks the three app containers down:
+Compose also locks every container down:
 
 | Service | Capabilities | Root filesystem | Writable paths |
 | --- | --- | --- | --- |
 | `api` | all dropped, then `CHOWN`, `SETUID`, `SETGID`, `DAC_READ_SEARCH` added back for the entrypoint | read-only | `/data` |
 | `worker` | same as `api` | read-only | `/data`, and a tmpfs `/tmp` for `xvfb-run`, OrcaSlicer, PrusaSlicer and OpenSCAD |
 | `web` | all dropped | read-only | none |
+| `caddy` | all dropped | read-only | the `caddy_data` and `caddy_config` volumes |
+| `redis` | all dropped, runs as the image's `redis` user (`999:1000`) | read-only | the `redis_data` volume |
 
 The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH` let the one-time `chown -R` change and walk a root-owned `./data` that already holds `0700` job directories, and `SETUID` and `SETGID` let `setpriv` switch to `10001`. The app itself has no effective capabilities, and `no-new-privileges` stops it gaining any. If you add a tool to the worker that writes outside `/data` and `/tmp`, it fails with `Read-only file system`: give it a `tmpfs` entry in `docker-compose.yml` rather than turning `read_only` off.
+
+Caddy still runs as uid 0, but with no capabilities: it binds `:80` and `:443` because compose sets `net.ipv4.ip_unprivileged_port_start=0` in its own network namespace, and it can write its volumes because it owns them. It is not moved to a non-root uid because the `caddy_data` of an existing install is owned by root, and a non-root Caddy then fails to load its local CA and exits. `skip_install_trust` in the `Caddyfile` stops Caddy trying to add that CA to the container's own trust store, which the read-only root would refuse. Redis needs no capability: its data volume is already owned by `redis`, so its entrypoint skips the `chown` and the user switch it does when started as root.
 
 ## Releasing a held printer
 
