@@ -149,14 +149,20 @@ Compose also locks every container down:
 | `api` | all dropped, then `CHOWN`, `SETUID`, `SETGID`, `DAC_READ_SEARCH` added back for the entrypoint | read-only | `/data` |
 | `worker` | same as `api` | read-only | `/data`, and a tmpfs `/tmp` for `xvfb-run`, OrcaSlicer, PrusaSlicer and OpenSCAD |
 | `web` | all dropped | read-only | none |
-| `caddy` | all dropped, runs as `0:0` with no supplementary groups | read-only | the `caddy_data` and `caddy_config` volumes |
+| `caddy` | all dropped, runs as `0:0` with only group 0 | read-only | the `caddy_data` and `caddy_config` volumes |
 | `redis` | all dropped, runs as the image's `redis` user (`999:1000`) | read-only | the `redis_data` volume |
 
 The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH` let the one-time `chown -R` change and walk a root-owned `./data` that already holds `0700` job directories, and `SETUID` and `SETGID` let `setpriv` switch to `10001`. The app itself has no effective capabilities, and `no-new-privileges` stops it gaining any. If you add a tool to the worker that writes outside `/data` and `/tmp`, it fails with `Read-only file system`: give it a `tmpfs` entry in `docker-compose.yml` rather than turning `read_only` off.
 
 Caddy still runs as uid 0, but with no capabilities and only group 0 (`user: "0:0"`; without it, Docker gives root every group the image's `/etc/group` lists it in, such as `disk` and `wheel`): it binds `:80` and `:443` because compose sets `net.ipv4.ip_unprivileged_port_start=0` in its own network namespace, and it can write its volumes because it owns them. It is not moved to a non-root uid because the `caddy_data` of an existing install is owned by root, and a non-root Caddy then fails to load its local CA and exits. `skip_install_trust` in the `Caddyfile` stops Caddy trying to add that CA to the container's own trust store, which the read-only root would refuse. Redis needs no capability: its data volume is already owned by `redis`, so its entrypoint skips the `chown` and the user switch it does when started as root.
 
-A Redis volume holding a root-owned file, for example after a backup was restored as root, stops Redis from starting (for example `Can't open or create append-only dir appendonlydir: Permission denied`), and Compose restarts it in a loop. Hand the volume back to `redis` once, then start the stack:
+A Redis volume holding a root-owned file, for example after a backup was restored as root, stops Redis from starting, and Compose restarts it in a loop. Its log ends in a `Permission denied` whose wording depends on which file is root-owned, for example:
+
+- `Error moving temp append only file on the final destination: Permission denied`
+- `Fatal error: can't open the AOF manifest file appendonlydir/appendonly.aof.manifest for reading: Permission denied`
+- `Can't open or create append-only dir appendonlydir: Permission denied`
+
+Hand the volume back to `redis` once, then start the stack:
 
 ```sh
 docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SEARCH --entrypoint chown redis -R 999:1000 /data
