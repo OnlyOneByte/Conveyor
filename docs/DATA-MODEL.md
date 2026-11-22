@@ -236,12 +236,19 @@ One integrity rule is enforced in the API rather than the database:
   assigning the incoming value directly used to wipe the credential on any address-only edit.
   Pass `secrets: {}` to clear deliberately.
 
-Deleting a printer or profile is deliberately **never refused**. There is nothing left to
-orphan: a job's `printer_id`/`profile_id` record what it printed with, which is history
-rather than a live reference — deleting a printer today must not rewrite what ran last
-week. The history shows an id that no longer resolves as-is, and an empty one as `—`,
-instead of hiding the row. (The 409 referential guard that protected Stations was removed
-with them.)
+Deleting a printer or profile is refused only while it is still needed:
+
+- `404` for an unknown id.
+- `409` while a **queued or running** job names it, because the worker would fail that job
+  with `unknown printer`. On the SQLite queue that is any `jobs` row not done, failed or
+  canceled; on the Redis queue, any BullMQ job that is waiting, active, delayed,
+  prioritized or paused.
+- `409` for a bundled profile (the seeded `DEFAULT_PROFILES`), whatever references it.
+
+Finished jobs never block a delete. A finished job's `printer_id`/`profile_id` record what it
+printed with, which is history rather than a live reference: deleting a printer today must
+not rewrite what ran last week. The history shows an id that no longer resolves as-is, and an
+empty one as `—`, instead of hiding the row.
 
 Only **terminal** jobs get a `jobs` row (the worker calls `recordTerminal` on done/failed), so
 `/jobs-history` never contains a job in flight. That is why the PWA keeps a per-browser

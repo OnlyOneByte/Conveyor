@@ -5,6 +5,7 @@ import {
   slicerFormat,
 } from "@conveyor/shared";
 import {
+  DEFAULT_PROFILES,
   dbDeletePrinter,
   dbDeleteProfile,
   dbGetJob,
@@ -26,6 +27,7 @@ import {
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
+import { countSqliteLiveJobs, type JobReference, type LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
@@ -65,7 +67,22 @@ function sendProfileContentError(reply: FastifyReply, error: unknown) {
   reply.log.error({ err: error }, "profile content operation failed");
   return reply.code(500).send({ error: "profile content operation failed" });
 }
-export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
+const BUNDLED_PROFILE_IDS: ReadonlySet<string> = new Set(DEFAULT_PROFILES.map((p) => p.id));
+
+async function inUseError(
+  liveJobs: LiveJobCounter,
+  reference: JobReference,
+  id: string,
+): Promise<string | null> {
+  const count = await liveJobs(reference, id);
+  const noun = reference === "printerId" ? "printer" : "profile";
+  return count > 0 ? `${noun} ${id} is used by ${count} queued or running job(s)` : null;
+}
+
+export async function registerCatalogRoutes(
+  app: FastifyInstance,
+  liveJobs: LiveJobCounter = (reference, id) => countSqliteLiveJobs(openDb())(reference, id),
+): Promise<void> {
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
     return dbListJobs(openDb(), limit);
@@ -90,7 +107,12 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   });
 
   app.delete<{ Params: { id: string } }>("/catalog/printers/:id", async (req, reply) => {
-    dbDeletePrinter(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetPrinter(openDb(), id))
+      return reply.code(404).send({ error: `unknown printer ${id}` });
+    const inUse = await inUseError(liveJobs, "printerId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeletePrinter(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 
@@ -222,7 +244,15 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   });
 
   app.delete<{ Params: { id: string } }>("/catalog/profiles/:id", async (req, reply) => {
-    dbDeleteProfile(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetProfile(openDb(), id))
+      return reply.code(404).send({ error: `unknown profile ${id}` });
+    if (BUNDLED_PROFILE_IDS.has(id)) {
+      return reply.code(409).send({ error: `profile ${id} is bundled and cannot be deleted` });
+    }
+    const inUse = await inUseError(liveJobs, "profileId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeleteProfile(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 }

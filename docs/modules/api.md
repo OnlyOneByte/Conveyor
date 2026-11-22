@@ -83,6 +83,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
   registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
   entries with names up to 64 and values up to 4096 characters.
+- `DELETE /catalog/printers/:id` and `DELETE /catalog/profiles/:id` answer `404` for an unknown id, and `409`
+  while a queued or running job names the row or when the profile is bundled ([DATA-MODEL.md](../DATA-MODEL.md)).
+  `index.ts` hands the catalog routes the queue mode's `countLiveJobs` (`routes/jobs.ts` scans BullMQ,
+  `routes/jobs-sqlite.ts` counts `jobs` rows), so both modes refuse the same deletes.
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.

@@ -14,8 +14,21 @@ import {
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
+import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+
+const LIVE_STATES = [
+  "waiting",
+  "active",
+  "delayed",
+  "prioritized",
+  "paused",
+  "waiting-children",
+] as const;
+
+export const countLiveJobs: LiveJobCounter = async (reference, id) =>
+  (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   app.post("/jobs", async (req, reply) => {
