@@ -27,7 +27,7 @@ import {
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
-import { countSqliteLiveJobs, type JobReference, type LiveJobCounter } from "../live-jobs.js";
+import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
@@ -81,7 +81,7 @@ async function inUseError(
 
 export async function registerCatalogRoutes(
   app: FastifyInstance,
-  liveJobs: LiveJobCounter = (reference, id) => countSqliteLiveJobs(openDb())(reference, id),
+  liveJobs: LiveJobCounter,
 ): Promise<void> {
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);

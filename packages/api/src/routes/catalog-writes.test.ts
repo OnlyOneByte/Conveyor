@@ -5,6 +5,7 @@ import { join } from "node:path";
 import Fastify from "fastify";
 import { MAX_SECRET_VALUE_LENGTH, MAX_SECRETS } from "../catalog-validation";
 import { registerCatalogRoutes } from "./catalog";
+import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-catalog-writes-"));
 const previousDbPath = process.env.DB_PATH;
@@ -40,7 +41,7 @@ const printer = (overrides: Record<string, unknown>) => ({
 });
 
 beforeAll(async () => {
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 

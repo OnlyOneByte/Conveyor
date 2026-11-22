@@ -8,7 +8,7 @@ import { claimJob, enqueueJob, type Lease, writeStatus } from "@conveyor/shared/
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerCatalogRoutes } from "./catalog.js";
-import { registerJobRoutes } from "./jobs-sqlite.js";
+import { countLiveJobs as countSqliteLiveJobs, registerJobRoutes } from "./jobs-sqlite.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-sqlite-"));
 const dbPath = join(dir, "conveyor.db");
@@ -28,7 +28,7 @@ beforeAll(async () => {
   db = openDb(dbPath);
   app = Fastify();
   await app.register(websocket);
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   await registerJobRoutes(app, db);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });

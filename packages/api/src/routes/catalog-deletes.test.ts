@@ -9,6 +9,7 @@ import Fastify from "fastify";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerCatalogRoutes } from "./catalog";
 import { countLiveJobs } from "./jobs.js";
+import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-catalog-deletes-"));
 const previousDbPath = process.env.DB_PATH;
@@ -26,8 +27,9 @@ const request = (printerId: string, profileId: string) => ({
   printerId,
   profileId,
 });
-const finish = (jobId: string) =>
-  openDb().query("UPDATE jobs SET state = 'done' WHERE id = ?").run(jobId);
+const setState = (jobId: string, state: string) =>
+  openDb().query("UPDATE jobs SET state = ? WHERE id = ?").run(state, jobId);
+const finish = (jobId: string) => setState(jobId, "done");
 
 beforeAll(async () => {
   const db = openDb();
@@ -39,7 +41,7 @@ beforeAll(async () => {
     path: "/profiles/prusa-marlin-pla-0.2",
     gcodeFlavor: "marlin",
   });
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
@@ -69,6 +71,26 @@ describe("DELETE /catalog/printers/:id", () => {
     expect((await del("/catalog/printers/busy")).status).toBe(200);
     expect((await del("/catalog/printers/busy")).status).toBe(404);
   });
+
+  test.each(["generating", "slicing", "transferring", "printing"])(
+    "a printer a %s job uses is a 409",
+    async (state) => {
+      const db = openDb();
+      dbUpsertPrinter(db, {
+        id: "running",
+        transportId: "moonraker",
+        name: "R",
+        address: "10.0.0.3",
+      });
+      enqueueJob(db, {
+        id: `running-${state}`,
+        request: request("running", "prusa/klipper-pla-0.2"),
+      });
+      setState(`running-${state}`, state);
+      expect((await del("/catalog/printers/running")).status).toBe(409);
+      finish(`running-${state}`);
+    },
+  );
 });
 
 describe("DELETE /catalog/profiles/:id", () => {
@@ -97,25 +119,21 @@ describe("DELETE /catalog/profiles/:id", () => {
 });
 
 describe("countLiveJobs on the Redis queue", () => {
-  test("counts waiting and active BullMQ jobs that name the printer or profile", async () => {
-    const jobs = [
-      new Job(jobQueue, "job", request("p1", "orca/klipper-pla-0.2"), {}, "a"),
-      new Job(jobQueue, "job", request("p1", "custom"), {}, "b"),
-      new Job(jobQueue, "job", request("p2", "custom"), {}, "c"),
-    ];
-    const getJobs = spyOn(jobQueue, "getJobs").mockResolvedValue(jobs);
+  test("counts queued and running BullMQ jobs, and nothing that finished", async () => {
+    const byState: Record<string, Job[]> = {
+      waiting: [new Job(jobQueue, "job", request("p1", "orca/klipper-pla-0.2"), {}, "a")],
+      active: [new Job(jobQueue, "job", request("p1", "custom"), {}, "b")],
+      delayed: [new Job(jobQueue, "job", request("p2", "custom"), {}, "c")],
+      completed: [new Job(jobQueue, "job", request("p3", "custom"), {}, "d")],
+    };
+    const getJobs = spyOn(jobQueue, "getJobs").mockImplementation(async (types) =>
+      [types ?? []].flat().flatMap((type) => byState[type] ?? []),
+    );
     try {
       expect(await countLiveJobs("printerId", "p1")).toBe(2);
+      expect(await countLiveJobs("printerId", "p2")).toBe(1);
       expect(await countLiveJobs("profileId", "custom")).toBe(2);
       expect(await countLiveJobs("printerId", "p3")).toBe(0);
-      expect(getJobs.mock.calls[0]?.[0]).toEqual([
-        "waiting",
-        "active",
-        "delayed",
-        "prioritized",
-        "paused",
-        "waiting-children",
-      ]);
     } finally {
       getJobs.mockRestore();
     }
