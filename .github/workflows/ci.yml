@@ -300,7 +300,7 @@ jobs:
             docker compose exec -T "$service" cat /proc/1/status > status.txt
             field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
             echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] CapBnd=[$(field CapBnd)] NoNewPrivs=[$(field NoNewPrivs)]"
-            case "$service" in caddy) uid=0 gid=0 ;; redis) uid=999 gid=1000 ;; esac
+            case "$service" in caddy) uid=10002 gid=10002 ;; redis) uid=999 gid=1000 ;; esac
             test "$(field Uid)" = "$uid $uid $uid $uid"
             test "$(field Gid)" = "$gid $gid $gid $gid"
             case "$(field Groups)" in "$gid"|"$gid ") ;; *) exit 1 ;; esac
