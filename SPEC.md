@@ -14,7 +14,7 @@ Generate ──▶ Slice ──▶ Transport (print)
  (model)     (gcode)     (to printer)
 ```
 
-Gridfinity is just the **default generator**. Orca is just the **default slicer**.
+Gridfinity is just the **first generator**. Orca and PrusaSlicer are just the **first slicers**.
 Klipper + Elegoo are just the **first transports**. None of them are baked into the name or core.
 
 ## 2. Vocabulary
@@ -34,10 +34,10 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 
 ## 3. The three stages
 
-| Stage | Job | Default | Also planned | Boundary it wraps |
+| Stage | Job | Bundled | Also planned | Boundary it wraps |
 |---|---|---|---|---|
-| **Generator** | params → 3D model | `gridfinity` | passthrough (upload STL), parametric box, nameplate | OpenSCAD headless / mesh libs |
-| **Slicer** | model + profile → gcode | `orca` | PrusaSlicer CLI, CuraEngine, Slic3r | slicer CLI (+ xvfb where needed) |
+| **Generator** | params → 3D model | `gridfinity`, `passthrough` (upload STL) | parametric box, nameplate | OpenSCAD headless / mesh libs |
+| **Slicer** | model + profile → gcode | `orca`, `prusa` | CuraEngine, Slic3r | slicer CLI (+ xvfb where needed) |
 | **Transport** | gcode + printer → live print | `moonraker` (Klipper), `elegoo` | Bambu (MQTT), PrusaLink, OctoPrint | printer HTTP/MQTT API |
 
 Anything with a CLI can become a slicer. Anything with an upload+start API can become a transport.
@@ -77,7 +77,7 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 ## 7. v1 scope
 
 - Generators: **Gridfinity** + **Upload STL** (`passthrough`) + a Generator SDK & registry.
-- Slicers: **Orca** (default); pluggability proven by a 2nd adapter (PrusaSlicer CLI).
+- Slicers: **Orca** and **PrusaSlicer**; the second adapter proves the contract is pluggable. Neither is a default: a profile names its slicer.
 - Transports: **Klipper/Moonraker** + **ElegooLink** (the printers on hand).
 - Operator: register printers and upload locked profiles (in Settings).
 - User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick a printer + profile → print → watch live status.
@@ -96,14 +96,14 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
-- [x] **Profiles** — RESOLVED (2026-09-03): **edit the raw Orca JSON in Settings.** A profile's `machine`/`process`/`filament` JSON is editable directly in the Settings page (raw text, one tab each), not a curated per-setting UI. Bundled `/profiles` files are the read-only defaults and the reset target; edits are stored in SQLite (`orca_{machine,process,filament}_json` on `profiles`) and materialized to a per-job dir at slice time. The server validates on save (client `JSON.parse` is UX only). Prusa INI profiles stay read-only in this version. See `docs/DATA-MODEL.md`.
+- [x] **Profiles** — RESOLVED (2026-09-03): **edit the raw Orca JSON in Settings.** A profile's `machine`/`process`/`filament` JSON is editable directly in the Settings page (raw text, one tab each), not a curated per-setting UI. Bundled `/profiles` files are the read-only defaults and the reset target; edits are stored in SQLite (`orca_{machine,process,filament}_json` on `profiles`) and materialized to a per-job dir at slice time. The server validates on save (client `JSON.parse` is UX only). Prusa profiles got the same raw editor for their `config.ini` on 2026-09-04 (`prusa_ini`). See `docs/DATA-MODEL.md`.
 - [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). On by default: the API refuses to start without `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET` unless `CONVEYOR_AUTH=disabled` is set (changed 2026-11-21, #2; see `docs/self-hosting.md`). **One access tier** — holding the password grants the whole app, `/catalog/*` and `/jobs-history` included. (A second `CONVEYOR_ADMIN_PASSWORD` granting an elevated role was removed 2026-09-02: with only `CONVEYOR_PASSWORD` set, no password could ever grant that role, so those two surfaces returned 403 to everyone with no diagnostic.) Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
 - [ ] **Elegoo API** — confirm the local control protocol (SDCP / ElegooLink) via a discovery spike.
 
 ## 10. Milestones
 
 - **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
-- **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt, default) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
+- **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
 - **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
 - **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).

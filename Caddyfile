@@ -1,6 +1,9 @@
 localhost {
 	encode gzip zstd
 
+	handle /health {
+		reverse_proxy api:3000
+	}
 	handle /jobs* {
 		reverse_proxy api:3000
 	}

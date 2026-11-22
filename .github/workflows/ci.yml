@@ -17,6 +17,10 @@ permissions:
 env:
   BUN_VERSION: "1.3.14"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint:
     name: lint
@@ -155,3 +159,127 @@ jobs:
             ORCA_ENABLE=0
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  orca-slice:
+    name: orca slice
+    runs-on: ubuntu-latest
+    needs: typecheck
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the worker with OrcaSlicer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/worker/Dockerfile
+          push: false
+          load: true
+          tags: conveyor-worker
+          build-args: |
+            ORCA_ENABLE=1
+          cache-from: type=gha,scope=worker-orca
+          cache-to: type=gha,mode=max,scope=worker-orca
+      - name: Slice a cube with the bundled Orca profile as uid 10001 under the compose lockdown
+        run: |
+          docker compose run --rm --no-deps worker bun scripts/orca-smoke.ts | tee smoke.txt
+          grep -qE 'G1 moves, as uid 10001$' smoke.txt
+
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOGIN_URL: https://localhost/auth/login
+      WRONG: '{"password":"not-the-password"}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Throwaway login for this run
+        run: |
+          password=$(openssl rand -hex 16)
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$password"
+          echo "::add-mask::$secret"
+          echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+      - name: Build the images from source
+        run: docker compose build --build-arg ORCA_ENABLE=0
+      - name: No checkout or local files in the images
+        run: |
+          for service in api web worker; do
+            docker run --rm --entrypoint sh "conveyor-$service" -c \
+              'test ! -e /app/.git && test ! -e /app/.env && test -z "$(find /app -name .git -not -path "*/node_modules/*")"'
+            echo "conveyor-$service: no .git, no .env"
+          done
+      - name: docker compose up
+        run: docker compose up -d --no-build --wait --wait-timeout 120
+      - name: Only Caddy publishes, on loopback only
+        run: |
+          docker compose ps --format '{{.Service}} {{.Ports}}' | tee ports.txt
+          test "$(awk '/->/ {print $1}' ports.txt | sort -u)" = caddy
+          test "$(grep -oE '[^ ,]+->' ports.txt | LC_ALL=C sort -u | tr '\n' ' ')" = "127.0.0.1:443-> 127.0.0.1:80-> "
+          caddy_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q caddy)")
+          echo "caddy: $caddy_ip"
+          test "$caddy_ip" = 172.31.250.2
+      - name: Caddy answers /health with 200 on 127.0.0.1
+        run: |
+          for _ in $(seq 60); do
+            code=$(curl -sk -o health.json -w '%{http_code}' --resolve localhost:443:127.0.0.1 https://localhost/health || true)
+            if [ "$code" = 200 ] && grep -q '"ok":true' health.json; then exit 0; fi
+            sleep 2
+          done
+          echo "last answer: $code"
+          exit 1
+      - name: The api keys the real client, not Caddy or a forged header
+        run: |
+          login() {
+            curl -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:127.0.0.1 \
+              -H 'content-type: application/json' "$@" -d "$WRONG" "$LOGIN_URL"
+          }
+          for i in 1 2 3 4 5; do
+            test "$(login -H "X-Forwarded-For: 203.0.113.$i")" = 401
+          done
+          test "$(login)" = 429
+          test "$(login -H 'X-Forwarded-For: 198.51.100.7')" = 429
+          other=$(docker run --rm --network conveyor_default curlimages/curl:8.11.1 \
+            -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:172.31.250.2 \
+            -H 'content-type: application/json' -d "$WRONG" "$LOGIN_URL")
+          echo "another client on the network: $other"
+          test "$other" = 401
+          docker compose logs --no-log-prefix api | grep -oE '"remoteAddress":"[^"]*"' | sort | uniq -c | tee seen.txt
+          test -s seen.txt
+          ! grep -q '"172.31.250.2"' seen.txt
+      - name: Every service is still up and never restarted
+        run: |
+          test "$(docker compose ps --services --status running | sort | tr '\n' ' ')" = "api caddy redis web worker "
+          docker inspect -f '{{.Name}} restarts={{.RestartCount}}' $(docker compose ps -q) | tee restarts.txt
+          ! grep -v 'restarts=0$' restarts.txt
+      - name: Every app container runs unprivileged as uid 10001 on a read-only root and owns secrets.key at 0600
+        run: |
+          for service in api worker web; do
+            docker compose exec -T "$service" cat /proc/1/status > status.txt
+            field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
+            echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] NoNewPrivs=[$(field NoNewPrivs)]"
+            test "$(field Uid)" = "10001 10001 10001 10001"
+            test "$(field Gid)" = "10001 10001 10001 10001"
+            case "$(field Groups)" in ""|10001|"10001 ") ;; *) exit 1 ;; esac
+            test "$(field CapEff)" = 0000000000000000
+            test "$(field NoNewPrivs)" = 1
+            case "$service" in web) bounding=0000000000000000 ;; *) bounding=00000000000000c5 ;; esac
+            echo "$service: CapBnd=[$(field CapBnd)]"
+            test "$(field CapBnd)" = "$bounding"
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
+          done
+          key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
+          echo "secrets.key: $key"
+          test "$key" = "10001:10001 600"
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color
+      - name: docker compose down -v
+        if: always()
+        run: docker compose down -v

@@ -22,7 +22,6 @@ import {
   dbUpsertPrinter,
   dbUpsertProfile,
   openDb,
-  type Printer,
 } from "@conveyor/shared/db";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
@@ -68,11 +67,6 @@ const prusaContentSchema = z
   })
   .strict();
 
-function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boolean } {
-  const { secrets, ...rest } = p;
-  return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
-}
-
 function sendProfileContentError(reply: FastifyReply, error: unknown) {
   if (error instanceof ProfileContentError) {
     return reply.code(error.statusCode).send({ error: error.message });
@@ -94,7 +88,7 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     return job;
   });
 
-  app.get("/catalog/printers", async () => dbListPrinters(openDb()).map(publicPrinter));
+  app.get("/catalog/printers", async () => dbListPrinters(openDb()));
 
   app.put("/catalog/printers", async (req, reply) => {
     const parsed = printerSchema.safeParse(req.body);

@@ -9,7 +9,7 @@ These diagrams show the default queue, `CONVEYOR_QUEUE=redis`. In SQLite mode th
 ## Participants
 
 - **PWA** — SvelteKit client on the user's phone/browser.
-- **API** — REST + WebSocket front door (Fastify/Hono).
+- **API** — REST + WebSocket front door (Fastify).
 - **Redis** — BullMQ job queue + pub/sub status bus.
 - **Worker** — pulls jobs, drives the three stages.
 - **Generator / Slicer / Transport** — in-process plugin adapters (see `adr/0001-plugin-isolation.md`).
@@ -41,7 +41,7 @@ sequenceDiagram
     API->>API: validateJob() capability check
     API->>R: enqueue job
     API-->>PWA: 202 {jobId}
-    PWA->>API: WS subscribe /jobs/{jobId}
+    PWA->>API: WS subscribe /jobs/{jobId}/ws
     Note over API,R: API relays Redis pub/sub → WS frames
 
     R->>W: deliver job
@@ -49,13 +49,13 @@ sequenceDiagram
     R-->>API-->>PWA: generating
     W->>G: generate(params)
     G->>G: openscad -o model.stl -D '…'
-    G-->>W: ModelArtifact (/data/<job>.stl)
+    G-->>W: ModelArtifact (/data/{jobId}/model.stl)
 
     W->>R: publish state=slicing
     R-->>API-->>PWA: slicing
     W->>S: slice(model, profileId)
     S->>S: xvfb-run orca-slicer --slice … --output gcode
-    S-->>W: GcodeArtifact (/data/<job>.gcode)
+    S-->>W: GcodeArtifact (/data/{jobId}/model.gcode)
     Note over PWA: optional: swap EXACT stl into viewport
 
     W->>R: publish state=transferring
@@ -125,7 +125,7 @@ sequenceDiagram
 - A print cancelled on the printer itself settles as `canceled`.
 - A status stream that ends without `done`, `failed` or `canceled` settles `failed` with `connection lost before completion`. A dropped connection never looks like a finished print.
 - A cancel that lands during the upload stops the transport before it sends the start command. The transport throws `PrintNotStartedError`, no stop is sent, and the job settles `canceled`.
-- Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `shared/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
+- Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `packages/shared/src/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
 
 ## Notes
 
