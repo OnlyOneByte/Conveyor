@@ -1,0 +1,50 @@
+import { describe, expect, test } from "bun:test";
+import { formatHostPort, parseHostPort } from "./address.js";
+
+describe("parseHostPort", () => {
+  test.each([
+    ["printer.local.", "printer.local.", 3030],
+    ["printer.local.:7125", "printer.local.", 7125],
+    ["http://printer.local.:7125/", "printer.local.", 7125],
+    ["voron_2.local", "voron_2.local", 3030],
+    ["_printer:7125", "_printer", 7125],
+    ["http://admin:s3cret@printer.local:7125/", "printer.local", 7125],
+  ])("accepts %p as %p port %p", (address, host, port) => {
+    expect(parseHostPort(address, 3030)).toEqual({ kind: "parsed", host, port });
+  });
+
+  test.each([
+    ["http://printer:0/", '"http://printer:0/": the port must be a number from 1 to 65535'],
+    ["ws://[fe80::1]:0", '"ws://[fe80::1]:0": the port must be a number from 1 to 65535'],
+    ["printer..local", '"printer..local": not an IPv4 address, IPv6 address or hostname'],
+    ["printer.local..", '"printer.local..": not an IPv4 address, IPv6 address or hostname'],
+    ["http://admin:s3cret@[bad/", '"http://***@[bad/": not a valid URL'],
+    ["http://admin:pa/ss@[bad/", '"http://***@[bad/": not a valid URL'],
+    [
+      "http://admin:s3cret@printer:0/",
+      '"http://***@printer:0/": the port must be a number from 1 to 65535',
+    ],
+  ])("rejects %p", (address, reason) => {
+    expect(parseHostPort(address, 3030)).toEqual({ kind: "invalid", reason });
+  });
+
+  test("an https URL without a port uses 443, anything else the given default", () => {
+    expect(parseHostPort("https://printer.local", 3030)).toEqual({
+      kind: "parsed",
+      host: "printer.local",
+      port: 443,
+    });
+    expect(parseHostPort("fe80::1", 3030)).toEqual({ kind: "parsed", host: "fe80::1", port: 3030 });
+  });
+});
+
+describe("formatHostPort", () => {
+  test.each([
+    ["fe80::1", 3030, "[fe80::1]:3030"],
+    ["::1", 80, "[::1]:80"],
+    ["10.0.0.5", 7125, "10.0.0.5:7125"],
+    ["printer.local.", 80, "printer.local.:80"],
+  ])("%p and %p give %p", (host, port, expected) => {
+    expect(formatHostPort(host, port)).toBe(expected);
+  });
+});

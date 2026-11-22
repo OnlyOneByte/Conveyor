@@ -97,7 +97,10 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
   - `POST /printer/print/start?filename=<name>`
   - `GET /printer/objects/query?print_stats&virtual_sdcard&display_status`
   - `POST /printer/print/cancel`
-- The printer address accepts `host`, `host:port` or a full URL; plain hosts get `http://`.
+- The printer address accepts a full `http(s)://` URL, which is used as is, or any form `parseHostPort`
+  accepts ([shared.md](shared.md#addressts)). The latter becomes `http://` plus `formatHostPort(host, port)`,
+  port 80 by default, so a bare IPv6 address is bracketed. An address it rejects fails the stage with
+  `moonraker printer address <reason>` before any request.
 - Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). `status()` and
   `cancel()` only get the handle, so they read `MOONRAKER_API_KEY` from the environment. Without a key, add the
   worker host to Moonraker's `trusted_clients`.
@@ -117,6 +120,10 @@ SDCP (Smart Device Control Protocol), written from the
 - Discovery: UDP broadcast of the probe `M99999` to port 3000 (`ELEGOO_DISCOVERY_PORT`); each printer replies
   with a JSON datagram (`MainboardIP`, `MainboardID`, …). Replies without those fields or that are not JSON
   are left out; when replies arrive but none is a printer, `discover()` rejects with every reason.
+- Addresses: `printerEndpoint` parses the printer address with `parseHostPort` ([shared.md](shared.md#addressts)),
+  with `ELEGOO_WS_PORT` as the default port, then formats it with `formatHostPort`. The WebSocket and the
+  upload URL both use it, so `fe80::1` becomes `ws://[fe80::1]:3030/websocket`. An address it rejects fails
+  the command with `elegoo printer address <reason>` before a socket opens.
 - Control: WebSocket `ws://<ip>:3030/websocket` (`ELEGOO_WS_PORT`), JSON request/response plus pushed status
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the

@@ -19,7 +19,7 @@ import {
   type SdcpDiscovery,
   type SdcpRead,
 } from "./sdcp.js";
-import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
+import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const DISCOVERY_PORT = Number(process.env.ELEGOO_DISCOVERY_PORT ?? 3000);
@@ -153,7 +153,7 @@ async function uploadGcode(address: string, path: string, ctx: StageCtx): Promis
   const body = await readFile(path);
   const form = new FormData();
   form.append("File", new Blob([body]), filename);
-  const url = `http://${address}:${WS_PORT}/uploadFile/upload`;
+  const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
   const res = await fetch(url, { method: "POST", body: form, signal: ctx.signal }).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted

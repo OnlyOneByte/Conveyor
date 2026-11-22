@@ -10,6 +10,7 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
+import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
@@ -148,7 +149,10 @@ export const moonraker: TransportPlugin = {
 function baseUrl(address: string): string {
   if (address.startsWith("http://") || address.startsWith("https://"))
     return address.replace(/\/$/, "");
-  return `http://${address}`;
+  const parsed = parseHostPort(address, 80);
+  if (parsed.kind === "invalid")
+    throw new StageError("transport", `moonraker printer address ${parsed.reason}`);
+  return `http://${formatHostPort(parsed.host, parsed.port)}`;
 }
 
 function apiKeyHeaders(target: PrinterTarget): Record<string, string> {

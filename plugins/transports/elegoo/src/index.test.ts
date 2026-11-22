@@ -144,6 +144,48 @@ describe("elegoo submit", () => {
   });
 });
 
+describe("elegoo IPv6 printers", () => {
+  test("a bare IPv6 address is bracketed in the WebSocket URL", async () => {
+    useFakeSocket("ack");
+    await elegoo.cancel?.({ ...handle, address: "fe80::1" });
+    expect(FakeWebSocket.sent[0]?.url).toBe("ws://[fe80::1]:3030/websocket");
+  });
+
+  test("a bare IPv6 address is bracketed in the upload URL", async () => {
+    useFakeSocket("ack");
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const path = join(dir, "a.gcode");
+    await writeFile(path, "G28\n");
+    const controller = new AbortController();
+    const urls: string[] = [];
+    const upload = async (url: string | URL | Request) => {
+      urls.push(String(url));
+      controller.abort();
+      return new Response("{}", { status: 200 });
+    };
+    fetchSpy.mockImplementation(Object.assign(upload, { preconnect }));
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: controller.signal,
+      report: () => {},
+      log: () => {},
+    };
+    const target = { id: "p", transportId: "elegoo", address: "fe80::1", secrets: {} };
+    await expect(elegoo.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
+      PrintNotStartedError,
+    );
+    expect(urls).toEqual(["http://[fe80::1]:3030/uploadFile/upload"]);
+  });
+
+  test("an ambiguous address fails the command with the parser's reason", async () => {
+    useFakeSocket("ack");
+    const stop = elegoo.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
+    await expect(stop).rejects.toThrow('elegoo printer address "fe80::1::2": not a valid IPv6');
+    expect(FakeWebSocket.sent).toHaveLength(0);
+  });
+});
+
 describe("elegoo handles", () => {
   test("handleFor carries the stored mainboard id", () => {
     const built = elegoo.handleFor?.(

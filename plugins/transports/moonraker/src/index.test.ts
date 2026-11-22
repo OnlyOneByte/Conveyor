@@ -51,6 +51,25 @@ describe("moonraker cancel", () => {
   });
 });
 
+describe("moonraker IPv6 printers", () => {
+  test.each([
+    ["fe80::1", "http://[fe80::1]:80/printer/print/cancel"],
+    ["[fe80::1]:7125", "http://[fe80::1]:7125/printer/print/cancel"],
+    ["http://[fe80::1]:7125/", "http://[fe80::1]:7125/printer/print/cancel"],
+  ])("%p is reached at %p", async (address, url) => {
+    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
+    await moonraker.cancel?.({ ...handle, address });
+    expect(calls.map((c) => c.url)).toEqual([url]);
+  });
+
+  test("an ambiguous address fails with the parser's reason and sends nothing", async () => {
+    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
+    const stop = moonraker.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
+    await expect(stop).rejects.toThrow('moonraker printer address "fe80::1::2": not a valid IPv6');
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("moonraker submit", () => {
   test("a cancel during the upload never starts the print", async () => {
     const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
