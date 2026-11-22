@@ -63,10 +63,12 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
   successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
-  oldest is dropped first), and resets when the api restarts. The client is `req.ip`; the api does not trust
-  `X-Forwarded-For`, so behind Caddy every request shares Caddy's address and the limit is one shared budget
-  of 5 guesses a minute. That still caps a brute-force attempt, at the cost that a burst of wrong guesses
-  also locks the owner out for up to a minute.
+  oldest is dropped first), and resets when the api restarts.
+- The client is `clientKey(req.ip)` (`trusted-proxies.ts`): an IPv4 address as is, an IPv4-mapped IPv6
+  address as its IPv4, and any other IPv6 address as its /64. `req.ip` is the socket peer, unless the peer is
+  in `CONVEYOR_TRUSTED_PROXIES`, which `index.ts` passes to Fastify's `trustProxy`; then it is the client
+  that proxy reports in `X-Forwarded-For`. The setting is parsed strictly at boot (IPs or CIDRs, an invalid
+  entry exits 1), and unset trusts nothing. Compose trusts Caddy's fixed address only.
 
 ## Catalog and history (`routes/catalog.ts`)
 
