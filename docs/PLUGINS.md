@@ -1,7 +1,8 @@
 # Conveyor — Plugin Contracts
 
 All contracts live in the `shared` package and are imported by `api` and `worker`.
-Plugins self-register into a per-stage `Registry` at startup. A `Job` is validated for
+Nothing self-registers: the api and the worker each build the same per-stage `Registry` at startup by
+calling `buildRegistry` from `@conveyor/plugin-registry`, the one list of bundled plugins. A `Job` is validated for
 cross-stage capability compatibility before being enqueued.
 
 ## Shared artifacts
@@ -71,7 +72,7 @@ Bundled: **`gridfinity`** wraps `gridfinity-rebuilt-openscad`, running
 export interface SlicerPlugin extends PluginManifest {
   stage: "slicer";
   accepts: string[];                       // input formats, e.g. ["stl", "3mf"]
-  gcodeFlavor: string;                     // emitted flavor, e.g. "marlin", "klipper"
+  gcodeFlavor: string;                     // declared only; checks use the profile's gcodeFlavor
   slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
@@ -171,6 +172,8 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
 ## Adding a plugin (the whole checklist)
 
 1. Create `plugins/<stage>/<id>/` (a Bun workspace package) exporting an object that satisfies the stage interface.
-2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts` and `gcodeFlavor` for a slicer (its profiles live in the database, seeded from `packages/shared/src/db/seed.ts`), `acceptsFlavors` for a transport.
-3. Register it in `buildRegistry` (`plugins/registry/builtin/src/index.ts`, package `@conveyor/plugin-registry`) and add it to that package's `dependencies`. The api and the worker both build their registry there, so they can't disagree about which plugins exist or what they accept.
-4. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.
+2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts` and `gcodeFlavor` for a slicer, `acceptsFlavors` for a transport.
+3. Register it in `buildRegistry` (`plugins/registry/builtin/src/index.ts`, package `@conveyor/plugin-registry`) and add it to that package's `dependencies` as `"workspace:*"`, then run `bun install`. The api and the worker both build their registry there, so they can't disagree about which plugins exist or what they accept.
+4. Add a `COPY <plugin>/package.json` line to all three `packages/*/Dockerfile`s: `bun install --frozen-lockfile` needs every workspace member's manifest, even in images that never import it.
+5. For a slicer, give it at least one profile: a bundle directory under `profiles/` and a profile row naming its `slicerId`, `path` and `gcodeFlavor`, either in `packages/shared/src/db/seed.ts` or added in Settings. Jobs pick a profile, never a slicer, so a slicer with no profile row is never used.
+6. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.

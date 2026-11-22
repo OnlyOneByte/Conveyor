@@ -50,11 +50,8 @@ merged into one manifest):
 - `ghcr.io/onlyonebyte/conveyor-api`
 - `ghcr.io/onlyonebyte/conveyor-worker` (bakes in OpenSCAD + PrusaSlicer/OrcaSlicer)
 
-Tags: `:X.Y.Z`, `:X.Y`, `:latest`, and `:sha-<short>`. To cut a release:
-
-```bash
-git tag v0.1.0 && git push origin v0.1.0     # triggers build + publish
-```
+Tags: `:X.Y.Z`, `:X.Y`, `:latest`, and `:sha-<short>`. How a release is cut and built is in
+[docs/contributing.md](docs/contributing.md#releases).
 
 A deploy `compose.yml` can then swap the `build:` blocks for `image:` pins — e.g.
 `image: ghcr.io/onlyonebyte/conveyor-worker:latest` — to pull instead of build.
