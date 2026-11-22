@@ -19,7 +19,7 @@ export class ArtifactError extends Error {
   }
 }
 
-export interface ResolvedArtifact {
+interface ResolvedArtifact {
   path: string;
   filename: string;
   contentType: string;

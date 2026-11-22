@@ -137,7 +137,7 @@ shells out to OpenSCAD and similar.
 a bundled or per-job materialized profile directory.
 
 `SlicerPlugin.accepts` lists input formats, and `gcodeFlavor` is the flavour the slicer declares (`marlin`,
-`klipper`). `profiles` is the plugin's bundled defaults, not an allowlist for runtime profiles.
+`klipper`). A slicer declares no profile list: profiles are rows in SQLite, seeded once from `DEFAULT_PROFILES`.
 
 `slice` receives a profile the worker has already resolved. Adapters consume its path; they do not own
 profile persistence or look ids up in a hard-coded list. That is what lets the worker materialize edited
@@ -154,7 +154,7 @@ address, carried so `status()` and `cancel()` can reach the printer without re-r
 server-side only and never leaves the worker.
 
 `PrintStatus.progress` runs from 0 to 1. `TransportPlugin.acceptsFlavors` lists the g-code flavours it can
-print, and `discover` is optional mDNS or network discovery.
+print. There is no discovery hook: printers are added with an explicit address.
 
 ## registry.ts
 

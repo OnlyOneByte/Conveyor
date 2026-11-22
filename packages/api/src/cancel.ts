@@ -13,7 +13,7 @@ export interface CancelDeps {
   settleCanceled(jobId: string, req: JobRequest): Promise<boolean>;
 }
 
-export interface CancelResult {
+interface CancelResult {
   code: 200 | 202 | 404;
   body: { ok: boolean; jobId: string; state?: JobState | "canceling"; error?: string };
 }

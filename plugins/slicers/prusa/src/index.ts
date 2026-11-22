@@ -13,19 +13,6 @@ import {
 const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 const prusaBin = () => process.env.PRUSA_BIN ?? "prusa-slicer";
 
-const PROFILES: ProfileRef[] = [
-  {
-    id: "prusa/klipper-pla-0.2",
-    name: "Klipper PLA 0.2mm (Prusa)",
-    path: "/profiles/prusa-klipper-pla-0.2",
-  },
-  {
-    id: "prusa/marlin-pla-0.2",
-    name: "Marlin PLA 0.2mm (Prusa)",
-    path: "/profiles/prusa-marlin-pla-0.2",
-  },
-];
-
 export const prusa: SlicerPlugin = {
   id: "prusa",
   name: "PrusaSlicer",
@@ -33,7 +20,6 @@ export const prusa: SlicerPlugin = {
   stage: "slicer",
   accepts: ["stl", "3mf", "obj"],
   gcodeFlavor: "klipper",
-  profiles: PROFILES,
 
   async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");

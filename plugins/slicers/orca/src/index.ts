@@ -14,10 +14,6 @@ const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 const orcaBin = () => process.env.ORCA_BIN ?? "orca-slicer";
 const orcaDatadir = () => process.env.ORCA_DATADIR ?? "/opt/orca/squashfs-root/resources/profiles";
 
-const PROFILES: ProfileRef[] = [
-  { id: "orca/klipper-pla-0.2", name: "Klipper PLA 0.2mm", path: "/profiles/orca-klipper-pla-0.2" },
-];
-
 export const orca: SlicerPlugin = {
   id: "orca",
   name: "OrcaSlicer",
@@ -25,7 +21,6 @@ export const orca: SlicerPlugin = {
   stage: "slicer",
   accepts: ["stl", "3mf"],
   gcodeFlavor: "klipper",
-  profiles: PROFILES,
 
   async slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact> {
     const out = join(ctx.workDir, "model.gcode");

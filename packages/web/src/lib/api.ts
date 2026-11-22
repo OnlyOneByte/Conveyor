@@ -36,7 +36,7 @@ export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<Ge
   return r.json();
 }
 
-export interface UploadResult {
+interface UploadResult {
   uploadId: string;
   filename: string;
   bytes: number;

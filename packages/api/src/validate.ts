@@ -6,7 +6,7 @@ export function validateJobRequest(req: JobRequest, target: JobTarget): void {
   validateJob(req, target, apiRegistry);
 }
 
-export type ParamsResult = { ok: true; params: unknown } | { ok: false; error: string };
+type ParamsResult = { ok: true; params: unknown } | { ok: false; error: string };
 
 type FieldPath = readonly (string | number)[];
 
