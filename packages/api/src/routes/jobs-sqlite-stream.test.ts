@@ -141,7 +141,7 @@ describe("the sqlite job stream's limits", () => {
     const lease = claimed();
     const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await socket.closed;
-    expect(socket.frames).toHaveLength(1);
+    expect([socket.code(), socket.frames.length]).toEqual([1011, 1]);
     const after = reads;
     await Bun.sleep(50);
     expect(reads).toBe(after);
@@ -173,6 +173,6 @@ describe("an unreadable job row", () => {
     expect(ids).not.toContain(lease.jobId);
     const socket = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await socket.closed;
-    expect(socket.frames).toEqual([]);
+    expect([socket.code(), socket.frames]).toEqual([1011, []]);
   });
 });

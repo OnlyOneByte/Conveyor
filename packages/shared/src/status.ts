@@ -8,6 +8,7 @@ const statusEventSchema = z.object({
   jobId: z.string(),
   state: z.enum(JOB_STATES),
   at: z.number(),
+  seq: z.number().optional(),
   stage: stageSchema.nullable().optional(),
   progress: z.number().optional(),
   message: z.string().optional(),
@@ -39,6 +40,10 @@ export function jobControlChannel(jobId: string): string {
   return `job:${jobId}:control`;
 }
 
+export function jobSeqKey(jobId: string): string {
+  return `job:${jobId}:seq`;
+}
+
 export function jobCancelKey(jobId: string): string {
   return `job:${jobId}:cancel`;
 }
@@ -53,8 +58,9 @@ if cur then
     return 0
   end
 end
-redis.call('SET', KEYS[1], ARGV[1])
-redis.call('PUBLISH', KEYS[2], ARGV[1])
+local stamped = '{"seq":' .. redis.call('INCR', KEYS[4]) .. ',' .. string.sub(ARGV[1], 2)
+redis.call('SET', KEYS[1], stamped)
+redis.call('PUBLISH', KEYS[2], stamped)
 if ARGV[3] == '1' then
   redis.call('SREM', KEYS[3], ARGV[2])
 else
@@ -73,10 +79,11 @@ export async function publishStatus(
 ): Promise<boolean> {
   const written = await client.eval(
     PUBLISH_STATUS_SCRIPT,
-    3,
+    4,
     jobSnapshotKey(evt.jobId),
     jobChannel(evt.jobId),
     ACTIVE_JOBS_KEY,
+    jobSeqKey(evt.jobId),
     JSON.stringify(evt),
     evt.jobId,
     isTerminal(evt.state) ? "1" : "0",

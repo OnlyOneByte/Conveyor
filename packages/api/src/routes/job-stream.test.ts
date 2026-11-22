@@ -6,8 +6,9 @@ import { FakeSubscriber } from "../../test/fake-subscriber.ts";
 import { createStatusHub, type StatusHub } from "../status-hub.js";
 import { type JobStreamDeps, registerJobStream } from "./job-stream.js";
 
-const channel = "job:j1:status";
-const frame = (state: JobState, at: number) => JSON.stringify({ jobId: "j1", state, at });
+const jobId = "0b3f6c1e-6a4d-4c3e-9f1a-2d5e7b8c9a01";
+const channel = `job:${jobId}:status`;
+const frame = (state: JobState, seq: number) => JSON.stringify({ seq, jobId, state, at: seq });
 let app: FastifyInstance | undefined;
 
 afterEach(async () => {
@@ -30,12 +31,12 @@ function fakeHub() {
   return { hub, subscribers, publish };
 }
 
-async function serve(hub: StatusHub, deps: Partial<JobStreamDeps>) {
+async function serve(hub: StatusHub, deps: Partial<JobStreamDeps>, id = jobId) {
   app = Fastify();
   await app.register(websocket);
   registerJobStream(app, { hub, snapshot: async () => null, queued: async () => true, ...deps });
   const base = (await app.listen({ host: "127.0.0.1", port: 0 })).replace("http", "ws");
-  const ws = new WebSocket(`${base}/jobs/j1/ws`);
+  const ws = new WebSocket(`${base}/jobs/${encodeURIComponent(id)}/ws`);
   const states: string[] = [];
   ws.addEventListener("message", (e) => states.push(JSON.parse(String(e.data)).state));
   const closed = new Promise<number>((resolve) =>
@@ -121,5 +122,82 @@ describe("the job status stream", () => {
     await socket.closed;
     await Bun.sleep(30);
     expect(hub.connections()).toBe(0);
+  });
+
+  test.each(["meta", `${jobId}:cancel`, "j1"])(
+    "closes a non-UUID id (%s) with 4404 before any lookup",
+    async (id) => {
+      const { hub } = fakeHub();
+      let lookups = 0;
+      const count = async () => {
+        lookups++;
+        return "1";
+      };
+      const socket = await serve(hub, { snapshot: count, queued: async () => true }, id);
+      expect(await socket.closed).toBe(4404);
+      expect([socket.states, lookups, hub.connections()]).toEqual([[], 0, 0]);
+    },
+  );
+
+  test("keeps a live event between two identical ones", async () => {
+    const { hub, publish } = fakeHub();
+    const same = { state: "printing", progress: 0.5 };
+    const stamp = (seq: number, extra: object) => JSON.stringify({ seq, jobId, at: 1, ...extra });
+    const socket = await serve(hub, {
+      snapshot: async () => {
+        publish(stamp(1, same));
+        publish(stamp(2, { state: "printing", progress: 0.6 }));
+        publish(stamp(3, same));
+        return stamp(1, same);
+      },
+    });
+    await Bun.sleep(30);
+    publish(frame("done", 4));
+    expect(await socket.closed).toBe(1000);
+    expect(socket.states).toEqual(["printing", "printing", "printing", "done"]);
+  });
+
+  test("closes with 1011 when events pile up past the buffer before the snapshot", async () => {
+    const { hub, publish } = fakeHub();
+    const socket = await serve(hub, {
+      limits: { buffered: 2, readMs: 1000 },
+      snapshot: async () => {
+        for (let seq = 1; seq <= 3; seq++) publish(frame("generating", seq));
+        return frame("generating", 1);
+      },
+    });
+    expect(await socket.closed).toBe(1011);
+    expect(socket.states).toEqual([]);
+    expect(hub.connections()).toBe(0);
+  });
+
+  test("closes with 1011 when the snapshot read hangs", async () => {
+    const { hub } = fakeHub();
+    const socket = await serve(hub, {
+      limits: { buffered: 8, readMs: 30 },
+      snapshot: () => new Promise(() => {}),
+    });
+    expect(await socket.closed).toBe(1011);
+    expect(hub.connections()).toBe(0);
+  });
+
+  test("a viewer who leaves while the subscribe is in flight releases it", async () => {
+    let release = () => {};
+    const sub = new FakeSubscriber();
+    sub.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const hub = createStatusHub(
+      () => sub,
+      () => {},
+    );
+    const socket = await serve(hub, {});
+    socket.ws.close();
+    await socket.closed;
+    await Bun.sleep(20);
+    release();
+    await Bun.sleep(20);
+    expect(hub.connections()).toBe(0);
+    expect(sub.calls).toEqual([`subscribe ${channel}`, "quit"]);
   });
 });
