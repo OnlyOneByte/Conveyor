@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" 
       org.opencontainers.image.description="Conveyor API — REST + WebSocket front door" \
       org.opencontainers.image.licenses="MIT"
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app ./
 COPY . .
 ENV CONVEYOR_HOST=0.0.0.0
 EXPOSE 3000
