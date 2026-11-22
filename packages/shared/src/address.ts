@@ -5,7 +5,7 @@ export type HostPort =
   | { kind: "invalid"; reason: string };
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
-const USERINFO = /^([a-z][a-z0-9+.-]*:\/\/).*@/i;
+const USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)?.*@/i;
 const BRACKETED = /^\[([^\]]*)\](?::(.*))?$/;
 const HOSTNAME =
   /^(?=.{1,253}\.?$)[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)*\.?$/i;

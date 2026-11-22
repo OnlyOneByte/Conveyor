@@ -24,6 +24,13 @@ describe("parseHostPort", () => {
       "http://admin:s3cret@printer:0/",
       '"http://***@printer:0/": the port must be a number from 1 to 65535',
     ],
+    ["admin:s3cret@printer", '"***@printer": the port must be a number from 1 to 65535'],
+    ["admin@printer.local", '"***@printer.local": not an IPv4 address, IPv6 address or hostname'],
+    ["//admin:s3cret@printer", '"//***@printer": not an IPv4 address, IPv6 address or hostname'],
+    [
+      "admin:p@ss@printer:7125",
+      '"***@printer:7125": not a valid IPv6 address; to give a port, write it as [fe80::1]:3030',
+    ],
   ])("rejects %p", (address, reason) => {
     expect(parseHostPort(address, 3030)).toEqual({ kind: "invalid", reason });
   });

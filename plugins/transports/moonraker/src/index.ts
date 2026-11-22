@@ -149,10 +149,13 @@ export const moonraker: TransportPlugin = {
 function baseUrl(address: string): string {
   if (address.startsWith("http://") || address.startsWith("https://"))
     return address.replace(/\/$/, "");
-  const parsed = parseHostPort(address, 80);
+  const slash = address.indexOf("/");
+  const authority = slash === -1 ? address : address.slice(0, slash);
+  const path = slash === -1 ? "" : address.slice(slash).replace(/\/$/, "");
+  const parsed = parseHostPort(authority, 80);
   if (parsed.kind === "invalid")
     throw new StageError("transport", `moonraker printer address ${parsed.reason}`);
-  return `http://${formatHostPort(parsed.host, parsed.port)}`;
+  return `http://${formatHostPort(parsed.host, parsed.port)}${path}`;
 }
 
 function apiKeyHeaders(target: PrinterTarget): Record<string, string> {

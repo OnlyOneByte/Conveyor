@@ -56,6 +56,9 @@ describe("moonraker IPv6 printers", () => {
     ["fe80::1", "http://[fe80::1]:80/printer/print/cancel"],
     ["[fe80::1]:7125", "http://[fe80::1]:7125/printer/print/cancel"],
     ["http://[fe80::1]:7125/", "http://[fe80::1]:7125/printer/print/cancel"],
+    ["printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
+    ["10.0.0.9:7125/moonraker/", "http://10.0.0.9:7125/moonraker/printer/print/cancel"],
+    ["[fe80::1]:7125/moonraker", "http://[fe80::1]:7125/moonraker/printer/print/cancel"],
   ])("%p is reached at %p", async (address, url) => {
     const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
     await moonraker.cancel?.({ ...handle, address });

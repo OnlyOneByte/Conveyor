@@ -32,8 +32,12 @@ it.
   - a dotted number that isn't IPv4 (`10.0.0.256`);
   - a host with characters a hostname can't have;
   - a URL that doesn't parse.
-- The reason quotes the address and says what to change. In a URL, everything from `://` to the last `@` is
-  replaced with `***`, so a `user:password@` never reaches a reason. The URL parser's own message isn't
+- The reason quotes the address and says what to change. Everything before the last `@` becomes `***`,
+  keeping only a leading `scheme://` or `//`:
+  - `http://admin:s3cret@[bad/` is quoted as `http://***@[bad/`;
+  - `admin:s3cret@printer` is quoted as `***@printer`.
+
+  So a `user:password@` never reaches a reason, with or without a scheme. The URL parser's own message isn't
   quoted, because it can contain the raw text.
 - `formatHostPort(host, port)` brackets a host that contains `:`, so `fe80::1` and 3030 give
   `[fe80::1]:3030`. Transports build every URL from it.
