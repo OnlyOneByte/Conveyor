@@ -4,7 +4,11 @@ import { exhaustive, isTerminal, type JobStatusEvent } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
+import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+
+export const countLiveJobs: LiveJobCounter = (reference, id) =>
+  countSqliteLiveJobs(openDb())(reference, id);
 
 export interface TailOptions {
   fastMs: number;

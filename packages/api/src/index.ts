@@ -38,11 +38,11 @@ await registerAuthRoutes(app);
 
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app, uploads);
-await registerCatalogRoutes(app);
-await registerPrinterHoldRoutes(app);
-const { registerJobRoutes } = await import(
+const { registerJobRoutes, countLiveJobs } = await import(
   queue === "sqlite" ? "./routes/jobs-sqlite.js" : "./routes/jobs.js"
 );
+await registerCatalogRoutes(app, countLiveJobs);
+await registerPrinterHoldRoutes(app);
 await registerJobRoutes(app);
 app.log.info(`conveyor api queue: ${queue}`);
 
