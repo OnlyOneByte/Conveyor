@@ -175,14 +175,14 @@ jobs:
           file: packages/worker/Dockerfile
           push: false
           load: true
-          tags: conveyor-worker-orca
+          tags: conveyor-worker
           build-args: |
             ORCA_ENABLE=1
           cache-from: type=gha,scope=worker-orca
           cache-to: type=gha,mode=max,scope=worker-orca
-      - name: Slice a cube with the bundled Orca profile as uid 10001
+      - name: Slice a cube with the bundled Orca profile as uid 10001 under the compose lockdown
         run: |
-          docker run --rm conveyor-worker-orca bun scripts/orca-smoke.ts | tee smoke.txt
+          docker compose run --rm --no-deps worker bun scripts/orca-smoke.ts | tee smoke.txt
           grep -qE 'G1 moves, as uid 10001$' smoke.txt
 
   compose:
@@ -254,7 +254,7 @@ jobs:
           test "$(docker compose ps --services --status running | sort | tr '\n' ' ')" = "api caddy redis web worker "
           docker inspect -f '{{.Name}} restarts={{.RestartCount}}' $(docker compose ps -q) | tee restarts.txt
           ! grep -v 'restarts=0$' restarts.txt
-      - name: Every app container runs unprivileged as uid 10001 and owns secrets.key at 0600
+      - name: Every app container runs unprivileged as uid 10001 on a read-only root and owns secrets.key at 0600
         run: |
           for service in api worker web; do
             docker compose exec -T "$service" cat /proc/1/status > status.txt
@@ -265,6 +265,12 @@ jobs:
             case "$(field Groups)" in ""|10001|"10001 ") ;; *) exit 1 ;; esac
             test "$(field CapEff)" = 0000000000000000
             test "$(field NoNewPrivs)" = 1
+            case "$service" in web) bounding=0000000000000000 ;; *) bounding=00000000000000c5 ;; esac
+            echo "$service: CapBnd=[$(field CapBnd)]"
+            test "$(field CapBnd)" = "$bounding"
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
           done
           key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
           echo "secrets.key: $key"
