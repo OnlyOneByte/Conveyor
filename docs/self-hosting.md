@@ -59,7 +59,9 @@ After 5 wrong passwords from one client within a minute, the login answers `429 
 
 The API tells clients apart by the address that connected to it, and trusts an `X-Forwarded-For` header only from the proxies in `CONVEYOR_TRUSTED_PROXIES`: a comma-separated list of IP addresses or CIDRs. An entry that is not one stops the API at startup. Unset, nothing is trusted, so a forged header gets no budget of its own.
 
-Compose gives Caddy the fixed address `172.31.250.2` on a fixed network, `172.31.250.0/24`, and sets `CONVEYOR_TRUSTED_PROXIES=172.31.250.2` for the API, so each client behind Caddy gets its own count. If that network collides with one of yours, change the subnet, Caddy's `ipv4_address` and `CONVEYOR_TRUSTED_PROXIES` together in `docker-compose.yml`.
+Compose gives Caddy the fixed address `172.31.250.2` on a fixed network, `172.31.250.0/24`, and sets `CONVEYOR_TRUSTED_PROXIES=172.31.250.2` for the API, so each client behind Caddy gets its own count. The network's `ip_range`, `172.31.250.128/25`, keeps the addresses Docker hands the other containers above `.128`, so none of them can take Caddy's. If that network collides with one of yours, change the subnet, the `ip_range`, Caddy's `ipv4_address` and `CONVEYOR_TRUSTED_PROXIES` together in `docker-compose.yml`, keeping Caddy's address inside the subnet but outside the range.
+
+An existing install must run `docker compose down` once before `docker compose up -d` after upgrading to this version: Docker cannot change the subnet of a network that already exists, so `up` alone fails on the old network. `down` keeps your data, because named volumes and `./data` stay; do not add `-v`, which deletes the volumes.
 
 On some hosts Docker's userland proxy hands Caddy the Docker gateway's address instead of the client's. Every client then shares one count again, so a stranger's wrong guesses can lock you out for up to a minute. Check `docker compose logs caddy`: if every request shows the same remote address, turn the userland proxy off (`"userland-proxy": false` in Docker's `daemon.json`).
 
