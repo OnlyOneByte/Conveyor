@@ -167,6 +167,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: docker/setup-buildx-action@v3
       - name: Build the worker with OrcaSlicer
         uses: docker/build-push-action@v6
@@ -184,6 +186,10 @@ jobs:
         run: |
           docker compose run --rm --no-deps worker bun scripts/orca-smoke.ts | tee smoke.txt
           grep -qE 'G1 moves, as uid 10001$' smoke.txt
+      - name: Render a gridfinity bin and slice it as uid 10001 under the compose lockdown
+        run: |
+          docker compose run --rm --no-deps worker bun scripts/gridfinity-smoke.ts | tee gridfinity.txt
+          grep -qE 'G1 moves, as uid 10001$' gridfinity.txt
 
   compose:
     name: compose
