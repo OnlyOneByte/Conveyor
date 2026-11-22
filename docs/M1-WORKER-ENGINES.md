@@ -41,7 +41,7 @@ the stable **2021.01** can't parse (`syntax error … line 125`). It needs a 202
 **nightly/development snapshot** (the lib README recommends this; also a 10min→sec render
 speedup). The worker Dockerfile extracts a nightly AppImage, not the distro stable.
 `scripts/install-openscad.sh` installs one pinned snapshot per arch from
-`files.openscad.org/snapshots/` and checks its sha256 before running it: 2026.11.21 on
+`files.openscad.org/snapshots/` and checks its sha256 (and, on x86_64, its signature) before running it: 2026.11.20 on
 x86_64, and 2023.09.11 on **aarch64**, the newest aarch64 nightly upstream ships and the
 verified-working build. Bumping: [self-hosting.md](self-hosting.md#bumping-the-openscad-pin).
 

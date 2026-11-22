@@ -19,14 +19,7 @@ import {
 } from "./run.js";
 import { settleCanceled, settleDone, settleError } from "./settle.js";
 
-export type {
-  PipelineDeps,
-  PublishExtra,
-  RunJobOptions,
-  TerminalRecord,
-  TerminalState,
-} from "./run.js";
-export { JobCanceledError } from "./run.js";
+export type { PipelineDeps, TerminalRecord, TerminalState } from "./run.js";
 
 async function generateStage(run: Run): Promise<ModelArtifact> {
   await enterStage(run, "generator", "generating");

@@ -1,6 +1,6 @@
 import { type Database, SQLiteError } from "bun:sqlite";
 
-export interface WalRetry {
+interface WalRetry {
   attempts: number;
   delayMs: number;
   sleep: (ms: number) => void;

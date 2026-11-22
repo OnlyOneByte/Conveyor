@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { dbUpsertProfile, openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { registerCatalogRoutes } from "./catalog";
+import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite";
 
 const previousDbPath = process.env.DB_PATH;
 process.env.DB_PATH = ":memory:";
@@ -26,7 +27,7 @@ const profile = (overrides: Record<string, string>) => ({
 });
 
 beforeAll(async () => {
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 

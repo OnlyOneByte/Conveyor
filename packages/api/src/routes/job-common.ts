@@ -9,7 +9,7 @@ import {
 } from "../artifact-download.js";
 import { parseGeneratorParams, validateJobRequest } from "../validate.js";
 
-export type Submission =
+type Submission =
   | { ok: true; request: JobRequest }
   | { ok: false; code: 400 | 404; error: unknown };
 

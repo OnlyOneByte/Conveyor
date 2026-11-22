@@ -1,0 +1,18 @@
+{
+  "name": "@conveyor/plugin-registry",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@conveyor/generator-gridfinity": "workspace:*",
+    "@conveyor/generator-passthrough": "workspace:*",
+    "@conveyor/shared": "workspace:*",
+    "@conveyor/slicer-orca": "workspace:*",
+    "@conveyor/slicer-prusa": "workspace:*",
+    "@conveyor/transport-elegoo": "workspace:*",
+    "@conveyor/transport-moonraker": "workspace:*"
+  }
+}

@@ -10,7 +10,7 @@ const KEY_CHECK_PLAINTEXT = "conveyor-secrets-key-check";
 const SecretsRecord = z.record(z.string());
 const keys = new WeakMap<Database, SecretsKey>();
 
-export type PrinterSecretsResult =
+type PrinterSecretsResult =
   | { ok: true; value: Record<string, string> | undefined }
   | { ok: false; error: { kind: "PrinterSecretsUnreadable"; printerId: string } };
 

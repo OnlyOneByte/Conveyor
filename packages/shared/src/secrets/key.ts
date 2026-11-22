@@ -2,16 +2,16 @@ import { randomBytes } from "node:crypto";
 import { closeSync, fsyncSync, linkSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
 
-export const SECRETS_KEY_BYTES = 32;
+const SECRETS_KEY_BYTES = 32;
 const HIDDEN = "[SecretsKey]";
 
 export interface SecretsKey {
   readonly bytes: Buffer;
 }
 
-export type KeySource = "env" | "file";
+type KeySource = "env" | "file";
 
-export type KeyResult =
+type KeyResult =
   | { ok: true; key: SecretsKey; source: KeySource | "generated" }
   | { ok: false; error: { kind: "InvalidSecretsKey"; source: KeySource; message: string } };
 

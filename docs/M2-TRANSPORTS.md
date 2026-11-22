@@ -6,10 +6,12 @@ this doc is the capture-and-confirm runbook.
 
 Status (2026-06-29):
 
-| Transport | submit | status | cancel | discover |
-|---|---|---|---|---|
-| Moonraker (Klipper) | ✅ written | ✅ written | ✅ written | n/a (explicit IP) |
-| Elegoo (SDCP) | 🟡 written* | 🟡 written | 🟡 written | ✅ written |
+| Transport | submit | status | cancel |
+|---|---|---|---|
+| Moonraker (Klipper) | ✅ written | ✅ written | ✅ written |
+| Elegoo (SDCP) | 🟡 written* | 🟡 written | 🟡 written |
+
+Both take an explicit printer address. Elegoo's UDP discovery was written but never called, and was removed (#22); git history has it if a discovery feature is built.
 
 \* Elegoo file-upload route is the one genuinely-uncertain bit (see below).
 
@@ -46,12 +48,11 @@ Poll interval: `MOONRAKER_POLL_MS` (default 2000).
 
 ## ElegooLink / SDCP — `plugins/transports/elegoo`
 
-SDCP V3.0.0 (ELEGOO/Chitu). UDP discovery + WebSocket control on `:3030` + HTTP upload.
-Helpers in `src/sdcp.ts` (discovery parse, command framing, status-frame parse).
+SDCP V3.0.0 (ELEGOO/Chitu). WebSocket control on `:3030` + HTTP upload.
+Helpers in `src/sdcp.ts` (command framing, status-frame parse).
 
 | Step | Mechanism |
 |---|---|
-| discover | UDP broadcast `M99999` → `:3000`; printers reply with a JSON datagram |
 | control | `ws://<ip>:3030/websocket` — JSON request `{Id,Data:{Cmd,Data,RequestID,MainboardID,TimeStamp},Topic}` |
 | start | `Cmd 128` (START_PRINT) `{Filename,StartLayer}` |
 | stop | `Cmd 130` (STOP_PRINT) |
@@ -70,14 +71,13 @@ confirm first.
 1. **Capture the real upload.** Use ElegooLink (or the printer's web UI) to send a file
    while capturing traffic (Wireshark / browser devtools). Note the exact upload URL,
    method, field name, and whether it chunks. Adjust `uploadGcode()` in `index.ts`.
-2. **Discovery:** run a one-off `discover()` on the worker LAN; confirm your printer's
-   `MainboardIP`/`MainboardID` come back. Store `mainboardId` in the printer secrets if
-   it differs from the printer's `id`.
+2. **Mainboard id:** read your printer's `MainboardID` from its screen or ElegooLink, and
+   store it as `mainboardId` in the printer secrets if it differs from the printer's `id`.
 3. **Control:** confirm the WS handshake at `ws://<ip>:3030/websocket` and that a
    STATUS request (`Cmd 0`) returns a frame `parsePushFrame` accepts.
 4. Unset the stub, submit to the Elegoo printer, watch the stepper; then test cancel.
 
-Env: `ELEGOO_WS_PORT` (3030), `ELEGOO_DISCOVERY_PORT` (3000), `ELEGOO_DISCOVERY_MS`,
+Env: `ELEGOO_WS_PORT` (3030),
 `ELEGOO_STATUS_TIMEOUT_MS` (10 minutes without a print status fails the job, and the stream sends a `Cmd 0` status
 request every half of it; see `docs/modules/plugins.md`).
 

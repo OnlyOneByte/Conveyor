@@ -7,6 +7,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerJobRoutes } from "./jobs.js";
+import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite.js";
 
 connection.disconnect();
 redis.disconnect();
@@ -29,7 +30,7 @@ beforeAll(async () => {
   openDb(dbPath);
 
   app = Fastify();
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   await registerJobRoutes(app);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });

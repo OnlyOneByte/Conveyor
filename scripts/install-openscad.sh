@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 ARCH="$(uname -m)"
 case "$ARCH" in
   x86_64)
-    ASSET="OpenSCAD-2026.11.21-x86_64.AppImage"
-    SHA256="f27009b27ed56a39f057370e4c2e63d5a72ece90173ec6b4264d379ad553e84f" ;;
+    ASSET="OpenSCAD-2026.11.20-x86_64.AppImage"
+    SHA256="4c11f4662b4b61922ec1e1fd485204a2a99035a1d1f57f6eda47f5047978a43c"
+    SIGNED=yes ;;
   aarch64|arm64)
     ASSET="OpenSCAD-2023.09.11.ai-aarch64.AppImage"
-    SHA256="84d7bb1c71e14b4e248a84fbe0a4b02f58bcbf5326f0ee81c8a4de3653a3b568" ;;
+    SHA256="84d7bb1c71e14b4e248a84fbe0a4b02f58bcbf5326f0ee81c8a4de3653a3b568"
+    SIGNED=no ;;
   *) echo "[install-openscad] ERROR: unsupported arch $ARCH" >&2; exit 1 ;;
 esac
 
@@ -21,6 +24,15 @@ if ! printf '%s  %s\n' "$SHA256" openscad.AppImage | sha256sum -c - >/dev/null; 
   echo "[install-openscad] ERROR: sha256 of ${ASSET} does not match the pinned $SHA256" >&2
   rm -f openscad.AppImage
   exit 1
+fi
+if [[ "$SIGNED" == yes ]]; then
+  curl --proto '=https' --proto-redir '=https' -fsSL "${URL}.asc" -o openscad.AppImage.asc \
+    || { echo "[install-openscad] ERROR: could not download ${ASSET}.asc" >&2; rm -f openscad.AppImage; exit 1; }
+  "$SCRIPTS/verify-openscad-signature.sh" openscad.AppImage openscad.AppImage.asc \
+    || { rm -f openscad.AppImage openscad.AppImage.asc; exit 1; }
+  rm -f openscad.AppImage.asc
+else
+  echo "[install-openscad] WARNING: upstream publishes no signature for ${ASSET}; it is verified by its pinned sha256 only" >&2
 fi
 chmod +x openscad.AppImage
 ./openscad.AppImage --appimage-extract >/dev/null
