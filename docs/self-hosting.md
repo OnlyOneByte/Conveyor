@@ -231,7 +231,16 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 ## Slicer and CAD engines in the worker image
 
-`scripts/install-openscad.sh` installs a pinned OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md)). Before making the download executable it checks two things, and either failing fails the build: the pinned sha256, and, on x86_64, the upstream GnuPG signature (`<asset>.asc`). The signature must be a good one from the OpenSCAD release key, `OpenSCAD <dev@openscad.org>`, fingerprint `E2EB DADD 336F F516 ADD5 1A78 F3E1 2CCC 2216 4A0F` (as listed on openscad.org/downloads). The key is vendored as `scripts/openscad-release-key.asc`, and `scripts/verify-openscad-signature.sh` checks it with `gpgv`. A missing or empty `.asc`, a bad signature, and a signature from any other key all fail. **aarch64 has no signature:** upstream publishes no `.asc` for `OpenSCAD-2023.09.11.ai-aarch64.AppImage`, the newest aarch64 build, so on that arch the script logs `WARNING: upstream publishes no signature …` and relies on the pinned sha256 alone. The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
+The worker Dockerfile's `openscad` stage builds OpenSCAD from source with `scripts/build-openscad.sh`, which fetches and checks it with `scripts/fetch-openscad-source.sh`, on `debian:trixie-slim`, for the host architecture. The distro release cannot parse the gridfinity library ([archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md)), so the script builds the upstream release candidate `openscad-2026.11-RC0` (commit `9ba0cee7c94785fac0ca8dfe040b965a12a25ed1`) from its source tarball, `openscad-2026.11-RC0.src.tar.gz` on the upstream GitHub release. Before building it checks three things, and any failing fails the build: the pinned sha256, the tarball's GnuPG signature (`.asc`), and that its `COMMIT.txt` names the pinned commit. The signature must be a good one from the OpenSCAD release key, `OpenSCAD <dev@openscad.org>`, fingerprint `E2EB DADD 336F F516 ADD5 1A78 F3E1 2CCC 2216 4A0F` (as listed on openscad.org/downloads). The key is vendored as `scripts/openscad-release-key.asc`, and `scripts/verify-openscad-signature.sh` checks it with `gpgv`. A missing or empty `.asc`, a bad signature, and a signature from any other key all fail. The build is headless (`NULLGL`, no GUI or OpenGL) and links only against Debian trixie's shared libraries, so the final image carries no bundled libraries and sets no `LD_LIBRARY_PATH`.
+
+### OpenSCAD's corresponding source
+
+OpenSCAD is GPL-2.0-or-later, so the worker image must come with its exact source. That source is the tarball above, which bundles every submodule (manifold, Clipper2, OpenCSG, mimalloc) and is byte-identical on both arches:
+
+- **In the image:** `/opt/openscad/share/doc/openscad/SOURCE` names the version, commit, tarball URL and sha256, and `COPYING` sits next to it.
+- **Upstream:** `https://github.com/openscad/openscad/releases/download/openscad-2026.11-RC0/openscad-2026.11-RC0.src.tar.gz`, or `git archive` of the commit with its submodules.
+- **On each Conveyor release:** the release workflow attaches the same tarball, its `.asc` and its sha256 to the GitHub release, so the source stays available from Conveyor even if upstream moves it.
+- **The libraries it links:** Debian trixie packages, whose source is the matching Debian source package (`apt-get source`, or <https://snapshot.debian.org>).
 
 `scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
 
@@ -245,12 +254,13 @@ Orca is GUI-linked, so the worker runs it under `xvfb-run`.
 
 ### Bumping the OpenSCAD pin
 
-Upstream deletes old nightly snapshots (the x86_64 listing keeps about ten months), so a pinned x86_64 snapshot eventually fails to download and has to be bumped:
+Pin only upstream releases or release candidates that publish a signed `openscad-<version>.src.tar.gz`; nightly snapshots have no matching source tarball.
 
-1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch, at least a day old: upstream rebuilds the current day's nightly under the same file name, so a same-day pin can stop matching its checksum within hours (2026.11.21 did). Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
-2. Set the `ASSET`, `SHA256` and `SIGNED` values for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download. Set `SIGNED=yes` when `<asset>.asc` exists, and `SIGNED=no` only when it doesn't (today, aarch64).
-3. If upstream rotates its signing key, replace `scripts/openscad-release-key.asc` with the new key from `https://files.openscad.org/OpenSCAD_public_key.asc`, and `FINGERPRINT` in `scripts/verify-openscad-signature.sh` with the fingerprint openscad.org/downloads lists. Check that the two agree before committing.
-4. Open the PR. CI's `orca slice` job verifies the signature and renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
+1. Pick the release on `https://github.com/openscad/openscad/releases`, and download its `.src.tar.gz`, `.asc` and `.sha256`. Check the `.sha256` against `sha256sum` of your own download, and the signature with `scripts/verify-openscad-signature.sh <tarball> <tarball>.asc`.
+2. In `scripts/fetch-openscad-source.sh`, set `VERSION`, `SHA256`, and `COMMIT` to the full commit the release tag points at (`gh api repos/openscad/openscad/git/ref/tags/openscad-<version>`). Its first eight characters must match the tarball's `COMMIT.txt`.
+3. If the build needs new libraries, add the `-dev` packages to the `openscad` stage and their runtime packages to the final stage. Find them with `ldd /opt/openscad/bin/openscad` in the builder.
+4. If upstream rotates its signing key, replace `scripts/openscad-release-key.asc` with the new key from `https://files.openscad.org/OpenSCAD_public_key.asc`, and `FINGERPRINT` in `scripts/verify-openscad-signature.sh` with the fingerprint openscad.org/downloads lists. Check that the two agree before committing.
+5. Open the PR. CI's `orca slice` job builds OpenSCAD on x86_64, renders a cube and slices it. Run `bun scripts/gridfinity-smoke.ts` in the image to render and slice a real gridfinity bin. Nothing in CI builds on aarch64, so check it on an arm64 host.
 
 ### Bumping the OrcaSlicer pin
 
