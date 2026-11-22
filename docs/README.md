@@ -27,7 +27,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [modules/shared.md](modules/shared.md) | `packages/shared`: the why behind its types, validation and SQLite store |
 | [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
 | [modules/worker.md](modules/worker.md) | `packages/worker`: the worker image's engines, profile materialization and status bus |
-| [archive/ui-mockup.html](archive/ui-mockup.html) | Historical: the pre-M4 UI mockup, kept for reference. It shows Stations and an Admin page, which no longer exist |
+| [archive/ui-mockup.html](archive/ui-mockup.html) | Historical: the pre-M4 UI mockup, kept for reference. It links to an Admin screen for preset uploads, which never shipped |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 
 ## Decisions
