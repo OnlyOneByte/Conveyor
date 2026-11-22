@@ -2,8 +2,6 @@ import { PACKAGES, round2 } from "./summary";
 
 export const BASELINE_DIR = "scripts/checks/coverage/baseline";
 
-export const LEGACY_BASELINE_PATH = "scripts/checks/coverage/baseline.json";
-
 export const baselinePath = (name: string) => `${BASELINE_DIR}/${name}.json`;
 
 export const CHECKER_PATH = "scripts/checks/coverage/main.ts";
@@ -20,9 +18,6 @@ export interface CoverageBaseline {
 
 const isPercent = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseJson = (text: string): unknown => {
   try {
@@ -47,19 +42,6 @@ export function parseBaseline(texts: BaselineTexts): CoverageBaseline | string |
 }
 
 export const serializePercent = (value: number) => `${JSON.stringify(round2(value))}\n`;
-
-export function legacyTexts(text: string): BaselineTexts | null {
-  const value = parseJson(text);
-  if (!isRecord(value) || !isRecord(value.lines)) return null;
-  const lines = value.lines;
-  if (!Object.values(lines).every(isPercent)) return null;
-  return Object.fromEntries(
-    PACKAGES.map((name) => {
-      const percent = lines[name];
-      return [name, isPercent(percent) ? serializePercent(percent) : null];
-    }),
-  );
-}
 
 export function raisedBaseline(current: Percents, committed: CoverageBaseline | null) {
   const previous = committed?.lines ?? {};
