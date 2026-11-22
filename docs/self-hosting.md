@@ -209,7 +209,7 @@ Orca is GUI-linked, so the worker runs it under `xvfb-run`.
 
 Upstream deletes old nightly snapshots (the x86_64 listing keeps about ten months), so a pinned x86_64 snapshot eventually fails to download and has to be bumped:
 
-1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch. Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
+1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch, at least a day old: upstream rebuilds the current day's nightly under the same file name, so a same-day pin can stop matching its checksum within hours (2026.11.21 did). Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
 2. Set the `ASSET` and `SHA256` pair for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download.
 3. Open the PR. CI's `orca slice` job renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
 
