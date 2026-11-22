@@ -157,7 +157,17 @@ The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH
 
 Caddy runs as `10002:10002` with no capabilities. It binds `:80` and `:443` because compose sets `net.ipv4.ip_unprivileged_port_start=0` in its own network namespace. `skip_install_trust` in the `Caddyfile` stops Caddy trying to add its local CA to the container's own trust store, which the read-only root would refuse. Redis needs no capability: its data volume is already owned by `redis`, so its entrypoint skips the `chown` and the user switch it does when started as root.
 
-Before Caddy starts, the one-shot `caddy-init` service hands `caddy_data` and `caddy_config` to `10002:10002` and exits; Caddy waits for it to succeed. It lets an install whose volumes an earlier root Caddy wrote keep its local CA, its certificates and any ACME account: the first start logs `caddy-init: <n> paths handed to 10002:10002`, and every later start logs `0 paths`. It runs as root with only `CHOWN` (to change owners) and `DAC_READ_SEARCH` (to walk the `0700` directories it has already handed over), a read-only root, `no-new-privileges` and no network. If it fails, Caddy does not start; `docker compose logs caddy-init` says why.
+Before Caddy starts with `docker compose up`, the one-shot `caddy-init` service hands `caddy_data` and `caddy_config` to `10002:10002` and exits; Caddy waits for it to succeed. It lets an install whose volumes an earlier root Caddy wrote keep its local CA, its certificates and any ACME account: the first start logs `caddy-init: <n> paths handed to 10002:10002`, and every later start logs `0 paths`. It runs as root with only `CHOWN` (to change owners) and `DAC_READ_SEARCH` (to walk the `0700` directories it has already handed over), a read-only root, `no-new-privileges` and no network. If it fails, Caddy does not start; `docker compose logs caddy-init` says why.
+
+`caddy-init` runs only on `docker compose up`. After a host reboot, Docker restarts Caddy from its `unless-stopped` policy without it, so a file made root-owned since the last `up` (a backup restored as root, say) makes Caddy fail until you run `docker compose up -d` again, which re-runs the handover.
+
+To go back to a root Caddy, set `caddy`'s `user` to `"0:0"` and remove `caddy-init`, then hand the volumes back to root once before starting it:
+
+```sh
+docker compose run --rm --no-deps --cap-add CHOWN --cap-add DAC_READ_SEARCH --entrypoint chown caddy -R -h 0:0 /data /config
+```
+
+`-h` changes a symlink itself, never the file it points to, as `caddy-init` does.
 
 A Redis volume holding a root-owned file, for example after a backup was restored as root, stops Redis from starting, and Compose restarts it in a loop. Its log ends in a `Permission denied` whose wording depends on which file is root-owned, for example:
 
