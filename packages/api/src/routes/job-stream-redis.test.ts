@@ -78,6 +78,23 @@ describe.skipIf(!url)("the job status stream on Redis", () => {
     expect(await clients()).toBe(0);
   });
 
+  test("the publish script never overwrites a terminal snapshot", async () => {
+    const jobId = randomUUID();
+    const watcher = redis.duplicate();
+    const heard: string[] = [];
+    watcher.on("message", (_channel, payload) => heard.push(JSON.parse(payload).state));
+    await watcher.subscribe(`job:${jobId}:status`);
+    expect(await publishStatus(redis, { jobId, state: "done", at: 1 })).toBe(true);
+    expect(await publishStatus(redis, { jobId, state: "generating", at: 2 })).toBe(false);
+    await Bun.sleep(50);
+    expect(JSON.parse((await redis.get(jobSnapshotKey(jobId))) ?? "{}")).toMatchObject({
+      state: "done",
+      seq: 1,
+    });
+    expect(heard).toEqual(["done"]);
+    watcher.disconnect();
+  });
+
   test("a job that finished before the socket opened gets its snapshot and 1000", async () => {
     const jobId = randomUUID();
     await publishStatus(redis, { jobId, state: "canceled", at: 1 });
@@ -142,5 +159,26 @@ describe.skipIf(!url)("the Redis job routes' stream wiring", () => {
     await publishStatus(redis, { jobId, state: "canceled", at: 1 });
     expect(await waiting.closed).toBe(1000);
     expect(waiting.states).toEqual(["canceled"]);
+  });
+
+  test("GET /jobs/:id and cancel answer 404 for ids that are not job ids", async () => {
+    const res = await fetch(`${api?.base}/jobs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(job),
+    });
+    const { jobId } = (await res.json()) as { jobId: string };
+    posted.push(jobId);
+    await publishStatus(redis, { jobId, state: "slicing", at: 1 });
+    await redis.set(`job:${jobId}:cancel`, "1", "EX", 60);
+    await redis.del("job:meta:cancel");
+    const statuses = [];
+    for (const id of [`${jobId}:seq`, `${jobId}:cancel`, "meta"]) {
+      statuses.push((await fetch(`${api?.base}/jobs/${id}`)).status);
+      statuses.push((await fetch(`${api?.base}/jobs/${id}/cancel`, { method: "POST" })).status);
+    }
+    expect(statuses).toEqual([404, 404, 404, 404, 404, 404]);
+    expect(await redis.exists("job:meta:cancel")).toBe(0);
+    expect((await fetch(`${api?.base}/jobs/${jobId}`)).status).toBe(200);
   });
 });

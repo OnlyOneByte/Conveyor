@@ -181,6 +181,30 @@ describe("the job status stream", () => {
     expect(hub.connections()).toBe(0);
   });
 
+  test("closes with 1011 when the BullMQ lookup hangs", async () => {
+    const { hub } = fakeHub();
+    const socket = await serve(hub, {
+      limits: { buffered: 8, readMs: 30 },
+      queued: () => new Promise(() => {}),
+    });
+    expect(await socket.closed).toBe(1011);
+    expect([socket.states, hub.connections()]).toEqual([[], 0]);
+  });
+
+  test("an old worker's terminal event without a seq still ends the stream", async () => {
+    const { hub, publish } = fakeHub();
+    const legacy = (state: JobState) => JSON.stringify({ jobId, state, at: 9 });
+    const socket = await serve(hub, {
+      snapshot: async () => {
+        publish(legacy("printing"));
+        publish(legacy("done"));
+        return frame("printing", 4);
+      },
+    });
+    expect(await socket.closed).toBe(1000);
+    expect(socket.states).toEqual(["printing", "done"]);
+  });
+
   test("a viewer who leaves while the subscribe is in flight releases it", async () => {
     let release = () => {};
     const sub = new FakeSubscriber();
