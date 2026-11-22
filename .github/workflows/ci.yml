@@ -157,8 +157,8 @@ jobs:
           push: false
           build-args: |
             ORCA_ENABLE=0
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   orca-slice:
     name: orca slice
@@ -178,7 +178,9 @@ jobs:
           tags: conveyor-worker
           build-args: |
             ORCA_ENABLE=1
-          cache-from: type=gha,scope=worker-orca
+          cache-from: |
+            type=gha,scope=worker-orca
+            type=gha,scope=worker
           cache-to: type=gha,mode=max,scope=worker-orca
       - name: Slice a cube with the bundled Orca profile as uid 10001 under the compose lockdown
         run: |
@@ -202,8 +204,20 @@ jobs:
           echo "::add-mask::$secret"
           echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
           echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
-      - name: Build the images from source
-        run: docker compose build --build-arg ORCA_ENABLE=0
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the worker from source with the Docker build job's cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/worker/Dockerfile
+          push: false
+          load: true
+          tags: conveyor-worker
+          build-args: |
+            ORCA_ENABLE=0
+          cache-from: type=gha,scope=worker
+      - name: Build the other images from source
+        run: docker compose build --build-arg ORCA_ENABLE=0 api web
       - name: No checkout or local files in the images
         run: |
           for service in api web worker; do
