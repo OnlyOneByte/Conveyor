@@ -167,10 +167,21 @@ jobs:
       - uses: actions/checkout@v4
       - name: Throwaway login for this run
         run: |
-          echo "CONVEYOR_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
-          echo "CONVEYOR_AUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          password=$(openssl rand -hex 16)
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$password"
+          echo "::add-mask::$secret"
+          echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
       - name: Build the images from source
         run: docker compose build --build-arg ORCA_ENABLE=0
+      - name: No checkout or local files in the images
+        run: |
+          for service in api web worker; do
+            docker run --rm --entrypoint sh "conveyor-$service" -c \
+              'test ! -e /app/.git && test ! -e /app/.env && test -z "$(find /app -name .git -not -path "*/node_modules/*")"'
+            echo "conveyor-$service: no .git, no .env"
+          done
       - name: docker compose up
         run: docker compose up -d --no-build --wait --wait-timeout 120
       - name: Only Caddy publishes, on loopback only
