@@ -74,8 +74,8 @@ function parseText(text: string, defaultPort: number): Parsed | Problem {
 
 export function parseHostPort(address: string, defaultPort: number, shown?: string): HostPort {
   const text = address.trim();
-  const quoted = shown ?? (text || address);
-  const result = CONTROL.test(quoted + address)
+  const quoted = shown?.trim() ?? (text || address);
+  const result = CONTROL.test(`${shown?.trim() ?? ""}${text}`)
     ? problem("the address contains a control character or line break")
     : parseText(text, defaultPort);
   if (result.kind === "parsed") return result;

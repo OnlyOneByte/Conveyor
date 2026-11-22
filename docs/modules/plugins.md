@@ -110,7 +110,7 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
   4. The path is kept, minus one trailing `/`.
 - An authority it rejects fails the stage with `moonraker printer address <reason>` before any request. The
   reason quotes the whole address, redacted, so a password that contains `/` is never partly quoted. An
-  address with a control character or line break anywhere is rejected.
+  address with a control character or line break inside it is rejected; surrounding whitespace is trimmed.
 - Saved addresses aren't validated on save, so every form that worked before still has to: `//host/path`
   and `user:pass@host[/path]` included.
 - Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). `status()` and

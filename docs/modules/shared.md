@@ -35,8 +35,9 @@ it.
   - a dotted number that isn't IPv4 (`10.0.0.256`);
   - a host with characters a hostname can't have;
   - a URL that doesn't parse.
-- An address, or `shown`, that contains a control character or line break (Unicode `Cc`) is rejected with
-  "the address contains a control character or line break".
+- An address, or `shown`, with a control character or line break (Unicode `Cc`) inside it is rejected
+  with "the address contains a control character or line break". Both are trimmed first, so a trailing
+  newline or a leading tab is accepted, as it was before.
 - The reason quotes the address and says what to change. Everything before the last
   `@`, across line breaks too, becomes `***`, keeping only a leading `scheme://` or `//`:
   - `http://admin:s3cret@[bad/` is quoted as `http://***@[bad/`;

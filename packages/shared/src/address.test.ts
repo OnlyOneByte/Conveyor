@@ -9,8 +9,19 @@ describe("parseHostPort", () => {
     ["voron_2.local", "voron_2.local", 3030],
     ["_printer:7125", "_printer", 7125],
     ["http://admin:s3cret@printer.local:7125/", "printer.local", 7125],
+    ["printer.local\n", "printer.local", 3030],
+    ["10.0.0.5:7125\r\n", "10.0.0.5", 7125],
+    ["\tprinter.local", "printer.local", 3030],
   ])("accepts %p as %p port %p", (address, host, port) => {
     expect(parseHostPort(address, 3030)).toEqual({ kind: "parsed", host, port });
+  });
+
+  test("whitespace around the full address is ignored, as it is around the host", () => {
+    expect(parseHostPort("printer.local", 80, "\tprinter.local/moonraker\r\n")).toEqual({
+      kind: "parsed",
+      host: "printer.local",
+      port: 80,
+    });
   });
 
   test.each([
