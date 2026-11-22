@@ -16,7 +16,8 @@ import {
 } from "@conveyor/shared";
 
 const defaultProfilesRoot = fileURLToPath(new URL("../../../profiles", import.meta.url));
-const profilesRoot = resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
+const profilesRoot = (): string =>
+  resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
 const LOGICAL_PREFIX = "/profiles/";
 
 export class ProfileContentError extends Error {
@@ -43,7 +44,7 @@ async function bundledDirectory(logicalPath: string): Promise<{ root: string; di
   const suffix = logicalPath.slice(LOGICAL_PREFIX.length);
 
   try {
-    const root = await realpath(profilesRoot);
+    const root = await realpath(profilesRoot());
     const directory = await realpath(resolve(root, suffix));
     if (!isWithin(root, directory)) {
       throw new ProfileContentError("profile path escapes the bundled profile root", 409);
