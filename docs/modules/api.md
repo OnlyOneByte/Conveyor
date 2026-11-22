@@ -24,7 +24,7 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 
 | Route | On the SQLite queue |
 | --- | --- |
-| `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }` |
+| `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }`. `parseSubmission` (shared with the Redis route) answers `400 { error }` naming the field, e.g. `generator.params.gridX: ...`, for params the generator's schema or `validateRequest` rejects |
 | `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot |
 | `GET /jobs/:id` | `readSnapshot`; 404 for an unknown id |
 | `POST /jobs/:id/cancel` | `requestCancel`: `200` with the state of a finished job, `200 canceled` for a queued one, `202 canceling` for one in flight, `404` for an unknown id |

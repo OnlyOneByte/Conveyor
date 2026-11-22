@@ -9,6 +9,7 @@ import {
 } from "@conveyor/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { type PassthroughParams, passthroughParams } from "./params.js";
+import { checkUpload, uploadRules } from "./upload.js";
 
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(DATA_DIR, "uploads");
@@ -19,7 +20,9 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
   version: "0.1.0",
   stage: "generator",
   outputs: ["stl"],
+  params: passthroughParams,
   paramSchema: zodToJsonSchema(passthroughParams, "PassthroughParams") as JSONSchema7,
+  validateRequest: (params) => checkUpload(params.uploadId, uploadRules(process.env)),
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = passthroughParams.safeParse(rawParams);

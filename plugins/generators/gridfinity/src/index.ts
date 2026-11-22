@@ -37,6 +37,7 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   version: "0.1.0",
   stage: "generator",
   outputs: ["stl"],
+  params: gridfinityParams,
   paramSchema: zodToJsonSchema(gridfinityParams, "GridfinityParams") as JSONSchema7,
   ui: {
     groups: [
