@@ -24,7 +24,7 @@ orca-slicer --datadir <vendor-tree> \
 
 The K1 is a native-Klipper printer whose `before_layer_change_gcode` emits `G92 E0`,
 so it passes Orca's relative-E **normative check** — a generic `MyKlipper` base or a
-thin `inherits`-only wrapper does **not** (fails `-17`/`-51`). See `docs/M1-WORKER-ENGINES.md`.
+thin `inherits`-only wrapper does **not** (fails `-17`/`-51`). See `docs/archive/M1-WORKER-ENGINES.md`.
 
 ## Swapping in your own printer
 

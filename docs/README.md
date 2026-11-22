@@ -21,12 +21,12 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [modules/plugins.md](modules/plugins.md) | Why the bundled plugins work the way they do: engine flags, protocol quirks, unverified hardware paths |
 | [SEQUENCE.md](SEQUENCE.md) | A job's trip through the pipeline, with failure paths |
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite, Redis and filesystem storage |
-| [M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md) | Engines baked into the worker image |
 | [M2-TRANSPORTS.md](M2-TRANSPORTS.md) | Moonraker and Elegoo transports |
 | [SLICER-PROFILES.md](SLICER-PROFILES.md) | How edited slicer profiles are validated |
 | [modules/shared.md](modules/shared.md) | `packages/shared`: the why behind its types, validation and SQLite store |
 | [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
 | [modules/worker.md](modules/worker.md) | `packages/worker`: the worker image's engines, profile materialization and status bus |
+| [archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md) | Historical: the M1 worker-engine verification log (2026-06-30), kept for reference |
 | [archive/ui-mockup.html](archive/ui-mockup.html) | Historical: the pre-M4 UI mockup, kept for reference. It links to an Admin screen for preset uploads, which never shipped |
 | [../tools/visual/README.md](../tools/visual/README.md) | Screenshot and GIF capture for UI PRs |
 

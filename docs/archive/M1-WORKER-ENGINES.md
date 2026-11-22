@@ -1,5 +1,7 @@
 # M1 — Worker engines (OpenSCAD + OrcaSlicer headless)
 
+> **Archived (2026-11-22):** the M1 verification log, kept as history. It records one machine's run and is not kept current; the worker image is documented in [modules/worker.md](../modules/worker.md) and [self-hosting.md](../self-hosting.md#slicer-and-cad-engines-in-the-worker-image).
+
 Goal: the worker image can do a **real** generate + slice — OpenSCAD produces an STL,
 OrcaSlicer slices it to gcode headlessly — replacing the M0 stubs.
 
@@ -43,7 +45,7 @@ speedup). The worker Dockerfile extracts a nightly AppImage, not the distro stab
 `scripts/install-openscad.sh` installs one pinned snapshot per arch from
 `files.openscad.org/snapshots/` and checks its sha256 (and, on x86_64, its signature) before running it: 2026.11.20 on
 x86_64, and 2023.09.11 on **aarch64**, the newest aarch64 nightly upstream ships and the
-verified-working build. Bumping: [self-hosting.md](self-hosting.md#bumping-the-openscad-pin).
+verified-working build. Bumping: [self-hosting.md](../self-hosting.md#bumping-the-openscad-pin).
 
 The SCAD lib is vendored as a submodule (`scad/gridfinity-rebuilt-openscad`, HEAD @ 2025-08).
 Run `git submodule update --init` after clone.
@@ -156,7 +158,7 @@ The engine + CLI + image + a turnkey bundle are all proven (see above). What lan
 2. ✅ **Pinned to the profile's release** — `install-orca.sh` installs OrcaSlicer 2.4.1, the
    release the bundle was exported from, and checks each AppImage against a pinned sha256.
    Tracking latest broke the bundle (#172: a newer release rejects it with "Preset was not
-   found in the loaded bundle"). Bumping: [self-hosting.md](self-hosting.md#bumping-the-orcaslicer-pin).
+   found in the loaded bundle"). Bumping: [self-hosting.md](../self-hosting.md#bumping-the-orcaslicer-pin).
 
 Optional follow-up (not a blocker):
 
