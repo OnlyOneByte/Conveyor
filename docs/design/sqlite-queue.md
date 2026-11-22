@@ -348,7 +348,6 @@ While a printer is held:
 
 - no queued job for it is claimed, so nothing prepares ahead for a printer that may never be free;
 - the printer slot refuses every job for it, which covers a job already preparing when the hold was set;
-- `GET /catalog/printers` and the printer's status show the hold and its reason;
 - other printers are unaffected: the held printer's jobs neither run nor count against `WORKER_CONCURRENCY`.
 
 `POST /catalog/printers/:id/release` clears it. The operator calls it after checking the printer. It is an
@@ -633,6 +632,7 @@ it is.
 | A resumable orphan is claimed whatever the engine count | An orphan is claimed only while an engine slot is free, because `claimJob` cannot ask for orphans alone |
 | `PrintNotStartedError` clears the intent and sets no hold ([Submitting](#submitting)) | Every failed `submit()`, `PrintNotStartedError` included, settles `failed` inside the upload window and holds the printer |
 | PR 7 removes the `CONVEYOR_QUEUE_UNSTABLE` guard | The guard stays until PR 9 ([Switching between the two stacks](#switching-between-the-two-stacks)) |
+| While a printer is held, `GET /catalog/printers` and the printer's status show the hold and its reason ([Printer holds](#printer-holds)) | No route returns the hold: `GET /catalog/printers` maps rows through `publicPrinter`, and nothing outside the queue module reads `hold_*` |
 
 ## Risks
 
