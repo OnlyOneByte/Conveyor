@@ -37,8 +37,8 @@ it.
   - a URL that doesn't parse.
 - An address, or `shown`, that contains a control character or line break (Unicode `Cc`) is rejected with
   "the address contains a control character or line break".
-- The reason quotes the address and says what to change. `redactAddress` replaces everything before the last
-  `@`, across line breaks too, with `***`, keeping only a leading `scheme://` or `//`:
+- The reason quotes the address and says what to change. Everything before the last
+  `@`, across line breaks too, becomes `***`, keeping only a leading `scheme://` or `//`:
   - `http://admin:s3cret@[bad/` is quoted as `http://***@[bad/`;
   - `admin:s3cret@printer` is quoted as `***@printer`.
 

@@ -15,7 +15,7 @@ const HOSTNAME =
   /^(?=.{1,253}\.?$)[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)*\.?$/i;
 const PORT_RANGE = "the port must be a number from 1 to 65535";
 
-export function redactAddress(text: string): string {
+function redactAddress(text: string): string {
   return text.replace(USERINFO, "$1***@");
 }
 
