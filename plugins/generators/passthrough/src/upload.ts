@@ -1,59 +1,58 @@
-import { closeSync, lstatSync, openSync, readSync, type Stats } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
 import { basename, join } from "node:path";
-import type { ParamIssue } from "@conveyor/shared";
+import type { ParamIssue, UploadSettings } from "@conveyor/shared";
 
 const BINARY_STL_HEADER_BYTES = 84;
 const BINARY_STL_TRIANGLE_BYTES = 50;
 const ASCII_STL_PREFIX = "solid";
+const OPEN_WITHOUT_FOLLOWING = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
 
-export interface UploadRules {
-  dir: string;
-  maxBytes: number;
-}
-
-export function uploadRules(env: Record<string, string | undefined>): UploadRules {
-  const dataDir = env.DATA_DIR ?? "/data";
-  return {
-    dir: env.UPLOAD_DIR ?? join(dataDir, "uploads"),
-    maxBytes: Number(env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024),
-  };
-}
-
-function readHeader(path: string): Buffer {
+function readHeader(fd: number): Buffer {
   const header = Buffer.alloc(BINARY_STL_HEADER_BYTES);
-  const fd = openSync(path, "r");
-  try {
-    return header.subarray(0, readSync(fd, header, 0, header.length, 0));
-  } finally {
-    closeSync(fd);
-  }
+  return header.subarray(0, readSync(fd, header, 0, header.length, 0));
 }
 
-function looksLikeStl(path: string, size: number): boolean {
-  const header = readHeader(path);
+function looksLikeStl(fd: number, size: number): boolean {
+  const header = readHeader(fd);
   if (header.toString("latin1", 0, ASCII_STL_PREFIX.length) === ASCII_STL_PREFIX) return true;
   if (header.length < BINARY_STL_HEADER_BYTES) return false;
   const triangles = header.readUInt32LE(BINARY_STL_HEADER_BYTES - 4);
   return size === BINARY_STL_HEADER_BYTES + triangles * BINARY_STL_TRIANGLE_BYTES;
 }
 
-function statOrNull(path: string): Stats | null {
+function inspectOpenUpload(fd: number, uploadId: string, maxBytes: number): string | null {
+  const stats = fstatSync(fd);
+  if (!stats.isFile()) return `upload ${uploadId} is not a regular file in the uploads dir`;
+  if (stats.size > maxBytes) return `upload ${uploadId} exceeds ${maxBytes} bytes`;
+  if (!looksLikeStl(fd, stats.size)) return `upload ${uploadId} is not an STL file`;
+  return null;
+}
+
+function codeOf(err: unknown): unknown {
+  return err instanceof Error && "code" in err ? err.code : undefined;
+}
+
+function describeFailure(err: unknown, uploadId: string): string {
+  if (codeOf(err) === "ENOENT") return `upload ${uploadId} not found`;
+  if (codeOf(err) === "ELOOP") return `upload ${uploadId} is not a regular file in the uploads dir`;
+  console.error(`[uploads] could not read upload ${uploadId}:`, err);
+  return `upload ${uploadId} could not be read`;
+}
+
+function inspectUpload(path: string, uploadId: string, maxBytes: number): string | null {
+  let fd: number | undefined;
   try {
-    return lstatSync(path);
+    fd = openSync(path, OPEN_WITHOUT_FOLLOWING);
+    return inspectOpenUpload(fd, uploadId, maxBytes);
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "ENOENT") return null;
-    throw err;
+    return describeFailure(err, uploadId);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
-export function checkUpload(uploadId: string, rules: UploadRules): ParamIssue | null {
-  const path = join(rules.dir, `${basename(uploadId)}.stl`);
-  const stats = statOrNull(path);
-  const issue = (message: string): ParamIssue => ({ field: "uploadId", message });
-  if (!stats) return issue(`upload ${uploadId} not found`);
-  if (!stats.isFile()) return issue(`upload ${uploadId} is not a regular file in the uploads dir`);
-  if (stats.size > rules.maxBytes)
-    return issue(`upload ${uploadId} exceeds ${rules.maxBytes} bytes`);
-  if (!looksLikeStl(path, stats.size)) return issue(`upload ${uploadId} is not an STL file`);
-  return null;
+export function checkUpload(uploadId: string, settings: UploadSettings): ParamIssue | null {
+  const path = join(settings.dir, `${basename(uploadId)}.stl`);
+  const message = inspectUpload(path, uploadId, settings.maxBytes);
+  return message ? { field: "uploadId", message } : null;
 }

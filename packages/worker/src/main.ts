@@ -1,4 +1,4 @@
-import { queueMode } from "@conveyor/shared";
+import { queueMode, uploadSettings } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { workerConcurrency } from "./mode.js";
 
@@ -7,6 +7,7 @@ let concurrency = 0;
 try {
   mode = queueMode(process.env);
   openDb(process.env.DB_PATH);
+  uploadSettings(process.env);
   if (mode === "sqlite") concurrency = workerConcurrency(process.env);
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));

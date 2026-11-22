@@ -6,13 +6,11 @@ import {
   type ModelArtifact,
   type StageCtx,
   StageError,
+  uploadSettings,
 } from "@conveyor/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { type PassthroughParams, passthroughParams } from "./params.js";
-import { checkUpload, uploadRules } from "./upload.js";
-
-const DATA_DIR = process.env.DATA_DIR ?? "/data";
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(DATA_DIR, "uploads");
+import { checkUpload } from "./upload.js";
 
 export const passthrough: GeneratorPlugin<PassthroughParams> = {
   id: "passthrough",
@@ -22,14 +20,14 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
   outputs: ["stl"],
   params: passthroughParams,
   paramSchema: zodToJsonSchema(passthroughParams, "PassthroughParams") as JSONSchema7,
-  validateRequest: (params) => checkUpload(params.uploadId, uploadRules(process.env)),
+  validateRequest: (params) => checkUpload(params.uploadId, uploadSettings(process.env)),
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = passthroughParams.safeParse(rawParams);
     if (!parsed.success)
       throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
-    const src = join(UPLOAD_DIR, `${basename(parsed.data.uploadId)}.stl`);
+    const src = join(uploadSettings(process.env).dir, `${basename(parsed.data.uploadId)}.stl`);
     try {
       await stat(src);
     } catch {

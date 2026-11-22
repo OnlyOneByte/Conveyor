@@ -127,6 +127,10 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
   `uploadId` as the passthrough generator's `params.uploadId`.
 - The bytes are never treated as code; they go to the slicer as-is. Only the size cap (`MAX_UPLOAD_BYTES`,
   default 100 MiB, 413 when exceeded) and the `.stl` extension (415 otherwise) are enforced.
+- `uploadSettings` in `@conveyor/shared` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,
+  the worker and passthrough. `MAX_UPLOAD_BYTES` must be a positive integer: the api and worker exit 1 at
+  boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
+  and logs the cause on the server only.
 
 ## Registry view (`registry-view.ts`, `validate.ts`, `routes/generators.ts`)
 

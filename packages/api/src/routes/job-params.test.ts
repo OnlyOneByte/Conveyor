@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,6 +84,20 @@ describe("parseSubmission generator params", () => {
     expect(rejection(job("passthrough", { uploadId: "good", path: "/etc" }))).toBe(
       "400 generator.params.path: unknown field",
     );
+  });
+
+  test("answers a generic 400 for an unreadable upload without the data dir", () => {
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    const uploadDir = process.env.UPLOAD_DIR;
+    process.env.UPLOAD_DIR = join(dir, "good.stl");
+    try {
+      const answer = rejection(job("passthrough", { uploadId: "good" }));
+      expect(answer).toBe("400 generator.params.uploadId: upload good could not be read");
+      expect(answer).not.toContain(dir);
+    } finally {
+      process.env.UPLOAD_DIR = uploadDir;
+      logged.mockRestore();
+    }
   });
 
   test("parseGeneratorParams refuses a generator it does not know", () => {

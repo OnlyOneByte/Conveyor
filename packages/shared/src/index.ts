@@ -8,3 +8,4 @@ export * from "./profile.js";
 export * from "./queue-mode.js";
 export * from "./registry.js";
 export * from "./status.js";
+export * from "./upload-settings.js";

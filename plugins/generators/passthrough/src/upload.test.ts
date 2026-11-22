@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkUpload, uploadRules } from "./upload.ts";
+import { checkUpload } from "./upload.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -75,24 +75,15 @@ describe("checkUpload", () => {
     );
   });
 
-  test("rethrows a filesystem error other than a missing file", () => {
+  test("reports any other filesystem error as unreadable and logs it only on the server", () => {
     const rules = rulesWith({ "plain-file": "x" });
-    expect(() => checkUpload("x", { ...rules, dir: join(rules.dir, "plain-file") })).toThrow(
-      "ENOTDIR",
-    );
-  });
-});
-
-describe("uploadRules", () => {
-  test("defaults to /data/uploads and 100 MiB", () => {
-    expect(uploadRules({})).toEqual({ dir: "/data/uploads", maxBytes: 100 * 1024 * 1024 });
-  });
-
-  test("follows DATA_DIR, UPLOAD_DIR and MAX_UPLOAD_BYTES", () => {
-    expect(uploadRules({ DATA_DIR: "/srv" }).dir).toBe("/srv/uploads");
-    expect(uploadRules({ UPLOAD_DIR: "/up", MAX_UPLOAD_BYTES: "10" })).toEqual({
-      dir: "/up",
-      maxBytes: 10,
-    });
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const issue = checkUpload("x", { ...rules, dir: join(rules.dir, "plain-file") });
+      expect(issue).toEqual({ field: "uploadId", message: "upload x could not be read" });
+      expect(String(logged.mock.calls[0]?.[1])).toContain("ENOTDIR");
+    } finally {
+      logged.mockRestore();
+    }
   });
 });
