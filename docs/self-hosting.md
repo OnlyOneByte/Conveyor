@@ -183,7 +183,7 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 ## Slicer and CAD engines in the worker image
 
-`scripts/install-openscad.sh` installs the newest OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). Pin a build with `OPENSCAD_RELEASE=YYYY.MM.DD`, or `OPENSCAD_APPIMAGE_URL=<url>` (which wins). The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
+`scripts/install-openscad.sh` installs a pinned OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). It checks the download against a pinned sha256 before making it executable, and a mismatch fails the build. The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
 
 `scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
 
@@ -195,11 +195,19 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 Orca is GUI-linked, so the worker runs it under `xvfb-run`.
 
+### Bumping the OpenSCAD pin
+
+Upstream deletes old nightly snapshots (the x86_64 listing keeps about ten months), so a pinned x86_64 snapshot eventually fails to download and has to be bumped:
+
+1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch. Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
+2. Set the `ASSET` and `SHA256` pair for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download.
+3. Open the PR. CI's `orca slice` job renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
+
 ### Bumping the OrcaSlicer pin
 
 The bundled profile in `profiles/orca-klipper-pla-0.2/` only loads in the Orca release it was exported from. A newer release can reject it with "Preset was not found in the loaded bundle", so bump the release and the profile together:
 
 1. In the new OrcaSlicer, re-export the three leaf presets (machine, process, filament) into `profiles/orca-klipper-pla-0.2/`, and update the version in its `README.md`.
 2. Set the new version as the `ORCA_RELEASE` default in `packages/worker/Dockerfile` and `scripts/install-orca.sh`.
-3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/SoftFever/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads.
+3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/OrcaSlicer/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads.
 4. Open the PR. CI's `orca slice` job builds the worker with `ORCA_ENABLE=1` and slices a cube with the bundled profile as uid 10001, so a profile the new release rejects fails there.
