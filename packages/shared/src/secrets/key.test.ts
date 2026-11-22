@@ -82,6 +82,24 @@ describe("loadSecretsKey", () => {
     expect(readdirSync(join(keyPath, ".."))).toEqual(["secrets.key"]);
   });
 
+  test("a directory sync the platform does not support still generates the key at 0600", () => {
+    const keyPath = keyPathInFreshDir();
+    const unsupported = () => {
+      throw Object.assign(new Error("directory sync unsupported"), { code: "EPERM" });
+    };
+    const result = loadSecretsKey({}, keyPath, unsupported);
+    expect(result.ok && result.source).toBe("generated");
+    expect(statSync(keyPath).mode & 0o777).toBe(0o600);
+  });
+
+  test("generating the key syncs its directory exactly once", () => {
+    const keyPath = keyPathInFreshDir();
+    const synced: string[] = [];
+    loadSecretsKey({}, keyPath, (directory) => synced.push(directory));
+    loadSecretsKey({}, keyPath, (directory) => synced.push(directory));
+    expect(synced).toEqual([join(keyPath, "..")]);
+  });
+
   test("reuses the generated key on the next start", () => {
     const keyPath = keyPathInFreshDir();
     const first = loadSecretsKey({ CONVEYOR_SECRETS_KEY: "" }, keyPath);
