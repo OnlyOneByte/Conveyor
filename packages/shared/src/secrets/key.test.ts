@@ -4,7 +4,12 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspect } from "node:util";
-import { loadSecretsKey, parseSecretsKey, randomSecretsKey } from "./key.ts";
+import {
+  loadSecretsKey,
+  parseSecretsKey,
+  randomSecretsKey,
+  syncDirectoryBestEffort,
+} from "./key.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -98,5 +103,40 @@ describe("loadSecretsKey", () => {
     loadSecretsKey({}, keyPath);
     const result = loadSecretsKey({ CONVEYOR_SECRETS_KEY: VALID }, keyPath);
     expect(result.ok && result.key.bytes.toString("base64")).toBe(VALID);
+  });
+});
+
+describe("syncDirectoryBestEffort", () => {
+  const failingWith = (code: string) => () => {
+    throw Object.assign(new Error(`directory sync failed: ${code}`), { code });
+  };
+
+  test.each(["EISDIR", "EPERM", "EINVAL", "ENOTSUP"])(
+    "ignores %s, which means the platform cannot sync a directory",
+    (code) => {
+      expect(() => syncDirectoryBestEffort(failingWith(code))).not.toThrow();
+    },
+  );
+
+  test.each(["EIO", "ENOSPC", "ENOENT"])("rethrows %s", (code) => {
+    expect(() => syncDirectoryBestEffort(failingWith(code))).toThrow(
+      `directory sync failed: ${code}`,
+    );
+  });
+
+  test("rethrows an error that has no code", () => {
+    expect(() =>
+      syncDirectoryBestEffort(() => {
+        throw new Error("no code");
+      }),
+    ).toThrow("no code");
+  });
+
+  test("runs the sync", () => {
+    let calls = 0;
+    syncDirectoryBestEffort(() => {
+      calls += 1;
+    });
+    expect(calls).toBe(1);
   });
 });
