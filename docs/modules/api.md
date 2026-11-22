@@ -36,10 +36,16 @@ later event follows once and in order, and the server closes the socket with a c
 On Redis (`routes/job-stream.ts`) every socket in an api process shares one subscriber connection
 (`status-hub.ts`): one `SUBSCRIBE` per job with viewers, fanned out in process, an `UNSUBSCRIBE` when a
 job's last viewer leaves, and the connection closed when no viewer is left. A socket subscribes first and
-reads the snapshot after, buffering what arrives meanwhile. `publishStatus` writes the snapshot and
-publishes the same string in one script, so the buffered copy of the snapshot marks where live events
-start: anything before it is dropped, anything after it is sent. A job with no snapshot yet but still in
-BullMQ waits for its first event instead of closing as unknown.
+reads the snapshot after, buffering what arrives meanwhile. `publishStatus` stamps each event with a per-job
+`seq` (`INCR job:<id>:seq`) and writes the snapshot and publishes the same stamped string in one script, so a
+buffered event is sent only when its `seq` is above the snapshot's; two identical events never hide the one
+between them. The buffer holds at most 256 events and each read (the snapshot, then the BullMQ lookup) gets
+5 s; past either, the socket closes with `1011`. An id that is not a UUID closes with `4404` before any
+lookup, since `meta` or `<id>:cancel` would otherwise match BullMQ's or the cancel flag's keys. A job with no
+snapshot yet but still in BullMQ waits for its first event instead of closing as unknown. The subscriber is
+created with `enableReadyCheck: false`: with the check on, two viewers arriving together on a fresh
+subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with
+`1011`.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 

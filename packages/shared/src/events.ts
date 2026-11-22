@@ -10,6 +10,7 @@ export interface JobStatusEvent {
   error?: { stage: Stage; reason: string };
   timings?: StageTiming[];
   at: number;
+  seq?: number;
 }
 
 export const JOB_QUEUE = "conveyor-jobs";

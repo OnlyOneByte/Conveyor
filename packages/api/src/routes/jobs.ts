@@ -33,7 +33,7 @@ export const countLiveJobs: LiveJobCounter = async (reference, id) =>
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   const statusHub = createStatusHub(
-    () => redis.duplicate(),
+    () => redis.duplicate({ enableReadyCheck: false }),
     (err) => app.log.error({ err }, "job status subscriber error"),
   );
   app.post("/jobs", async (req, reply) => {
