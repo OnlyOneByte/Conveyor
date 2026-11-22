@@ -59,7 +59,7 @@ services:
     security_opt: ["no-new-privileges:true"]
     read_only: true
     cap_drop: [ALL]
-    cap_add: [CHOWN, SETUID, SETGID, DAC_READ_SEARCH]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_READ_SEARCH, DAC_OVERRIDE]
     tmpfs: ["/tmp:mode=1777"]
     stop_grace_period: 60s
     environment:
