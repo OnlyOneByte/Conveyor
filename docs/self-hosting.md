@@ -184,6 +184,8 @@ certificate, add `-k` or trust Caddy's root.
 
 The worker talks to printers over your network from the Compose bridge network. Store each printer's IP address in its address field, and give the printer a DHCP reservation so the address doesn't change. mDNS names such as `printer.local` aren't supported in the containers: they resolve names through DNS only and have no mDNS resolver, so `network_mode: host` doesn't help either.
 
+## Runtime directories
+
 `./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`), the SQLite database and, unless `CONVEYOR_SECRETS_KEY` is set, `secrets.key` live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
 
 ## Routing in the Caddyfile

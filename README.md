@@ -16,7 +16,8 @@ see it render instantly, send it to a printer — no slicer knowledge required.
 
 The repository layout is in [AGENTS.md §1](AGENTS.md#1-repository-layout-today). The directories the stack
 mounts at runtime (`data/`, `profiles/`, `scad/`) are described in
-[docs/self-hosting.md](docs/self-hosting.md#printers-on-the-lan).
+[docs/self-hosting.md](docs/self-hosting.md#runtime-directories). `data/` and any `secrets*` file under
+`profiles/` are gitignored.
 
 ## Toolchain
 
