@@ -165,9 +165,9 @@ Optional follow-up (not a blocker):
    Marlin-flavored to match the transport's `acceptsFlavors`. A dedicated Marlin Orca
    bundle would round out the set (prusa already ships one).
 
-## Note: PrusaSlicer is the verified default slicer
+## Note: neither slicer is a default
 
-Both slicers now work on this box, but **PrusaSlicer** is the simpler default — apt
-install, genuinely headless (no xvfb), single `config.ini` bundle, and its profiles
-are already committed under `profiles/prusa-*`. Orca is fully supported as a second,
-pluggable engine (ADR 0001) for users who prefer its profile ecosystem.
+Both slicers work, and a job uses whichever slicer its profile names. PrusaSlicer is the
+simpler engine to run (apt install, genuinely headless with no xvfb, a single `config.ini`
+bundle), and Orca is supported equally as a pluggable engine (ADR 0001) for users who prefer
+its profile ecosystem. The seed ships profiles for both.

@@ -31,11 +31,14 @@ bun run test:coverage && bun run check:coverage
 bun run check:comments
 ```
 
-The comments baseline is one file per area, `scripts/checks/comments/baseline/<area>.json`: `api`, `worker`,
-`shared` and `web` for `packages/<name>/`, `plugins` for `plugins/**`, and `repo` for everything else. Each lists
-only its own area's files. If `check:comments` says the baseline is stale, you removed comments: run
-`bun run check:comments:update` and commit the area files it names; it rewrites only areas whose counts changed.
-If it says `added:`, delete the comment you added.
+The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when `REDIS_URL` is set, and CI
+fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:7-alpine`) and
+export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
+
+How the comments baseline works, and what each `check:comments` message means, is in
+[AGENTS.md §2](../AGENTS.md#2-no-comments). It is one file per area,
+`scripts/checks/comments/baseline/<area>.json`, and `bun run check:comments:update` rewrites only the areas
+whose counts changed.
 
 The coverage baseline is one file per package, `scripts/checks/coverage/baseline/<package>.json`, each holding
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
@@ -48,7 +51,8 @@ in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave i
 file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
 `import`; a text match, not a parse), and the declared helper folder `packages/shared/test/helpers/`. Any
 other module, including one named `*.spec.ts` or kept in a `test/` folder, is mapped by bun and counts;
-`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder so it can. The sweep
+`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder and
+`scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
 
@@ -76,12 +80,9 @@ with any other token stays counted, and so do `extends`/`implements` clauses and
 
 ## Changing the rules
 
-Guardrail paths (`.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`,
-`biome.json`, `biome.jsonc`, `tsconfig*.json`, `bunfig.toml` at any depth) change in their own PR. A PR that
-only lowers `scripts/checks/comments/baseline/{api,worker,shared,web,plugins,repo}.json` or `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json` is exempt. A guardrail-path PR needs a passing
-adversarial review from a second, independent reviewer session that saw none of the earlier rounds. The merge
-tooling refuses guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only
-after that independent pass.
+Changes to the rules themselves, the checkers, CI and the compiler and linter config are guardrail paths. They
+change in their own PR and need a second, independent review; the list and the gate are in
+[AGENTS.md §12](../AGENTS.md#12-guardrail-paths).
 
 ## Toolchain notes
 

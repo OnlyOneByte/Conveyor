@@ -105,6 +105,10 @@ Before you expose Conveyor beyond the host:
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
 | `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
+| `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. |
+| `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. |
+| `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
+| `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 
 ## Printer secrets and backups
 
@@ -150,7 +154,8 @@ The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH
 
 ## Releasing a held printer
 
-When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
+This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a
+printer. When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
 the job. It fails that job with "check the printer before releasing it" and holds the printer, so no other
 job is sent to it. Check the printer, stop or remove anything it should not be printing, then release the
 hold. Until the UI has a button for it, release it from a shell. With authentication on (the default), log
