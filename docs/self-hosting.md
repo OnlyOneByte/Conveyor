@@ -193,7 +193,7 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 ## Slicer and CAD engines in the worker image
 
-`scripts/install-openscad.sh` installs a pinned OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). It checks the download against a pinned sha256 before making it executable, and a mismatch fails the build. The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
+`scripts/install-openscad.sh` installs a pinned OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). Before making the download executable it checks two things, and either failing fails the build: the pinned sha256, and, on x86_64, the upstream GnuPG signature (`<asset>.asc`). The signature must be a good one from the OpenSCAD release key, `OpenSCAD <dev@openscad.org>`, fingerprint `E2EB DADD 336F F516 ADD5 1A78 F3E1 2CCC 2216 4A0F` (as listed on openscad.org/downloads). The key is vendored as `scripts/openscad-release-key.asc`, and `scripts/verify-openscad-signature.sh` checks it with `gpgv`. A missing or empty `.asc`, a bad signature, and a signature from any other key all fail. **aarch64 has no signature:** upstream publishes no `.asc` for `OpenSCAD-2023.09.11.ai-aarch64.AppImage`, the newest aarch64 build, so on that arch the script logs `WARNING: upstream publishes no signature …` and relies on the pinned sha256 alone. The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
 
 `scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
 
@@ -210,8 +210,9 @@ Orca is GUI-linked, so the worker runs it under `xvfb-run`.
 Upstream deletes old nightly snapshots (the x86_64 listing keeps about ten months), so a pinned x86_64 snapshot eventually fails to download and has to be bumped:
 
 1. Pick a snapshot from `https://files.openscad.org/snapshots/` for each arch, at least a day old: upstream rebuilds the current day's nightly under the same file name, so a same-day pin can stop matching its checksum within hours (2026.11.21 did). Upstream ships aarch64 nightlies only up to `OpenSCAD-2023.09.11.ai-aarch64.AppImage`.
-2. Set the `ASSET` and `SHA256` pair for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download.
-3. Open the PR. CI's `orca slice` job renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
+2. Set the `ASSET`, `SHA256` and `SIGNED` values for that arch in `scripts/install-openscad.sh`. Upstream publishes `<asset>.sha256` next to each AppImage; check it against `sha256sum` of your own download. Set `SIGNED=yes` when `<asset>.asc` exists, and `SIGNED=no` only when it doesn't (today, aarch64).
+3. If upstream rotates its signing key, replace `scripts/openscad-release-key.asc` with the new key from `https://files.openscad.org/OpenSCAD_public_key.asc`, and `FINGERPRINT` in `scripts/verify-openscad-signature.sh` with the fingerprint openscad.org/downloads lists. Check that the two agree before committing.
+4. Open the PR. CI's `orca slice` job verifies the signature and renders a cube with the new OpenSCAD on x86_64. Nothing in CI exercises the aarch64 pin, so check it on an arm64 host.
 
 ### Bumping the OrcaSlicer pin
 

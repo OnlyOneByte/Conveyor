@@ -24,7 +24,7 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
 - **OpenSCAD** is the nightly AppImage, extracted so FUSE is not needed at runtime. The distro `openscad`
   (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+ nightly.
   `scripts/install-openscad.sh` installs one pinned snapshot per arch from files.openscad.org and checks
-  its sha256 before running it. The script writes a wrapper that
+  its sha256, and on x86_64 its GnuPG signature from the OpenSCAD release key, before running it. The script writes a wrapper that
   scopes the AppImage's bundled libraries to the openscad process. A global `LD_LIBRARY_PATH` would shadow
   system libraries and break prusa-slicer, so the image never sets one.
 
