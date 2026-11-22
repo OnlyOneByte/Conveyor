@@ -1,10 +1,12 @@
 import { queueMode } from "@conveyor/shared";
+import { openDb } from "@conveyor/shared/db";
 import { workerConcurrency } from "./mode.js";
 
 let mode: string;
 let concurrency = 0;
 try {
   mode = queueMode(process.env);
+  openDb(process.env.DB_PATH);
   if (mode === "sqlite") concurrency = workerConcurrency(process.env);
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));

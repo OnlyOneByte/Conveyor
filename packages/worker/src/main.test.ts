@@ -56,6 +56,17 @@ describe("the worker entry point on the sqlite queue", () => {
     }
   });
 
+  test("exits 1 on a malformed CONVEYOR_SECRETS_KEY", async () => {
+    dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
+    const proc = spawnMain({ CONVEYOR_QUEUE: "redis", CONVEYOR_SECRETS_KEY: "short" });
+    try {
+      expect(await within(proc.exited, 10_000, "exit")).toBe(1);
+      expect(await new Response(proc.stderr).text()).toContain("[secrets] refusing to start");
+    } finally {
+      if (proc.exitCode === null) proc.kill("SIGKILL");
+    }
+  });
+
   test("SIGTERM requeues a job waiting at the printer slot and exits 0", async () => {
     dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
     const db = openDb(join(dir, "conveyor.db"));

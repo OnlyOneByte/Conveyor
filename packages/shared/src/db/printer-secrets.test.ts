@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbGetPrinter, dbGetPrinterSecrets, dbUpsertPrinter, openDb } from "./index";
@@ -99,6 +99,24 @@ describe("printer secrets at rest", () => {
     expect(storedOf(raw, "bad-shape")).toBe('{"apiKey":5}');
     expect(raw.query("SELECT key FROM meta WHERE key = 'secrets_key_check'").get()).toBeNull();
     raw.close();
+  });
+
+  test("a key file open to other users is used with a warning", () => {
+    const path = dbWithPlaintextRows();
+    const keyPath = join(path, "..", "secrets.key");
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      resolveSecretsKey(path, {});
+      resolveSecretsKey(path, {});
+      expect(warn).not.toHaveBeenCalled();
+      chmodSync(keyPath, 0o640);
+      resolveSecretsKey(path, {});
+      expect(warn).toHaveBeenCalledWith(
+        `[secrets] ${keyPath} is open to other users; run chmod 600 on it`,
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("opening with a different key refuses to start", () => {

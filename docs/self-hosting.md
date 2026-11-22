@@ -106,6 +106,29 @@ Before you expose Conveyor beyond the host:
 | `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
 
+## Printer secrets and backups
+
+Printer credentials (Moonraker API keys, Elegoo mainboard ids) are encrypted in the database with AES-256-GCM. With `CONVEYOR_SECRETS_KEY` unset, the first start writes a random key to `./data/secrets.key` (readable only by its owner), and the api and worker both use it, so an existing install needs no manual step. The first start also encrypts any credentials already stored, once.
+
+To keep the key out of the data volume, set it in `.env` instead:
+
+```sh
+CONVEYOR_SECRETS_KEY='paste-the-output-of-openssl-rand-base64-32'
+```
+
+To move an install that already generated a key, paste the contents of `./data/secrets.key` into it, then delete the file.
+
+- Back up the key separately from `conveyor.db`. A copy of the database alone does not reveal printer credentials; the database and the key together do. Encryption protects copies and backups of the database, not a host where someone can read both.
+- A malformed key, or a key other than the one the database was encrypted with, stops the api and worker at startup with a `[secrets] refusing to start` error. Neither ever prints the key.
+- If `secrets.key` is readable or writable by anyone but its owner, both services print a `[secrets]` warning at startup. Fix it with `chmod 600 data/secrets.key`.
+- If the key is lost, the stored credentials cannot be recovered. Clear them and enter them again: stop the stack, run `sqlite3 data/conveyor.db "UPDATE printers SET secrets_json = NULL; DELETE FROM meta WHERE key = 'secrets_key_check';"`, start it, and save each printer's credentials again.
+
+### Upgrading and rolling back
+
+Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
+
+Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
+
 ## Releasing a held printer
 
 When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
@@ -137,7 +160,7 @@ certificate, add `-k` or trust Caddy's root.
 
 The worker talks to printers over your network. By default it runs on the Compose bridge network, so store each printer's explicit IP address in its address field. If you need mDNS or other LAN discovery, add `network_mode: host` to the `worker` service instead.
 
-`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`) and the SQLite database live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
+`./data` is mounted into both `api` and `worker`: uploaded STLs, job artifacts (`*.stl`, `*.gcode`), the SQLite database and, unless `CONVEYOR_SECRETS_KEY` is set, `secrets.key` live there. `./profiles` holds the locked slicer profiles (read-only) and is mounted into both `api` and `worker`: the worker slices with it, and the `api` reads it so the raw JSON editor can fall back to the bundled profile when the database has no edited copy. `./scad` is the gridfinity-rebuilt-openscad submodule.
 
 ## Routing in the Caddyfile
 

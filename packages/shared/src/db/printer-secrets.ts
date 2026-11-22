@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { isEnvelope, openSecret, sealSecret } from "../secrets/envelope.ts";
@@ -26,6 +27,9 @@ export function resolveSecretsKey(
   const result = loadSecretsKey(env, keyPath);
   if (!result.ok) throw new SecretsKeyError(`[secrets] refusing to start: ${result.error.message}`);
   if (result.source === "generated") console.log(`[secrets] generated a new key at ${keyPath}`);
+  if (result.source === "file" && (statSync(keyPath).mode & 0o077) !== 0) {
+    console.warn(`[secrets] ${keyPath} is open to other users; run chmod 600 on it`);
+  }
   return result.key;
 }
 

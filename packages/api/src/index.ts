@@ -1,4 +1,5 @@
 import { queueMode } from "@conveyor/shared";
+import { openDb } from "@conveyor/shared/db";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
@@ -18,6 +19,7 @@ let trustProxy: string[] | false;
 try {
   queue = queueMode(process.env);
   trustProxy = parseTrustedProxies(process.env.CONVEYOR_TRUSTED_PROXIES);
+  openDb();
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);

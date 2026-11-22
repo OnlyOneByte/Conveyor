@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { linkSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, fsyncSync, linkSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { dirname } from "node:path";
 
 export const SECRETS_KEY_BYTES = 32;
 const HIDDEN = "[SecretsKey]";
@@ -47,17 +48,37 @@ function isAlreadyThere(err: unknown): boolean {
   return err instanceof Error && "code" in err && err.code === "EEXIST";
 }
 
+function writeDurably(path: string, text: string): void {
+  const fd = openSync(path, "wx", 0o600);
+  try {
+    writeSync(fd, text);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function syncDirectoryOf(path: string): void {
+  const fd = openSync(dirname(path), "r");
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function createUnlessPresent(keyPath: string): boolean {
   const draft = `${keyPath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
-  writeFileSync(draft, `${randomSecretsKey().bytes.toString("base64")}\n`, { mode: 0o600 });
   try {
+    writeDurably(draft, `${randomSecretsKey().bytes.toString("base64")}\n`);
     linkSync(draft, keyPath);
+    syncDirectoryOf(keyPath);
     return true;
   } catch (err) {
     if (isAlreadyThere(err)) return false;
     throw err;
   } finally {
-    unlinkSync(draft);
+    rmSync(draft, { force: true });
   }
 }
 
