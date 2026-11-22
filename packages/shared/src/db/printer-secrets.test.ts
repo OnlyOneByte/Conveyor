@@ -88,6 +88,19 @@ describe("printer secrets at rest", () => {
     expect(resolveSecretsKey(":memory:", {}).bytes.equals(first)).toBe(false);
   });
 
+  test("a failure partway through the migration rolls every row back", () => {
+    const path = dbWithPlaintextRows();
+    const raw = new Database(path);
+    raw.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+    raw.exec(`CREATE TRIGGER fail_second_row BEFORE UPDATE ON printers WHEN OLD.id = 'bad-shape'
+      BEGIN SELECT RAISE(ABORT, 'injected migration failure'); END`);
+    expect(() => reopen(path, KEY_A)).toThrow("injected migration failure");
+    expect(storedOf(raw, "with-key")).toBe(PLAINTEXT);
+    expect(storedOf(raw, "bad-shape")).toBe('{"apiKey":5}');
+    expect(raw.query("SELECT key FROM meta WHERE key = 'secrets_key_check'").get()).toBeNull();
+    raw.close();
+  });
+
   test("opening with a different key refuses to start", () => {
     const path = dbWithPlaintextRows();
     reopen(path, KEY_A);
