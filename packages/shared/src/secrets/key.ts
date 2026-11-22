@@ -77,23 +77,21 @@ function writeDurably(path: string, text: string): void {
   }
 }
 
-function syncDirectoryOf(path: string): void {
-  syncDirectoryBestEffort(() => {
-    const fd = openSync(dirname(path), "r");
-    try {
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-  });
+function fsyncDirectory(directory: string): void {
+  const fd = openSync(directory, "r");
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
 }
 
-function createUnlessPresent(keyPath: string): boolean {
+function createUnlessPresent(keyPath: string, syncDirectory: (directory: string) => void): boolean {
   const draft = `${keyPath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
     writeDurably(draft, `${randomSecretsKey().bytes.toString("base64")}\n`);
     linkSync(draft, keyPath);
-    syncDirectoryOf(keyPath);
+    syncDirectoryBestEffort(() => syncDirectory(dirname(keyPath)));
     return true;
   } catch (err) {
     if (isAlreadyThere(err)) return false;
@@ -106,13 +104,14 @@ function createUnlessPresent(keyPath: string): boolean {
 export function loadSecretsKey(
   env: Record<string, string | undefined>,
   keyPath: string,
+  syncDirectory: (directory: string) => void = fsyncDirectory,
 ): KeyResult {
   const fromEnv = env.CONVEYOR_SECRETS_KEY;
   if (fromEnv !== undefined && fromEnv !== "") {
     const key = parseSecretsKey(fromEnv);
     return key ? { ok: true, key, source: "env" } : invalid("env", "CONVEYOR_SECRETS_KEY");
   }
-  const created = createUnlessPresent(keyPath);
+  const created = createUnlessPresent(keyPath, syncDirectory);
   const key = parseSecretsKey(readFileSync(keyPath, "utf8").trim());
   if (!key) return invalid("file", keyPath);
   return { ok: true, key, source: created ? "generated" : "file" };
