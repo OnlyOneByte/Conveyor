@@ -44,8 +44,27 @@ function invalid(source: KeySource, where: string): KeyResult {
   };
 }
 
+const UNSUPPORTED_DIRECTORY_SYNC: ReadonlySet<unknown> = new Set([
+  "EISDIR",
+  "EPERM",
+  "EINVAL",
+  "ENOTSUP",
+]);
+
+function codeOf(err: unknown): unknown {
+  return err instanceof Error && "code" in err ? err.code : undefined;
+}
+
 function isAlreadyThere(err: unknown): boolean {
-  return err instanceof Error && "code" in err && err.code === "EEXIST";
+  return codeOf(err) === "EEXIST";
+}
+
+export function syncDirectoryBestEffort(sync: () => void): void {
+  try {
+    sync();
+  } catch (err) {
+    if (!UNSUPPORTED_DIRECTORY_SYNC.has(codeOf(err))) throw err;
+  }
 }
 
 function writeDurably(path: string, text: string): void {
@@ -59,12 +78,14 @@ function writeDurably(path: string, text: string): void {
 }
 
 function syncDirectoryOf(path: string): void {
-  const fd = openSync(dirname(path), "r");
-  try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
+  syncDirectoryBestEffort(() => {
+    const fd = openSync(dirname(path), "r");
+    try {
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+  });
 }
 
 function createUnlessPresent(keyPath: string): boolean {
