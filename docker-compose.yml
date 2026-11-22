@@ -37,6 +37,7 @@ services:
       - CONVEYOR_AUTH=${CONVEYOR_AUTH:-}
       - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
+      - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
