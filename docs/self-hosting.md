@@ -156,6 +156,14 @@ The four capabilities are the entrypoint's minimum: `CHOWN` and `DAC_READ_SEARCH
 
 Caddy still runs as uid 0, but with no capabilities: it binds `:80` and `:443` because compose sets `net.ipv4.ip_unprivileged_port_start=0` in its own network namespace, and it can write its volumes because it owns them. It is not moved to a non-root uid because the `caddy_data` of an existing install is owned by root, and a non-root Caddy then fails to load its local CA and exits. `skip_install_trust` in the `Caddyfile` stops Caddy trying to add that CA to the container's own trust store, which the read-only root would refuse. Redis needs no capability: its data volume is already owned by `redis`, so its entrypoint skips the `chown` and the user switch it does when started as root.
 
+A Redis volume holding a root-owned file, for example after a backup was restored as root, stops Redis from starting (for example `Can't open or create append-only dir appendonlydir: Permission denied`), and Compose restarts it in a loop. Hand the volume back to `redis` once, then start the stack:
+
+```sh
+docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SEARCH --entrypoint chown redis -R 999:1000 /data
+```
+
+`CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
+
 ## Releasing a held printer
 
 This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a
