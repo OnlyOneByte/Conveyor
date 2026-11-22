@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { keepAlive, type PingableSocket } from "./heartbeat";
+import { DEFAULT_HEARTBEAT, keepAlive, type PingableSocket } from "./heartbeat";
+import { DEFAULT_TAIL } from "./routes/jobs-sqlite";
 
 class FakeSocket implements PingableSocket {
   pings = 0;
@@ -48,5 +49,10 @@ describe("keepAlive", () => {
     const pings = socket.pings;
     await Bun.sleep(30);
     expect(socket.pings).toBe(pings);
+  });
+
+  test("pings every 30 s and drops a socket after 2 missed pongs, on both queues", () => {
+    expect(DEFAULT_HEARTBEAT).toEqual({ intervalMs: 30_000, missed: 2 });
+    expect(DEFAULT_TAIL.heartbeat).toBe(DEFAULT_HEARTBEAT);
   });
 });
