@@ -211,6 +211,10 @@ jobs:
               'test ! -e /app/.git && test ! -e /app/.env && test -z "$(find /app -name .git -not -path "*/node_modules/*")"'
             echo "conveyor-$service: no .git, no .env"
           done
+      - name: Stub the engines so a job can finish without OrcaSlicer or a printer
+        run: |
+          printf '%s\n' 'services:' '  worker:' '    environment:' '      - CONVEYOR_ENGINE_STUB=1' \
+            > docker-compose.override.yml
       - name: docker compose up
         run: docker compose up -d --no-build --wait --wait-timeout 120
       - name: Only Caddy publishes, on loopback only
@@ -229,6 +233,21 @@ jobs:
             sleep 2
           done
           echo "last answer: $code"
+          exit 1
+      - name: A job submitted through Caddy runs to done
+        run: |
+          api() { curl -sk --resolve localhost:443:127.0.0.1 -b cookies.txt -c cookies.txt "$@"; }
+          body=$(jq -nc --arg password "$CONVEYOR_PASSWORD" '{password: $password}')
+          test "$(api -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -d "$body" https://localhost/auth/login)" = 200
+          job='{"generator":{"id":"gridfinity","params":{}},"printerId":"klipper-garage","profileId":"orca/klipper-pla-0.2"}'
+          id=$(api -H 'content-type: application/json' -d "$job" https://localhost/jobs | jq -er .jobId)
+          echo "job: $id"
+          for _ in $(seq 60); do
+            state=$(api "https://localhost/jobs/$id" | jq -r '.state // empty')
+            case "$state" in done) echo "state: done"; exit 0 ;; failed|canceled) break ;; esac
+            sleep 2
+          done
+          api "https://localhost/jobs/$id"
           exit 1
       - name: The api keys the real client, not Caddy or a forged header
         run: |
@@ -275,6 +294,21 @@ jobs:
           key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
           echo "secrets.key: $key"
           test "$key" = "10001:10001 600"
+      - name: Caddy and Redis run with no capabilities on a read-only root
+        run: |
+          for service in caddy redis; do
+            docker compose exec -T "$service" cat /proc/1/status > status.txt
+            field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
+            echo "$service: Uid=[$(field Uid)] CapEff=[$(field CapEff)] CapBnd=[$(field CapBnd)] NoNewPrivs=[$(field NoNewPrivs)]"
+            case "$service" in caddy) uid="0 0 0 0" ;; redis) uid="999 999 999 999" ;; esac
+            test "$(field Uid)" = "$uid"
+            test "$(field CapEff)" = 0000000000000000
+            test "$(field CapBnd)" = 0000000000000000
+            test "$(field NoNewPrivs)" = 1
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
+          done
       - name: Logs
         if: failure()
         run: |
