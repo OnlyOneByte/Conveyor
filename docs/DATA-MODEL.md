@@ -7,17 +7,18 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 | Store | Holds | Why |
 |---|---|---|
 | **SQLite** (file on the `/data` volume) | Durable config + job history: `printers`, `profiles`, `jobs` | Self-hosted single-node app; a file DB needs no extra service, backs up by copying one file, and is plenty fast for this scale. |
-| **Redis** | Live job state + status pub/sub (BullMQ queue, `job:<id>` snapshot, `job:<id>:status` channel) | Ephemeral, high-churn, fan-out to many WS clients. Already present for the queue. |
+| **Redis** (default queue, `CONVEYOR_QUEUE=redis`) | Live job state + status pub/sub (BullMQ queue, `job:<id>` snapshot, `job:<id>:status` channel) | Ephemeral, high-churn, fan-out to many WS clients. Already present for the queue. Not used for jobs in SQLite mode. |
 | **Filesystem** (`/data/<jobId>/`) | Artifacts: `model.stl`, `model.gcode` | Large binaries don't belong in a DB; stages pass `{path}` handles (ADR 0001). |
 | **`/profiles/*`** (read-only mount) | Bundled slicer profile **defaults** (Orca machine/filament/process JSON) | Curated by the operator, version-controlled outside the app, mounted read-only. These are the *defaults* and the reset target; a user's edits live in SQLite (below), never on this mount. |
 
-**Rule of thumb:** Redis is the *live* truth for an in-flight job; SQLite is the *durable* truth
-for config and finished jobs. On a terminal state the worker writes the final `Job` row to SQLite;
-the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until
+**Rule of thumb, Redis mode (the default):** Redis is the *live* truth for an in-flight job; SQLite is
+the *durable* truth for config and finished jobs. On a terminal state the worker writes the final `Job`
+row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until
 something deletes it.
 
-Recommended driver: `better-sqlite3` (synchronous, simple) with a thin migration runner, or Drizzle
-if we want typed queries (matches the VROOM stack). Decided at M4, when the Settings page landed.
+**SQLite mode** (`CONVEYOR_QUEUE=sqlite` plus `CONVEYOR_QUEUE_UNSTABLE=1`): the `jobs` row is inserted at
+enqueue and is the one truth for queue state, live status and history; live events go to `job_events`.
+See [design/sqlite-queue.md](design/sqlite-queue.md).
 
 ## Entities
 
@@ -43,6 +44,7 @@ optional per-profile edited JSON overriding the bundled files.
 | `orca_machine_json` | text null | edited Orca machine JSON; `NULL` = use the bundled file |
 | `orca_process_json` | text null | edited Orca process JSON; `NULL` = use the bundled file |
 | `orca_filament_json` | text null | edited Orca filament JSON; `NULL` = use the bundled file |
+| `prusa_ini` | text null | edited PrusaSlicer `config.ini`; `NULL` = use the bundled file |
 | `created_at` | integer | epoch ms |
 
 > **Source semantics — bundled vs edited.** For each of the three Orca documents,
@@ -50,8 +52,8 @@ optional per-profile edited JSON overriding the bundled files.
 > operator's edit and takes precedence at slice time. The three columns move together:
 > `dbGetOrcaProfileDocuments` returns `null` when all three are NULL (a pristine
 > bundled profile) and throws on a partial set (a would-be half-edited profile is never
-> valid). Editing is Orca-only — Prusa INI profiles have no edit columns and the content
-> routes 409 for them.
+> valid). A Prusa profile's edit is the single `prusa_ini` column, served and saved as the
+> `prusa-ini` format. The content routes answer 409 only for a slicer with no raw-edit format.
 >
 > **Routes** (`packages/api/src/routes/catalog.ts`):
 > `GET /catalog/profiles/:id/content` returns the effective documents plus a per-document
@@ -71,8 +73,8 @@ optional per-profile edited JSON overriding the bundled files.
 > **Materialization** (`packages/worker/src/profile.ts`): when a job names an edited
 > profile, `resolveProfileForSlice` writes the three documents into a per-job
 > `<workDir>/profile/` dir (dir `0700`, files `0600`, fixed filenames, `flag:"wx"`) and
-> hands the slicer that path, cleaning it up in a `finally`. A pristine (all-NULL) or
-> Prusa profile keeps its bundled `path` unchanged.
+> hands the slicer that path, cleaning it up in a `finally`. An edited Prusa profile is
+> materialized the same way from `prusa_ini`. A pristine profile keeps its bundled `path` unchanged.
 >
 > **Backup.** Edits live in SQLite, so they are captured by a DB file backup; the
 > `/profiles` mount is immutable and needs no separate backup beyond its version control.
@@ -86,9 +88,10 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `transport_id` | text | `"moonraker"` \| `"elegoo"` |
 | `name` | text | operator label |
 | `address` | text | host:port / mqtt topic / serial |
-| `secrets_json` | text (encrypted-at-rest) | API keys/tokens; resolved server-side only |
+| `secrets_json` | text null | API keys/tokens as **plaintext JSON**; resolved server-side only |
 | `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
+| `hold_job_id`, `hold_reason`, `hold_at` | text / text / integer, null | SQLite mode only: a [printer hold](design/sqlite-queue.md#printer-holds) after an outcome the queue cannot know |
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
@@ -129,7 +132,8 @@ A physical device addressable by a transport. **Secrets live here and never leav
 > tab submits `passthrough`, so an allowlist can restrict uploads too.
 
 ### job
-Durable history of a pipeline run. Live state is in Redis; this is the settled record.
+A pipeline run. In Redis mode this is the settled record, written once at the end. In SQLite mode the
+row is inserted at enqueue and carries the job through its whole life.
 
 | column | type | notes |
 |---|---|---|
@@ -138,13 +142,37 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 | `params_json` | text | validated generator params (the user's config) |
 | `printer_id` | text null | printer used → its transport. Null/`""` when unrecoverable (see migration note) |
 | `profile_id` | text null | profile used → its slicer + g-code flavour |
-| `state` | text | terminal: `done` \| `failed` \| `canceled` (live states transient in Redis) |
+| `state` | text | a `JobState`. Redis mode writes only terminal ones: `done` \| `failed` \| `canceled`. SQLite mode also stores `queued` through `printing` |
 | `stage` | text null | stage at failure, if any |
 | `error_json` | text null | `{ stage, reason }` on failure |
 | `model_path` | text null | `/data/<id>/model.stl` |
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
+| `timings_json` | text null | when each stage was entered and how long it took (`StageTiming[]`) |
+| `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
+| `progress`, `message` | real / text, null | SQLite mode: the live status |
+| `attempts`, `max_attempts`, `run_after` | integer | SQLite mode: retries and backoff |
+| `lease_owner`, `lease_token`, `lease_until` | text / integer / integer | SQLite mode: the fenced lease |
+| `cancel_requested_at` | integer null | SQLite mode: the cancel flag |
+| `submit_started_at`, `submitted_at`, `print_handle_json` | integer / integer / text, null | SQLite mode: the submit intent, the marker and the handle a resume reads |
+
+The SQLite-mode columns, their defaults and the `job_events` table are explained in the queue design's
+[Schema](design/sqlite-queue.md#schema). On a database from before the queue they keep their defaults, so old
+rows stay inert history.
+
+### job_events (SQLite mode)
+
+| column | type | notes |
+|---|---|---|
+| `seq` | integer PK autoincrement | the cursor a WebSocket tail reads from |
+| `job_id` | text | the job |
+| `event` | text | a serialized `JobStatusEvent`, the frame the WebSocket sends |
+| `at` | integer | epoch ms |
+
+Indexes: `idx_jobs_created_at` (history), `idx_jobs_claim`, `idx_jobs_lease` and the partial
+`idx_jobs_printer_live` (the queue), and `idx_job_events_job`. The schema itself is in
+`packages/shared/src/db/schema.sql.ts` and `db/migrate.ts`.
 
 ## Lifecycle ↔ storage
 
@@ -155,9 +183,13 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 | terminal (done/failed/canceled) | final snapshot (no TTL) | **insert/append `jobs` row** | keep gcode; cleanup on failure |
 | operator edits printer/profile | — | upsert | — |
 
-## Redis keys (single source of truth in `shared/events.ts`)
+In SQLite mode the Redis column is empty: submit inserts the `jobs` row, every transition updates it and
+appends a `job_events` row, and the terminal write settles the same row. A worker prunes `job_events` of jobs
+settled more than 7 days ago; the `jobs` row stays.
 
-- `conveyor:jobs` — BullMQ queue
+## Redis keys (Redis mode; in `shared/src/events.ts` and `shared/src/status.ts`)
+
+- `conveyor-jobs` — BullMQ queue (BullMQ forbids `:` in a queue name)
 - `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`)
 - `job:<id>:status` — pub/sub channel the API bridges to the WS
 - `job:<id>:control` — cancel signal, fast path (API → worker)
@@ -166,15 +198,18 @@ Durable history of a pipeline run. Live state is in Redis; this is the settled r
 
 ## Secrets
 
-Printer credentials live only in `printer.secrets_json` (encrypted at rest), are read solely by
-the worker's transport adapter, and are **never** included in any API response. The PWA only ever
-knows a `printerId` and a `profileId`. (Friends-only deployment; app-level auth is an open decision in `SPEC.md`.)
+Printer credentials live only in `printer.secrets_json`, are read solely by the worker's transport
+adapter, and are **never** included in any API response. The PWA only ever knows a `printerId` and a
+`profileId`. They are stored as **plaintext JSON**, not encrypted, so anyone who can read
+`/data/conveyor.db` or a backup of it can read them: keep the volume and backups readable by the service
+only. The app itself sits behind a shared-password login ([modules/api.md](modules/api.md)).
 
 ## Retention
 
-- Artifacts: keep last N successful jobs' gcode (configurable); prune older. Failed-job dirs are
-  cleaned immediately by the worker.
+- Artifacts: a done job's `/data/<id>/` is kept, and nothing prunes it yet, so disk use grows with every
+  print (#9). A failed or canceled job's directory is removed when it settles (`worker/src/settle.ts`).
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.
+- `job_events` (SQLite mode): pruned 7 days after the job settles (`EVENT_RETENTION_MS`).
 - Redis snapshots: no TTL today; they stay until deleted. SQLite is the durable record.
 
 ## Implementation status
@@ -203,7 +238,7 @@ attempts: database is locked`, with the SQLite error as its `cause`. The worker 
 terminal state.
 
 Catalog CRUD lives behind `/catalog/*` (printers/profiles/transports) + `/jobs-history`; printer
-secrets are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned). New
+secrets are accepted on write but **stripped on read** (only a `hasSecrets` flag is returned).
 A printer's `transportId` is validated against the registry before persist. Both surfaces are gated by
 `registerAuthGuard`, which is on by default and off only under an explicit `CONVEYOR_AUTH=disabled` — there is a single
 access tier, so holding the password grants the catalog too.
@@ -232,8 +267,9 @@ week. The history shows an id that no longer resolves as-is, and an empty one as
 instead of hiding the row. (The 409 referential guard that protected Stations was removed
 with them.)
 
-Only **terminal** jobs get a `jobs` row (the worker calls `recordTerminal` on done/failed), so
-`/jobs-history` never contains a job in flight. That is why the PWA keeps a per-browser
+In Redis mode only **terminal** jobs get a `jobs` row (the worker calls `recordTerminal` on
+done/failed), so `/jobs-history` never contains a job in flight. In SQLite mode every job has a row from
+enqueue. That is why the PWA keeps a per-browser
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
 home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
 
