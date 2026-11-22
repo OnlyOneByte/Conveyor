@@ -3,6 +3,7 @@ import type { JobState } from "@conveyor/shared";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { FakeSubscriber } from "../../test/fake-subscriber.ts";
+import { silentClient } from "../../test/silent-client.ts";
 import { createStatusHub, type StatusHub } from "../status-hub.js";
 import { type JobStreamDeps, registerJobStream } from "./job-stream.js";
 
@@ -31,11 +32,15 @@ function fakeHub() {
   return { hub, subscribers, publish };
 }
 
-async function serve(hub: StatusHub, deps: Partial<JobStreamDeps>, id = jobId) {
+async function listen(hub: StatusHub, deps: Partial<JobStreamDeps>) {
   app = Fastify();
   await app.register(websocket);
   registerJobStream(app, { hub, snapshot: async () => null, queued: async () => true, ...deps });
-  const base = (await app.listen({ host: "127.0.0.1", port: 0 })).replace("http", "ws");
+  return (await app.listen({ host: "127.0.0.1", port: 0 })).replace("http", "ws");
+}
+
+async function serve(hub: StatusHub, deps: Partial<JobStreamDeps>, id = jobId) {
+  const base = await listen(hub, deps);
   const ws = new WebSocket(`${base}/jobs/${encodeURIComponent(id)}/ws`);
   const states: string[] = [];
   ws.addEventListener("message", (e) => states.push(JSON.parse(String(e.data)).state));
@@ -223,5 +228,14 @@ describe("the job status stream", () => {
     await Bun.sleep(20);
     expect(hub.connections()).toBe(0);
     expect(sub.calls).toEqual([`subscribe ${channel}`, "quit"]);
+  });
+
+  test("terminates a viewer that stops answering pings and releases the subscriber", async () => {
+    const { hub } = fakeHub();
+    const base = await listen(hub, { heartbeat: { intervalMs: 10, missed: 1 } });
+    const silent = await silentClient(base, `/jobs/${jobId}/ws`);
+    await silent.closed;
+    for (let i = 0; i < 100 && hub.connections() > 0; i++) await Bun.sleep(5);
+    expect(hub.connections()).toBe(0);
   });
 });

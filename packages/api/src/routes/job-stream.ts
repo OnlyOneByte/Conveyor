@@ -1,5 +1,6 @@
 import { isTerminal, JOB_STREAM_CLOSE, jobChannel, parseStatusEvent } from "@conveyor/shared";
 import type { FastifyInstance } from "fastify";
+import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import type { StatusHub } from "../status-hub.js";
 
 export interface JobStreamLimits {
@@ -12,6 +13,7 @@ export interface JobStreamDeps {
   snapshot(jobId: string): Promise<string | null>;
   queued(jobId: string): Promise<boolean>;
   limits?: JobStreamLimits;
+  heartbeat?: Heartbeat;
 }
 
 export const DEFAULT_STREAM_LIMITS: JobStreamLimits = { buffered: 256, readMs: 5000 };
@@ -39,6 +41,7 @@ export function registerJobStream(app: FastifyInstance, deps: JobStreamDeps): vo
   app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, async (socket, req) => {
     const jobId = req.params.id;
     if (!isJobId(jobId)) return socket.close(JOB_STREAM_CLOSE.unknownJob, "unknown job");
+    keepAlive(socket, deps.heartbeat ?? DEFAULT_HEARTBEAT);
     let open = true;
     let live = false;
     let stop: (() => void) | undefined;
