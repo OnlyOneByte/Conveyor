@@ -40,7 +40,7 @@ RUN chmod +x /tmp/install-orca.sh && /tmp/install-orca.sh "${ORCA_RELEASE}" "${O
 ENV ORCA_DATADIR=/opt/orca/squashfs-root/resources/profiles
 
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app ./
 COPY . .
 
 CMD ["bun", "packages/worker/src/main.ts"]
