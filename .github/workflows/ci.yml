@@ -299,9 +299,11 @@ jobs:
           for service in caddy redis; do
             docker compose exec -T "$service" cat /proc/1/status > status.txt
             field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
-            echo "$service: Uid=[$(field Uid)] CapEff=[$(field CapEff)] CapBnd=[$(field CapBnd)] NoNewPrivs=[$(field NoNewPrivs)]"
-            case "$service" in caddy) uid="0 0 0 0" ;; redis) uid="999 999 999 999" ;; esac
-            test "$(field Uid)" = "$uid"
+            echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] CapBnd=[$(field CapBnd)] NoNewPrivs=[$(field NoNewPrivs)]"
+            case "$service" in caddy) uid=0 gid=0 ;; redis) uid=999 gid=1000 ;; esac
+            test "$(field Uid)" = "$uid $uid $uid $uid"
+            test "$(field Gid)" = "$gid $gid $gid $gid"
+            case "$(field Groups)" in "$gid"|"$gid ") ;; *) exit 1 ;; esac
             test "$(field CapEff)" = 0000000000000000
             test "$(field CapBnd)" = 0000000000000000
             test "$(field NoNewPrivs)" = 1
