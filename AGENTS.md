@@ -20,10 +20,10 @@ severity for that case. Rules move from [review] to [CI] as the guard grows; tre
 ```
 packages/shared/        domain types, zod schemas, SQLite access (bun:sqlite)
 packages/api/           Fastify REST + WebSocket front door, enqueues jobs
-packages/worker/        BullMQ worker, drives generate → slice → transport
+packages/worker/        job worker (BullMQ, or SQLite behind CONVEYOR_QUEUE), drives generate → slice → transport
 packages/web/           SvelteKit PWA (rewrite pending, see Stack (TBD))
 plugins/<kind>/<name>/  generators | slicers | transports
-scripts/checks/         house-rule checkers (no-comments ratchet)
+scripts/checks/         house-rule checkers (no-comments and coverage ratchets)
 tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
@@ -124,7 +124,8 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 - Deterministic: inject the clock and the ID generator; no real network, no sleeps for ordering. [review]
 - Every bug fix includes a test that fails on the parent commit. [review]
 - Prove a new test bites: break the production line it covers and watch it fail. [review]
-- Coverage target is 80% lines and functions. Until then coverage must not drop. [review]
+- Coverage target is 80% lines and functions. [review] Until then line coverage of `api`, `worker`, `shared`
+  and `plugins` must not drop more than 0.5 below the base's `scripts/checks/coverage/baseline/`. [CI: `test`]
 
 ## 8. Commits, branches and PRs
 
