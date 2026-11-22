@@ -20,6 +20,27 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 `routes/jobs-sqlite.ts` (SQLite). Both register the same paths. The import is dynamic, so in `sqlite` mode
 `queue.ts` is never loaded and the api opens no Redis connection.
 
+## Job status stream (both queues)
+
+`GET /jobs/:id/ws` behaves the same on both queues: the job's current snapshot is the first frame, every
+later event follows once and in order, and the server closes the socket with a code from `JOB_STREAM_CLOSE`
+(`@conveyor/shared`):
+
+| Code | Reason | When |
+| --- | --- | --- |
+| `1000` | `job finished` | after the frame of a terminal event, including a job that had already finished when the socket opened |
+| `4404` | `unknown job` | no such job; no frame is sent |
+| `1011` | `job stream failed` | the snapshot, the event tail or the Redis subscribe failed |
+| `1013` | `too many job streams` | SQLite only: the polling cap below |
+
+On Redis (`routes/job-stream.ts`) every socket in an api process shares one subscriber connection
+(`status-hub.ts`): one `SUBSCRIBE` per job with viewers, fanned out in process, an `UNSUBSCRIBE` when a
+job's last viewer leaves, and the connection closed when no viewer is left. A socket subscribes first and
+reads the snapshot after, buffering what arrives meanwhile. `publishStatus` writes the snapshot and
+publishes the same string in one script, so the buffered copy of the snapshot marks where live events
+start: anything before it is dropped, anything after it is sent. A job with no snapshot yet but still in
+BullMQ waits for its first event instead of closing as unknown.
+
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
@@ -34,7 +55,8 @@ The WebSocket reads the snapshot and its cursor in one statement, so the tail th
 neither drops nor repeats an event. It polls `tailEvents` every 250 ms, backing off to 1 s after 5 s with no
 new event, and closes after forwarding a terminal event. Each poll keeps reading 100-event pages until one
 comes back short, so a backlog never lags. A job already finished sends its snapshot and closes; an unknown
-job closes with no frame. A stored row or event that does not parse closes the socket and logs.
+job closes with no frame. A stored row or event that does not parse closes the socket and logs. The close
+codes are the ones in [Job status stream](#job-status-stream-both-queues).
 
 Polling is bounded by a cap: at most 64 job streams are open at once, across all sessions, and one more is
 closed with code `1013`. There is no per-session cap, because every session shares the one password. A socket

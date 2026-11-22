@@ -34,7 +34,7 @@ Output, per scene and width (1440 and 390):
 
 Scenes live in `scenes.ts`. Each has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `scroll`, `waitFor`, `wait`) and an optional `record`. When you add a page, add a scene for it, and keep selectors on stable text or roles.
 
-A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. `job-progress` uses this because of [#52](https://github.com/OnlyOneByte/Conveyor/issues/52): the status card can miss fast stub events, so the stepper may freeze.
+A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. No scene uses it today: `job-progress` waits for the final stage strictly, since the status stream no longer loses events (#52).
 
 ## CI
 

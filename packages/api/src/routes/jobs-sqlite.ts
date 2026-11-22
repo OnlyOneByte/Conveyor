@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { exhaustive, isTerminal, type JobStatusEvent } from "@conveyor/shared";
+import { exhaustive, isTerminal, JOB_STREAM_CLOSE, type JobStatusEvent } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
@@ -86,7 +86,8 @@ export async function registerJobRoutes(
 
   app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, (socket, req) => {
     const jobId = req.params.id;
-    if (sockets >= tail.maxSockets) return socket.close(1013, "too many job streams");
+    if (sockets >= tail.maxSockets)
+      return socket.close(JOB_STREAM_CLOSE.busy, "too many job streams");
     sockets++;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let open = true;
@@ -96,13 +97,13 @@ export async function registerJobRoutes(
       sockets--;
       clearTimeout(timer);
     };
-    const close = () => {
+    const close = (code: number, reason: string) => {
       release();
-      socket.close();
+      socket.close(code, reason);
     };
     const forward = (event: JobStatusEvent): boolean => {
       socket.send(JSON.stringify(event));
-      if (isTerminal(event.state)) close();
+      if (isTerminal(event.state)) close(JOB_STREAM_CLOSE.finished, "job finished");
       return !open;
     };
     socket.on("close", release);
@@ -111,9 +112,9 @@ export async function registerJobRoutes(
       first = readSnapshot(db, jobId);
     } catch (err) {
       req.log.error({ err, jobId }, "job snapshot unreadable");
-      return close();
+      return close(JOB_STREAM_CLOSE.failed, "job stream failed");
     }
-    if (!first) return close();
+    if (!first) return close(JOB_STREAM_CLOSE.unknownJob, "unknown job");
     if (forward(first.snapshot)) return;
     let cursor = first.cursor;
     let lastEventAt = Date.now();
@@ -130,7 +131,7 @@ export async function registerJobRoutes(
         } while (page.length === TAIL_PAGE);
       } catch (err) {
         req.log.error({ err, jobId }, "job event tail failed");
-        return close();
+        return close(JOB_STREAM_CLOSE.failed, "job stream failed");
       }
       if (!open) return;
       const idle = Date.now() - lastEventAt > tail.idleMs;
