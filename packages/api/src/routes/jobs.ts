@@ -5,7 +5,6 @@ import {
   isTerminal,
   type JobStatusEvent,
   jobCancelKey,
-  jobChannel,
   jobControlChannel,
   jobSnapshotKey,
   parseStatusEvent,
@@ -16,7 +15,9 @@ import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
+import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+import { registerJobStream } from "./job-stream.js";
 
 const LIVE_STATES = [
   "waiting",
@@ -31,6 +32,10 @@ export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
+  const statusHub = createStatusHub(
+    () => redis.duplicate(),
+    (err) => app.log.error({ err }, "job status subscriber error"),
+  );
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
@@ -103,18 +108,9 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(result.code).send(result.body);
   });
 
-  // Live status: subscribe to the job's Redis channel, forward frames verbatim.
-  app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, (socket, req) => {
-    const channel = jobChannel(req.params.id);
-    const sub = redis.duplicate();
-
-    void sub.subscribe(channel);
-    sub.on("message", (_chan, payload) => {
-      socket.send(payload);
-      const evt = parseStatusEvent(payload);
-      if (evt && isTerminal(evt.state)) socket.close();
-    });
-
-    socket.on("close", () => void sub.quit());
+  registerJobStream(app, {
+    hub: statusHub,
+    snapshot: (id) => redis.get(jobSnapshotKey(id)),
+    queued: async (id) => (await jobQueue.getJob(id)) !== undefined,
   });
 }
