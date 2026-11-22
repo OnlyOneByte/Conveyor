@@ -1,5 +1,6 @@
 {
   "name": "@conveyor/plugin-registry",
+  "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
   "type": "module",
   "main": "./src/index.ts",

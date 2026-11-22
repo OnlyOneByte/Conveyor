@@ -59,3 +59,15 @@ A deploy `compose.yml` can then swap the `build:` blocks for `image:` pins — e
 > aarch64: OpenSCAD generates real STLs and **both** slicers — PrusaSlicer and
 > OrcaSlicer (v2.4.1 aarch64 AppImage) — slice headless; full generate→slice E2E proven in
 > the worker image. See `docs/archive/M1-WORKER-ENGINES.md`.
+
+## License
+
+Conveyor — self-hosted, pluggable generate → slice → print pipeline.
+Copyright (C) 2026 Rengang (Angelo) Yang.
+
+Conveyor is free software under the GNU Affero General Public License, version 3 or (at your option) any
+later version (`AGPL-3.0-or-later`); the full text is in [LICENSE](LICENSE). It comes with no warranty.
+
+The worker image bundles third-party engines under their own licenses, among them the AGPL-3.0 slicers and
+the GPL OpenSCAD. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists each one, its version, its license and
+where its source is.
