@@ -1,10 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import Fastify from "fastify";
 import { MAX_SECRET_VALUE_LENGTH, MAX_SECRETS } from "../catalog-validation";
 import { registerCatalogRoutes } from "./catalog";
 
+const dir = mkdtempSync(join(tmpdir(), "conveyor-catalog-writes-"));
 const previousDbPath = process.env.DB_PATH;
-process.env.DB_PATH = ":memory:";
+process.env.DB_PATH = join(dir, "conveyor.db");
 
 const app = Fastify();
 let base = "";
@@ -43,6 +47,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await app.close();
   process.env.DB_PATH = previousDbPath;
+  rmSync(dir, { recursive: true, force: true });
 });
 
 describe("PUT /catalog/profiles", () => {
@@ -86,7 +91,7 @@ describe("PUT /catalog/printers", () => {
     const secrets = Object.fromEntries(
       Array.from({ length: MAX_SECRETS }, (_, i) => [`key${i}`, "v"]),
     );
-    expect((await put("/catalog/printers", printer({ id: "full-secrets", secrets }))).status).toBe(
+    expect((await put("/catalog/printers", printer({ id: "sixteen-keys", secrets }))).status).toBe(
       200,
     );
   });
