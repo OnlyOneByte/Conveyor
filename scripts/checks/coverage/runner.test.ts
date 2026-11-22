@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { baselinePath, CHECKER_PATH, LEGACY_BASELINE_PATH } from "./ratchet";
@@ -17,6 +17,7 @@ const fixture = (name: string, source: string) => {
 };
 
 const SLOW = 60_000;
+const PROBE_PREFIX = join("packages", "shared", "test", "sweep-probe-");
 
 const withSweepTimeout = <T>(value: string, run: () => T): T => {
   const previous = process.env[SWEEP_TIMEOUT_ENV];
@@ -77,7 +78,7 @@ describe("runSweep", () => {
   test(
     "a non-test spec module and a test-folder module are mapped by the sweep and counted",
     () => {
-      const dir = mkdtempSync(join(ROOT, "packages", "shared", "test", "sweep-probe-"));
+      const dir = mkdtempSync(join(ROOT, PROBE_PREFIX));
       try {
         const module = "export const double = (n: number) => n * 2;\n";
         writeFileSync(join(dir, "double.spec.ts"), module);
@@ -103,6 +104,17 @@ describe("runSweep", () => {
     },
     SLOW,
   );
+});
+
+describe("bunfig.toml", () => {
+  test("keeps bun test out of a sweep probe left behind by a killed run", () => {
+    const config = Bun.TOML.parse(readFileSync(join(ROOT, "bunfig.toml"), "utf8")) as {
+      test?: { pathIgnorePatterns?: string[] };
+    };
+    const ignored = config.test?.pathIgnorePatterns ?? [];
+    const leftover = `${PROBE_PREFIX}AbC123/double.spec.ts`;
+    expect(ignored.some((pattern) => new Bun.Glob(pattern).match(leftover))).toBe(true);
+  });
 });
 
 const repo = (files: Record<string, string>) => {
