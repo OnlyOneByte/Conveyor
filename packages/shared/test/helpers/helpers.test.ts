@@ -91,8 +91,7 @@ describe("stubSlicer and fakeTransport", () => {
     const slicer = stubSlicer();
     const transport = fakeTransport();
     const model = { path: join(ctx.workDir, "model.stl"), format: "stl" };
-    const profile = slicer.plugin.profiles[0];
-    if (!profile) throw new Error("stub slicer has no profile");
+    const profile = { id: "stub/default", name: "Stub default", path: "/profiles/stub" };
     const gcode = await slicer.plugin.slice(model, profile, ctx);
     expect(readFileSync(gcode.path, "utf8")).toBe(STUB_GCODE);
     const target = { id: "p1", transportId: "fake", address: "10.0.0.2" };

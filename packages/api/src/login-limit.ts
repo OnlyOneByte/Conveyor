@@ -1,10 +1,10 @@
-export interface LoginLimitOptions {
+interface LoginLimitOptions {
   maxFailures: number;
   windowMs: number;
   maxClients: number;
 }
 
-export const DEFAULT_LOGIN_LIMIT: LoginLimitOptions = {
+const DEFAULT_LOGIN_LIMIT: LoginLimitOptions = {
   maxFailures: 5,
   windowMs: 60_000,
   maxClients: 10_000,

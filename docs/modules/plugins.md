@@ -114,9 +114,6 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
 SDCP (Smart Device Control Protocol), written from the
 [SDCP V3.0.0 spec](https://github.com/cbd-tech/SDCP-Smart-Device-Control-Protocol-V3.0.0):
 
-- Discovery: UDP broadcast of the probe `M99999` to port 3000 (`ELEGOO_DISCOVERY_PORT`); each printer replies
-  with a JSON datagram (`MainboardIP`, `MainboardID`, …). Replies without those fields or that are not JSON
-  are left out; when replies arrive but none is a printer, `discover()` rejects with every reason.
 - Control: WebSocket `ws://<ip>:3030/websocket` (`ELEGOO_WS_PORT`), JSON request/response plus pushed status
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
@@ -141,8 +138,8 @@ SDCP (Smart Device Control Protocol), written from the
   `sdcp/error` gives no end signal. A halted printer answers the refresh with idle, which does not restart
   the timer, so such a job stays `printing` for at most `ELEGOO_STATUS_TIMEOUT_MS` after its last print
   status, then fails.
-- Parsing: every frame is checked against a zod schema in `src/frames.ts` (discovery reply, push envelope,
-  status, error and ack shapes). `parseDiscovery`, `parsePushFrame` and `ackCode` return an `SdcpRead`
+- Parsing: every frame is checked against a zod schema in `src/frames.ts` (push envelope,
+  status, error and ack shapes). `parsePushFrame` and `ackCode` return an `SdcpRead`
   (`frame`, `other` or `malformed` with the failing field path) and never throw; each caller switches over all
   three.
 - Printer errors: SDCP V3.0.0 defines `ErrorCode` 1 (MD5 check failed) and 2 (file format incorrect), both

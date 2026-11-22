@@ -1,10 +1,15 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { exhaustive, isTerminal, type JobStatusEvent } from "@conveyor/shared";
+import { exhaustive, isTerminal, JOB_STREAM_CLOSE, type JobStatusEvent } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
+import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
+import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+
+export const countLiveJobs: LiveJobCounter = (reference, id) =>
+  countSqliteLiveJobs(openDb())(reference, id);
 
 export interface TailOptions {
   fastMs: number;
@@ -12,15 +17,24 @@ export interface TailOptions {
   idleMs: number;
   maxSockets: number;
   read: typeof tailEvents;
+  now: () => number;
+  schedule: (tick: () => void, ms: number) => () => void;
+  heartbeat: Heartbeat;
 }
 
-export const TAIL_PAGE = 100;
+const TAIL_PAGE = 100;
 export const DEFAULT_TAIL: TailOptions = {
   fastMs: 250,
   slowMs: 1000,
   idleMs: 5000,
   maxSockets: 64,
   read: tailEvents,
+  now: Date.now,
+  schedule: (tick, ms) => {
+    const timer = setTimeout(tick, ms);
+    return () => clearTimeout(timer);
+  },
+  heartbeat: DEFAULT_HEARTBEAT,
 };
 
 export async function registerJobRoutes(
@@ -82,23 +96,25 @@ export async function registerJobRoutes(
 
   app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, (socket, req) => {
     const jobId = req.params.id;
-    if (sockets >= tail.maxSockets) return socket.close(1013, "too many job streams");
+    if (sockets >= tail.maxSockets)
+      return socket.close(JOB_STREAM_CLOSE.busy, "too many job streams");
     sockets++;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    keepAlive(socket, tail.heartbeat);
+    let cancel = () => {};
     let open = true;
     const release = () => {
       if (!open) return;
       open = false;
       sockets--;
-      clearTimeout(timer);
+      cancel();
     };
-    const close = () => {
+    const close = (code: number, reason: string) => {
       release();
-      socket.close();
+      socket.close(code, reason);
     };
     const forward = (event: JobStatusEvent): boolean => {
       socket.send(JSON.stringify(event));
-      if (isTerminal(event.state)) close();
+      if (isTerminal(event.state)) close(JOB_STREAM_CLOSE.finished, "job finished");
       return !open;
     };
     socket.on("close", release);
@@ -107,12 +123,12 @@ export async function registerJobRoutes(
       first = readSnapshot(db, jobId);
     } catch (err) {
       req.log.error({ err, jobId }, "job snapshot unreadable");
-      return close();
+      return close(JOB_STREAM_CLOSE.failed, "job stream failed");
     }
-    if (!first) return close();
+    if (!first) return close(JOB_STREAM_CLOSE.unknownJob, "unknown job");
     if (forward(first.snapshot)) return;
     let cursor = first.cursor;
-    let lastEventAt = Date.now();
+    let lastEventAt = tail.now();
     const tick = () => {
       try {
         let page: ReturnType<typeof tailEvents>;
@@ -120,18 +136,18 @@ export async function registerJobRoutes(
           page = tail.read(db, jobId, cursor, TAIL_PAGE);
           for (const { seq, event } of page) {
             cursor = seq;
-            lastEventAt = Date.now();
+            lastEventAt = tail.now();
             if (forward(event)) return;
           }
         } while (page.length === TAIL_PAGE);
       } catch (err) {
         req.log.error({ err, jobId }, "job event tail failed");
-        return close();
+        return close(JOB_STREAM_CLOSE.failed, "job stream failed");
       }
       if (!open) return;
-      const idle = Date.now() - lastEventAt > tail.idleMs;
-      timer = setTimeout(tick, idle ? tail.slowMs : tail.fastMs);
+      const idle = tail.now() - lastEventAt > tail.idleMs;
+      cancel = tail.schedule(tick, idle ? tail.slowMs : tail.fastMs);
     };
-    timer = setTimeout(tick, tail.fastMs);
+    cancel = tail.schedule(tick, tail.fastMs);
   });
 }

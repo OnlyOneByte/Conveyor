@@ -5,6 +5,7 @@ import {
   slicerFormat,
 } from "@conveyor/shared";
 import {
+  DEFAULT_PROFILES,
   dbDeletePrinter,
   dbDeleteProfile,
   dbGetJob,
@@ -25,6 +26,8 @@ import {
 } from "@conveyor/shared/db";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
+import { parsePrinter, parseProfile } from "../catalog-validation.js";
+import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
 import {
   ProfileContentError,
@@ -33,17 +36,7 @@ import {
   validateOrcaDocuments,
   validatePrusaContent,
 } from "../profile-content.js";
-import { parseProfile } from "../profile-validation.js";
-import { listTransports, validatePrinterTransport } from "../validate.js";
-
-const printerSchema = z.object({
-  id: z.string().min(1).max(128),
-  transportId: z.string().min(1),
-  name: z.string().min(1).max(200),
-  address: z.string().min(1).max(255),
-  secrets: z.record(z.string()).optional(),
-  allowedGenerators: z.array(z.string()).optional(),
-});
+import { describeIssues, listTransports } from "../validate.js";
 
 const orcaDocumentsSchema = z
   .object({
@@ -74,7 +67,22 @@ function sendProfileContentError(reply: FastifyReply, error: unknown) {
   reply.log.error({ err: error }, "profile content operation failed");
   return reply.code(500).send({ error: "profile content operation failed" });
 }
-export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
+const BUNDLED_PROFILE_IDS: ReadonlySet<string> = new Set(DEFAULT_PROFILES.map((p) => p.id));
+
+async function inUseError(
+  liveJobs: LiveJobCounter,
+  reference: JobReference,
+  id: string,
+): Promise<string | null> {
+  const count = await liveJobs(reference, id);
+  const noun = reference === "printerId" ? "printer" : "profile";
+  return count > 0 ? `${noun} ${id} is used by ${count} queued or running job(s)` : null;
+}
+
+export async function registerCatalogRoutes(
+  app: FastifyInstance,
+  liveJobs: LiveJobCounter,
+): Promise<void> {
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
     return dbListJobs(openDb(), limit);
@@ -91,19 +99,20 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   app.get("/catalog/printers", async () => dbListPrinters(openDb()));
 
   app.put("/catalog/printers", async (req, reply) => {
-    const parsed = printerSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
-    try {
-      validatePrinterTransport(parsed.data.transportId);
-    } catch (err) {
-      return reply.code(400).send({ error: (err as Error).message });
-    }
+    const parsed = parsePrinter(req.body);
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
     dbUpsertPrinter(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });
 
   app.delete<{ Params: { id: string } }>("/catalog/printers/:id", async (req, reply) => {
-    dbDeletePrinter(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetPrinter(openDb(), id))
+      return reply.code(404).send({ error: `unknown printer ${id}` });
+    const inUse = await inUseError(liveJobs, "printerId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeletePrinter(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 
@@ -120,7 +129,8 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
     dbUpsertProfile(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });
@@ -178,7 +188,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
       try {
         if (format === "orca-json") {
           const parsed = orcaContentSchema.safeParse(req.body);
-          if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+          if (!parsed.success) {
+            return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+          }
           validateOrcaDocuments(parsed.data.documents);
           if (!dbSaveOrcaProfileDocuments(db, profile.id, parsed.data.documents)) {
             return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
@@ -186,7 +198,9 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
           return reply.code(200).send({ ok: true, source: "edited" });
         }
         const parsed = prusaContentSchema.safeParse(req.body);
-        if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+        if (!parsed.success) {
+          return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+        }
         validatePrusaContent(parsed.data.document);
         if (!dbSavePrusaProfileContent(db, profile.id, parsed.data.document)) {
           return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
@@ -230,7 +244,15 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
   });
 
   app.delete<{ Params: { id: string } }>("/catalog/profiles/:id", async (req, reply) => {
-    dbDeleteProfile(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetProfile(openDb(), id))
+      return reply.code(404).send({ error: `unknown profile ${id}` });
+    if (BUNDLED_PROFILE_IDS.has(id)) {
+      return reply.code(409).send({ error: `profile ${id} is bundled and cannot be deleted` });
+    }
+    const inUse = await inUseError(liveJobs, "profileId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeleteProfile(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 }

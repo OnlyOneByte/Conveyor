@@ -6,9 +6,9 @@ const ENVELOPE_VERSION = "v1";
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
-export type OpenError = { kind: "NotAnEnvelope" } | { kind: "Undecryptable" };
+type OpenError = { kind: "NotAnEnvelope" } | { kind: "Undecryptable" };
 
-export type OpenResult = { ok: true; value: string } | { ok: false; error: OpenError };
+type OpenResult = { ok: true; value: string } | { ok: false; error: OpenError };
 
 export function isEnvelope(stored: string): boolean {
   return stored.startsWith(`${ENVELOPE_VERSION}:`);

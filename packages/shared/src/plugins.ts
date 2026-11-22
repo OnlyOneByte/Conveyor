@@ -61,7 +61,6 @@ export interface SlicerPlugin extends PluginManifest {
   stage: "slicer";
   accepts: string[];
   gcodeFlavor: string;
-  profiles: ProfileRef[];
   slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
@@ -89,7 +88,6 @@ export interface PrintStatus {
 export interface TransportPlugin extends PluginManifest {
   stage: "transport";
   acceptsFlavors: string[];
-  discover?(): Promise<PrinterTarget[]>;
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
   status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>;
   cancel?(handle: PrintHandle): Promise<void>;

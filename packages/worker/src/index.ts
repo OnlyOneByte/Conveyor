@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { buildRegistry } from "@conveyor/plugin-registry";
 import { JOB_QUEUE, type JobRequest, jobCancelKey, jobControlChannel } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
@@ -8,7 +9,6 @@ import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
-import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";

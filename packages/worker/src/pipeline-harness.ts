@@ -110,7 +110,6 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     stage: "slicer",
     accepts: ["stl"],
     gcodeFlavor: "klipper",
-    profiles: [],
     slice: async (_model, _profile, ctx) => {
       await opts.slice?.(ctx);
       return { path: "/tmp/model.gcode", format: "gcode" };

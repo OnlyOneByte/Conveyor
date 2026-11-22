@@ -16,6 +16,7 @@ COPY plugins/slicers/orca/package.json plugins/slicers/orca/
 COPY plugins/slicers/prusa/package.json plugins/slicers/prusa/
 COPY plugins/transports/moonraker/package.json plugins/transports/moonraker/
 COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
+COPY plugins/registry/builtin/package.json plugins/registry/builtin/
 RUN bun install --frozen-lockfile
 COPY . .
 RUN cd packages/web && bunx vite build

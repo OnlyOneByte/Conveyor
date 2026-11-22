@@ -15,8 +15,7 @@
       "name": "@conveyor/api",
       "version": "0.0.0",
       "dependencies": {
-        "@conveyor/generator-gridfinity": "workspace:*",
-        "@conveyor/generator-passthrough": "workspace:*",
+        "@conveyor/plugin-registry": "workspace:*",
         "@conveyor/shared": "workspace:*",
         "@fastify/multipart": "^8.3.0",
         "@fastify/websocket": "^10.0.1",
@@ -61,13 +60,8 @@
       "name": "@conveyor/worker",
       "version": "0.0.0",
       "dependencies": {
-        "@conveyor/generator-gridfinity": "workspace:*",
-        "@conveyor/generator-passthrough": "workspace:*",
+        "@conveyor/plugin-registry": "workspace:*",
         "@conveyor/shared": "workspace:*",
-        "@conveyor/slicer-orca": "workspace:*",
-        "@conveyor/slicer-prusa": "workspace:*",
-        "@conveyor/transport-elegoo": "workspace:*",
-        "@conveyor/transport-moonraker": "workspace:*",
         "bullmq": "^5.12.0",
         "ioredis": "5.10.1",
         "zod": "^3.23.8",
@@ -89,6 +83,19 @@
         "@conveyor/shared": "workspace:*",
         "zod": "^3.23.8",
         "zod-to-json-schema": "^3.23.2",
+      },
+    },
+    "plugins/registry/builtin": {
+      "name": "@conveyor/plugin-registry",
+      "version": "0.0.0",
+      "dependencies": {
+        "@conveyor/generator-gridfinity": "workspace:*",
+        "@conveyor/generator-passthrough": "workspace:*",
+        "@conveyor/shared": "workspace:*",
+        "@conveyor/slicer-orca": "workspace:*",
+        "@conveyor/slicer-prusa": "workspace:*",
+        "@conveyor/transport-elegoo": "workspace:*",
+        "@conveyor/transport-moonraker": "workspace:*",
       },
     },
     "plugins/slicers/orca": {
@@ -154,6 +161,8 @@
     "@conveyor/generator-gridfinity": ["@conveyor/generator-gridfinity@workspace:plugins/generators/gridfinity"],
 
     "@conveyor/generator-passthrough": ["@conveyor/generator-passthrough@workspace:plugins/generators/passthrough"],
+
+    "@conveyor/plugin-registry": ["@conveyor/plugin-registry@workspace:plugins/registry/builtin"],
 
     "@conveyor/shared": ["@conveyor/shared@workspace:packages/shared"],
 

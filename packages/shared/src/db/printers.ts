@@ -1,5 +1,4 @@
 import type { Database } from "bun:sqlite";
-import { epochMs } from "./epoch-ms.js";
 import { sealPrinterSecrets } from "./printer-secrets.js";
 
 export interface PrinterInput {
@@ -67,7 +66,7 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
     p.address,
     storedSecrets(db, p),
     p.allowedGenerators ? JSON.stringify(p.allowedGenerators) : null,
-    epochMs(),
+    Date.now(),
     p.secrets !== undefined,
   );
 }

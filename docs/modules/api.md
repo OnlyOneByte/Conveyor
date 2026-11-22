@@ -20,6 +20,40 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 `routes/jobs-sqlite.ts` (SQLite). Both register the same paths. The import is dynamic, so in `sqlite` mode
 `queue.ts` is never loaded and the api opens no Redis connection.
 
+## Job status stream (both queues)
+
+`GET /jobs/:id/ws` behaves the same on both queues: the job's current snapshot is the first frame, every
+later event follows once and in order, and the server closes the socket with a code from `JOB_STREAM_CLOSE`
+(`@conveyor/shared`):
+
+| Code | Reason | When |
+| --- | --- | --- |
+| `1000` | `job finished` | after the frame of a terminal event, including a job that had already finished when the socket opened |
+| `4404` | `unknown job` | no such job; no frame is sent |
+| `1011` | `job stream failed` | the snapshot, the event tail or the Redis subscribe failed |
+| `1013` | `too many job streams` | SQLite only: the polling cap below |
+
+Both queues ping every job socket every 30 s (`DEFAULT_HEARTBEAT` in `heartbeat.ts`). A socket that has
+not answered the last 2 pings is terminated without a close frame, which runs the same release as any
+other close: the SQLite cap slot is freed and the Redis viewer leaves the shared subscriber. A half-open
+socket (a sleeping phone, a dropped link behind Caddy) is therefore reaped within about 90 s.
+
+On Redis (`routes/job-stream.ts`) every socket in an api process shares one subscriber connection
+(`status-hub.ts`): one `SUBSCRIBE` per job with viewers, fanned out in process, an `UNSUBSCRIBE` when a
+job's last viewer leaves, and the connection closed when no viewer is left. A socket subscribes first and
+reads the snapshot after, buffering what arrives meanwhile. `publishStatus` stamps each event with a per-job
+`seq` (`INCR job:<id>:seq`) and writes the snapshot and publishes the same stamped string in one script, so a
+buffered event is sent only when its `seq` is above the snapshot's; two identical events never hide the one
+between them. An event with no `seq` (from a worker older than the stamping) is sent only if it is
+terminal, so the socket still closes. The buffer holds at most 256 events and each read (the snapshot, then the BullMQ lookup) gets
+5 s; past either, the socket closes with `1011`. An id that is not a UUID closes with `4404` before any
+lookup, since `meta` or `<id>:cancel` would otherwise match BullMQ's or the cancel flag's keys;
+`GET /jobs/:id` and `POST /jobs/:id/cancel` answer `404` for such ids on the same rule. A job with no
+snapshot yet but still in BullMQ waits for its first event instead of closing as unknown. The subscriber is
+created with `enableReadyCheck: false`: with the check on, two viewers arriving together on a fresh
+subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with
+`1011`.
+
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
@@ -34,7 +68,8 @@ The WebSocket reads the snapshot and its cursor in one statement, so the tail th
 neither drops nor repeats an event. It polls `tailEvents` every 250 ms, backing off to 1 s after 5 s with no
 new event, and closes after forwarding a terminal event. Each poll keeps reading 100-event pages until one
 comes back short, so a backlog never lags. A job already finished sends its snapshot and closes; an unknown
-job closes with no frame. A stored row or event that does not parse closes the socket and logs.
+job closes with no frame. A stored row or event that does not parse closes the socket and logs. The close
+codes are the ones in [Job status stream](#job-status-stream-both-queues).
 
 Polling is bounded by a cap: at most 64 job streams are open at once, across all sessions, and one more is
 closed with code `1013`. There is no per-session cap, because every session shares the one password. A socket
@@ -77,6 +112,16 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - Printer `secrets` are accepted on write and never returned on read; reads return `hasSecrets` instead.
   Omitting `secrets` on a write keeps the stored value (see `dbUpsertPrinter`).
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
+- Every catalog write is parsed by the schemas in `catalog-validation.ts` and the content schemas in
+  `routes/catalog.ts`. A rejected write answers `400 { error }` naming each field, e.g.
+  `gcodeFlavor: unknown gcode flavor` or `allowedGenerators.1: unknown generator`. Profiles: `slicerId` must be
+  a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
+  registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
+  entries with names up to 64 and values up to 4096 characters.
+- `DELETE /catalog/printers/:id` and `DELETE /catalog/profiles/:id` answer `404` for an unknown id, and `409`
+  while a queued or running job names the row or when the profile is bundled ([DATA-MODEL.md](../DATA-MODEL.md)).
+  `index.ts` hands the catalog routes the queue mode's `countLiveJobs` (`routes/jobs.ts` scans BullMQ,
+  `routes/jobs-sqlite.ts` counts `jobs` rows), so both modes refuse the same deletes.
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
@@ -132,13 +177,11 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
   boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
   and logs the cause on the server only.
 
-## Registry view (`registry-view.ts`, `validate.ts`, `routes/generators.ts`)
+## Registry (`registry.ts`, `validate.ts`, `routes/generators.ts`)
 
-- `apiRegistry` holds capabilities and metadata only. Generator plugins are imported for their pure-data
-  schema, preview and outputs; slicer and transport capabilities are declared inline because their adapters
-  live in the worker image with the engines. Their adapter methods throw here; the generators' `generate()` is
-  wired but never called.
-- Planned: hydrate the view from manifests the worker publishes over Redis at boot, instead of the inline copy.
+- `apiRegistry` is `buildRegistry()` from `@conveyor/plugin-registry`, the same plugin objects the worker
+  runs. The api reads their capabilities, schemas and metadata, and never calls `generate`, `slice`,
+  `submit`, `status` or `cancel`; the engines those would spawn are only in the worker image.
 - `GET /generators` serves each generator's `paramSchema`, UI hints and preview module so the web app can
   render its form.
 - `validateJobRequest` runs the shared capability check against this view.
