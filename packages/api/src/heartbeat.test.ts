@@ -51,7 +51,7 @@ describe("keepAlive", () => {
     expect(socket.pings).toBe(pings);
   });
 
-  test("pings every 30 s and drops a socket after 2 missed pongs, on both queues", () => {
+  test("pings every 30 s and drops a socket after 2 missed pongs by default", () => {
     expect(DEFAULT_HEARTBEAT).toEqual({ intervalMs: 30_000, missed: 2 });
     expect(DEFAULT_TAIL.heartbeat).toBe(DEFAULT_HEARTBEAT);
   });

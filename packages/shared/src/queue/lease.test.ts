@@ -69,6 +69,17 @@ describe("claimJob", () => {
     });
   });
 
+  test("reads the clock only once it holds the write lock", async () => {
+    h = queueHarness();
+    h.enqueue("a");
+    const realClock = { ...DEFAULT_TIMING, now: Date.now };
+    const holder = await holdWriteLock(h.path);
+    const calledAt = Date.now();
+    const lease = claimJob(h.db, "w1", realClock)?.lease;
+    expect(await holder.exited).toBe(0);
+    expect((lease?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(calledAt + 200);
+  });
+
   test("two connections claiming in turn never take the same job", () => {
     h = queueHarness();
     for (let i = 0; i < 20; i++) h.enqueue(`j${i}`, `p${i}`);
