@@ -3,13 +3,13 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 
-const DATA_DIR = process.env.DATA_DIR ?? "/data";
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(DATA_DIR, "uploads");
-const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);
-
 export async function registerUploadRoutes(app: FastifyInstance): Promise<void> {
+  const dataDir = process.env.DATA_DIR ?? "/data";
+  const uploadDir = process.env.UPLOAD_DIR ?? join(dataDir, "uploads");
+  const maxUploadBytes = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);
+
   app.post("/uploads", async (req, reply) => {
-    const file = await req.file({ limits: { fileSize: MAX_UPLOAD_BYTES } });
+    const file = await req.file({ limits: { fileSize: maxUploadBytes } });
     if (!file) return reply.code(400).send({ error: "no file in multipart body" });
 
     const name = file.filename ?? "model.stl";
@@ -18,14 +18,14 @@ export async function registerUploadRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const uploadId = randomUUID();
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    const dest = join(UPLOAD_DIR, `${uploadId}.stl`);
+    await mkdir(uploadDir, { recursive: true });
+    const dest = join(uploadDir, `${uploadId}.stl`);
 
     let buf: Buffer;
     try {
       buf = await file.toBuffer();
     } catch {
-      return reply.code(413).send({ error: `file exceeds ${MAX_UPLOAD_BYTES} bytes` });
+      return reply.code(413).send({ error: `file exceeds ${maxUploadBytes} bytes` });
     }
     await writeFile(dest, buf);
 
