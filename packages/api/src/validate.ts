@@ -1,6 +1,6 @@
 import { type JobRequest, type JobTarget, type ParamIssue, validateJob } from "@conveyor/shared";
 import type { ZodIssue } from "zod";
-import { apiRegistry } from "./registry-view.js";
+import { apiRegistry } from "./registry.js";
 
 export function validateJobRequest(req: JobRequest, target: JobTarget): void {
   validateJob(req, target, apiRegistry);
