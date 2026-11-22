@@ -17,7 +17,7 @@ FROM oven/bun:debian
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor worker — OpenSCAD generator + PrusaSlicer/OrcaSlicer engines" \
       org.opencontainers.image.licenses="MIT"
-ARG ORCA_RELEASE=latest
+ARG ORCA_RELEASE=2.4.1
 ARG ORCA_ENABLE=auto
 ENV ORCA_BIN=/opt/orca/AppRun
 
