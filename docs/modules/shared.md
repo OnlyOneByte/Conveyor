@@ -175,8 +175,8 @@ incompatible combination fails fast with a 4xx instead of dying mid-pipeline. Th
 The flavour check uses the profile's `gcodeFlavor`, not the slicer's. A slicer declares one flavour but can
 offer profiles emitting others: `prusa` declares `klipper` yet ships `prusa/marlin-pla-0.2`.
 
-`slicer.profiles` is not consulted. The profile row has already been resolved from SQLite and its
-`slicerId` selected the adapter; edited and duplicated runtime profiles are valid without being compiled
+A slicer has no profile list to check against. The profile row has already been resolved from SQLite and
+its `slicerId` selected the adapter; edited and duplicated runtime profiles are valid without being compiled
 into the adapter.
 
 ## profile.ts
@@ -239,9 +239,12 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
 
 - `runEngine(stage, cmd, args, ctx)` spawns an engine with the job's `AbortSignal`. A spawn error or a non-zero
   exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
-  generator and both slicers use it.
+  generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
+  error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
+  that streams logs there would need a rolling buffer.
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
-  reads use. It refuses `..` escapes and, on Windows, another drive.
+  reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
+  pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.
 
 ## db/index.ts
 
