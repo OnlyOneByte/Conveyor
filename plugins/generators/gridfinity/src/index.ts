@@ -11,10 +11,9 @@ import {
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { type GridfinityParams, gridfinityParams } from "./params.js";
 
-const SCAD_FILE =
+const scadFile = () =>
   process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad";
-
-const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
+const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 
 function toScadDefines(p: GridfinityParams): string[] {
   const d: Record<string, number | boolean> = {
@@ -70,13 +69,13 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
 
     const out = join(ctx.workDir, "model.stl");
 
-    if (STUB) {
+    if (stub()) {
       ctx.log(`[stub] generate gridfinity ${parsed.data.gridX}x${parsed.data.gridY}`);
       await writeFile(out, `solid conveyor-stub\nendsolid conveyor-stub\n`);
       return { path: out, format: "stl", meta: { params: parsed.data, stub: true } };
     }
 
-    const args = ["-o", out, ...toScadDefines(parsed.data), SCAD_FILE];
+    const args = ["-o", out, ...toScadDefines(parsed.data), scadFile()];
     const bin = process.env.OPENSCAD_BIN ?? "openscad";
     ctx.log(`${bin} ${args.join(" ")}`);
 

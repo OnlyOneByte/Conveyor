@@ -9,8 +9,8 @@ import {
   setEnv,
   testCtx,
 } from "../../../../packages/shared/test/helpers/index.ts";
+import { orca } from "./index.ts";
 
-let n = 0;
 const cleanups: (() => void)[] = [];
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
@@ -24,17 +24,16 @@ async function setup(env: Record<string, string | undefined>, orcaBody = "") {
   const bin = mkdtempSync(join(tmpdir(), "conveyor-orca-"));
   cleanups.push(ctx.cleanup, () => rmSync(bin, { recursive: true, force: true }));
   fakeEngine(bin, "xvfb-run", 'shift; exec "$@"');
-  const orca = fakeEngine(bin, "orca-slicer", orcaBody);
+  const orcaBin = fakeEngine(bin, "orca-slicer", orcaBody);
   cleanups.push(
     setEnv({
       PATH: `${bin}${delimiter}${process.env.PATH}`,
-      ORCA_BIN: orca,
+      ORCA_BIN: orcaBin,
       ORCA_DATADIR: "/orca/profiles",
       ...env,
     }),
   );
-  const mod: typeof import("./index.ts") = await import(`./index.ts?case=${++n}`);
-  return { ctx, bin, plugin: mod.orca };
+  return { ctx, bin, plugin: orca };
 }
 
 describe("the orca slicer", () => {

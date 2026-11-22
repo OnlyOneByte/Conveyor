@@ -10,8 +10,8 @@ import {
   type TestCtx,
   testCtx,
 } from "../../../../packages/shared/test/helpers/index.ts";
+import { gridfinity } from "./index.ts";
 
-let n = 0;
 const cleanups: (() => void)[] = [];
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
@@ -19,8 +19,7 @@ afterEach(() => {
 
 async function load(env: Record<string, string | undefined>) {
   cleanups.push(setEnv(env));
-  const mod: typeof import("./index.ts") = await import(`./index.ts?case=${++n}`);
-  return mod.gridfinity;
+  return gridfinity;
 }
 
 function setup(): { ctx: TestCtx; bin: string } {
