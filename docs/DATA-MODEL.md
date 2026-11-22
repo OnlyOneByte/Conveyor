@@ -53,7 +53,9 @@ optional per-profile edited JSON overriding the bundled files.
 > `dbGetOrcaProfileDocuments` returns `null` when all three are NULL (a pristine
 > bundled profile) and throws on a partial set (a would-be half-edited profile is never
 > valid). A Prusa profile's edit is the single `prusa_ini` column, served and saved as the
-> `prusa-ini` format. The content routes answer 409 only for a slicer with no raw-edit format.
+> `prusa-ini` format. The content routes answer 409 for a slicer with no raw-edit format,
+> and `GET /catalog/profiles/:id/content` also answers 409 when an unedited Orca profile's
+> bundled files fail validation (`bundled …`, `catalog.ts`).
 >
 > **Routes** (`packages/api/src/routes/catalog.ts`):
 > `GET /catalog/profiles/:id/content` returns the effective documents plus a per-document
@@ -202,7 +204,7 @@ Printer credentials live only in `printer.secrets_json`, are read solely by the 
 adapter, and are **never** included in any API response. The PWA only ever knows a `printerId` and a
 `profileId`. They are stored as **plaintext JSON**, not encrypted, so anyone who can read
 `/data/conveyor.db` or a backup of it can read them: keep the volume and backups readable by the service
-only. The app itself sits behind a shared-password login ([modules/api.md](modules/api.md)).
+only. Encrypting them is tracked in [#162](https://github.com/OnlyOneByte/Conveyor/issues/162). The app itself sits behind a shared-password login ([modules/api.md](modules/api.md)).
 
 ## Retention
 
