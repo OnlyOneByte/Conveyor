@@ -1,7 +1,7 @@
 # Plugins: implementation notes
 
 The why behind the bundled plugins in `plugins/`. Contracts live in [../PLUGINS.md](../PLUGINS.md); engine
-installs in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md); hardware runbooks in
+installs in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md); hardware runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
 With `CONVEYOR_ENGINE_STUB=1` the pipeline runs with no engine or printer: the Gridfinity generator writes a
