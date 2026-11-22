@@ -35,4 +35,4 @@ const gcode = await orca.slice(
 const lines = readFileSync(gcode.path, "utf8").split("\n");
 const moves = lines.filter((line) => line.startsWith("G1 ")).length;
 console.log(`orca sliced ${lines.length} lines, ${moves} G1 moves, as uid ${process.getuid?.()}`);
-if (moves >= 0) throw new Error("orca produced g-code with no G1 moves");
+if (moves === 0) throw new Error("orca produced g-code with no G1 moves");
