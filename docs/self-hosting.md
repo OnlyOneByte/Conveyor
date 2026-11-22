@@ -159,9 +159,9 @@ Caddy runs as `10002:10002` with no capabilities. It binds `:80` and `:443` beca
 
 Before Caddy starts with `docker compose up`, the one-shot `caddy-init` service hands `caddy_data` and `caddy_config` to `10002:10002` and exits; Caddy waits for it to succeed. It lets an install whose volumes an earlier root Caddy wrote keep its local CA, its certificates and any ACME account: the first start logs `caddy-init: <n> paths handed to 10002:10002`, and every later start logs `0 paths`. It runs as root with only `CHOWN` (to change owners) and `DAC_READ_SEARCH` (to walk the `0700` directories it has already handed over), a read-only root, `no-new-privileges` and no network. If it fails, Caddy does not start; `docker compose logs caddy-init` says why.
 
-`caddy-init` runs only on `docker compose up`. After a host reboot, Docker restarts Caddy from its `unless-stopped` policy without it, so a file made root-owned since the last `up` (a backup restored as root, say) makes Caddy fail until you run `docker compose up -d` again, which re-runs the handover.
+`caddy-init` runs only on `docker compose up`. After a host reboot, Docker restarts Caddy from its `unless-stopped` policy without it, so a file made root-owned since the last `up` (a backup restored as root, say) stays unreadable to Caddy until you run `docker compose up -d` again, which re-runs the handover. What that does depends on the file. A root-owned certificate leaves Caddy running but unable to serve that site over HTTPS. A root-owned file of the local CA (`pki/authorities/local/`) makes Caddy exit at start (`provisioning CA 'local': loading root cert`), so Docker restarts it in a loop.
 
-To go back to a root Caddy, set `caddy`'s `user` to `"0:0"` and remove `caddy-init`, then hand the volumes back to root once before starting it:
+To go back to a root Caddy, set `caddy`'s `user` to `"0:0"`, remove the `caddy-init` service and the `caddy-init` entry under `caddy`'s `depends_on` (Compose rejects a file that depends on a service it doesn't define), then hand the volumes back to root once before starting it:
 
 ```sh
 docker compose run --rm --no-deps --cap-add CHOWN --cap-add DAC_READ_SEARCH --entrypoint chown caddy -R -h 0:0 /data /config
