@@ -17,7 +17,7 @@ RUN bun install --frozen-lockfile --production
 FROM oven/bun:debian
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor API — REST + WebSocket front door" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
 WORKDIR /app
 COPY --from=deps /app ./
 COPY . .

@@ -537,4 +537,4 @@ each.
   slicing a cube to Klipper g-code in the worker image on 2026-06-30.
 - The `prusa/*` profiles use PrusaSlicer, which is multi-arch (apt) and verified headless.
 
-Both are described in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
+Both are described in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md).

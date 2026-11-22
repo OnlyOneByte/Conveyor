@@ -29,7 +29,7 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
   scopes the AppImage's bundled libraries to the openscad process. A global `LD_LIBRARY_PATH` would shadow
   system libraries and break prusa-slicer, so the image never sets one.
 
-Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
+Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md).
 
 ## main.ts and mode.ts
 

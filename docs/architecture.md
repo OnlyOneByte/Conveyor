@@ -82,7 +82,7 @@ Schema and rationale: [DATA-MODEL.md](DATA-MODEL.md).
 - `CONVEYOR_ENGINE_STUB=1` replaces the engines with stubs so the pipeline runs without OpenSCAD or a slicer.
 - Images: three Dockerfiles (`packages/{api,worker,web}/Dockerfile`). `release.yml` publishes multi-arch
   images to GHCR on `v*` tags. The worker image bakes in OpenSCAD and the slicers
-  ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)).
+  ([archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md)).
 
 ## Known gaps
 
