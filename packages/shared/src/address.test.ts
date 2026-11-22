@@ -31,8 +31,30 @@ describe("parseHostPort", () => {
       "admin:p@ss@printer:7125",
       '"***@printer:7125": not a valid IPv6 address; to give a port, write it as [fe80::1]:3030',
     ],
+    [
+      "admin:s3\ncret@printer",
+      '"***@printer": the address contains a control character or line break',
+    ],
+    [
+      "printer.local\u0007",
+      '"printer.local\\u0007": the address contains a control character or line break',
+    ],
   ])("rejects %p", (address, reason) => {
     expect(parseHostPort(address, 3030)).toEqual({ kind: "invalid", reason });
+  });
+
+  test("a reason quotes the full address it is given, redacted, instead of the host part", () => {
+    expect(parseHostPort("admin:pa", 80, "admin:pa/ss@printer.local")).toEqual({
+      kind: "invalid",
+      reason: '"***@printer.local": the port must be a number from 1 to 65535',
+    });
+  });
+
+  test("a control character anywhere in the full address rejects the host part", () => {
+    expect(parseHostPort("printer.local", 80, "printer.local/a\nb")).toEqual({
+      kind: "invalid",
+      reason: '"printer.local/a\\nb": the address contains a control character or line break',
+    });
   });
 
   test("an https URL without a port uses 443, anything else the given default", () => {

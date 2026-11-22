@@ -98,14 +98,21 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
   - `GET /printer/objects/query?print_stats&virtual_sdcard&display_status`
   - `POST /printer/print/cancel`
 - The printer address accepts:
-  - a full `http(s)://` URL, which is used as is;
+  - a full `http(s)://` URL, in any case (`HTTP://…`), which is used as is;
   - any form `parseHostPort` accepts ([shared.md](shared.md#addressts)), optionally followed by a path, as in
     `printer.local/moonraker` or `[fe80::1]:7125/moonraker` for Moonraker behind a reverse-proxy prefix.
-- For the second kind, the text before the first `/` is parsed as host and port, port 80 by default, and
-  becomes `http://` plus `formatHostPort(host, port)`, so a bare IPv6 address is bracketed. The path is kept,
-  minus one trailing `/`.
-- An authority it rejects fails the stage with `moonraker printer address <reason>` before any request.
-  Saved addresses aren't validated on save, so every form that worked before still has to.
+- For the second kind:
+  1. A leading `//` is dropped.
+  2. The text before the first `/` is the authority, and anything up to its last `@` is userinfo, which is
+     dropped. `fetch` dropped it on main too, so no `Authorization` header is sent either way.
+  3. What remains is parsed as host and port, port 80 by default, and becomes `http://` plus
+     `formatHostPort(host, port)`, so a bare IPv6 address is bracketed.
+  4. The path is kept, minus one trailing `/`.
+- An authority it rejects fails the stage with `moonraker printer address <reason>` before any request. The
+  reason quotes the whole address, redacted, so a password that contains `/` is never partly quoted. An
+  address with a control character or line break anywhere is rejected.
+- Saved addresses aren't validated on save, so every form that worked before still has to: `//host/path`
+  and `user:pass@host[/path]` included.
 - Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). `status()` and
   `cancel()` only get the handle, so they read `MOONRAKER_API_KEY` from the environment. Without a key, add the
   worker host to Moonraker's `trusted_clients`.

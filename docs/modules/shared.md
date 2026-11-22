@@ -10,8 +10,11 @@ Printer address parsing, imported as `@conveyor/shared/address`. It uses `node:n
 own and stays out of the root export that `web` bundles. The api probe and the transport plugins all use
 it.
 
-- `parseHostPort(address, defaultPort)` never throws. It returns `{ kind: "parsed", host, port }` or
+- `parseHostPort(address, defaultPort, shown?)` never throws. It returns `{ kind: "parsed", host, port }` or
   `{ kind: "invalid", reason }`.
+- `shown` is the full address `address` was cut from, when a caller parses only part of it (Moonraker parses
+  the host before a path). Reasons quote `shown`, redacted, instead of the part, so a password that sits
+  outside the part can't leak.
 - Accepted forms:
   - a URL, `http(s)://host:port/path`, including `http://[fe80::1]:7125/`;
   - an IPv4 address or hostname, with or without `:port`;
@@ -32,8 +35,10 @@ it.
   - a dotted number that isn't IPv4 (`10.0.0.256`);
   - a host with characters a hostname can't have;
   - a URL that doesn't parse.
-- The reason quotes the address and says what to change. Everything before the last `@` becomes `***`,
-  keeping only a leading `scheme://` or `//`:
+- An address, or `shown`, that contains a control character or line break (Unicode `Cc`) is rejected with
+  "the address contains a control character or line break".
+- The reason quotes the address and says what to change. `redactAddress` replaces everything before the last
+  `@`, across line breaks too, with `***`, keeping only a leading `scheme://` or `//`:
   - `http://admin:s3cret@[bad/` is quoted as `http://***@[bad/`;
   - `admin:s3cret@printer` is quoted as `***@printer`.
 

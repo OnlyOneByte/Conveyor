@@ -147,12 +147,13 @@ export const moonraker: TransportPlugin = {
 };
 
 function baseUrl(address: string): string {
-  if (address.startsWith("http://") || address.startsWith("https://"))
-    return address.replace(/\/$/, "");
-  const slash = address.indexOf("/");
-  const authority = slash === -1 ? address : address.slice(0, slash);
-  const path = slash === -1 ? "" : address.slice(slash).replace(/\/$/, "");
-  const parsed = parseHostPort(authority, 80);
+  if (/^https?:\/\//i.test(address)) return address.replace(/\/$/, "");
+  const bare = address.replace(/^\/\//, "");
+  const slash = bare.indexOf("/");
+  const authority = slash === -1 ? bare : bare.slice(0, slash);
+  const path = slash === -1 ? "" : bare.slice(slash).replace(/\/$/, "");
+  const host = authority.slice(authority.lastIndexOf("@") + 1);
+  const parsed = parseHostPort(host, 80, address);
   if (parsed.kind === "invalid")
     throw new StageError("transport", `moonraker printer address ${parsed.reason}`);
   return `http://${formatHostPort(parsed.host, parsed.port)}${path}`;

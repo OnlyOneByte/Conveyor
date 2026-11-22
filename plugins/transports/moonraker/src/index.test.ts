@@ -59,10 +59,40 @@ describe("moonraker IPv6 printers", () => {
     ["printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
     ["10.0.0.9:7125/moonraker/", "http://10.0.0.9:7125/moonraker/printer/print/cancel"],
     ["[fe80::1]:7125/moonraker", "http://[fe80::1]:7125/moonraker/printer/print/cancel"],
+    ["//printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
+    ["HTTP://printer.local:7125/", "HTTP://printer.local:7125/printer/print/cancel"],
   ])("%p is reached at %p", async (address, url) => {
     const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
     await moonraker.cancel?.({ ...handle, address });
     expect(calls.map((c) => c.url)).toEqual([url]);
+  });
+
+  test.each([
+    ["admin:pw@printer.local", "http://printer.local:80/printer/print/cancel"],
+    ["admin:pw@printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
+    [
+      "//admin:pw@printer.local/moonraker",
+      "http://printer.local:80/moonraker/printer/print/cancel",
+    ],
+  ])("%p drops its credentials and is reached at %p", async (address, url) => {
+    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
+    await moonraker.cancel?.({ ...handle, address });
+    expect(calls.map((c) => c.url)).toEqual([url]);
+    expect(new Headers(calls[0]?.init?.headers).has("authorization")).toBe(false);
+  });
+
+  test.each([
+    ["admin:pa/ss@printer.local", '"***@printer.local": the port must be a number'],
+    [
+      "admin:s3\ncret@printer.local",
+      '"***@printer.local": the address contains a control character',
+    ],
+  ])("%p fails without quoting any part of the password", async (address, reason) => {
+    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
+    const stop = moonraker.cancel?.({ ...handle, address }) ?? Promise.resolve();
+    await expect(stop).rejects.toThrow(`moonraker printer address ${reason}`);
+    await expect(stop).rejects.not.toThrow(/admin|pa\/ss|s3|cret/);
+    expect(calls).toHaveLength(0);
   });
 
   test("an ambiguous address fails with the parser's reason and sends nothing", async () => {
