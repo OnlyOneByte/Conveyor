@@ -1,18 +1,12 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  JOB_QUEUE,
-  type JobRequest,
-  jobCancelKey,
-  jobControlChannel,
-  type PrinterTarget,
-  StageError,
-} from "@conveyor/shared";
-import { dbGetPrinter, dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { JOB_QUEUE, type JobRequest, jobCancelKey, jobControlChannel } from "@conveyor/shared";
+import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
+import { resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { buildRegistry } from "./registry.js";
 import { StatusBus } from "./status.js";
@@ -49,7 +43,7 @@ const worker = new Worker<unknown>(
           publish: (id, state, extra) => bus.publish(id, state, extra),
           record: recordTerminal,
           resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
-          resolvePrinter: resolveTarget,
+          resolvePrinter: async (printerId) => resolvePrinterTarget(openDb(), printerId),
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
           log: (msg) => console.log(`[${jobId}] ${msg}`),
@@ -64,12 +58,6 @@ const worker = new Worker<unknown>(
 
 worker.on("ready", () => console.log("conveyor worker ready"));
 worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
-
-async function resolveTarget(printerId: string): Promise<PrinterTarget> {
-  const p = dbGetPrinter(openDb(), printerId);
-  if (!p) throw new StageError("transport", `unknown printer ${printerId}`);
-  return { id: p.id, transportId: p.transportId, address: p.address, secrets: p.secrets };
-}
 
 function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
   dbRecordJob(openDb(), {

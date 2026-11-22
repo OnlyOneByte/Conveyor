@@ -1,13 +1,18 @@
 import type { Database } from "bun:sqlite";
 import { epochMs } from "./epoch-ms.js";
+import { sealPrinterSecrets } from "./printer-secrets.js";
 
-export interface Printer {
+export interface PrinterInput {
   id: string;
   transportId: string;
   name: string;
   address: string;
   secrets?: Record<string, string>;
   allowedGenerators?: string[];
+}
+
+export interface Printer extends Omit<PrinterInput, "secrets"> {
+  hasSecrets: boolean;
 }
 
 interface PrinterRow {
@@ -25,7 +30,7 @@ function rowToPrinter(r: PrinterRow): Printer {
     transportId: r.transport_id,
     name: r.name,
     address: r.address,
-    secrets: r.secrets_json ? JSON.parse(r.secrets_json) : undefined,
+    hasSecrets: r.secrets_json !== null,
     allowedGenerators: r.allowed_generators_json
       ? (JSON.parse(r.allowed_generators_json) as string[])
       : undefined,
@@ -41,23 +46,29 @@ export function dbListPrinters(db: Database): Printer[] {
   return (db.query("SELECT * FROM printers ORDER BY name").all() as PrinterRow[]).map(rowToPrinter);
 }
 
-export function dbUpsertPrinter(db: Database, p: Printer): void {
+function storedSecrets(db: Database, p: PrinterInput): string | null {
+  if (!p.secrets || Object.keys(p.secrets).length === 0) return null;
+  return sealPrinterSecrets(db, p.id, p.secrets);
+}
+
+export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        transport_id=excluded.transport_id, name=excluded.name,
        address=excluded.address,
-       secrets_json=COALESCE(excluded.secrets_json, printers.secrets_json),
+       secrets_json=IIF(?, excluded.secrets_json, printers.secrets_json),
        allowed_generators_json=excluded.allowed_generators_json`,
   ).run(
     p.id,
     p.transportId,
     p.name,
     p.address,
-    p.secrets ? JSON.stringify(p.secrets) : null,
+    storedSecrets(db, p),
     p.allowedGenerators ? JSON.stringify(p.allowedGenerators) : null,
     epochMs(),
+    p.secrets !== undefined,
   );
 }
 

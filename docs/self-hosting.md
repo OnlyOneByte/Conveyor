@@ -99,6 +99,7 @@ Before you expose Conveyor beyond the host:
 | --- | --- | --- |
 | `CONVEYOR_PASSWORD` | none, required | Shared login password, 12 to 512 characters. |
 | `CONVEYOR_AUTH_SECRET` | none, required | HMAC key for session cookies, 32 characters or more after trimming whitespace. |
+| `CONVEYOR_SECRETS_KEY` | unset: generated into `./data/secrets.key` | Key that encrypts printer secrets, 32 bytes in base64 (`openssl rand -base64 32`). |
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |

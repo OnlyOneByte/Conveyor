@@ -37,6 +37,7 @@ services:
       - CONVEYOR_AUTH=${CONVEYOR_AUTH:-}
       - CONVEYOR_PASSWORD=${CONVEYOR_PASSWORD:-}
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
+      - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
       - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
     volumes:
       - ./data:/data
@@ -53,6 +54,7 @@ services:
       - CONVEYOR_QUEUE=${CONVEYOR_QUEUE:-redis}
       - CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}
       - DB_PATH=/data/conveyor.db
+      - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
