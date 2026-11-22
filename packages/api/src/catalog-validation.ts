@@ -1,6 +1,6 @@
 import { isBundledProfilePath } from "@conveyor/shared";
 import { z } from "zod";
-import { apiRegistry } from "./registry-view.js";
+import { apiRegistry } from "./registry.js";
 
 export const MAX_SECRETS = 16;
 export const MAX_SECRET_KEY_LENGTH = 64;

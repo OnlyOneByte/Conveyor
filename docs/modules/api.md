@@ -142,13 +142,11 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
   boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
   and logs the cause on the server only.
 
-## Registry view (`registry-view.ts`, `validate.ts`, `routes/generators.ts`)
+## Registry (`registry.ts`, `validate.ts`, `routes/generators.ts`)
 
-- `apiRegistry` holds capabilities and metadata only. Generator plugins are imported for their pure-data
-  schema, preview and outputs; slicer and transport capabilities are declared inline because their adapters
-  live in the worker image with the engines. Their adapter methods throw here; the generators' `generate()` is
-  wired but never called.
-- Planned: hydrate the view from manifests the worker publishes over Redis at boot, instead of the inline copy.
+- `apiRegistry` is `buildRegistry()` from `@conveyor/plugin-registry`, the same plugin objects the worker
+  runs. The api reads their capabilities, schemas and metadata, and never calls `generate`, `slice`,
+  `submit`, `status` or `cancel`; the engines those would spawn are only in the worker image.
 - `GET /generators` serves each generator's `paramSchema`, UI hints and preview module so the web app can
   render its form.
 - `validateJobRequest` runs the shared capability check against this view.

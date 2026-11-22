@@ -33,11 +33,12 @@ flowchart LR
 | Package | Depends on | Holds |
 |---|---|---|
 | `@conveyor/shared` | zod | Stage contracts, job and event types, registry, profiles, SQLite access (`bun:sqlite`) |
-| `@conveyor/api` | shared, generator plugins | HTTP routes in `src/routes/` (`jobs`, `generators`, `uploads`, `auth`, `catalog`) |
-| `@conveyor/worker` | shared, all plugins | Job loop, status bus, profile resolution |
+| `@conveyor/api` | shared, plugin registry | HTTP routes in `src/routes/` (`jobs`, `generators`, `uploads`, `auth`, `catalog`) |
+| `@conveyor/worker` | shared, plugin registry | Job loop, status bus, profile resolution |
 | `@conveyor/web` | shared | Routes `/`, `/history`, `/monitor`, `/settings` |
 | `plugins/generators/*` | shared | `gridfinity` (OpenSCAD over the `scad/` submodule), `passthrough` (uploaded STL) |
 | `plugins/slicers/*` | shared | `orca`, `prusa` (headless CLIs) |
+| `plugins/registry/builtin` | every plugin | `buildRegistry`, the one list of bundled plugins the api and worker share |
 | `plugins/transports/*` | shared | `moonraker` (Klipper HTTP), `elegoo` (LAN discovery + WebSocket) |
 | `tools/visual` | standalone | Captures screenshots and GIFs of the stub-mode stack for UI PRs ([ADR 0003](adr/0003-visual-evidence.md)) |
 

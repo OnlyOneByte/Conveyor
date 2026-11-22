@@ -174,6 +174,5 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
 
 1. Create `plugins/<stage>/<id>/` (a Bun workspace package) exporting an object that satisfies the stage interface.
 2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts`, `gcodeFlavor` and `profiles` for a slicer, `acceptsFlavors` for a transport.
-3. Register it in the worker's `buildRegistry` (`packages/worker/src/registry.ts`).
-4. Make the api know it too (`packages/api/src/registry-view.ts`): a generator is imported and registered as-is, while a slicer or transport is declared inline as metadata, because the api never runs one.
-5. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.
+3. Register it in `buildRegistry` (`plugins/registry/builtin/src/index.ts`, package `@conveyor/plugin-registry`) and add it to that package's `dependencies`. The api and the worker both build their registry there, so they can't disagree about which plugins exist or what they accept.
+4. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.

@@ -151,10 +151,11 @@ holds the printer. Clearing the intent for `PrintNotStartedError` without a hold
 - When validating or writing fails, the partial directory is removed. If that removal also fails, the
   `StageError` reason ends with `; partial profile not removed: <error>`.
 
-## registry.ts
+## Registry
 
-The worker is the only process that loads real adapters. `buildRegistry` registers every bundled plugin at
-startup ([ADR 0001](../adr/0001-plugin-isolation.md): in-process adapters, isolated engines).
+`buildRegistry` from `@conveyor/plugin-registry` (`plugins/registry/builtin`) registers every bundled plugin.
+The worker is the only process that runs the adapters; the api builds the same registry but only reads it
+([ADR 0001](../adr/0001-plugin-isolation.md): in-process adapters, isolated engines).
 
 ## status.ts
 
