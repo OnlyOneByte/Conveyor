@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./db": "./src/db/index.ts",
     "./queue": "./src/queue/index.ts",
-    "./uploads": "./src/upload-settings.ts"
+    "./uploads": "./src/upload-settings.ts",
+    "./node": "./src/node/index.ts"
   },
   "dependencies": {
     "zod": "^3.23.8",

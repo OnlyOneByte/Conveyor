@@ -72,7 +72,6 @@ export interface SlicerPlugin extends PluginManifest {
   stage: "slicer";
   accepts: string[];                       // input formats, e.g. ["stl", "3mf"]
   gcodeFlavor: string;                     // emitted flavor, e.g. "marlin", "klipper"
-  profiles: ProfileRef[];                  // curated, locked, server-side only
   slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
@@ -92,7 +91,6 @@ is a default: a job's profile names its slicer, and the seed ships profiles for 
 export interface TransportPlugin extends PluginManifest {
   stage: "transport";
   acceptsFlavors: string[];                // gcode flavors it can print
-  discover?(): Promise<PrinterTarget[]>;   // optional mDNS/network discovery
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
   status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>; // stop when signal aborts
   cancel?(handle: PrintHandle): Promise<void>;     // resolve only once the printer confirmed the stop
@@ -173,7 +171,6 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
 ## Adding a plugin (the whole checklist)
 
 1. Create `plugins/<stage>/<id>/` (a Bun workspace package) exporting an object that satisfies the stage interface.
-2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts`, `gcodeFlavor` and `profiles` for a slicer, `acceptsFlavors` for a transport.
-3. Register it in the worker's `buildRegistry` (`packages/worker/src/registry.ts`).
-4. Make the api know it too (`packages/api/src/registry-view.ts`): a generator is imported and registered as-is, while a slicer or transport is declared inline as metadata, because the api never runs one.
-5. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.
+2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts` and `gcodeFlavor` for a slicer (its profiles live in the database, seeded from `packages/shared/src/db/seed.ts`), `acceptsFlavors` for a transport.
+3. Register it in `buildRegistry` (`plugins/registry/builtin/src/index.ts`, package `@conveyor/plugin-registry`) and add it to that package's `dependencies`. The api and the worker both build their registry there, so they can't disagree about which plugins exist or what they accept.
+4. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.

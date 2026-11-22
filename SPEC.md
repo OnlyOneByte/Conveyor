@@ -104,7 +104,7 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 
 - **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
 - **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
-- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
+- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
 - **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).
 - **M5 — Observability & convenience.** ✅ (2026-09-04) Raw Orca JSON profile editor (`v0.1.2`); a `/monitor` tab (live active jobs with per-stage timings + cancel, per-printer TCP reachability, auto-refresh); `/history` state-filter chips + text filter + auto-refresh; job-detail STL/gcode downloads, a per-stage timings section, and a Run again button. API: `GET /jobs/active`, `GET /catalog/printers/:id/reachable`, `GET /jobs/:id/artifact/:kind` (containment-guarded). Shipped in `v0.1.3`.

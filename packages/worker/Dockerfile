@@ -11,6 +11,7 @@ COPY plugins/slicers/orca/package.json plugins/slicers/orca/
 COPY plugins/slicers/prusa/package.json plugins/slicers/prusa/
 COPY plugins/transports/moonraker/package.json plugins/transports/moonraker/
 COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
+COPY plugins/registry/builtin/package.json plugins/registry/builtin/
 RUN bun install --frozen-lockfile --production
 
 FROM oven/bun:debian
@@ -22,7 +23,7 @@ ARG ORCA_ENABLE=auto
 ENV ORCA_BIN=/opt/orca/AppRun
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      prusa-slicer \
+      prusa-slicer gpgv \
       xvfb xauth ca-certificates curl \
       libharfbuzz0b libgpg-error0 libgcrypt20 libglib2.0-0 libfontconfig1 libfreetype6 libgomp1 \
       libgtk-3-0 libwebkit2gtk-4.1-0 libgl1 libegl1 libgstreamer1.0-0 fuse \
@@ -31,8 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxext6 libsm6 libice6 libnotify4 libgdk-pixbuf-2.0-0 \
  && rm -rf /var/lib/apt/lists/*
 
-COPY scripts/install-openscad.sh /tmp/install-openscad.sh
-RUN chmod +x /tmp/install-openscad.sh && /tmp/install-openscad.sh
+COPY scripts/install-openscad.sh scripts/verify-openscad-signature.sh scripts/openscad-release-key.asc /tmp/
+RUN chmod +x /tmp/install-openscad.sh /tmp/verify-openscad-signature.sh && /tmp/install-openscad.sh
 ENV OPENSCAD_BIN=/opt/openscad/bin/openscad
 
 COPY scripts/install-orca.sh /tmp/install-orca.sh

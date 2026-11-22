@@ -1,5 +1,4 @@
 import type { Database } from "bun:sqlite";
-import { epochMs } from "../db/epoch-ms.js";
 import type { JobRequest, JobState } from "../job.js";
 import { appendEvent } from "./event-log.js";
 
@@ -12,7 +11,11 @@ export interface QueueTiming {
   now: () => number;
 }
 
-export const DEFAULT_TIMING: QueueTiming = { leaseMs: 30_000, backoffBaseMs: 5_000, now: epochMs };
+export const DEFAULT_TIMING: QueueTiming = {
+  leaseMs: 30_000,
+  backoffBaseMs: 5_000,
+  now: () => Date.now(),
+};
 
 export interface Lease {
   jobId: string;

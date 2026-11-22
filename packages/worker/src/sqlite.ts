@@ -1,11 +1,11 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { buildRegistry } from "@conveyor/plugin-registry";
 import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { type BaseDeps, type QueueWorker, startQueueWorker } from "./loop.js";
 import { resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
-import { buildRegistry } from "./registry.js";
 
 export function sqliteBase(db: Database): BaseDeps {
   return {

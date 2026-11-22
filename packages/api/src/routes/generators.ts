@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { apiRegistry } from "../registry-view.js";
+import { apiRegistry } from "../registry.js";
 
 export async function registerGeneratorRoutes(app: FastifyInstance): Promise<void> {
   app.get("/generators", async () => {
