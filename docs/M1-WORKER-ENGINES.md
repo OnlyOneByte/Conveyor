@@ -137,7 +137,7 @@ by running both engines in one image:
   xvfb + the verified GTK/GL lib set; runs `scripts/install-orca.sh` (arch-aware:
   x86_64 **and** aarch64); sets `ORCA_DATADIR` to the bundled vendor profile tree.
 - `scripts/install-orca.sh` — resolves the Linux AppImage asset for this arch from
-  GitHub's release API (latest by default; `ORCA_RELEASE=x.y.z` to pin a build),
+  GitHub's release API for the pinned `ORCA_RELEASE` (2.4.1), checks its pinned sha256,
   downloads + `--appimage-extract`s to `/opt/orca/AppRun`. Discovering the asset URL
   from the API is more robust than guessing filenames (which vary by release). It
   parses the release JSON with `grep` and `sed` because the worker image does not
@@ -155,10 +155,10 @@ The engine + CLI + image + a turnkey bundle are all proven (see above). What lan
 1. ✅ **Real Orca profile bundle shipped** — `profiles/orca-klipper-pla-0.2/`
    (verbatim Creality K1 leaf exports). The seed ships it as a pickable profile, and
    the full generate→slice E2E ran green in the rebuilt image.
-2. ✅ **Tracks the latest release** — `install-orca.sh` resolves the newest Orca
-   AppImage from GitHub's API at build time (no version/checksum pinning). This is a
-   personal self-host pulling from the official upstream release; tracking latest is
-   the intended posture. To freeze a build, pass `ORCA_RELEASE=x.y.z`.
+2. ✅ **Pinned to the profile's release** — `install-orca.sh` installs OrcaSlicer 2.4.1, the
+   release the bundle was exported from, and checks each AppImage against a pinned sha256.
+   Tracking latest broke the bundle (#172: a newer release rejects it with "Preset was not
+   found in the loaded bundle"). Bumping: [self-hosting.md](self-hosting.md#bumping-the-orcaslicer-pin).
 
 Optional follow-up (not a blocker):
 

@@ -185,7 +185,7 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 
 `scripts/install-openscad.sh` installs the newest OpenSCAD nightly AppImage for the host architecture, because the distro release cannot parse the gridfinity library ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)). Pin a build with `OPENSCAD_RELEASE=YYYY.MM.DD`, or `OPENSCAD_APPIMAGE_URL=<url>` (which wins). The AppImage is extracted, so no FUSE is needed, and `/opt/openscad/bin/openscad` is a wrapper that sets `LD_LIBRARY_PATH` for OpenSCAD alone; a global `LD_LIBRARY_PATH` breaks PrusaSlicer.
 
-`scripts/install-orca.sh <latest|x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the latest GitHub release, or the version given. The `ORCA_ENABLE` build argument picks the mode:
+`scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
 
 | `ORCA_ENABLE` | Behaviour |
 | --- | --- |
@@ -194,3 +194,12 @@ Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`,
 | `0` | Skipped. |
 
 Orca is GUI-linked, so the worker runs it under `xvfb-run`.
+
+### Bumping the OrcaSlicer pin
+
+The bundled profile in `profiles/orca-klipper-pla-0.2/` only loads in the Orca release it was exported from. A newer release can reject it with "Preset was not found in the loaded bundle", so bump the release and the profile together:
+
+1. In the new OrcaSlicer, re-export the three leaf presets (machine, process, filament) into `profiles/orca-klipper-pla-0.2/`, and update the version in its `README.md`.
+2. Set the new version as the `ORCA_RELEASE` default in `packages/worker/Dockerfile` and `scripts/install-orca.sh`.
+3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/SoftFever/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads.
+4. Open the PR. CI's `orca slice` job builds the worker with `ORCA_ENABLE=1` and slices a cube with the bundled profile as uid 10001, so a profile the new release rejects fails there.
