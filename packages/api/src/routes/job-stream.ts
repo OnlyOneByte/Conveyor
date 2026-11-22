@@ -18,7 +18,13 @@ export const DEFAULT_STREAM_LIMITS: JobStreamLimits = { buffered: 256, readMs: 5
 
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const seqOf = (payload: string) => parseStatusEvent(payload)?.seq ?? 0;
+export const isJobId = (id: string): boolean => JOB_ID.test(id);
+
+function newerThan(after: number, payload: string): boolean {
+  const event = parseStatusEvent(payload);
+  if (event?.seq === undefined) return event !== undefined && isTerminal(event.state);
+  return event.seq > after;
+}
 
 function withTimeout<T>(read: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -32,7 +38,7 @@ export function registerJobStream(app: FastifyInstance, deps: JobStreamDeps): vo
   const limits = deps.limits ?? DEFAULT_STREAM_LIMITS;
   app.get<{ Params: { id: string } }>("/jobs/:id/ws", { websocket: true }, async (socket, req) => {
     const jobId = req.params.id;
-    if (!JOB_ID.test(jobId)) return socket.close(JOB_STREAM_CLOSE.unknownJob, "unknown job");
+    if (!isJobId(jobId)) return socket.close(JOB_STREAM_CLOSE.unknownJob, "unknown job");
     let open = true;
     let live = false;
     let stop: (() => void) | undefined;
@@ -70,8 +76,8 @@ export function registerJobStream(app: FastifyInstance, deps: JobStreamDeps): vo
       }
       if (snapshot) forward(snapshot);
       live = true;
-      const after = snapshot ? seqOf(snapshot) : 0;
-      for (const payload of buffered.splice(0)) if (seqOf(payload) > after) forward(payload);
+      const after = (snapshot && parseStatusEvent(snapshot)?.seq) || 0;
+      for (const payload of buffered.splice(0)) if (newerThan(after, payload)) forward(payload);
     } catch (err) {
       req.log.error({ err, jobId }, "job stream failed");
       finish(JOB_STREAM_CLOSE.failed, "job stream failed");

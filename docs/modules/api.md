@@ -39,9 +39,11 @@ job's last viewer leaves, and the connection closed when no viewer is left. A so
 reads the snapshot after, buffering what arrives meanwhile. `publishStatus` stamps each event with a per-job
 `seq` (`INCR job:<id>:seq`) and writes the snapshot and publishes the same stamped string in one script, so a
 buffered event is sent only when its `seq` is above the snapshot's; two identical events never hide the one
-between them. The buffer holds at most 256 events and each read (the snapshot, then the BullMQ lookup) gets
+between them. An event with no `seq` (from a worker older than the stamping) is sent only if it is
+terminal, so the socket still closes. The buffer holds at most 256 events and each read (the snapshot, then the BullMQ lookup) gets
 5 s; past either, the socket closes with `1011`. An id that is not a UUID closes with `4404` before any
-lookup, since `meta` or `<id>:cancel` would otherwise match BullMQ's or the cancel flag's keys. A job with no
+lookup, since `meta` or `<id>:cancel` would otherwise match BullMQ's or the cancel flag's keys;
+`GET /jobs/:id` and `POST /jobs/:id/cancel` answer `404` for such ids on the same rule. A job with no
 snapshot yet but still in BullMQ waits for its first event instead of closing as unknown. The subscriber is
 created with `enableReadyCheck: false`: with the check on, two viewers arriving together on a fresh
 subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with

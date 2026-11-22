@@ -17,7 +17,7 @@ import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
-import { registerJobStream } from "./job-stream.js";
+import { isJobId, registerJobStream } from "./job-stream.js";
 
 const LIVE_STATES = [
   "waiting",
@@ -68,6 +68,7 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
 
   // Snapshot (reconnect-safe: PWA re-fetches this on WS reconnect).
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
+    if (!isJobId(req.params.id)) return reply.code(404).send({ error: "unknown job" });
     const snapshot = await redis.get(jobSnapshotKey(req.params.id));
     if (!snapshot) return reply.code(404).send({ error: "unknown job" });
     return reply.send(JSON.parse(snapshot));
@@ -76,6 +77,8 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   registerArtifactRoute(app);
 
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
+    const jobId = req.params.id;
+    if (!isJobId(jobId)) return reply.code(404).send({ ok: false, jobId, error: "unknown job" });
     const result = await cancelJob(req.params.id, {
       getJob: (id) => jobQueue.getJob(id),
       readSnapshot: async (id) => parseStatusEvent(await redis.get(jobSnapshotKey(id))),
