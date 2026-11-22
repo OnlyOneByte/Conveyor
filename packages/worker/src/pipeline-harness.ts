@@ -13,6 +13,7 @@ import {
   type StageCtx,
   type TransportPlugin,
 } from "@conveyor/shared";
+import { z } from "zod";
 import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "./pipeline";
 
 export const req: JobRequest = { generator: { id: "gen" }, printerId: "p1", profileId: "prof" };
@@ -93,6 +94,7 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     name: "fake generator",
     version: "0.0.0",
     stage: "generator",
+    params: z.unknown(),
     paramSchema: {},
     outputs: ["stl"],
     generate: async (_params, ctx) => {

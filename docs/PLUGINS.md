@@ -35,8 +35,12 @@ import type { JSONSchema7 } from "json-schema";
 
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
+  // Strict zod schema; POST /jobs parses params with it (defaults applied) and answers 400 naming the field.
+  params: ZodType<P, ZodTypeDef, unknown>;
   // Zod-derived JSON Schema → the PWA renders the config form from this.
   paramSchema: JSONSchema7;
+  // Optional request-time check on parsed params, e.g. that an upload exists; null means OK.
+  validateRequest?(params: P): ParamIssue | null;
   // Optional layout hints for that form: groups, an advanced section, controls, units.
   ui?: FormUiHints;
   // Optional procedural-preview descriptor for the client-side fast viewport.
@@ -169,7 +173,7 @@ export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): 
 ## Adding a plugin (the whole checklist)
 
 1. Create `plugins/<stage>/<id>/` (a Bun workspace package) exporting an object that satisfies the stage interface.
-2. Declare what it handles: `outputs` and a Zod-derived `paramSchema` for a generator, `accepts`, `gcodeFlavor` and `profiles` for a slicer, `acceptsFlavors` for a transport.
+2. Declare what it handles: `outputs`, a strict zod `params` schema and the `paramSchema` derived from it for a generator, `accepts`, `gcodeFlavor` and `profiles` for a slicer, `acceptsFlavors` for a transport.
 3. Register it in the worker's `buildRegistry` (`packages/worker/src/registry.ts`).
 4. Make the api know it too (`packages/api/src/registry-view.ts`): a generator is imported and registered as-is, while a slicer or transport is declared inline as metadata, because the api never runs one.
 5. For slicers/transports wrapping a CLI/API: keep all I/O inside the adapter; the core never learns the tool's name.

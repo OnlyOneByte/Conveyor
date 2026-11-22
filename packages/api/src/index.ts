@@ -1,5 +1,6 @@
 import { queueMode } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
+import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
@@ -12,11 +13,12 @@ import { parseTrustedProxies } from "./trusted-proxies.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.CONVEYOR_HOST ?? "127.0.0.1";
-const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024);
 
 let queue: string;
 let trustProxy: string[] | false;
+let uploads: UploadSettings;
 try {
+  uploads = uploadSettings(process.env);
   queue = queueMode(process.env);
   trustProxy = parseTrustedProxies(process.env.CONVEYOR_TRUSTED_PROXIES);
   openDb();
@@ -27,7 +29,7 @@ try {
 
 const app = Fastify({ logger: true, trustProxy });
 await app.register(websocket);
-await app.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
+await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
 
 app.get("/health", async () => ({ ok: true }));
 
@@ -35,7 +37,7 @@ registerAuthGuard(app);
 await registerAuthRoutes(app);
 
 await registerGeneratorRoutes(app);
-await registerUploadRoutes(app);
+await registerUploadRoutes(app, uploads);
 await registerCatalogRoutes(app);
 await registerPrinterHoldRoutes(app);
 const { registerJobRoutes } = await import(

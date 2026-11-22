@@ -1,4 +1,5 @@
 import type { JSONSchema7 } from "json-schema";
+import type { ZodType, ZodTypeDef } from "zod";
 import type { GcodeArtifact, ModelArtifact } from "./artifacts.js";
 import type { StageCtx } from "./context.js";
 
@@ -34,9 +35,16 @@ export interface FormUiHints {
   note?: string;
 }
 
+export interface ParamIssue {
+  field: string;
+  message: string;
+}
+
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
+  params: ZodType<P, ZodTypeDef, unknown>;
   paramSchema: JSONSchema7;
+  validateRequest?(params: P): ParamIssue | null;
   ui?: FormUiHints;
   preview?: PreviewDescriptor;
   outputs: string[];

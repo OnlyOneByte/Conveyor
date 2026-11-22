@@ -56,6 +56,17 @@ describe("the worker entry point on the sqlite queue", () => {
     }
   });
 
+  test("exits 1 on a malformed MAX_UPLOAD_BYTES", async () => {
+    dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
+    const proc = spawnMain({ CONVEYOR_QUEUE: "redis", MAX_UPLOAD_BYTES: "abc" });
+    try {
+      expect(await within(proc.exited, 10_000, "exit")).toBe(1);
+      expect(await new Response(proc.stderr).text()).toContain("MAX_UPLOAD_BYTES must be");
+    } finally {
+      if (proc.exitCode === null) proc.kill("SIGKILL");
+    }
+  });
+
   test("exits 1 on a malformed CONVEYOR_SECRETS_KEY", async () => {
     dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
     const proc = spawnMain({ CONVEYOR_QUEUE: "redis", CONVEYOR_SECRETS_KEY: "short" });
