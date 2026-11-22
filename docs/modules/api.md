@@ -60,6 +60,13 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /auth/status` tells the client whether to show a login screen.
 - A successful login sets `cache-control: private, no-store` so the gated response is never cached or
   cross-served.
+- Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
+  login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
+  successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
+  oldest is dropped first), and resets when the api restarts. The client is `req.ip`; the api does not trust
+  `X-Forwarded-For`, so behind Caddy every request shares Caddy's address and the limit is one shared budget
+  of 5 guesses a minute. That still caps a brute-force attempt, at the cost that a burst of wrong guesses
+  also locks the owner out for up to a minute.
 
 ## Catalog and history (`routes/catalog.ts`)
 
