@@ -28,12 +28,21 @@ flowchart LR
 | `worker` | `packages/worker` | BullMQ `Worker` (`WORKER_CONCURRENCY`, default 2). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). |
 | `redis` | `docker-compose.yml` | Queue, live `job:<id>` snapshot, `job:<id>:status` channel. |
 
+### Queue modes
+
+This page shows the default, `CONVEYOR_QUEUE=redis`. With `CONVEYOR_QUEUE=sqlite` plus
+`CONVEYOR_QUEUE_UNSTABLE=1`, the api and the worker run jobs from the `jobs` table instead: the worker claims a
+leased row, live status goes to `job_events`, and the api polls that table for `/jobs/:id/ws`. Redis is not
+used for jobs in that mode. Both services must get the same value. The rollout is in
+[design/sqlite-queue.md](design/sqlite-queue.md), and the code as built in
+[modules/worker.md](modules/worker.md).
+
 ## Packages
 
 | Package | Depends on | Holds |
 |---|---|---|
 | `@conveyor/shared` | zod | Stage contracts, job and event types, registry, profiles, SQLite access (`bun:sqlite`) |
-| `@conveyor/api` | shared, generator plugins | HTTP routes in `src/routes/` (`jobs`, `generators`, `uploads`, `auth`, `catalog`) |
+| `@conveyor/api` | shared, generator plugins | HTTP routes in `src/routes/` (`jobs` or `jobs-sqlite` by queue mode, sharing `job-common`; `generators`, `uploads`, `auth`, `catalog`, `printer-holds`) |
 | `@conveyor/worker` | shared, all plugins | Job loop, status bus, profile resolution |
 | `@conveyor/web` | shared | Routes `/`, `/history`, `/monitor`, `/settings` |
 | `plugins/generators/*` | shared | `gridfinity` (OpenSCAD over the `scad/` submodule), `passthrough` (uploaded STL) |

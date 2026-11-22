@@ -1,6 +1,10 @@
 # Design: a job queue in SQLite
 
-Status: proposed, awaiting review. No code lands until this page is accepted.
+Status: accepted, in progress. [ADR 0004](../adr/0004-sqlite-job-queue.md) records the decision. PRs 1 to 7 of
+the [breakdown](#breakdown-into-prs) have landed (#125 to #146) and run behind `CONVEYOR_QUEUE=sqlite` plus
+`CONVEYOR_QUEUE_UNSTABLE=1`. PRs 8 to 10 (the importer, removing Redis, one process) are not started, so Redis
+stays the default. [Implementation deviations](#implementation-deviations) lists where the code differs from
+this page.
 
 Fixes [#5](https://github.com/OnlyOneByte/Conveyor/issues/5). Follows the queue sketch in the stack proposal
 ("Queue design (Option A)").
@@ -179,7 +183,7 @@ out:
 - **A dead worker:** the lease expires within `leaseMs` (30 s). The reaper then turns the job into a resumable
   orphan (marker set) or settles it and holds the printer (intent only). An orphan is claimed on the next
   claim tick. If resuming fails, it settles `failed` and holds the printer.
-- **A hold:** an operator releases it with `POST /printers/:id/release` (see [Printer holds](#printer-holds)).
+- **A hold:** an operator releases it with `POST /catalog/printers/:id/release` (see [Printer holds](#printer-holds)).
   A hold is deliberate. It is the one wait that needs a person, and it says so in the printer's status and the
   failed job's reason.
 
@@ -344,10 +348,10 @@ While a printer is held:
 
 - no queued job for it is claimed, so nothing prepares ahead for a printer that may never be free;
 - the printer slot refuses every job for it, which covers a job already preparing when the hold was set;
-- `GET /printers` and the printer's status show the hold and its reason;
+- `GET /catalog/printers` and the printer's status show the hold and its reason;
 - other printers are unaffected: the held printer's jobs neither run nor count against `WORKER_CONCURRENCY`.
 
-`POST /printers/:id/release` clears it. The operator calls it after checking the printer. It is an
+`POST /catalog/printers/:id/release` clears it. The operator calls it after checking the printer. It is an
 authenticated route like the rest of the api, and it needs a confirmation flag (`{ "confirm": true }`) so a
 stray request cannot release a hold. A hold is never released automatically: probing the printer cannot tell
 "idle" from "about to start the job we sent".
@@ -361,7 +365,7 @@ read -rs CONVEYOR_PW
 printf '{"password":"%s"}' "$CONVEYOR_PW" |
   curl -fsS -c "$jar" -H 'content-type: application/json' --data-binary @- https://conveyor.example/auth/login
 curl -fsS -b "$jar" -H 'content-type: application/json' -d '{"confirm":true}' \
-  https://conveyor.example/printers/<printer-id>/release
+  https://conveyor.example/catalog/printers/<printer-id>/release
 rm -f "$jar"; unset CONVEYOR_PW
 ```
 
@@ -529,8 +533,9 @@ disagree. The api and the worker each log the selected mode at startup.
   `sqlite` worker with a `redis` api never sees a job, and the reverse never runs one.
 - Until PR 7 merges, `sqlite` is undocumented, and the worker refuses to start in that mode unless
   `CONVEYOR_QUEUE_UNSTABLE=1` is also set. Only tests and the developers of PRs 5 to 7 set it.
-- PR 7 removes that guard and documents the flag. PR 9 makes `sqlite` the default, deletes the Redis path and
-  removes the flag.
+- The guard outlived PR 7: both the api and the worker still refuse `sqlite` without
+  `CONVEYOR_QUEUE_UNSTABLE=1` (`packages/shared/src/queue-mode.ts`). PR 9 makes `sqlite` the default, deletes
+  the Redis path and removes both flags.
 
 ### Migrating from Redis
 
@@ -580,7 +585,7 @@ step of every scenario.
 | Printer slot | A second job waits in `slicing` with the waiting message while the first is on the printer, and takes the slot when it settles; a held printer refuses the slot; cancel while waiting settles `canceled` |
 | Issue #5, crash | A fake transport counts `submit()` calls. Kill the worker (stop renewing, no settle) at each of the three crash points in [Submitting](#submitting), advance the clock past the lease, start a second worker. Before the intent: requeued and submitted once. Intent only: `failed`, printer held, `submit()` count 1, the next job for that printer waits. After the marker: resumed on the stored handle, count 1 |
 | Resume failure | A transport whose `status()` rejects on resume settles `failed` with the reconnect reason and holds the printer |
-| Hold release | `POST /printers/:id/release` without `confirm` is `400`; with it, the hold clears and the waiting job takes the slot |
+| Hold release | `POST /catalog/printers/:id/release` without `confirm` is `400`; with it, the hold clears and the waiting job takes the slot |
 | Shutdown | `SIGTERM` requeues a slicing job (attempt not counted); waits for a `submit()` in progress, writes the marker, then releases; releases a printing job so a second worker resumes at once; a grace timeout inside `submit()` ends in a hold |
 | Cancel | The table in [Cancel](#cancel), case by case, mirroring `api/src/cancel.test.ts`; a cancel during a 10 s fake slice aborts `ctx.signal` within 1.5 s of the clock; a cancel racing a claim leaves exactly one of `canceled` or running; a cancel during `submit()` whose `stopPrinter` fails settles `failed` and holds the printer, and the next job for it waits |
 | Writes | 100 `ctx.report()` calls in one second produce one row update and one event; every state change produces an event; a write after a terminal state appends nothing |
@@ -609,13 +614,25 @@ crash tests, because the tests are what prove #5 is fixed.
 | 4 | `feat(queue): cancel, printer slot and printer holds` | Queued and in-flight cancel, slot acquisition, hold set and release functions. Cancel (queue side), slot and hold tests | ~330 |
 | 5 | `feat(worker): run jobs from the sqlite queue behind a flag` | Worker loop: claim with the engine-only `WORKER_CONCURRENCY` count, the run timer (cancel every 1 s, renew every 10 s), status through the queue, settle through the queue, behind `CONVEYOR_QUEUE=sqlite` plus `CONVEYOR_QUEUE_UNSTABLE=1` | ~370 |
 | 6 | `fix(worker): never resubmit after a restart` | Slot, intent, marker, resume, holds on an unknown outcome and on a failed stop after the intent, `SIGTERM`, `stop_grace_period`. The #5 crash, resume failure, two-printer and shutdown tests. Closes #5 | ~400, may ask for `large-ok` |
-| 7 | `feat(api): serve jobs from the sqlite queue` | Enqueue, snapshot, active, history filter, cancel, the WebSocket tail and `POST /printers/:id/release`, behind the flag; removes the unstable guard and documents the flag. Api and switch tests | ~390 |
+| 7 | `feat(api): serve jobs from the sqlite queue` | Enqueue, snapshot, active, history filter, cancel, the WebSocket tail and `POST /catalog/printers/:id/release`, behind the flag; removes the unstable guard and documents the flag. Api and switch tests | ~390 |
 | 8 | `feat(worker): import queued jobs from redis` | The importer with both refusals, its tests, and the upgrade runbook in `self-hosting.md` | ~300 |
 | 9 | `refactor(infra): make the sqlite queue the only queue and remove redis` | Default to SQLite and remove the flag; delete `bullmq`, `ioredis`, `StatusBus`, the Lua script and the Redis keys; drop `redis` from compose; update `DATA-MODEL.md`, `SEQUENCE.md` and the module pages. Mostly deletions, which §4 does not count | ~250 added |
 | 10 | `feat(infra): run the api and worker in one process` | `conveyor serve` and `conveyor work`, the in-process `EventTarget` fast path, compose down to caddy, web and conveyor | ~350 |
 
 Order: 1, then 2, 3 and 4 in any order; 5 needs 2 and 3; 6 needs 4 and 5; 7 needs 3 and 4 and can be reviewed
 beside 5 and 6; 8 needs 7; 9 needs 6, 7 and 8; 10 needs 9.
+
+## Implementation deviations
+
+Where the landed code differs from this page. [modules/worker.md](../modules/worker.md) describes the code as
+it is.
+
+| This page says | The code does |
+|---|---|
+| Idle polling runs a read-only `SELECT EXISTS` and takes the write lock only on a hit ([Atomic claim](#atomic-claim)) | An idle worker takes the write lock for every claim attempt |
+| A resumable orphan is claimed whatever the engine count | An orphan is claimed only while an engine slot is free, because `claimJob` cannot ask for orphans alone |
+| `PrintNotStartedError` clears the intent and sets no hold ([Submitting](#submitting)) | Every failed `submit()`, `PrintNotStartedError` included, settles `failed` inside the upload window and holds the printer |
+| PR 7 removes the `CONVEYOR_QUEUE_UNSTABLE` guard | The guard stays until PR 9 ([Switching between the two stacks](#switching-between-the-two-stacks)) |
 
 ## Risks
 
