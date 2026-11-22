@@ -260,8 +260,8 @@ Full catalog + history surface (2026-09-02):
 
 | Route | Notes |
 | --- | --- |
-| `GET/PUT /catalog/printers`, `DELETE /catalog/printers/:id` | `transportId` validated against the registry; secrets stripped on read |
-| `GET/PUT /catalog/profiles`, `DELETE /catalog/profiles/:id` | `slicerId` and `gcodeFlavor` validated against the registry |
+| `GET/PUT /catalog/printers`, `DELETE /catalog/printers/:id` | `PUT` checks `transportId` and every `allowedGenerators` id against the registry; `secrets` holds at most 16 entries, names 1–64 characters, values up to 4096 (`catalog-validation.ts`). Secrets are stripped on read |
+| `GET/PUT /catalog/profiles`, `DELETE /catalog/profiles/:id` | `PUT` checks `slicerId` against the registry, needs a `gcodeFlavor` some registered transport accepts, and a `path` of the form `/profiles/<bundle>` |
 | `GET /catalog/transports` | capability metadata; drives the Settings printer form's picker |
 | `GET /jobs-history?limit=` | windowed list, default 50, max 200 |
 | `GET /jobs-history/:id` | one settled job; 404 when absent |
