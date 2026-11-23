@@ -201,6 +201,34 @@ docker compose exec -w /app/packages/api api bun -e 'const { Queue } = await imp
 
 It prints `paused: false` when it's done.
 
+## Upgrading to Redis 8
+
+This release moves the compose `redis` service from `redis:7-alpine` to `redis:8-alpine`. The upgrade is one-way. Redis 8 reads the volume Redis 7 left, but once Redis 8 rewrites its append-only file, which it does on its own as the file grows, Redis 7 refuses the volume (`Can't handle RDB format version 15`) and the stack stays down. **You can't roll back to Redis 7 without a backup of `redis_data` taken before the upgrade.**
+
+Back up the volume first, while the stack is still on Redis 7:
+
+```bash
+docker compose stop api worker redis
+docker run --rm -v conveyor_redis_data:/data:ro -v "$PWD":/backup alpine \
+  tar -C /data -czf /backup/redis_data-before-8.tgz .
+```
+
+Then upgrade as usual (`docker compose up -d --build`). Redis 8 starts on the same volume, and queued jobs are kept.
+
+To go back to Redis 7, restore that backup and pin the old image. Stop the stack, empty the volume and unpack the backup:
+
+```bash
+docker compose stop api worker redis
+docker run --rm -v conveyor_redis_data:/data -v "$PWD":/backup alpine \
+  sh -c 'find /data -mindepth 1 -delete && tar -C /data -xzf /backup/redis_data-before-8.tgz'
+```
+
+Set the `redis` service's `image:` back to `redis:7-alpine` and run `docker compose up -d`. Anything queued after the backup is lost.
+
+The volume is `conveyor_redis_data` because the compose project is named `conveyor`; `docker volume ls` shows it.
+
+Redis 8's image loads four add-on modules on start (RedisBloom, RediSearch, RedisTimeSeries and RedisJSON), and Conveyor uses none of them. The compose service mounts an empty, read-only `tmpfs` over the image's module folder, `/usr/local/lib/redis/modules`, so none of them load. The vector-set type is built into Redis 8 itself and stays.
+
 ## Releasing a held printer
 
 This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a

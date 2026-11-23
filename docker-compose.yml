@@ -113,6 +113,7 @@ services:
     cap_drop: [ALL]
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
+    tmpfs: ["/usr/local/lib/redis/modules:ro"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

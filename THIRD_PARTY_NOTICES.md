@@ -32,6 +32,12 @@ libraries for the slicers, and the Debian packages `/opt/openscad/bin/openscad` 
 `libmpfr6`, `libtbb12` and `libxml2`. Each carries its license in `/usr/share/doc/<package>/copyright` inside
 the image. OpenSSL, nettle and libzip are found at build time but not linked into the binary.
 
+## Images the compose stack runs unmodified
+
+| Component | Version | License | Upstream | Service |
+| --- | --- | --- | --- | --- |
+| Redis | `redis:8-alpine` (8.10.3 when this was written), the official image, pulled as is | Redis 8 offers RSALv2, SSPLv1 or AGPLv3, at the user's choice; Conveyor uses it under AGPLv3, as an unmodified separate service (`LICENSE.txt`) | <https://github.com/redis/redis> | `redis` in `docker-compose.yml` |
+
 ## Source for the GPL, AGPL, LGPL and OFL components
 
 - **OrcaSlicer:** the `v2.4.1` tag, <https://github.com/OrcaSlicer/OrcaSlicer/releases/tag/v2.4.1>.
@@ -44,4 +50,6 @@ the image. OpenSSL, nettle and libzip are found at build time but not linked int
   `.sha256`, to each Conveyor GitHub release. Upstream:
   <https://github.com/openscad/openscad/releases/tag/openscad-2026.11-RC0>.
   `/opt/openscad/share/doc/openscad/SOURCE` in the image names the commit, URL and sha256.
+- **Redis:** the matching `8.x` release tag, <https://github.com/redis/redis/releases>. `redis-cli INFO server`
+  in the running container prints the exact `redis_version`.
 - **Bun's WebKit:** <https://github.com/oven-sh/WebKit>, at the version Bun's `LICENSE.md` describes.
