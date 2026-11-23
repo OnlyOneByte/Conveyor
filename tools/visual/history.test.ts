@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Route } from "playwright";
+import type { BrowserContext, Route } from "playwright";
 import {
   fulfillPinned,
   fulfillPinnedEntry,
@@ -8,6 +8,7 @@ import {
   isHistoryList,
   pinHistory,
   pinHistoryEntry,
+  pinHistoryRoute,
 } from "./history.ts";
 
 const job = (id: string, createdAt: number) => ({
@@ -117,5 +118,40 @@ describe("one job's detail, /jobs-history/<id>", () => {
     } as unknown as Route;
     await fulfillPinnedEntry(route);
     expect(fulfilled).toEqual([{ response, json: pinHistoryEntry(job("seed-canceled", 7)) }]);
+  });
+});
+
+describe("a time field the API did not return", () => {
+  const withoutCreatedAt = () => {
+    const { createdAt: _missing, ...rest } = job("seed-failed", 1795000001000);
+    return rest;
+  };
+
+  test("stays missing on one job's detail, so the page still shows it broken", () => {
+    const pinned = pinHistoryEntry(withoutCreatedAt()) as Record<string, unknown>;
+    expect("createdAt" in pinned).toBe(false);
+    expect(pinned.updatedAt).toBe(HISTORY_EPOCH);
+  });
+
+  test("stays missing in the list too", () => {
+    const [pinned] = pinHistory([withoutCreatedAt()]) as Record<string, unknown>[];
+    expect("createdAt" in pinned).toBe(false);
+    expect(pinned.updatedAt).toBe(HISTORY_EPOCH + 60_000);
+  });
+});
+
+describe("pinHistoryRoute", () => {
+  test("registers the list pin and the detail pin on the context", async () => {
+    const routes: [(url: URL) => boolean, unknown][] = [];
+    const context = {
+      route: async (match: (url: URL) => boolean, handler: unknown) => {
+        routes.push([match, handler]);
+      },
+    } as unknown as BrowserContext;
+    await pinHistoryRoute(context);
+    expect(routes.map(([, handler]) => handler)).toEqual([fulfillPinned, fulfillPinnedEntry]);
+    const [list, entry] = routes.map(([match]) => match);
+    expect(list(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
+    expect(entry(new URL("http://127.0.0.1/jobs-history/seed-failed"))).toBe(true);
   });
 });
