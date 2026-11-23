@@ -54,6 +54,18 @@ created with `enableReadyCheck: false`: with the check on, two viewers arriving 
 subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with
 `1011`.
 
+## Job routes on the Redis queue (`routes/jobs.ts`)
+
+`GET /jobs/active` reads the `jobs:active` set and returns each member's snapshot, newest event first. The
+set is only an index and the snapshot is the truth: a member whose snapshot is gone or already terminal (a
+worker that died mid-job) is left out of the answer and removed from the set, so the set heals itself. A
+failed removal never fails the read. Fastify's router matches the literal `/jobs/active` before the
+parametric `/jobs/:id` regardless of registration order, so a literal `/jobs/<word>` route needs no special
+ordering, and `/jobs/:id` answers `404` for any id that is not a UUID.
+
+`GET /jobs/:id` returns the job's current snapshot. The PWA reads it when it opens a job's status, next to
+the WebSocket. The client does not reconnect a closed socket yet (#193).
+
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
