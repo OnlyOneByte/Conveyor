@@ -13,6 +13,8 @@ updates:
     ignore:
       - dependency-name: "@types/bun"
         update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
     groups:
       minor:
         update-types: [minor, patch]
