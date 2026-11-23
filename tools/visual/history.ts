@@ -1,4 +1,4 @@
-import type { BrowserContext, Route } from "playwright";
+import type { Route } from "playwright";
 
 export const HISTORY_EPOCH = Date.UTC(2026, 0, 1, 12, 0, 0);
 
@@ -31,17 +31,33 @@ export const isHistoryList = (url: URL): boolean => url.pathname === "/jobs-hist
 
 export const isHistoryEntry = (url: URL): boolean => /^\/jobs-history\/[^/]+$/.test(url.pathname);
 
-const fulfillWith = (pin: (body: unknown) => unknown) => async (route: Route) => {
-  const response = await route.fetch();
-  if (!response.ok()) return route.fulfill({ response });
-  await route.fulfill({ response, json: pin(await response.json()) });
-};
+interface Fetched {
+  ok(): boolean;
+  json(): Promise<unknown>;
+}
+
+interface PinnableRoute<R extends Fetched> {
+  fetch(): Promise<R>;
+  fulfill(options: { response?: R; json?: unknown }): Promise<unknown>;
+}
+
+const fulfillWith =
+  (pin: (body: unknown) => unknown) =>
+  async <R extends Fetched>(route: PinnableRoute<R>) => {
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    await route.fulfill({ response, json: pin(await response.json()) });
+  };
 
 export const fulfillPinned = fulfillWith(pinHistory);
 
 export const fulfillPinnedEntry = fulfillWith(pinHistoryEntry);
 
-export async function pinHistoryRoute(context: BrowserContext): Promise<void> {
+type Handler = (route: Route) => Promise<unknown>;
+
+export async function pinHistoryRoute(context: {
+  route(match: (url: URL) => boolean, handler: Handler): Promise<unknown>;
+}): Promise<void> {
   await context.route(isHistoryList, fulfillPinned);
   await context.route(isHistoryEntry, fulfillPinnedEntry);
 }

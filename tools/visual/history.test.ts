@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { BrowserContext, Route } from "playwright";
 import {
   fulfillPinned,
   fulfillPinnedEntry,
@@ -63,7 +62,7 @@ describe("the /jobs-history route", () => {
       fulfill: async (options: unknown) => {
         fulfilled.push(options);
       },
-    } as unknown as Route;
+    };
     return { route, response, fulfilled };
   };
 
@@ -115,7 +114,7 @@ describe("one job's detail, /jobs-history/<id>", () => {
       fulfill: async (options: unknown) => {
         fulfilled.push(options);
       },
-    } as unknown as Route;
+    };
     await fulfillPinnedEntry(route);
     expect(fulfilled).toEqual([{ response, json: pinHistoryEntry(job("seed-canceled", 7)) }]);
   });
@@ -128,15 +127,20 @@ describe("a time field the API did not return", () => {
   };
 
   test("stays missing on one job's detail, so the page still shows it broken", () => {
-    const pinned = pinHistoryEntry(withoutCreatedAt()) as Record<string, unknown>;
-    expect("createdAt" in pinned).toBe(false);
-    expect(pinned.updatedAt).toBe(HISTORY_EPOCH);
+    expect(pinHistoryEntry(withoutCreatedAt())).toStrictEqual({
+      ...withoutCreatedAt(),
+      updatedAt: HISTORY_EPOCH,
+    });
   });
 
   test("stays missing in the list too", () => {
-    const [pinned] = pinHistory([withoutCreatedAt()]) as Record<string, unknown>[];
-    expect("createdAt" in pinned).toBe(false);
-    expect(pinned.updatedAt).toBe(HISTORY_EPOCH + 60_000);
+    expect(pinHistory([withoutCreatedAt()])).toStrictEqual([
+      {
+        ...withoutCreatedAt(),
+        id: "00000001-0000-4000-8000-000000000000",
+        updatedAt: HISTORY_EPOCH + 60_000,
+      },
+    ]);
   });
 });
 
@@ -147,7 +151,7 @@ describe("pinHistoryRoute", () => {
       route: async (match: (url: URL) => boolean, handler: unknown) => {
         routes.push([match, handler]);
       },
-    } as unknown as BrowserContext;
+    };
     await pinHistoryRoute(context);
     expect(routes.map(([, handler]) => handler)).toEqual([fulfillPinned, fulfillPinnedEntry]);
     const [list, entry] = routes.map(([match]) => match);
