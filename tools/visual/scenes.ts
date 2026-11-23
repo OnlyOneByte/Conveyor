@@ -64,6 +64,18 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   {
+    name: "job-detail",
+    route: "/history/seed-canceled",
+    ready: ".state",
+    steps: [{ wait: 800 }],
+  },
+  {
+    name: "job-detail-failed",
+    route: "/history/seed-failed",
+    ready: ".state",
+    steps: [{ wait: 800 }],
+  },
+  {
     name: "monitor",
     route: "/monitor",
     ready: "h1",

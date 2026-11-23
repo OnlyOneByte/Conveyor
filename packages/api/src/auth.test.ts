@@ -16,7 +16,7 @@ Object.assign(process.env, {
   DATA_DIR: dir,
 });
 const auth = await import("./auth");
-const { PUBLIC_ROUTE, registerAuthGuard } = await import("./routes/auth");
+const { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } = await import("./routes/auth");
 const { openDb } = await import("@conveyor/shared/db");
 
 const payloadOf = (token: string) =>
@@ -146,5 +146,89 @@ describe("the auth guard", () => {
     } finally {
       await app.close();
     }
+  });
+});
+
+describe("the auth routes", () => {
+  const calls: string[] = [];
+  let waitMs = 0;
+  const limiter = {
+    retryAfterMs: () => waitMs,
+    failed: (client: string) => void calls.push(`failed ${client}`),
+    succeeded: (client: string) => void calls.push(`succeeded ${client}`),
+  };
+  const app = Fastify();
+  const ready = registerAuthRoutes(app, limiter, () => 1_000).then(() => app.ready());
+  const login = async (body: unknown) => {
+    await ready;
+    return app.inject({ method: "POST", url: "/auth/login", payload: body as object });
+  };
+  const cookieOf = (setCookie: unknown) => String(setCookie).split(";")[0] ?? "";
+
+  afterAll(() => app.close());
+
+  test("the right password sets an uncacheable session cookie that /auth/status accepts", async () => {
+    calls.length = 0;
+    const res = await login({ password: "auth-unit-test-password" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<unknown>()).toEqual({ ok: true });
+    expect(res.headers["cache-control"]).toBe("private, no-store");
+    expect(calls).toEqual(["succeeded 127.0.0.1"]);
+    const cookie = cookieOf(res.headers["set-cookie"]);
+    const status = await app.inject({ url: "/auth/status", headers: { cookie } });
+    expect(status.json<unknown>()).toEqual({ authEnabled: true, authenticated: true });
+    expect((await app.inject({ url: "/auth/status" })).json<unknown>()).toEqual({
+      authEnabled: true,
+      authenticated: false,
+    });
+  });
+
+  test("a wrong password is a 401 that the limiter counts, and sets no cookie", async () => {
+    calls.length = 0;
+    const res = await login({ password: "auth-unit-test-passwore" });
+    expect(res.statusCode).toBe(401);
+    expect(res.json<unknown>()).toEqual({ error: "invalid password" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+    expect(calls).toEqual(["failed 127.0.0.1"]);
+  });
+
+  test.each([{}, { password: "" }, { password: "x".repeat(513) }])(
+    "a body without a usable password is a 400: %j",
+    async (body) => {
+      const res = await login(body);
+      expect(res.statusCode).toBe(400);
+      expect(res.json<unknown>()).toEqual({ error: "password required" });
+    },
+  );
+
+  test("a limited client gets a 429 with retry-after before its password is checked", async () => {
+    calls.length = 0;
+    waitMs = 1_500;
+    const res = await login({ password: "auth-unit-test-password" });
+    waitMs = 0;
+    expect(res.statusCode).toBe(429);
+    expect(res.headers["retry-after"]).toBe("2");
+    expect(calls).toEqual([]);
+  });
+
+  test("a limited client's wrong password is the same 429, and records no failure", async () => {
+    calls.length = 0;
+    waitMs = 1_500;
+    const res = await login({ password: "auth-unit-test-passwore" });
+    waitMs = 0;
+    expect(res.statusCode).toBe(429);
+    expect(res.json<unknown>()).toEqual({ error: "too many failed logins; try again later" });
+    expect(res.headers["retry-after"]).toBe("2");
+    expect(calls).toEqual([]);
+  });
+
+  test("logout revokes the session and clears the cookie", async () => {
+    const cookie = cookieOf(
+      (await login({ password: "auth-unit-test-password" })).headers["set-cookie"],
+    );
+    const res = await app.inject({ method: "POST", url: "/auth/logout", headers: { cookie } });
+    expect(res.json<unknown>()).toEqual({ ok: true });
+    expect(String(res.headers["set-cookie"])).toContain("Max-Age=0");
+    expect(auth.verifyToken(cookie.split("=")[1])).toBe(false);
   });
 });

@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { Route } from "playwright";
-import { fulfillPinned, HISTORY_EPOCH, isHistoryList, pinHistory } from "./history.ts";
+import {
+  fulfillPinned,
+  fulfillPinnedEntry,
+  HISTORY_EPOCH,
+  isHistoryEntry,
+  isHistoryList,
+  pinHistory,
+  pinHistoryEntry,
+  pinHistoryRoute,
+} from "./history.ts";
 
 const job = (id: string, createdAt: number) => ({
   id,
@@ -54,7 +62,7 @@ describe("the /jobs-history route", () => {
       fulfill: async (options: unknown) => {
         fulfilled.push(options);
       },
-    } as unknown as Route;
+    };
     return { route, response, fulfilled };
   };
 
@@ -68,5 +76,86 @@ describe("the /jobs-history route", () => {
     const { route, response, fulfilled } = fakeRoute(false, { error: "boom" });
     await fulfillPinned(route);
     expect(fulfilled).toEqual([{ response }]);
+  });
+});
+
+describe("one job's detail, /jobs-history/<id>", () => {
+  test("matches one job's path and nothing else", () => {
+    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/seed-canceled"))).toBe(true);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/a/artifact"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs/seed-canceled"))).toBe(false);
+  });
+
+  test("pins the times and keeps the id and every other field", () => {
+    expect(pinHistoryEntry(job("seed-canceled", 1795000001000))).toEqual({
+      ...job("seed-canceled", HISTORY_EPOCH),
+      updatedAt: HISTORY_EPOCH,
+    });
+  });
+
+  test("gives two runs with different live times the same body", () => {
+    expect(pinHistoryEntry(job("seed-canceled", 1))).toEqual(
+      pinHistoryEntry(job("seed-canceled", 2)),
+    );
+  });
+
+  test("leaves a body that is not one job as it is", () => {
+    expect(pinHistoryEntry([job("a", 1)])).toEqual([job("a", 1)]);
+    expect(pinHistoryEntry(null)).toBeNull();
+  });
+
+  test("the route pins a successful detail response", async () => {
+    const fulfilled: unknown[] = [];
+    const response = { ok: () => true, json: async () => job("seed-canceled", 7) };
+    const route = {
+      fetch: async () => response,
+      fulfill: async (options: unknown) => {
+        fulfilled.push(options);
+      },
+    };
+    await fulfillPinnedEntry(route);
+    expect(fulfilled).toEqual([{ response, json: pinHistoryEntry(job("seed-canceled", 7)) }]);
+  });
+});
+
+describe("a time field the API did not return", () => {
+  const withoutCreatedAt = () => {
+    const { createdAt: _missing, ...rest } = job("seed-failed", 1795000001000);
+    return rest;
+  };
+
+  test("stays missing on one job's detail, so the page still shows it broken", () => {
+    expect(pinHistoryEntry(withoutCreatedAt())).toStrictEqual({
+      ...withoutCreatedAt(),
+      updatedAt: HISTORY_EPOCH,
+    });
+  });
+
+  test("stays missing in the list too", () => {
+    expect(pinHistory([withoutCreatedAt()])).toStrictEqual([
+      {
+        ...withoutCreatedAt(),
+        id: "00000001-0000-4000-8000-000000000000",
+        updatedAt: HISTORY_EPOCH + 60_000,
+      },
+    ]);
+  });
+});
+
+describe("pinHistoryRoute", () => {
+  test("registers the list pin and the detail pin on the context", async () => {
+    const routes: [(url: URL) => boolean, unknown][] = [];
+    const context = {
+      route: async (match: (url: URL) => boolean, handler: unknown) => {
+        routes.push([match, handler]);
+      },
+    };
+    await pinHistoryRoute(context);
+    expect(routes.map(([, handler]) => handler)).toEqual([fulfillPinned, fulfillPinnedEntry]);
+    const [list, entry] = routes.map(([match]) => match);
+    expect(list(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
+    expect(entry(new URL("http://127.0.0.1/jobs-history/seed-failed"))).toBe(true);
   });
 });
