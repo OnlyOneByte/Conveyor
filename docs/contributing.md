@@ -43,7 +43,7 @@ bun run check:lines
 ```
 
 The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when `REDIS_URL` is set, and CI
-fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:7-alpine`) and
+fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 How the comments baseline works, and what each `check:comments` message means, is in
@@ -172,7 +172,7 @@ The group names are short, so a title for several updates, such as
 `fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters. A
 group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
 minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
-that title. Compose images get one PR each because their tags (`redis:7-alpine`, `caddy:2`) move only by
+that title. Compose images get one PR each because their tags (`redis:8-alpine`, `caddy:2`) move only by
 major, so every compose bump is a major and should be reviewed on its own.
 
 Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
@@ -193,7 +193,7 @@ it goes to review:
    and commit for each bumped action.
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
-   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page. The
+   the local `docker run --rm -p 6379:6379 redis:8-alpine` hint under "Before you push" on this page. The
    `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
