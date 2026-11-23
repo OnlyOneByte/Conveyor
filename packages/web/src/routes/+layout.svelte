@@ -39,7 +39,7 @@
       <span>Conveyor</span>
     </a>
     <span class="muted tag">self-hosted · generate → slice → print</span>
-    <span class="spacer" />
+    <span class="spacer"></span>
     {#if showApp}
       <!-- Icon-only, so each carries an explicit accessible name; `title` gives sighted
            users the same hover affordance. Inline SVGs rather than ⚙/🗒 characters,

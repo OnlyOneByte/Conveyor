@@ -373,7 +373,7 @@
                 aria-checked={pr.id === selectedProfileId}
                 on:click={() => (selectedProfileId = pr.id)}
               >
-                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"} />
+                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"}></span>
                 <span class="pmeta">
                   <span class="pn">{pr.name}</span>
                   {#if chips(pr).length}
