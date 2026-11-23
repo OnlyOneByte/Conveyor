@@ -116,10 +116,15 @@ function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | un
 
 const isCount = (n: number | null): n is number => n !== null && Number.isInteger(n) && n >= 0;
 
-function layersOf({ currentLayer, totalLayer }: SdcpStatusFrame): PrintProgress | undefined {
+const MS_PER_SECOND = 1000;
+
+function printProgressOf(frame: SdcpStatusFrame): PrintProgress | undefined {
+  const { currentLayer, totalLayer, currentTicks, totalTicks } = frame;
   const print: PrintProgress = {};
   if (isCount(currentLayer)) print.layer = currentLayer;
   if (isCount(totalLayer) && totalLayer > 0) print.layers = totalLayer;
+  if (isCount(currentTicks) && isCount(totalTicks) && totalTicks >= currentTicks && totalTicks > 0)
+    print.secondsLeft = Math.round((totalTicks - currentTicks) / MS_PER_SECOND);
   return Object.keys(print).length > 0 ? print : undefined;
 }
 
@@ -128,7 +133,7 @@ function printStatusOf(frame: SdcpStatusFrame): PrintStatus | undefined {
   if (sub === 9) return { state: "done", progress: 1 };
   if (sub === 8) return { state: "canceled", message: "stopped on printer" };
   if (frame.currentStatus.includes(1) || sub === 13) {
-    return { state: "printing", progress: frame.progress, print: layersOf(frame) };
+    return { state: "printing", progress: frame.progress, print: printProgressOf(frame) };
   }
   return undefined;
 }

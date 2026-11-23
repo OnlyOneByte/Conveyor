@@ -47,12 +47,30 @@ describe("moonraker print progress", () => {
     expect(parseQuery({ result: {} })).toStrictEqual({});
   });
 
-  test.each([
-    ["a negative layer", { print_stats: { info: { current_layer: -1 } } }],
-    ["a fractional layer count", { print_stats: { info: { total_layer: 2.5 } } }],
-    ["a negative print time", { print_stats: { print_duration: -1 } }],
-    ["a text progress", { virtual_sdcard: { progress: "half" } }],
-  ])("refuses a reply with %s", (_, status) => {
-    expect(() => parseQuery({ result: { status } })).toThrow("moonraker status: unexpected reply");
+  test("ignores a print time or layer it cannot use instead of refusing the reply", () => {
+    const reply = (printStats: Record<string, unknown>) =>
+      parseQuery({ result: { status: { print_stats: { state: "printing", ...printStats } } } });
+    expect(reply({ print_duration: -1.2434497875801753e-14 }).print_stats).toEqual({
+      state: "printing",
+      print_duration: -1.2434497875801753e-14,
+    });
+    expect(
+      printProgressOf(objects({ print_duration: -1.2434497875801753e-14 }, 0.5)),
+    ).toBeUndefined();
+    expect(reply({ print_duration: "ten" }).print_stats?.print_duration).toBeUndefined();
+    expect(reply({ info: { current_layer: -1, total_layer: 2.5 } }).print_stats?.info).toEqual({
+      current_layer: undefined,
+      total_layer: undefined,
+    });
+    expect(reply({ info: "none" }).print_stats?.info).toBeUndefined();
+  });
+
+  test("refuses a reply whose state or progress is unreadable", () => {
+    expect(() =>
+      parseQuery({ result: { status: { virtual_sdcard: { progress: "half" } } } }),
+    ).toThrow("moonraker status: unexpected reply");
+    expect(() => parseQuery({ result: { status: { print_stats: { state: 3 } } } })).toThrow(
+      "moonraker status: unexpected reply",
+    );
   });
 });

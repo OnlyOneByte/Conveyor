@@ -1,7 +1,7 @@
 import { type PrintProgress, StageError } from "@conveyor/shared";
 import { z } from "zod";
 
-const count = z.number().int().nonnegative().nullable().optional();
+const count = z.number().int().nonnegative().nullable().optional().catch(undefined);
 const fraction = z.number().finite().optional();
 
 const QueryReply = z.object({
@@ -13,8 +13,12 @@ const QueryReply = z.object({
             .object({
               state: z.string().optional(),
               message: z.string().optional(),
-              print_duration: z.number().nonnegative().optional(),
-              info: z.object({ current_layer: count, total_layer: count }).nullable().optional(),
+              print_duration: z.number().optional().catch(undefined),
+              info: z
+                .object({ current_layer: count, total_layer: count })
+                .nullable()
+                .optional()
+                .catch(undefined),
             })
             .optional(),
           virtual_sdcard: z.object({ progress: fraction }).optional(),

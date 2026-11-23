@@ -161,10 +161,19 @@ describe("moonraker status", () => {
     });
   });
 
-  test("fails on a reply that is not a status report", async () => {
-    await expect(
-      collect(plugin.status(printer([stats("printing", { print_duration: "ten" })]).handle)),
-    ).rejects.toThrow("moonraker status: unexpected reply");
+  test("keeps following a print whose print time Klipper reports a hair below zero", async () => {
+    const { handle } = printer([
+      {
+        ...stats("printing", { print_duration: -1.2434497875801753e-14 }),
+        virtual_sdcard: { progress: 0.02 },
+      },
+      stats("complete"),
+    ]);
+    expect(await collect(plugin.status(handle))).toEqual([
+      { state: "transferring" },
+      { state: "printing", progress: 0.02, message: undefined },
+      { state: "done", progress: 1 },
+    ]);
   });
 
   test("fails on a query error, a missing address, or an abort while waiting", async () => {

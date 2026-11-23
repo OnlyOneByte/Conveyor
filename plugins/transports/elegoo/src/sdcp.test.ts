@@ -17,6 +17,8 @@ describe("parsePushFrame", () => {
         progress: 0.4,
         currentLayer: null,
         totalLayer: null,
+        currentTicks: null,
+        totalTicks: null,
       },
     });
   });
@@ -33,6 +35,8 @@ describe("parsePushFrame", () => {
       progress: 0.25,
       currentLayer: 30,
       totalLayer: 120,
+      currentTicks: null,
+      totalTicks: null,
     });
   });
 
@@ -44,6 +48,8 @@ describe("parsePushFrame", () => {
       progress: 0,
       currentLayer: null,
       totalLayer: null,
+      currentTicks: null,
+      totalTicks: null,
     });
   });
 
@@ -70,6 +76,8 @@ describe("parsePushFrame", () => {
       progress: 0.4,
       currentLayer: null,
       totalLayer: null,
+      currentTicks: null,
+      totalTicks: null,
     });
   });
 

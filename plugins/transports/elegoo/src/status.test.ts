@@ -114,7 +114,7 @@ describe("elegoo status stream", () => {
     ]);
   });
 
-  test("reports the layer and layer count the printer sends, and no time left", async () => {
+  test("reports the layer, layer count and time left from the ticks the printer sends", async () => {
     const layered = (info: Record<string, unknown>) =>
       JSON.stringify({
         Topic: "sdcp/status/mb",
@@ -122,15 +122,20 @@ describe("elegoo status stream", () => {
       });
     usePushes(
       [
-        layered({ CurrentLayer: 12, TotalLayer: 240, CurrentTicks: 60, TotalTicks: 1200 }),
-        layered({ CurrentLayer: 0, TotalLayer: 0 }),
-        layered({ CurrentLayer: 2.5 }),
+        layered({
+          CurrentLayer: 12,
+          TotalLayer: 240,
+          CurrentTicks: 600_000,
+          TotalTicks: 3_000_499,
+        }),
+        layered({ CurrentLayer: 0, TotalLayer: 0, CurrentTicks: 0, TotalTicks: 0 }),
+        layered({ CurrentLayer: 2.5, CurrentTicks: 5_000, TotalTicks: 4_000 }),
       ],
       true,
     );
     const seen = await drainStatus();
     expect(seen.slice(1)).toStrictEqual([
-      { state: "printing", progress: 0.05, print: { layer: 12, layers: 240 } },
+      { state: "printing", progress: 0.05, print: { layer: 12, layers: 240, secondsLeft: 2400 } },
       { state: "printing", progress: 0.05, print: { layer: 0 } },
       { state: "printing", progress: 0.05, print: undefined },
     ]);

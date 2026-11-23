@@ -120,8 +120,14 @@ disk as one multipart part with a fixed `Content-Length`. Two guards apply to ev
   `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper
   fills `info` only when the slicer emits `SET_PRINT_STATS_INFO`, so either can be absent. `secondsLeft` is
   `print_duration × (1 − p) / p`, rounded, where `p` is `virtual_sdcard.progress` (file position, not
-  `display_status`), and is left out when `print_duration` is 0 or `p` is under 1% or at the end. The reply
-  is parsed with zod (`query.ts`); a reply that does not match fails the stage.
+  `display_status`), and is left out when `print_duration` is 0 or below or `p` is under 1% or at the end.
+  `p` counts file bytes, header and thumbnails included, so the estimate runs low early in a print (about 38%
+  low at 5% real progress with a 3% header) and converges as the print goes on; correcting it needs the file's
+  `gcode_start_byte` and `gcode_end_byte` metadata, which `status()` does not fetch.
+- The reply is parsed with zod (`query.ts`). An unreadable `state` or progress fails the stage. A print-only
+  field it cannot use (`print_duration`, `info`) reads as absent instead, so a cosmetic value never fails a
+  running print: Klipper can report `print_duration` a hair below zero (`-1.2e-14`) after a pause before the
+  first extrusion.
 - Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
@@ -182,9 +188,11 @@ numeric string (`"40"`); any other string (`"40%"`) makes the frame malformed.
 - `PrintInfo.Progress` is a 0..100 percentage on most firmware and is normalised to 0..1; without it, progress
   comes from `CurrentLayer / TotalLayer`.
 - Print progress (`PrintStatus.print`): `layer` from `PrintInfo.CurrentLayer` and `layers` from
-  `PrintInfo.TotalLayer` when it is above 0, each only when it is a whole number. `secondsLeft` is never set:
-  `CurrentTicks` and `TotalTicks` are in the spec, but their unit is not stated and differs between firmware,
-  so a time left from them would be a guess.
+  `PrintInfo.TotalLayer` when it is above 0, each only when it is a whole number. `secondsLeft` is
+  `(TotalTicks − CurrentTicks) / 1000`, rounded: the spec gives both in milliseconds ("Current Print Time (ms)",
+  "Estimated Total Print Time(ms)"). It is left out when either is missing or not a whole number, when
+  `TotalTicks` is 0, or when the print has run past the estimate. No firmware capture here contradicts the
+  unit; one that reports seconds would show a time left 1000 times too short.
 
 To verify on hardware:
 
