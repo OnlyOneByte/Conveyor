@@ -110,7 +110,7 @@
     transition: color 0.15s, background 0.15s;
   }
   .iconlink:hover { color: var(--live); background: var(--surface-2); }
-  .iconlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .iconlink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .ghost { background: transparent; align-self: center; }
   @media (max-width: 540px) { .tag { display: none; } }
 </style>

@@ -735,7 +735,7 @@
     resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem;
     background: var(--bg); color: var(--text); font-family: ui-monospace, monospace;
     font-size: 0.78rem; line-height: 1.45; tab-size: 2; white-space: pre; }
-  .json-editor:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .json-editor:focus { outline: 1px solid var(--focus); border-color: var(--focus); }
   .editor-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     margin-top: 0.65rem; }
   .editor-actions .reset { margin-left: auto; }

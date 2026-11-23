@@ -30,11 +30,14 @@ mini-rail works unchanged as the 40 px collapsed belt and the mobile summary.
 ## Tokens
 
 All tokens are CSS custom properties on `:root`, switched by `data-theme="light|dark"` on `<html>`. No raw colours,
-sizes or durations appear outside the token file; the lint rule for this lands with the tokens PR.
+sizes or durations appear outside the token file; the check for raw colours lands in its own PR, right after the
+tokens.
 
-The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by
-`static/theme-init.js`, a few lines loaded synchronously in `app.html`'s `<head>`. Being an external same-origin
-file, it is allowed by the CSP's `default-src 'self'`; there is no inline script, so no nonce or hash is needed.
+The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by a few lines of
+inline script at the top of `app.html`'s `<head>`, carrying `nonce="%sveltekit.nonce%"`. SvelteKit's CSP (`mode:
+"auto"`) puts the same per-response nonce in `script-src`, so the policy itself is unchanged: no
+`'unsafe-inline'`, no hash. `lib/preferences.ts` holds the same rule as `resolveTheme`, and a test runs the
+inline script's text against it for every OS setting and saved value.
 
 ### Type
 

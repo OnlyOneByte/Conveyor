@@ -1,27 +1,11 @@
 :root {
   --display: "Bricolage Grotesque Variable", system-ui, sans-serif;
   --mono: "DM Mono", ui-monospace, monospace;
-  --fs-title: 36px;
-  --fs-section: 18px;
-  --fs-body: 15px;
-  --fs-chip: 13px;
-  --fs-label: 11px;
-  --s1: 4px;
-  --s2: 8px;
-  --s3: 12px;
-  --s4: 16px;
-  --s5: 24px;
-  --s6: 32px;
-  --r-chip: 16px;
-  --r-control: 13px;
-  --r-card: 18px;
-  --r-panel: 26px;
-  --tap: 44px;
-  --t-fast: 150ms;
-  --t-move: 400ms;
-  --t-hop: 600ms;
-  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-pop: cubic-bezier(0.3, 1.4, 0.5, 1);
+  --fs-title: 36px; --fs-section: 18px; --fs-body: 15px; --fs-chip: 13px; --fs-label: 11px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r-chip: 16px; --r-control: 13px; --r-card: 18px; --r-panel: 26px; --tap: 44px;
+  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms;
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1); --ease-pop: cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 
 :root,
@@ -36,6 +20,7 @@
   --line: color-mix(in oklch, var(--ink) 13%, transparent);
   --line-2: color-mix(in oklch, var(--ink) 24%, transparent);
   --accent: oklch(0.68 0.19 45);
+  --focus: oklch(0.52 0.17 42);
   --accent-ink: oklch(0.2 0.03 45);
   --live: oklch(0.54 0.18 42);
   --ok: oklch(0.48 0.13 150);
@@ -59,6 +44,7 @@
   --line: color-mix(in oklch, var(--ink) 10%, transparent);
   --line-2: color-mix(in oklch, var(--ink) 20%, transparent);
   --accent: oklch(0.74 0.17 50);
+  --focus: oklch(0.74 0.17 50);
   --accent-ink: oklch(0.18 0.02 50);
   --live: oklch(0.77 0.16 52);
   --ok: oklch(0.78 0.14 150);
@@ -71,16 +57,6 @@
   --lift-hi: 0 6px 18px oklch(0 0 0 / 0.5);
 }
 
-@media (max-width: 759px) {
-  :root {
-    --fs-title: 30px;
-  }
-}
+@media (max-width: 759px) { :root { --fs-title: 30px; } }
 
-@media (prefers-reduced-motion: reduce) {
-  :root {
-    --t-fast: 0ms;
-    --t-move: 0ms;
-    --t-hop: 0ms;
-  }
-}
+@media (prefers-reduced-motion: reduce) { :root { --t-fast: 0ms; --t-move: 0ms; --t-hop: 0ms; } }
