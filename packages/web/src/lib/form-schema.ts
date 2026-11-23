@@ -21,7 +21,7 @@ export interface JsonSchema {
 
 export type Props = Record<string, JsonSchemaProp>;
 
-/** zod-to-json-schema wraps the object behind $ref → definitions[name]. Resolve it. */
+/** paramJsonSchema in @conveyor/shared wraps the object behind $ref → definitions[name]. Resolve it. */
 export function resolveRoot(s: JsonSchema | null): JsonSchema | null {
   if (!s) return null;
   if (s.$ref && s.definitions) {
