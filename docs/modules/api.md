@@ -108,6 +108,8 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   same through the signature. A cookie from before sessions were stored (no `sid`) is refused, which logs
   everyone out once on upgrade. Sessions survive a restart with the same password and secret. Logging in
   prunes expired rows.
+- Upgrading past #239 also logs everyone out once: the migration gives existing `sessions` rows an empty
+  password version, which never matches, so those cookies are refused and users log in again.
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
