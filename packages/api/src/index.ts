@@ -9,6 +9,7 @@ import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
+import { registerSecurityHeaders } from "./security-headers.js";
 import { parseTrustedProxies } from "./trusted-proxies.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -30,6 +31,7 @@ try {
 const app = Fastify({ logger: true, trustProxy });
 await app.register(websocket);
 await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
+registerSecurityHeaders(app);
 
 app.get("/health", async () => ({ ok: true }));
 

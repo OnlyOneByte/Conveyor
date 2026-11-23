@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@conveyor/shared": "workspace:*",
-    "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.2"
+    "zod": "^4.6.7"
   }
 }

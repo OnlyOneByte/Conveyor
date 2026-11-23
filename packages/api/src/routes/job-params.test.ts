@@ -60,10 +60,26 @@ describe("parseSubmission generator params", () => {
 
   test.each([
     ["an unknown key", { gridX: 2, colour: "red" }, "generator.params.colour: unknown field"],
-    ["a wrong type", { gridX: "2" }, "generator.params.gridX: Expected number, received string"],
-    ["an out-of-range value", { gridX: 21 }, "generator.params.gridX: Number must be less"],
-    ["a non-integer", { heightUnits: 2.5 }, "generator.params.heightUnits: Expected integer"],
-    ["missing params", undefined, "generator.params: Required"],
+    [
+      "a wrong type",
+      { gridX: "2" },
+      "generator.params.gridX: Invalid input: expected number, received string",
+    ],
+    [
+      "an out-of-range value",
+      { gridX: 21 },
+      "generator.params.gridX: Too big: expected number to be <=20",
+    ],
+    [
+      "a non-integer",
+      { heightUnits: 2.5 },
+      "generator.params.heightUnits: Invalid input: expected int, received number",
+    ],
+    [
+      "missing params",
+      undefined,
+      "generator.params: Invalid input: expected object, received undefined",
+    ],
   ])("rejects %s with a 400 naming the field", (_label, params, field) => {
     expect(rejection(job("gridfinity", params))).toStartWith(`400 ${field}`);
   });
