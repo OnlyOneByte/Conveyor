@@ -74,7 +74,9 @@ with any other token stays counted, and so do `extends`/`implements` clauses and
 
 The file-size baseline, `scripts/checks/lines/baseline.json`, lists each file over its limit
 ([AGENTS.md §4](../AGENTS.md#4-size-limits)) with its line count. `check:lines` compares every file with the base
-branch's copy. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
+commit's baseline. In CI that is the commit the PR's merge commit was built on (`HEAD^1`), the merge base with
+`main` for a manual run on another branch, and the previous commit on `main` for a push; `scripts/checks/base.ts`
+picks it, as it does for `audit`. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
 `.svelte` component. When you shrink a listed file, the check says the baseline is stale: run
 `bun run check:lines:update` and commit it. A file that drops to its limit leaves the baseline.
 
