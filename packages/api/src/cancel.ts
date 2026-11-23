@@ -18,7 +18,7 @@ interface CancelResult {
   body: { ok: boolean; jobId: string; state?: JobState | "canceling"; error?: string };
 }
 
-const REMOVABLE = new Set(["waiting", "delayed", "prioritized", "waiting-children", "paused"]);
+const REMOVABLE = new Set(["waiting", "delayed", "prioritized", "waiting-children"]);
 
 export async function cancelJob(jobId: string, deps: CancelDeps): Promise<CancelResult> {
   const settled = async (): Promise<CancelResult | undefined> => {

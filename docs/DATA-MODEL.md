@@ -294,7 +294,8 @@ Deleting a printer or profile is refused only while it is still needed:
 - `409` while a **queued or running** job names it, because the worker would fail that job
   with `unknown printer`. On the SQLite queue that is any `jobs` row not done, failed or
   canceled; on the Redis queue, any BullMQ job that is waiting, active, delayed,
-  prioritized, paused or waiting-children.
+  prioritized or waiting-children. BullMQ 6 has no separate paused state: a job in a paused
+  queue counts as waiting.
 - `409` for a bundled profile (the seeded `DEFAULT_PROFILES`), whatever references it.
 
 The in-use check and the delete are not one atomic step. On the Redis queue the check is a
