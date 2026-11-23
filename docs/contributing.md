@@ -101,16 +101,23 @@ advisory. The job skips only the advisories listed in `.github/audit-baseline.js
 advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
 was added; #231 tracks fixing them. To see the current findings, run `bun audit --audit-level=high`.
 
-Like the comment and coverage ratchets, the job reads the baseline from the base branch, not from the PR. It
-skips an advisory only when both the base's and the PR's baseline list it, so the baseline can only shrink
-inside a PR:
+Which baseline the job uses depends on the run:
+
+| Run | Baseline used |
+| --- | --- |
+| A pull request that changes any file besides `.github/audit-baseline.json` | Only the entries both the base branch's and the PR's baseline list |
+| A pull request whose diff (`git diff --name-only <base>...HEAD`) is `.github/audit-baseline.json` alone | The PR's own baseline |
+| A push to `main`, or a manual run | The checked-out tree's baseline |
+
+If the diff can't be computed, the job fails. If either baseline isn't a JSON object, it fails with jq's error.
 
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.
 - **Adding an entry:** a PR can't add a dependency and its entry together, because the base doesn't list the
-  entry yet and the PR's `audit` stays red. An entry for an advisory already on `main` lands in its own PR
-  that changes only the baseline. Its `audit` fails for the same reason; `audit` isn't a required check, so
-  that PR merges on its two guardrail reviews.
+  entry yet. An entry for an advisory already on `main` lands in a PR that changes only
+  `.github/audit-baseline.json`. That PR's `audit` uses its own file and passes, and it can't add a
+  dependency. It's a guardrail change, so it needs both reviews. After it merges, the push run on `main` uses
+  the new file, so `main` stays green.
 
 ### Pinned actions
 

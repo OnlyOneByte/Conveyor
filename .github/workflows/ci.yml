@@ -66,13 +66,24 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: No high or critical advisory outside the base's baseline
+      - name: No high or critical advisory outside the baseline
         env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
         run: |
-          git show "$BASE_REF:.github/audit-baseline.json" > "$RUNNER_TEMP/base-baseline.json"
-          mapfile -t ignores < <(jq -r --slurpfile head .github/audit-baseline.json \
-            'keys[] | select(in($head[0])) | "--ignore=" + .' "$RUNNER_TEMP/base-baseline.json")
+          baseline=.github/audit-baseline.json
+          jq -e 'type == "object"' "$baseline" > /dev/null
+          if [ "$EVENT" = pull_request ]; then
+            changed=$(git diff --name-only "$BASE_REF...HEAD")
+            if [ "$changed" != "$baseline" ]; then
+              git show "$BASE_REF:$baseline" > "$RUNNER_TEMP/base-baseline.json"
+              jq -e 'type == "object"' "$RUNNER_TEMP/base-baseline.json" > /dev/null
+              jq --slurpfile head "$baseline" 'with_entries(select(.key | in($head[0])))' \
+                "$RUNNER_TEMP/base-baseline.json" > "$RUNNER_TEMP/effective-baseline.json"
+              baseline="$RUNNER_TEMP/effective-baseline.json"
+            fi
+          fi
+          mapfile -t ignores < <(jq -r 'keys[] | "--ignore=" + .' "$baseline")
           bun audit --audit-level=high "${ignores[@]}"
 
   typecheck:
