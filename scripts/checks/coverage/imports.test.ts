@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
-import { sourceImportErrors, symlinkErrors } from "./imports";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { runtimeResolver, sourceImportErrors, symlinkErrors } from "./imports";
 
 const flagged = (path: string, text: string) => sourceImportErrors([path], () => text);
 
@@ -70,5 +73,65 @@ describe("symlinkErrors", () => {
 
   test("passes a tree with no symlinks", () => {
     expect(symlinkErrors("100644 aaa 0\tpackages/api/src/app.ts\0")).toEqual([]);
+  });
+});
+
+const scratch = mkdtempSync(join(tmpdir(), "conveyor-imports-"));
+
+afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+
+function aliasRepo() {
+  const root = mkdtempSync(join(scratch, "repo-"));
+  const files: Record<string, string> = {
+    "packages/worker/package.json": JSON.stringify({
+      name: "probe-worker",
+      imports: { "#probe/*": "./test/helpers/*.ts" },
+      exports: {
+        "./fixtures": "./test/helpers/probe-helper.ts",
+        "./cases": "./src/x.spec.ts",
+      },
+    }),
+    "packages/worker/test/helpers/probe-helper.ts": "export const secret = 42;\n",
+    "packages/worker/src/x.spec.ts": "export const hidden = 1;\n",
+    "packages/worker/src/run.ts": "export const run = 1;\n",
+  };
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(root, dirname(path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  mkdirSync(join(root, "tools"));
+  symlinkSync("../packages/worker/test/helpers", join(root, "tools", "probe-link"));
+  return root;
+}
+
+describe("sourceImportErrors with the runtime resolver", () => {
+  const FROM = "packages/worker/src/main.ts";
+
+  test.each([
+    ["a package.json imports alias", 'import { secret } from "#probe/probe-helper";\n'],
+    ["a package.json exports entry", 'import { secret } from "probe-worker/fixtures";\n'],
+    [
+      "a symlink outside packages/",
+      'import { secret } from "../../../tools/probe-link/probe-helper";\n',
+    ],
+  ])("flags %s that lands in a helper folder", (_route, text) => {
+    const root = aliasRepo();
+    const [error, ...rest] = sourceImportErrors([FROM], () => text, runtimeResolver(root));
+    expect(rest).toEqual([]);
+    expect(error).toStartWith(`${FROM} imports the test helper `);
+  });
+
+  test("flags an alias that resolves to a spec file", () => {
+    const root = aliasRepo();
+    const text = 'import { hidden } from "probe-worker/cases";\n';
+    expect(sourceImportErrors([FROM], () => text, runtimeResolver(root))).toEqual([
+      `${FROM} imports the test file probe-worker/cases; only tests may`,
+    ]);
+  });
+
+  test("passes an import that resolves to ordinary source, and skips one that doesn't resolve", () => {
+    const root = aliasRepo();
+    const text = 'import { run } from "./run";\nimport { gone } from "./missing";\n';
+    expect(sourceImportErrors([FROM], () => text, runtimeResolver(root))).toEqual([]);
   });
 });

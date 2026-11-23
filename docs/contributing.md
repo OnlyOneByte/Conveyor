@@ -63,9 +63,11 @@ in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves i
 `packages/shared/test/helpers/` and `packages/worker/test/helpers/`. Because those leave the denominator,
 `check:coverage` fails when a module that still counts:
 
-- imports a path that resolves, from its own folder, into a helper folder (`./helpers/db` from
-  `packages/shared/test/`, or the folder itself);
-- imports a `*.test.*` or `*.spec.*` file;
+- imports something that lands in a helper folder or a `*.test.*`/`*.spec.*` file. Each quoted specifier is
+  resolved the way Bun resolves it at run time (`Bun.resolveSync`, then `realpathSync`), so a relative path, a
+  `package.json` `imports` or `exports` alias and a symlink anywhere in the repo are all judged by where they
+  really land. A specifier that doesn't resolve is skipped;
+- names a `*.test.*` or `*.spec.*` file in an import;
 - mentions `test` and `helpers` next to each other anywhere in its text (`\btest\W+helpers\b`). This is a text
   match, not a parse, so it also catches template literals, concatenation, variables, `path.join` and
   `import.meta.url`. A real source that trips it on a string has to reword the string.

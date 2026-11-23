@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { sourceImportErrors, symlinkErrors } from "./imports";
+import { runtimeResolver, sourceImportErrors, symlinkErrors } from "./imports";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_DIR,
@@ -71,7 +71,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
   const errors = [
     ...sweepErrors({ ...sweep, estimated: merged.estimated }),
-    ...sourceImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? ""),
+    ...sourceImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? "", runtimeResolver(ROOT)),
     ...symlinkErrors(stagedEntries()),
   ];
   for (const error of errors) console.error(error);

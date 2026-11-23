@@ -1,5 +1,6 @@
-import { posix } from "node:path";
-import { TEST_HELPER_DIRS } from "./summary";
+import { realpathSync } from "node:fs";
+import { dirname, join, posix, relative, sep } from "node:path";
+import { isTestFile, TEST_HELPER_DIRS } from "./summary";
 
 const HELPER_TEXT = /\btest\W+helpers\b/;
 
@@ -7,24 +8,45 @@ const SPECIFIER = /\b(?:from|import|require)\s*\(?\s*(["'`])([^"'`]+)\1/g;
 
 const TEST_SPECIFIER = /\.(test|spec)(\.[cm]?[jt]sx?)?$/;
 
-const inHelperDir = (resolved: string) =>
-  TEST_HELPER_DIRS.some((dir) => resolved === dir.slice(0, -1) || resolved.startsWith(dir));
+export type Resolve = (specifier: string, from: string) => string | null;
 
-function specifierErrors(path: string, specifier: string): string[] {
+export const runtimeResolver =
+  (root: string): Resolve =>
+  (specifier, from) => {
+    try {
+      const real = realpathSync(Bun.resolveSync(specifier, dirname(join(root, from))));
+      return relative(realpathSync(root), real).split(sep).join("/");
+    } catch {
+      return null;
+    }
+  };
+
+const inHelperDir = (path: string) =>
+  TEST_HELPER_DIRS.some((dir) => path === dir.slice(0, -1) || path.startsWith(dir));
+
+function specifierErrors(path: string, specifier: string, resolve: Resolve): string[] {
   const errors: string[] = [];
-  if (specifier.startsWith(".")) {
-    const resolved = posix.normalize(posix.join(posix.dirname(path), specifier));
-    if (inHelperDir(resolved)) errors.push(`${path} imports the test helper ${specifier}`);
+  const lexical = specifier.startsWith(".")
+    ? posix.normalize(posix.join(posix.dirname(path), specifier))
+    : null;
+  const target = resolve(specifier, path);
+  if ([lexical, target].some((landed) => landed !== null && inHelperDir(landed))) {
+    errors.push(`${path} imports the test helper ${specifier}`);
+  } else if (TEST_SPECIFIER.test(specifier) || (target !== null && isTestFile(target))) {
+    errors.push(`${path} imports the test file ${specifier}`);
   }
-  if (TEST_SPECIFIER.test(specifier)) errors.push(`${path} imports the test file ${specifier}`);
   return errors;
 }
 
-export function sourceImportErrors(sources: string[], read: (path: string) => string): string[] {
+export function sourceImportErrors(
+  sources: string[],
+  read: (path: string) => string,
+  resolve: Resolve = () => null,
+): string[] {
   return sources.flatMap((path) => {
     const text = read(path);
     const errors = [...text.matchAll(SPECIFIER)].flatMap((match) =>
-      specifierErrors(path, match[2] ?? ""),
+      specifierErrors(path, match[2] ?? "", resolve),
     );
     if (errors.length === 0 && HELPER_TEXT.test(text)) {
       errors.push(`${path} names a test/helpers path`);
