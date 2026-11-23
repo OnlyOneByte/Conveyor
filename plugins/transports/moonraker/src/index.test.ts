@@ -106,6 +106,30 @@ describe("moonraker submit, the printer answers", () => {
     ]);
   });
 
+  test("streams the g-code as the multipart file part and keeps the API key header", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const parts: { field: string; name: string; text: string; key: string | null }[] = [];
+    fakeFetch(async (url, init) => {
+      if (url.endsWith("/server/files/upload")) {
+        const headers = new Headers(init?.headers);
+        const form = await new Response(init?.body, { headers }).formData();
+        for (const [field, value] of form) {
+          if (typeof value === "string") continue;
+          parts.push({
+            field,
+            name: value.name,
+            text: await value.text(),
+            key: headers.get("x-api-key"),
+          });
+        }
+      }
+      return new Response("{}", { status: 201 });
+    });
+    const keyed = { ...target, secrets: { apiKey: "k1" } };
+    await moonraker.submit({ path, format: "gcode" }, keyed, ctx);
+    expect(parts).toEqual([{ field: "file", name: "bin 1.gcode", text: "G28\n", key: "k1" }]);
+  });
+
   test("a rejected upload fails the transport stage and starts nothing", async () => {
     const { path, ctx } = await gcodeCtx();
     const calls = fakeFetch(async () => new Response("no", { status: 507 }));

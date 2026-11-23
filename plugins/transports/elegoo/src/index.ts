@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   type GcodeArtifact,
@@ -10,6 +9,7 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
+import { multipartFileUpload } from "@conveyor/shared/node";
 import { SDCP_CMD } from "./sdcp.js";
 import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
 
@@ -93,11 +93,10 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
 
 async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
   const filename = basename(path);
-  const body = await readFile(path);
-  const form = new FormData();
-  form.append("File", new Blob([body]), filename);
+  const upload = multipartFileUpload("File", path, filename);
   const url = `http://${address}:${WS_PORT}/uploadFile/upload`;
-  const res = await fetch(url, { method: "POST", body: form, signal: ctx.signal }).catch((e) => {
+  const init = { method: "POST", body: upload.body, headers: upload.headers, signal: ctx.signal };
+  const res = await fetch(url, init).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted
       ? new PrintNotStartedError(reason)

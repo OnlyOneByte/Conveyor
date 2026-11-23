@@ -25,7 +25,7 @@ flowchart LR
 | `caddy` | `Caddyfile` | TLS (the PWA's service worker needs https) and path routing. API namespaces never share a prefix with a page route. |
 | `web` | `packages/web` | SvelteKit 3 + Svelte 5 PWA on `adapter-node`, in Svelte 4 (non-runes) component syntax. Client-side procedural Three.js preview ([ADR 0002](adr/0002-dual-model-preview.md)). |
 | `api` | `packages/api` | Fastify REST + WebSocket. Validates requests with zod, checks compatibility, enqueues, relays status to `/jobs/:id/ws`. Session auth (`CONVEYOR_PASSWORD`, `CONVEYOR_AUTH_SECRET`). |
-| `worker` | `packages/worker` | BullMQ `Worker` (`WORKER_CONCURRENCY`, default 2). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). |
+| `worker` | `packages/worker` | BullMQ `Worker` on the Redis queue, where `WORKER_CONCURRENCY` (default 2) caps all running jobs. On the SQLite queue it caps only jobs running an engine; one waiting at or on the printer doesn't count ([worker](modules/worker.md)). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). G-code uploads stream from disk, so a transfer doesn't hold the file in memory. |
 | `redis` | `docker-compose.yml` | Queue, live `job:<id>` snapshot, `job:<id>:status` channel. |
 
 ### Queue modes
