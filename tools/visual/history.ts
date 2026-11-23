@@ -17,14 +17,26 @@ export function pinHistory(body: unknown): unknown {
   });
 }
 
+export function pinHistoryEntry(body: unknown): unknown {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return body;
+  return { ...body, createdAt: HISTORY_EPOCH, updatedAt: HISTORY_EPOCH };
+}
+
 export const isHistoryList = (url: URL): boolean => url.pathname === "/jobs-history";
 
-export async function fulfillPinned(route: Route): Promise<void> {
+export const isHistoryEntry = (url: URL): boolean => /^\/jobs-history\/[^/]+$/.test(url.pathname);
+
+const fulfillWith = (pin: (body: unknown) => unknown) => async (route: Route) => {
   const response = await route.fetch();
   if (!response.ok()) return route.fulfill({ response });
-  await route.fulfill({ response, json: pinHistory(await response.json()) });
-}
+  await route.fulfill({ response, json: pin(await response.json()) });
+};
+
+export const fulfillPinned = fulfillWith(pinHistory);
+
+export const fulfillPinnedEntry = fulfillWith(pinHistoryEntry);
 
 export async function pinHistoryRoute(context: BrowserContext): Promise<void> {
   await context.route(isHistoryList, fulfillPinned);
+  await context.route(isHistoryEntry, fulfillPinnedEntry);
 }
