@@ -65,15 +65,17 @@ in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves i
 
 - imports something that lands in a helper folder or a `*.test.*`/`*.spec.*` file. Each quoted specifier is
   resolved the way Bun resolves it at run time (`Bun.resolveSync`, then `realpathSync`), so a relative path, a
-  `package.json` `imports` or `exports` alias and a symlink anywhere in the repo are all judged by where they
+  `package.json` `imports` or `exports` alias, a `tsconfig` `paths` alias and a symlink anywhere in the repo are all judged by where they
   really land. A specifier that doesn't resolve is skipped;
 - names a `*.test.*` or `*.spec.*` file in an import;
 - mentions `test` and `helpers` next to each other anywhere in its text (`\btest\W+helpers\b`). This is a text
   match, not a parse, so it also catches template literals, concatenation, variables, `path.join` and
   `import.meta.url`. A real source that trips it on a string has to reword the string.
 
-It also fails on any tracked symlink under `packages/` or `plugins/`, since a link could point into a helper
-folder unseen. Any other module, including one kept in another `test/`
+It also fails on any tracked symlink under `packages/` or `plugins/`. Resolution follows a link only for a
+quoted specifier, and the ban also covers a computed import through a linked folder. And it fails on a
+`*.test.*` or `*.spec.*` file that never imports `bun:test`, because the name alone takes it out of the
+denominator: a real module named like that has to be renamed. Any other module, including one kept in another `test/`
 folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
 helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep

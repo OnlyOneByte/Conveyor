@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runtimeResolver, sourceImportErrors, symlinkErrors } from "./imports";
+import { runtimeResolver, sourceImportErrors, suiteErrors, symlinkErrors } from "./imports";
 
 const flagged = (path: string, text: string) => sourceImportErrors([path], () => text);
 
@@ -92,6 +92,9 @@ function aliasRepo() {
       },
     }),
     "packages/worker/test/helpers/probe-helper.ts": "export const secret = 42;\n",
+    "packages/worker/tsconfig.json": JSON.stringify({
+      compilerOptions: { baseUrl: ".", paths: { "@probe/*": ["./test/helpers/*"] } },
+    }),
     "packages/worker/src/x.spec.ts": "export const hidden = 1;\n",
     "packages/worker/src/run.ts": "export const run = 1;\n",
   };
@@ -110,6 +113,7 @@ describe("sourceImportErrors with the runtime resolver", () => {
   test.each([
     ["a package.json imports alias", 'import { secret } from "#probe/probe-helper";\n'],
     ["a package.json exports entry", 'import { secret } from "probe-worker/fixtures";\n'],
+    ["a tsconfig paths alias", 'import { secret } from "@probe/probe-helper";\n'],
     [
       "a symlink outside packages/",
       'import { secret } from "../../../tools/probe-link/probe-helper";\n',
@@ -133,5 +137,24 @@ describe("sourceImportErrors with the runtime resolver", () => {
     const root = aliasRepo();
     const text = 'import { run } from "./run";\nimport { gone } from "./missing";\n';
     expect(sourceImportErrors([FROM], () => text, runtimeResolver(root))).toEqual([]);
+  });
+});
+
+describe("suiteErrors", () => {
+  const files: Record<string, string> = {
+    "packages/api/src/entry.spec.ts": 'export const main = () => "serve";\n',
+    "packages/api/src/hint.test.ts": 'export const hint = "see bun:test";\n',
+    "packages/api/src/route.test.ts": 'import { test } from "bun:test";\ntest("x", () => {});\n',
+    "packages/api/src/lazy.spec.ts":
+      'const bt = await import("bun:test");\nbt.test("x", () => {});\n',
+    "packages/api/src/plain.ts": "export const plain = 1;\n",
+  };
+  const read = (path: string) => files[path] ?? "";
+
+  test("fails a test-named file that never imports bun:test, even if it mentions it", () => {
+    expect(suiteErrors(Object.keys(files), read)).toEqual([
+      "packages/api/src/entry.spec.ts is named like a test but doesn't import bun:test, so it would leave coverage unmeasured; rename it or make it a test",
+      "packages/api/src/hint.test.ts is named like a test but doesn't import bun:test, so it would leave coverage unmeasured; rename it or make it a test",
+    ]);
   });
 });

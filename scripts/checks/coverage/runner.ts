@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Coverage, parseLcov } from "./lcov";
 import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
-import { isSource, PACKAGES, SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
+import { isSource, PACKAGES, SWEEP_ENV, SWEEP_REPORT_ENV, TEST_NAME } from "./summary";
 
 export const ROOT = join(import.meta.dir, "..", "..", "..");
 
@@ -20,6 +20,11 @@ export const sources = (root = ROOT) =>
   (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
     .split("\0")
     .filter((path) => isSource(path));
+
+export const testNamedFiles = (root = ROOT) =>
+  (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
+    .split("\0")
+    .filter((path) => TEST_NAME.test(path));
 
 export const stagedEntries = (root = ROOT) =>
   git(root, ["ls-files", "-s", "-z", "--", "packages", "plugins"]) ?? "";

@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { runtimeResolver, sourceImportErrors, symlinkErrors } from "./imports";
+import { runtimeResolver, sourceImportErrors, suiteErrors, symlinkErrors } from "./imports";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_DIR,
@@ -18,6 +18,7 @@ import {
   runSweep,
   sources,
   stagedEntries,
+  testNamedFiles,
 } from "./runner";
 import {
   mergeCoverage,
@@ -73,6 +74,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
     ...sweepErrors({ ...sweep, estimated: merged.estimated }),
     ...sourceImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? "", runtimeResolver(ROOT)),
     ...symlinkErrors(stagedEntries()),
+    ...suiteErrors(testNamedFiles(), (path) => readOrNull(join(ROOT, path)) ?? ""),
   ];
   for (const error of errors) console.error(error);
   return errors.length === 0 ? summary : null;

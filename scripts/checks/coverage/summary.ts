@@ -16,7 +16,7 @@ const CODE = /\.(ts|tsx|mts|cts|js|mjs)$/;
 
 const DECLARATION = /\.d\.ts$/;
 
-const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
+export const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
 export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/", "packages/worker/test/helpers/"];
 

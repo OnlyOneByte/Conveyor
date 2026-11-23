@@ -1,12 +1,14 @@
 import { realpathSync } from "node:fs";
 import { dirname, join, posix, relative, sep } from "node:path";
-import { isTestFile, TEST_HELPER_DIRS } from "./summary";
+import { isTestFile, TEST_HELPER_DIRS, TEST_NAME } from "./summary";
 
 const HELPER_TEXT = /\btest\W+helpers\b/;
 
 const SPECIFIER = /\b(?:from|import|require)\s*\(?\s*(["'`])([^"'`]+)\1/g;
 
 const TEST_SPECIFIER = /\.(test|spec)(\.[cm]?[jt]sx?)?$/;
+
+const BUN_TEST_IMPORT = /\b(?:from|import|require)\s*\(?\s*["'`]bun:test["'`]/;
 
 export type Resolve = (specifier: string, from: string) => string | null;
 
@@ -62,4 +64,13 @@ export function symlinkErrors(staged: string): string[] {
     .map((entry) => entry.slice(entry.indexOf("\t") + 1))
     .filter((path) => path.startsWith("packages/") || path.startsWith("plugins/"))
     .map((path) => `${path} is a symlink; the coverage check can't see what it points at`);
+}
+
+export function suiteErrors(paths: string[], read: (path: string) => string): string[] {
+  return paths
+    .filter((path) => TEST_NAME.test(path) && !BUN_TEST_IMPORT.test(read(path)))
+    .map(
+      (path) =>
+        `${path} is named like a test but doesn't import bun:test, so it would leave coverage unmeasured; rename it or make it a test`,
+    );
 }
