@@ -99,8 +99,27 @@ change in their own PR and need a second, independent review; the list and the g
 The `audit` CI job runs `bun audit --audit-level=high`, which reads `bun.lock` and fails on any high or critical
 advisory. The job skips only the advisories listed in `.github/audit-baseline.json`, which maps bun's numeric
 advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
-was added; #231 tracks fixing them. When an upgrade fixes one, delete its entry. Adding an entry is a guardrail
-change, so it needs the second review. To see the current findings, run `bun audit --audit-level=high`.
+was added; #231 tracks fixing them. To see the current findings, run `bun audit --audit-level=high`.
+
+Which baseline the job uses depends on the run. Each run picks one base commit, and uses it both to read the base's baseline and to compute the diff (`git diff --no-renames --name-only <base> HEAD`):
+
+| Run | Base commit |
+| --- | --- |
+| A pull request | `HEAD^1`, the first parent of the merge commit GitHub checks out, so a re-run judges the same base even after `main` moves |
+| A manual run on any branch except `main` | `git merge-base origin/main HEAD`, so a dispatch can't launder a PR's red `audit` |
+| A push to `main`, or a manual run on `main` | none |
+
+With a base, the job skips only the entries both the base's and the branch's baseline list. When the diff is `.github/audit-baseline.json` alone, it uses the branch's own file. Without a base, it uses the checked-out tree's file.
+
+When there is a base, every id the branch's baseline adds over it must appear in `bun audit --json` on that tree, or the job fails naming the id. That stops a PR from pre-seeding an id for an advisory that doesn't exist yet. If the base can't be resolved, the job fails. If either baseline or the audit output is empty or isn't a JSON object, the job fails and says which.
+
+- **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
+  present, that PR's `audit` fails.
+- **Adding an entry:** a PR can't add a dependency and its entry together, because the base doesn't list the
+  entry yet. An entry for an advisory already on `main` lands in a PR that changes only
+  `.github/audit-baseline.json`. That PR's `audit` uses its own file and passes, and it can't add a
+  dependency. It's a guardrail change, so it needs both reviews. After it merges, the push run on `main` uses
+  the new file, so `main` stays green.
 
 ### Pinned actions
 
