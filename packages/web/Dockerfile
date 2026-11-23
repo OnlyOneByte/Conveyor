@@ -1,10 +1,5 @@
-# SvelteKit PWA (adapter-node). bun builds, node serves the build output.
 FROM oven/bun:debian AS build
 WORKDIR /app
-# `bun install --frozen-lockfile` validates the ENTIRE workspace graph against
-# bun.lock, so EVERY member listed in the lockfile must have its manifest present
-# here — even ones this image never imports (worker + all plugins) — or bun reports
-# "lockfile had changes" and aborts. (Verified 2026-06-30; same class as worker/api.)
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/api/package.json packages/api/
