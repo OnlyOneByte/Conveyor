@@ -1,4 +1,4 @@
-const HOST = /^[a-z0-9.-]+(:\d{1,5})?$/i;
+const HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)*(:\d{1,5})?$/i;
 
 export function withSocketSources(csp: string, host: string): string {
   if (!HOST.test(host)) return csp;

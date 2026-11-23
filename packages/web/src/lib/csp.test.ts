@@ -16,7 +16,21 @@ describe("withSocketSources", () => {
     );
   });
 
-  test.each(["evil;script-src *", "a b", "[::1]:3000", ""])(
+  test.each([
+    "evil;script-src *",
+    "a b",
+    "[::1]:3000",
+    "",
+    "a..b",
+    ".a",
+    "a.",
+    "a_b",
+    "a:b",
+    ":8443",
+    "a:",
+    "a:8443:1",
+    "a:123456",
+  ])(
     "leaves the policy unchanged for the host %p",
     (host) => {
       expect(withSocketSources(csp, host)).toBe(csp);

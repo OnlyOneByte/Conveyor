@@ -1,5 +1,5 @@
 import type { Handle } from "@sveltejs/kit";
-import { withSocketSources } from "$lib/csp";
+import { withSocketSources } from "./lib/csp";
 
 export const handle: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
