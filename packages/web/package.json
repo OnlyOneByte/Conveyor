@@ -19,7 +19,7 @@
     "@sveltejs/kit": "^2.5.18",
     "@sveltejs/vite-plugin-svelte": "^3.1.1",
     "@threlte/core": "^7.3.1",
-    "@threlte/extras": "^8.11.4",
+    "@threlte/extras": "^9.23.1",
     "svelte": "^4.2.18",
     "svelte-check": "^3.8.4",
     "three": "^0.166.1",
