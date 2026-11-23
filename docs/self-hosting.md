@@ -90,7 +90,6 @@ Before you expose Conveyor beyond the host:
 
 - Keep authentication on and use a strong `CONVEYOR_PASSWORD`.
 - Replace `localhost` in the `Caddyfile` with the hostname clients use, so Caddy issues a certificate for it. For a public domain, Caddy can obtain a Let's Encrypt certificate automatically once ports 80 and 443 are reachable.
-- Set `PUBLIC_API_URL` in `.env` to the same `https://` origin.
 - Do not forward ports to the internet unless you need remote access. A VPN such as WireGuard or Tailscale is a safer way to reach a home install.
 
 ## Environment reference
@@ -103,7 +102,6 @@ Before you expose Conveyor beyond the host:
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
-| `PUBLIC_API_URL` | `https://localhost` | Origin the PWA calls. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
 | `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. |
 | `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. |
