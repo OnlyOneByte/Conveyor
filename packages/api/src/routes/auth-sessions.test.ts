@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BootedApi, bootApi, login } from "../../test/booted-api.ts";
+import { rawGet } from "../../test/raw-http.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-sessions-"));
 const PASSWORD = "sessions-test-password";
@@ -72,5 +73,11 @@ describe("sessions", () => {
     const res = await fetch(`${base}/health`);
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    const bad = await rawGet(Number(new URL(base).port), "/jobs/%E0%A4%A");
+    expect([bad.status, bad.headers["x-content-type-options"], JSON.parse(bad.body)]).toEqual([
+      400,
+      "nosniff",
+      { error: "bad request" },
+    ]);
   });
 });

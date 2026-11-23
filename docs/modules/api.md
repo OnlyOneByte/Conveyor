@@ -115,7 +115,7 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /auth/status` tells the client whether to show a login screen.
 - Every `/auth/*` response, a successful login included, carries `cache-control: private, no-store`, so
   it is never cached or cross-served.
-- Every API response carries `content-security-policy: default-src 'none'; frame-ancestors 'none'`,
+- Every API response, including the JSON `400` from `frameworkErrors` for a URL the router cannot decode (sent before any hook runs), carries `content-security-policy: default-src 'none'; frame-ancestors 'none'`,
   `x-content-type-options: nosniff`, `x-frame-options: DENY` and `referrer-policy: no-referrer`
   (`security-headers.ts`). The API serves JSON and file downloads (job artifacts), never a page, so its CSP allows nothing. The PWA's own CSP comes from
   SvelteKit (`kit.csp` in `packages/web/svelte.config.js`), with a nonce for its inline start-up script.

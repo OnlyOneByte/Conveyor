@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { AddressInfo } from "node:net";
 import Fastify from "fastify";
-import { registerSecurityHeaders, SECURITY_HEADERS } from "./security-headers";
+import { rawGet } from "../test/raw-http.ts";
+import { frameworkErrors, registerSecurityHeaders, SECURITY_HEADERS } from "./security-headers";
 
 const app = Fastify();
 let base = "";
@@ -45,4 +47,37 @@ describe("registerSecurityHeaders", () => {
     );
     expect((await fetch(`${base}/jobs/active`)).headers.get("cache-control")).toBeNull();
   });
+});
+
+describe("frameworkErrors", () => {
+  const strict = Fastify({ frameworkErrors });
+  let port = 0;
+
+  beforeAll(async () => {
+    registerSecurityHeaders(strict);
+    strict.get("/jobs/:id", async () => ({ ok: true }));
+    await strict.listen({ host: "127.0.0.1", port: 0 });
+    port = (strict.server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await strict.close();
+  });
+
+  test.each([
+    ["/jobs/%E0%A4%A", "none"],
+    ["/auth/%E0%A4%A", "private, no-store"],
+  ])(
+    "answers the undecodable URL %s with a JSON 400 and every security header",
+    async (path, cacheControl) => {
+      const res = await rawGet(port, path);
+      expect(res.status).toBe(400);
+      expect(res.headers["content-type"]).toStartWith("application/json");
+      expect(JSON.parse(res.body)).toEqual({ error: "bad request" });
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        expect(res.headers[name]).toBe(value);
+      }
+      expect(res.headers["cache-control"] ?? "none").toBe(cacheControl);
+    },
+  );
 });
