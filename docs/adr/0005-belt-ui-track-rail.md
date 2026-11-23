@@ -22,6 +22,9 @@ switchboard direction it keeps the `⌘K` command menu and `J`/`K` in Jobs. The 
 
 - The UI keeps SvelteKit 3 and Svelte 5. The tokens are plain CSS custom properties with a light and a dark theme,
   and primitives are native elements (`<dialog>`, popover) rather than a component library.
+- Fonts are self-hosted from `@fontsource` packages and bundled by Vite. The app makes no third-party requests at
+  runtime; only the design mockup loads fonts from a CDN.
 - The rail is the global job tray, so Monitor and the localStorage job list are removed.
 - Until the backend has one stream of job events, the rail polls `GET /jobs/active` and opens a socket per chip.
-- The rewrite lands as nine PRs of at most 400 changed lines, each with visuals.
+- The rewrite lands as twelve PRs of at most 400 changed lines, each with visuals, tracked in
+  [#322](https://github.com/OnlyOneByte/Conveyor/issues/322).

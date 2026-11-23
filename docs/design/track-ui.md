@@ -5,7 +5,8 @@ The rewrite plan is in [Implementation plan](#implementation-plan).
 
 Mockup: [track-mockup.html](track-mockup.html). Open it in a browser, without a hash for its index of states.
 Add `?theme=light` or `?theme=dark` to force a theme. It loads Bricolage Grotesque and DM Mono (both SIL OFL-1.1)
-from the Fontsource CDN and falls back to system fonts offline.
+from the Fontsource CDN and falls back to system fonts offline. That CDN is for the mockup only: the app self-hosts
+its fonts and makes no third-party requests (see [Type](#type)).
 
 Answers the UX audit, umbrella [#49](https://github.com/OnlyOneByte/Conveyor/issues/49), and its IA findings
 [#38](https://github.com/OnlyOneByte/Conveyor/issues/38), [#39](https://github.com/OnlyOneByte/Conveyor/issues/39)
@@ -42,6 +43,13 @@ sizes or durations appear outside the token file; the lint rule for this lands w
 | Body | 15 px / 1.45 | Default |
 | Chip | 13 px / 650 | Rail chips |
 | Label | 11 px mono / 500 / uppercase / 0.09em | Captions, station names |
+
+**The app self-hosts its fonts.** A self-hosted app must not call third parties, so the web package depends on
+`@fontsource-variable/bricolage-grotesque` and `@fontsource/dm-mono` (weights 400 and 500), imports only their latin
+subsets, and Vite bundles the `woff2` files into the build. Fonts are served from the app's own origin with
+`font-display: swap`; there is no CDN, Google Fonts or other external request at runtime. The CSP needs no change:
+fonts fall under its `default-src 'self'`, and no `font-src` exception is added. Both fonts are SIL OFL-1.1; the
+tokens PR lists them in `THIRD_PARTY_NOTICES.md`.
 
 ### Colour
 
@@ -279,8 +287,9 @@ visual-capture scenes.
 
 ## Implementation plan
 
-Nine PRs of at most 400 changed lines each, in dependency order. The tracking issue lists them; each issue carries
-its acceptance criteria, the audit issues it closes and the visuals it must attach.
+Twelve PRs of at most 400 changed lines each, in dependency order, tracked in
+[#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334). Each issue carries its acceptance
+criteria, the audit issues it closes and the visuals it must attach.
 
 ## Not decided
 
