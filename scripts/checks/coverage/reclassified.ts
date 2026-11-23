@@ -5,7 +5,6 @@ import {
   isTestFile,
   PACKAGES,
   packageOf,
-  rawPackageOf,
   round2,
   type Summary,
   TEST_HELPER_DIRS,
@@ -125,39 +124,23 @@ const followsMove = (moves: Reclassification[], change: FileChange, facts: MoveF
 const importsFollowMove = (moves: Reclassification[], change: FileChange, facts: MoveFacts) =>
   specifierPairs(change)?.every(followsMove(moves, change, facts)) ?? false;
 
-const inPackage = (name: string, path: string | null) =>
-  path !== null && (path.startsWith('"') || rawPackageOf(path) === name);
+const isRecord = (path: string | null) =>
+  path === null || path.startsWith(`${BASELINE_DIR}/`) || path.endsWith(".md");
 
-const mayChangeBesideMove = (path: string) =>
-  /^(packages|plugins)\//.test(path) || path.startsWith(`${BASELINE_DIR}/`) || path.endsWith(".md");
-
-const outsideErrors = (changes: FileChange[]) =>
-  changes
-    .flatMap((change) => [change.from, change.to])
-    .filter(
-      (path): path is string =>
-        path !== null && !path.startsWith('"') && !mayChangeBesideMove(path),
-    )
-    .map(
-      (path) =>
-        `${RECLASSIFIED_PATH}: ${path} changes; beside a recorded move only packages, plugins, coverage baselines and Markdown may change`,
-    );
-
-function rideAlongErrors(name: string, moves: Reclassification[], facts: MoveFacts): string[] {
+function rideAlongErrors(moves: Reclassification[], facts: MoveFacts): string[] {
   if (facts.changes === null) return [`${RECLASSIFIED_PATH}: could not read this PR's changes`];
   const allowed = (change: FileChange) =>
-    (change.renamed
+    (isRecord(change.from) && isRecord(change.to)) ||
+    ((change.renamed
       ? moves.some((move) => move.from === change.from && move.to === change.to)
       : change.from !== null && change.from === change.to) &&
-    importsFollowMove(moves, change, facts);
-  const inside = facts.changes
-    .filter((change) => inPackage(name, change.from) || inPackage(name, change.to))
+      importsFollowMove(moves, change, facts));
+  return facts.changes
     .filter((change) => !allowed(change))
     .map(
       (change) =>
-        `${RECLASSIFIED_PATH}: ${change.to ?? change.from} changes ${name} beyond the recorded move and import-path edits`,
+        `${RECLASSIFIED_PATH}: ${change.to ?? change.from} changes beside a recorded move; only the move, import paths that follow it, coverage baselines and Markdown may`,
     );
-  return [...new Set([...inside, ...outsideErrors(facts.changes)])];
 }
 
 export function reclassificationFloors(
@@ -168,15 +151,12 @@ export function reclassificationFloors(
   const fresh = head.filter((entry) => !base.some((old) => sameEntry(old, entry)));
   const errors = fresh.flatMap((entry) => entryError(entry, facts) ?? []);
   if (errors.length > 0) return { floors: {}, errors, notes: [] };
+  if (fresh.length > 0) errors.push(...rideAlongErrors(fresh, facts));
+  if (errors.length > 0) return { floors: {}, errors, notes: [] };
   const floors: Record<string, number> = {};
   const notes: string[] = [];
   for (const name of new Set(fresh.map((entry) => entry.package))) {
     const moves = fresh.filter((entry) => entry.package === name);
-    const rideAlong = rideAlongErrors(name, moves, facts);
-    if (rideAlong.length > 0) {
-      errors.push(...rideAlong);
-      continue;
-    }
     const floor = moves[0]?.floor ?? 0;
     const lines = moves.reduce((sum, entry) => sum + (facts.baseLines(entry.from) ?? 0), 0);
     const totals = facts.current[name as keyof Summary];

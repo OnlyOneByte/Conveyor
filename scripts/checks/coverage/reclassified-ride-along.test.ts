@@ -78,9 +78,7 @@ describe("a recorded move carries nothing else in its package", () => {
         'import { a } from "../test/helpers/pipeline-harness";',
       ],
     });
-    const other = change({ from: "packages/api/src/x.ts", to: "packages/api/src/x.ts" });
-    other.added = ["export const extra = 1;"];
-    const result = run([MOVED, change({}), multiLine, sorted, other]);
+    const result = run([MOVED, change({}), multiLine, sorted]);
     expect(result.errors).toEqual([]);
     expect(result.floors).toEqual({ worker: 82.34 });
   });
@@ -141,18 +139,18 @@ describe("a recorded move carries nothing else in its package", () => {
     const result = run(changes);
     expect(result.floors).toEqual({});
     expect(result.errors.join("\n")).toContain(
-      "changes worker beyond the recorded move and import-path edits",
+      "changes beside a recorded move; only the move, import paths that follow it, coverage baselines and Markdown may",
     );
   });
 
-  test("allows the coverage baselines, Markdown and other packages beside the move", () => {
+  test("allows the coverage baselines and Markdown beside the move", () => {
     const at = (path: string) => change({ from: path, to: path, removed: [], added: ["x"] });
     const result = run([
       MOVED,
       at("scripts/checks/coverage/baseline/worker.json"),
       at("scripts/checks/coverage/baseline/reclassified.json"),
       at("docs/contributing.md"),
-      at("packages/api/src/x.ts"),
+      at("packages/worker/README.md"),
     ]);
     expect(result.errors).toEqual([]);
   });
@@ -163,12 +161,15 @@ describe("a recorded move carries nothing else in its package", () => {
     "tsconfig.json",
     "scripts/checks/coverage/main.ts",
     ".github/workflows/ci.yml",
+    "packages/api/src/x.ts",
+    "packages/worker/tsconfig.json",
+    "plugins/printer/x/index.ts",
   ])("refuses a change to %s beside the move", (path) => {
     const outside = change({ from: path, to: path, removed: [], added: ['  "x",'] });
     const result = run([MOVED, outside]);
     expect(result.floors).toEqual({});
     expect(result.errors).toEqual([
-      `scripts/checks/coverage/baseline/reclassified.json: ${path} changes; beside a recorded move only packages, plugins, coverage baselines and Markdown may change`,
+      `scripts/checks/coverage/baseline/reclassified.json: ${path} changes beside a recorded move; only the move, import paths that follow it, coverage baselines and Markdown may`,
     ]);
   });
 

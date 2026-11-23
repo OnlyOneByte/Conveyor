@@ -99,7 +99,7 @@ describe("an import path edit must follow the recorded move", () => {
     const result = judge(`${before}\n`, `${after}\n`);
     expect(result.floors).toEqual({});
     expect(result.errors).toEqual([
-      `scripts/checks/coverage/baseline/reclassified.json: ${USER} changes worker beyond the recorded move and import-path edits`,
+      `scripts/checks/coverage/baseline/reclassified.json: ${USER} changes beside a recorded move; only the move, import paths that follow it, coverage baselines and Markdown may`,
     ]);
   });
 
@@ -107,13 +107,15 @@ describe("an import path edit must follow the recorded move", () => {
     const bunfig = { "bunfig.toml": `[test]\npathIgnorePatterns = ["${USER}"]\n` };
     const result = judge("", "", bunfig);
     expect(result.floors).toEqual({});
-    expect(result.errors.join("\n")).toContain("bunfig.toml changes; beside a recorded move");
+    expect(result.errors.join("\n")).toContain(
+      "bunfig.toml changes beside a recorded move; only the move, import paths that follow it, coverage baselines and Markdown may",
+    );
   });
 
   test("refuses the moved file pointing its own import somewhere new", () => {
     const moved = { [TO]: `import { runJob } from "../../src/stub";\n${BODY}\n` };
     const result = judge("", "", moved);
     expect(result.floors).toEqual({});
-    expect(result.errors.join("\n")).toContain(`${TO} changes worker beyond`);
+    expect(result.errors.join("\n")).toContain(`${TO} changes beside a recorded move`);
   });
 });

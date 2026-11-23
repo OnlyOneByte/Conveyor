@@ -23,7 +23,7 @@ export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/", "packages/work
 const asPackage = (name: string | undefined): PackageName | null =>
   PACKAGES.find((known) => known === name) ?? null;
 
-export const rawPackageOf = (path: string): PackageName | null => {
+const rawPackageOf = (path: string): PackageName | null => {
   if (/^plugins\/[^/]+\/[^/]+\//.test(path)) return "plugins";
   const name = /^packages\/([^/]+)\//.exec(path)?.[1];
   return name === "plugins" ? null : asPackage(name);
