@@ -68,7 +68,10 @@ only when all of these hold:
 - git sees the commit range as a rename from `from` to `to` (`git diff -M90%`);
 - `floor` equals the committed baseline;
 - the move explains the whole drop: counting the moved file's lines on the base as fully covered brings the
-  package back to at least the base's floor.
+  package back to at least the base's floor;
+- nothing else in that package changes: besides the rename, every changed line is a one-line import or
+  export whose path is the only difference, so a new file, a deletion or any other edit fails the check.
+  Land other work in the package in its own PR.
 
 Otherwise it fails and names the rule. The log prints how far the move could explain coverage, so a reviewer
 sees the slack. Entries stay in the file as history and have no effect once they are on the base.

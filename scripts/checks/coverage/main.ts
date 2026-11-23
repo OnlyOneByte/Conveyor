@@ -14,6 +14,7 @@ import {
 } from "./ratchet";
 import { parseReclassifications, RECLASSIFIED_PATH, reclassificationFloors } from "./reclassified";
 import {
+  changesSince,
   linesAt,
   ROOT,
   readAt,
@@ -112,6 +113,7 @@ function reclassified(summary: Summary, ref: string, base: BaselineTexts) {
   if (typeof old === "string") return { floors: {}, errors: [`base ${old}`], notes: [] };
   return reclassificationFloors(head, old, {
     renamed: renamedSince(ref),
+    changes: changesSince(ref),
     baseLines: linesAt(ref),
     current: summary,
     base: linesOf(base),

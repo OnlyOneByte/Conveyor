@@ -19,6 +19,7 @@ const MOVE: Reclassification = { package: "worker", from: FROM, to: TO, floor: 8
 
 const facts = (overrides: Partial<MoveFacts> = {}): MoveFacts => ({
   renamed: (from, to) => from === FROM && to === TO,
+  changes: [],
   baseLines: (path) => (path === FROM ? 130 : null),
   current: {
     api: { hit: 1, found: 1 },
@@ -59,6 +60,11 @@ describe("reclassificationFloors", () => {
     ],
     ["the wrong package", { ...MOVE, package: "api" }, "is not a api source file"],
     [
+      "a helper folder of another package",
+      { ...MOVE, to: "packages/shared/test/helpers/pipeline-harness.ts" },
+      "is not in a declared worker test helper folder",
+    ],
+    [
       "a floor other than the committed one",
       { ...MOVE, floor: 80 },
       "must equal the committed worker baseline",
@@ -72,6 +78,24 @@ describe("reclassificationFloors", () => {
   test("refuses an entry git does not see as a move", () => {
     const result = reclassificationFloors([MOVE], [], facts({ renamed: () => false }));
     expect(result.errors.join("\n")).toContain("git does not see this move");
+  });
+
+  test.each([0, null])("refuses a move whose file has %p lines on the base", (lines) => {
+    const result = reclassificationFloors([MOVE], [], facts({ baseLines: () => lines }));
+    expect(result.floors).toEqual({});
+    expect(result.errors.join("\n")).toContain(`${FROM} has no lines on the base`);
+  });
+
+  test("allows a move that explains exactly the base floor", () => {
+    const exact = facts({
+      current: { ...facts().current, worker: { hit: 700, found: 900 } },
+      baseLines: () => 100,
+      base: { worker: 80 },
+      committed: { worker: 77.78 },
+    });
+    const result = reclassificationFloors([{ ...MOVE, floor: 77.78 }], [], exact);
+    expect(result.errors).toEqual([]);
+    expect(result.floors).toEqual({ worker: 77.78 });
   });
 
   test("refuses a drop bigger than the moved lines can explain", () => {

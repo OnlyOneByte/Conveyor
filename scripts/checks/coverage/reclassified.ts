@@ -4,6 +4,7 @@ import {
   isTestFile,
   PACKAGES,
   packageOf,
+  rawPackageOf,
   round2,
   type Summary,
   TEST_HELPER_DIRS,
@@ -39,8 +40,18 @@ export function parseReclassifications(text: string | null): Reclassification[] 
   return `${RECLASSIFIED_PATH} must be a JSON array of { package, from, to, floor }`;
 }
 
+export interface FileChange {
+  from: string | null;
+  to: string | null;
+  renamed: boolean;
+  opaque: boolean;
+  removed: string[];
+  added: string[];
+}
+
 export interface MoveFacts {
   renamed: (from: string, to: string) => boolean;
+  changes: FileChange[] | null;
   baseLines: (from: string) => number | null;
   current: Summary;
   base: Percents;
@@ -69,6 +80,41 @@ function entryError(entry: Reclassification, facts: MoveFacts): string | null {
   return null;
 }
 
+const IMPORT_LINE =
+  /^(\s*(?:(?:import|export)\b.*\bfrom|\}\s*from|import)\s*)(["'])[^"'\n]*\2(;?\s*)$/;
+
+const withoutSpecifiers = (lines: string[]) =>
+  lines.every((line) => IMPORT_LINE.test(line))
+    ? lines
+        .map((line) => line.replace(IMPORT_LINE, "$1$2$2$3"))
+        .sort()
+        .join("\n")
+    : null;
+
+const importPathsOnly = (change: FileChange) => {
+  if (change.opaque) return false;
+  const removed = withoutSpecifiers(change.removed);
+  return removed !== null && removed === withoutSpecifiers(change.added);
+};
+
+const inPackage = (name: string, path: string | null) =>
+  path !== null && (path.startsWith('"') || rawPackageOf(path) === name);
+
+function rideAlongErrors(name: string, moves: Reclassification[], facts: MoveFacts): string[] {
+  if (facts.changes === null) return [`${RECLASSIFIED_PATH}: could not read this PR's changes`];
+  const allowed = (change: FileChange) =>
+    (change.renamed
+      ? moves.some((move) => move.from === change.from && move.to === change.to)
+      : change.from !== null && change.from === change.to) && importPathsOnly(change);
+  return facts.changes
+    .filter((change) => inPackage(name, change.from) || inPackage(name, change.to))
+    .filter((change) => !allowed(change))
+    .map(
+      (change) =>
+        `${RECLASSIFIED_PATH}: ${change.to ?? change.from} changes ${name} beyond the recorded move and import-path edits`,
+    );
+}
+
 export function reclassificationFloors(
   head: Reclassification[],
   base: Reclassification[],
@@ -81,6 +127,11 @@ export function reclassificationFloors(
   const notes: string[] = [];
   for (const name of new Set(fresh.map((entry) => entry.package))) {
     const moves = fresh.filter((entry) => entry.package === name);
+    const rideAlong = rideAlongErrors(name, moves, facts);
+    if (rideAlong.length > 0) {
+      errors.push(...rideAlong);
+      continue;
+    }
     const floor = moves[0]?.floor ?? 0;
     const lines = moves.reduce((sum, entry) => sum + (facts.baseLines(entry.from) ?? 0), 0);
     const totals = facts.current[name as keyof Summary];
