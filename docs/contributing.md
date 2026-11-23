@@ -59,9 +59,10 @@ it says `dropped below base`, add the tests that cover what you changed.
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
 file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
-`import`; a text match, not a parse), and the declared helper folder `packages/shared/test/helpers/`. Any
-other module, including one named `*.spec.ts` or kept in a `test/` folder, is mapped by bun and counts;
-`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder and
+`import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
+`packages/worker/test/helpers/`. Any other module, including one named `*.spec.ts` or kept in another `test/`
+folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
+helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
@@ -133,6 +134,7 @@ release tag pointed to when it was pinned.
 | `actions/cache` | `v4.3.0` | `0057852bfaa89a56745cba8c7296529d2fc39830` |
 | `actions/upload-artifact` | `v4.6.2` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
 | `actions/download-artifact` | `v4.3.0` | `d3f86a106a0bac45b974a628896c90dbdf5c8093` |
+| `actions/setup-node` | `v7.1.0` | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
 | `oven-sh/setup-bun` | `v2.2.0` | `0c5077e51419868618aeaa5fe8019c62421857d6` |
 | `docker/build-push-action` | `v6.19.2` | `10e90e3645eae34f1e60eeb005ba3a3d33f178e8` |
 | `docker/login-action` | `v3.7.0` | `c94ce9fb468520275223c153574b00df6fe4bcc9` |
@@ -215,7 +217,7 @@ away.
 
 ## Toolchain notes
 
-`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 26 is pinned too: vite runs under `node` when one is on `PATH`, and SvelteKit 3 needs Node 22.17 or later. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
+`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 26 is pinned too: vite runs under `node` when one is on `PATH`, and SvelteKit 3 needs Node 22.17 or later. CI's `typecheck` job and the Visual evidence workflow set up the same Node 26 with `actions/setup-node`, so the `bunx` tools there don't run on whatever Node the runner image ships. The `typecheck` job also type-checks the service worker (`tsc -p packages/web/src/service-worker/tsconfig.json`), which `svelte-check` doesn't cover. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
 
 The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` output with Node. Every Dockerfile copies the `package.json` of every workspace member before `bun install --frozen-lockfile`, even the members that image never imports (the web image copies the worker's and every plugin's). `--frozen-lockfile` checks the whole workspace graph against `bun.lock`, and a missing manifest makes bun report `lockfile had changes` and abort. A new workspace package needs a `COPY` line in all three Dockerfiles.
 

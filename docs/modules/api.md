@@ -136,7 +136,7 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   that proxy reports in `X-Forwarded-For`. The setting is parsed strictly at boot (IPs or CIDRs, an invalid
   entry exits 1), and unset trusts nothing. Compose trusts Caddy's fixed address only.
 
-## Catalog and history (`routes/catalog.ts`)
+## Catalog and history (`routes/catalog.ts`, `routes/catalog-content.ts`)
 
 - These routes are the whole configuration surface: printers, profiles and the job history. A job names a
   printer and a profile directly, so there is no saved pairing to curate.
@@ -144,7 +144,7 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   Omitting `secrets` on a write keeps the stored value (see `dbUpsertPrinter`).
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
 - Every catalog write is parsed by the schemas in `catalog-validation.ts` and the content schemas in
-  `routes/catalog.ts`. A rejected write answers `400 { error }` naming each field, e.g.
+  `routes/catalog-content.ts`. A rejected write answers `400 { error }` naming each field, e.g.
   `gcodeFlavor: unknown gcode flavor` or `allowedGenerators.1: unknown generator`. Profiles: `slicerId` must be
   a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
   registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
