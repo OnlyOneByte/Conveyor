@@ -106,4 +106,4 @@ in [docs/architecture.md](docs/architecture.md).
 ## 11. Deferred / backlog
 
 - **Hardware transport verification** — Moonraker and ElegooLink SDCP are protocol-complete but unproven against a physical printer (see M2 and the Elegoo open decision). The Elegoo adapter has two flagged VERIFY-ON-HARDWARE points (file-upload route, START_PRINT payload) that only a packet capture against a real device can resolve. `docs/M2-TRANSPORTS.md` holds the runbook.
-- **History paging past 200** — `/history` filters client-side over the API's max window (`limit=200`); a deeper archive would need a server-side cursor on `GET /jobs-history`.
+- **History paging past 200** — `GET /jobs-history` takes a `before` cursor plus `state`, `printerId`, `since` and `until` filters, and `GET /jobs-history/counts` gives per-state counts (see `docs/modules/api.md`). The `/history` page still loads one `limit=200` window until the UI rewrite uses them.

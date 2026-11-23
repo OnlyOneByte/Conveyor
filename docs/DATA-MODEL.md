@@ -188,7 +188,8 @@ rows stay inert history.
 
 A row exists for every live login. Logout deletes it, and a login prunes the expired ones. See `docs/modules/api.md` § Auth.
 
-Indexes: `idx_jobs_created_at` (history), `idx_jobs_claim`, `idx_jobs_lease` and the partial
+Indexes: `idx_jobs_created_at`, the partial `idx_jobs_history` on `(updated_at DESC, id DESC)` for finished
+jobs (history pages; `dbListJobs` names it with `INDEXED BY`), `idx_jobs_claim`, `idx_jobs_lease` and the partial
 `idx_jobs_printer_live` (the queue), and `idx_job_events_job`. The schema itself is in
 `packages/shared/src/db/schema.sql.ts` and `db/migrate.ts`.
 
