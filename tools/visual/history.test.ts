@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { Route } from "playwright";
 import {
   fulfillPinned,
   fulfillPinnedEntry,
@@ -8,6 +7,7 @@ import {
   isHistoryList,
   pinHistory,
   pinHistoryEntry,
+  pinHistoryRoute,
 } from "./history.ts";
 
 const job = (id: string, createdAt: number) => ({
@@ -62,7 +62,7 @@ describe("the /jobs-history route", () => {
       fulfill: async (options: unknown) => {
         fulfilled.push(options);
       },
-    } as unknown as Route;
+    };
     return { route, response, fulfilled };
   };
 
@@ -114,8 +114,48 @@ describe("one job's detail, /jobs-history/<id>", () => {
       fulfill: async (options: unknown) => {
         fulfilled.push(options);
       },
-    } as unknown as Route;
+    };
     await fulfillPinnedEntry(route);
     expect(fulfilled).toEqual([{ response, json: pinHistoryEntry(job("seed-canceled", 7)) }]);
+  });
+});
+
+describe("a time field the API did not return", () => {
+  const withoutCreatedAt = () => {
+    const { createdAt: _missing, ...rest } = job("seed-failed", 1795000001000);
+    return rest;
+  };
+
+  test("stays missing on one job's detail, so the page still shows it broken", () => {
+    expect(pinHistoryEntry(withoutCreatedAt())).toStrictEqual({
+      ...withoutCreatedAt(),
+      updatedAt: HISTORY_EPOCH,
+    });
+  });
+
+  test("stays missing in the list too", () => {
+    expect(pinHistory([withoutCreatedAt()])).toStrictEqual([
+      {
+        ...withoutCreatedAt(),
+        id: "00000001-0000-4000-8000-000000000000",
+        updatedAt: HISTORY_EPOCH + 60_000,
+      },
+    ]);
+  });
+});
+
+describe("pinHistoryRoute", () => {
+  test("registers the list pin and the detail pin on the context", async () => {
+    const routes: [(url: URL) => boolean, unknown][] = [];
+    const context = {
+      route: async (match: (url: URL) => boolean, handler: unknown) => {
+        routes.push([match, handler]);
+      },
+    };
+    await pinHistoryRoute(context);
+    expect(routes.map(([, handler]) => handler)).toEqual([fulfillPinned, fulfillPinnedEntry]);
+    const [list, entry] = routes.map(([match]) => match);
+    expect(list(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
+    expect(entry(new URL("http://127.0.0.1/jobs-history/seed-failed"))).toBe(true);
   });
 });
