@@ -45,10 +45,6 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(202).send({ jobId });
   });
 
-  // Active jobs: the in-flight set → each job's live snapshot. Ordered newest-first
-  // by event time. Registered BEFORE /jobs/:id so "active" is not swallowed as an id.
-  // A stale member (worker died mid-job) resolves to a terminal or missing snapshot
-  // and is filtered out here — the set is an index, the snapshot is the truth.
   app.get("/jobs/active", async () => {
     const ids = await redis.smembers(ACTIVE_JOBS_KEY);
     if (ids.length === 0) return [];
@@ -60,13 +56,10 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
       if (!evt || isTerminal(evt.state)) stale.push(ids[i]);
       else active.push(evt);
     }
-    // Opportunistically prune members whose snapshot is gone or already terminal so
-    // the set self-heals; never fail the read if the prune errors.
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
     return active.sort((a, b) => b.at - a.at);
   });
 
-  // Snapshot (reconnect-safe: PWA re-fetches this on WS reconnect).
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     if (!isJobId(req.params.id)) return reply.code(404).send({ error: "unknown job" });
     const snapshot = await redis.get(jobSnapshotKey(req.params.id));
