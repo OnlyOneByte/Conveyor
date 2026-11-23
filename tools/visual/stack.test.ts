@@ -195,6 +195,21 @@ describe("bootStack teardown wiring", () => {
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
   });
 
+  test("a failed seed starts no child and tears down Redis and the temp dir", async () => {
+    const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
+    let dataDir = "";
+    fake.deps.seed = async (_root, env) => {
+      dataDir = env.DATA_DIR ?? "";
+      throw new Error("table jobs has no column named stage");
+    };
+    await expect(bootStack("/repo", () => {}, fake.deps)).rejects.toThrow("no column named stage");
+    expect(fake.children).toEqual([]);
+    expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-1"]);
+    expect(dataDir).not.toBe("");
+    expect(existsSync(dataDir)).toBe(false);
+    expect(EXIT_TRIGGERS.map((t) => fake.emitter.listenerCount(t))).toEqual([0, 0, 0, 0]);
+  });
+
   test("gives every child 5 s after SIGTERM before SIGKILL", async () => {
     const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
     const stack = await bootStack("/repo", () => {}, fake.deps);

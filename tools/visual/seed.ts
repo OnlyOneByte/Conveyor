@@ -10,7 +10,7 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
     profileId: "orca/klipper-pla-0.2",
     state: "failed",
     stage: "transport",
-    error: { stage: "transport", reason: "printer 192.168.1.50 did not answer within 10 s" },
+    error: { stage: "transport", reason: "printer 192.0.2.50 did not answer within 10 s" },
   },
   {
     id: "seed-canceled",
