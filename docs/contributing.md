@@ -164,6 +164,8 @@ Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lo
 images use moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot
 has no version to bump, so the `docker` entry opens PRs only once a `FROM` line pins a version or digest.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
+`@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
+`ci.yml`), so it moves in the PR that bumps CI's Bun.
 
 A Dependabot PR doesn't follow the PR rules on its own. A builder adopts each one as its author session before
 it goes to review:
