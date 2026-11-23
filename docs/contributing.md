@@ -177,7 +177,8 @@ it goes to review:
 3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
    and commit for each bumped action.
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
-   in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`) and `tools/visual/stack.test.ts`.
+   in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
+   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
    the new Redis has rewritten the volume, going back to the old image may not work.
@@ -192,15 +193,18 @@ it goes to review:
       log in, submit a job with `POST /jobs`, and note its `jobId`.
    3. Flush and record: `docker compose exec redis redis-cli SAVE`, then
       `docker compose exec redis redis-cli DBSIZE`. Note the count.
-   4. `docker compose stop redis`, check out the PR branch (the new tag), then `docker compose up -d redis api`
+   4. `docker compose stop redis`, check out the PR branch (the new tag), then `docker compose up -d redis`
       on the same `redis_data` volume.
-   5. It passes only when all four hold:
+   5. It passes only when all four hold (each `redis-cli` through `docker compose exec redis`):
       - `docker compose ps redis` shows `healthy`.
       - `redis-cli GET conveyor:upgrade-probe` returns `1`.
       - `redis-cli DBSIZE` matches the count from step 3.
-      - `GET /jobs/active` still lists the job from step 2.
+      - The queued job survived: `redis-cli EXISTS bull:conveyor-jobs:<jobId>` returns `1`, and
+        `redis-cli LPOS bull:conveyor-jobs:wait <jobId>` returns a number, not `(nil)`.
 
-   Put the four results in the PR's How verified section.
+   Check the job in Redis, not through `GET /jobs/active`. That route lists only jobs the worker has reported
+   on, so with the worker stopped it is empty on the old Redis too. Put the four results in the PR's How
+   verified section.
 
 Once anyone but Dependabot pushes to its branch, Dependabot stops rebasing that PR. From then on the builder
 keeps it current with `main` by merging `main` in. Commenting `@dependabot recreate` throws the pushed commits
