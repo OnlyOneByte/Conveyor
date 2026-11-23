@@ -10,9 +10,17 @@ export interface JobStatusEvent {
   error?: { stage: Stage; reason: string };
   timings?: StageTiming[];
   at: number;
+  seq?: number;
 }
 
 export const JOB_QUEUE = "conveyor-jobs";
+
+export const JOB_STREAM_CLOSE = {
+  finished: 1000,
+  failed: 1011,
+  busy: 1013,
+  unknownJob: 4404,
+} as const;
 
 export function jobChannel(jobId: string): string {
   return `job:${jobId}:status`;

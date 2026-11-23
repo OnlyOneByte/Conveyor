@@ -1,0 +1,8 @@
+[
+  {
+    "package": "worker",
+    "from": "packages/worker/src/pipeline-harness.ts",
+    "to": "packages/worker/test/helpers/pipeline-harness.ts",
+    "floor": 82.34
+  }
+]

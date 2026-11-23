@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fetchJobSnapshot } from "$lib/api";
-  import { recentJobs, updateJobState, type RecentJob } from "$lib/recent-jobs";
+  import { fetchJobSnapshot } from "#lib/api.js";
+  import { recentJobs, updateJobState, type RecentJob } from "#lib/recent-jobs.js";
 
   // Jobs submitted from THIS browser, persisted across refreshes (localStorage).
   // On mount we reconcile each remembered job with its server snapshot so a

@@ -4,4 +4,8 @@ registry = "https://registry.npmjs.org"
 [test]
 pathIgnorePatterns = ["tools/visual/**", "packages/shared/test/sweep-probe-*/**"]
 coverageSkipTestFiles = false
-coveragePathIgnorePatterns = ["packages/shared/test/helpers/**", "scripts/checks/coverage/sweep.ts"]
+coveragePathIgnorePatterns = [
+  "packages/shared/test/helpers/**",
+  "packages/worker/test/helpers/**",
+  "scripts/checks/coverage/sweep.ts",
+]

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { CompatibilityError, type JobTarget, type StageCtx } from "@conveyor/shared";
-import { apiRegistry } from "./registry-view.js";
-import { listTransports, validateJobRequest, validatePrinterTransport } from "./validate.js";
+import { CompatibilityError, type JobTarget } from "@conveyor/shared";
+import { z } from "zod";
+import { apiRegistry } from "./registry.js";
+import { describeIssues, listTransports, validateJobRequest } from "./validate.js";
 
 const target: JobTarget = {
   printerId: "klipper-garage",
@@ -24,7 +25,7 @@ describe("validateJobRequest", () => {
     expect(() => validateJobRequest(request("gridfinity"), target)).not.toThrow();
   });
 
-  test("rejects a generator the api registry does not know", () => {
+  test("rejects a generator the registry does not know", () => {
     expect(() => validateJobRequest(request("openscad"), target)).toThrow(
       new CompatibilityError("unknown generator: openscad"),
     );
@@ -43,56 +44,45 @@ describe("validateJobRequest", () => {
   });
 });
 
-describe("validatePrinterTransport", () => {
-  test.each(["moonraker", "elegoo"])("accepts the registered transport %p", (id) => {
-    expect(() => validatePrinterTransport(id)).not.toThrow();
-  });
-
-  test("rejects an unknown transport id with a CompatibilityError", () => {
-    expect(() => validatePrinterTransport("moonraker2")).toThrow(
-      new CompatibilityError("unknown transport: moonraker2"),
-    );
-  });
-});
-
 describe("listTransports", () => {
   test("lists every registered transport with its accepted flavours", () => {
-    expect(listTransports()).toEqual([
-      { id: "moonraker", name: "Klipper / Moonraker", acceptsFlavors: ["klipper", "marlin"] },
-      { id: "elegoo", name: "ElegooLink", acceptsFlavors: ["klipper", "marlin"] },
-    ]);
+    expect(listTransports()).toEqual(
+      [...apiRegistry.transports.values()].map((t) => ({
+        id: t.id,
+        name: t.name,
+        acceptsFlavors: [...t.acceptsFlavors],
+      })),
+    );
+    expect(listTransports().map((t) => t.id)).toEqual(["moonraker", "elegoo"]);
   });
 
   test("returns copies, so a caller cannot change the registry's flavours", () => {
+    const before = [...(apiRegistry.transports.get("moonraker")?.acceptsFlavors ?? [])];
     listTransports()[0]?.acceptsFlavors.push("reprap");
-    expect(apiRegistry.transports.get("moonraker")?.acceptsFlavors).toEqual(["klipper", "marlin"]);
+    expect(apiRegistry.transports.get("moonraker")?.acceptsFlavors).toEqual(before);
   });
 });
 
-describe("apiRegistry", () => {
-  const gcode = { path: "/data/j/model.gcode", format: "gcode" };
-  const ctx: StageCtx = {
-    jobId: "j",
-    workDir: "/data/j",
-    signal: new AbortController().signal,
-    report: () => {},
-    log: () => {},
+describe("describeIssues", () => {
+  const issues = (schema: z.ZodType, value: unknown) => {
+    const parsed = schema.safeParse(value);
+    return parsed.success ? [] : parsed.error.issues;
   };
 
-  test.each(["orca", "prusa"])("the %p slicer view refuses to slice in the api", (id) => {
-    const slicer = apiRegistry.slicers.get(id);
-    expect(slicer?.id).toBe(id);
-    const profile = { id: "p", name: "p", path: "/profiles/p" };
-    expect(() => slicer?.slice({ path: "/data/j/m.stl", format: "stl" }, profile, ctx)).toThrow(
-      "slicing runs in the worker",
+  test("names each unknown key under its prefix", () => {
+    const schema = z.strictObject({ a: z.number() });
+    expect(describeIssues(issues(schema, { a: 1, b: 2, c: 3 }), ["generator", "params"])).toBe(
+      "generator.params.b: unknown field; generator.params.c: unknown field",
     );
   });
 
-  test("a transport view refuses to submit or report status in the api", () => {
-    const transport = apiRegistry.transports.get("elegoo");
-    const printer = { id: "elegoo-1", transportId: "elegoo", address: "127.0.0.1" };
-    const handle = { transportId: "elegoo", printerId: "elegoo-1", ref: "r" };
-    expect(() => transport?.submit(gcode, printer, ctx)).toThrow("transport runs in the worker");
-    expect(() => transport?.status(handle)).toThrow("capability-only view");
+  test("describes a bad record key with the inner message", () => {
+    const schema = z.record(z.string().regex(/^[a-z]+$/, "lowercase only"), z.number());
+    expect(describeIssues(issues(schema, { Bad: 1 }))).toBe("Bad: lowercase only");
+  });
+
+  test("names the field of an ordinary issue, and the body when there is no path", () => {
+    expect(describeIssues(issues(z.object({ n: z.number() }), { n: "x" }))).toContain("n: ");
+    expect(describeIssues(issues(z.number(), "x"))).toStartWith("body: ");
   });
 });

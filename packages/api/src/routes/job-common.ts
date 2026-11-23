@@ -7,15 +7,13 @@ import {
   openArtifactStream,
   resolveJobArtifact,
 } from "../artifact-download.js";
-import { validateJobRequest } from "../validate.js";
+import { describeIssues, parseGeneratorParams, validateJobRequest } from "../validate.js";
 
-export type Submission =
-  | { ok: true; request: JobRequest }
-  | { ok: false; code: 400 | 404; error: unknown };
+type Submission = { ok: true; request: JobRequest } | { ok: false; code: 400 | 404; error: string };
 
 export function parseSubmission(body: unknown): Submission {
   const parsed = jobRequestSchema.safeParse(body);
-  if (!parsed.success) return { ok: false, code: 400, error: parsed.error.format() };
+  if (!parsed.success) return { ok: false, code: 400, error: describeIssues(parsed.error.issues) };
   const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
   if (!target) {
     return {
@@ -29,7 +27,12 @@ export function parseSubmission(body: unknown): Submission {
   } catch (err) {
     return { ok: false, code: 400, error: (err as Error).message };
   }
-  return { ok: true, request: parsed.data };
+  const params = parseGeneratorParams(parsed.data);
+  if (!params.ok) return { ok: false, code: 400, error: params.error };
+  return {
+    ok: true,
+    request: { ...parsed.data, generator: { ...parsed.data.generator, params: params.params } },
+  };
 }
 
 export function registerArtifactRoute(app: FastifyInstance): void {

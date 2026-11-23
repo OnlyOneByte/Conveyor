@@ -2,7 +2,7 @@ import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PrintNotStartedError, type StageCtx } from "@conveyor/shared";
+import { PrintNotStartedError, type StageCtx, StageError } from "@conveyor/shared";
 import { moonraker } from "./index";
 
 const handle = {
@@ -14,6 +14,14 @@ const handle = {
 
 const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
+
+const within = <T>(promise: Promise<T>, ms: number) =>
+  Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) =>
+      setTimeout(() => reject(new Error(`no answer within ${ms} ms`)), ms),
+    ),
+  ]);
 
 afterAll(() => {
   fetchSpy.mockRestore();
@@ -72,6 +80,104 @@ describe("moonraker submit", () => {
     const submit = moonraker.submit({ path, format: "gcode" }, target, ctx);
     await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
     expect(calls.map((c) => c.url)).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
+  });
+});
+
+describe("moonraker submit, the printer answers", () => {
+  async function gcodeCtx() {
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const path = join(dir, "bin 1.gcode");
+    await writeFile(path, "G28\n");
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: new AbortController().signal,
+      report: () => {},
+      log: () => {},
+    };
+    return { path, ctx };
+  }
+  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+
+  test("uploads the file, starts it and returns a handle naming it", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(async () => new Response("{}", { status: 201 }));
+    expect(await moonraker.submit({ path, format: "gcode" }, target, ctx)).toEqual({
+      transportId: "moonraker",
+      printerId: "p",
+      ref: "bin 1.gcode",
+      address: "10.0.0.9:7125",
+    });
+    expect(calls.map((c) => c.url)).toEqual([
+      "http://10.0.0.9:7125/server/files/upload",
+      "http://10.0.0.9:7125/printer/print/start?filename=bin%201.gcode",
+    ]);
+  });
+
+  test("streams the g-code as the multipart file part and keeps the API key header", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const parts: { field: string; name: string; text: string; key: string | null }[] = [];
+    fakeFetch(async (url, init) => {
+      if (url.endsWith("/server/files/upload")) {
+        const headers = new Headers(init?.headers);
+        const form = await new Response(init?.body, { headers }).formData();
+        for (const [field, value] of form) {
+          if (typeof value === "string") continue;
+          parts.push({
+            field,
+            name: value.name,
+            text: await value.text(),
+            key: headers.get("x-api-key"),
+          });
+        }
+      }
+      return new Response("{}", { status: 201 });
+    });
+    const keyed = { ...target, secrets: { apiKey: "k1" } };
+    await moonraker.submit({ path, format: "gcode" }, keyed, ctx);
+    expect(parts).toEqual([{ field: "file", name: "bin 1.gcode", text: "G28\n", key: "k1" }]);
+  });
+
+  test("an upload the printer never answers times out as a transport failure, not a cancel", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+            once: true,
+          }),
+        ),
+    );
+    const before = process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
+    process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = "30";
+    try {
+      const submit = within(moonraker.submit({ path, format: "gcode" }, target, ctx), 2000);
+      await expect(submit).rejects.toBeInstanceOf(StageError);
+      await expect(submit).rejects.toThrow("moonraker upload failed");
+      expect(calls).toHaveLength(1);
+    } finally {
+      if (before === undefined) delete process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
+      else process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = before;
+    }
+  });
+
+  test("a rejected upload fails the transport stage and starts nothing", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(async () => new Response("no", { status: 507 }));
+    await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toThrow(
+      "moonraker upload failed: 507",
+    );
+    expect(calls).toHaveLength(1);
+  });
+
+  test("a rejected start fails the transport stage", async () => {
+    const { path, ctx } = await gcodeCtx();
+    fakeFetch(
+      async (url) => new Response("{}", { status: url.includes("/print/start") ? 409 : 201 }),
+    );
+    await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toThrow(
+      "moonraker start failed: 409",
+    );
   });
 });
 

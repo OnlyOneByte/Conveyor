@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { baselinePath, CHECKER_PATH, LEGACY_BASELINE_PATH } from "./ratchet";
-import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
+import { baselinePath, CHECKER_PATH } from "./ratchet";
+import { ROOT, readBase, readCommitted, runSweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
@@ -17,6 +17,7 @@ const fixture = (name: string, source: string) => {
 };
 
 const SLOW = 60_000;
+const PROBE_PREFIX = join("packages", "shared", "test", "sweep-probe-");
 
 const withSweepTimeout = <T>(value: string, run: () => T): T => {
   const previous = process.env[SWEEP_TIMEOUT_ENV];
@@ -75,16 +76,16 @@ describe("runSweep", () => {
   );
 
   test(
-    "a non-test spec module and a test-folder module are mapped by the sweep and counted",
+    "a source module and a test-folder module are mapped by the sweep and counted",
     () => {
-      const dir = mkdtempSync(join(ROOT, "packages", "shared", "test", "sweep-probe-"));
+      const dir = mkdtempSync(join(ROOT, PROBE_PREFIX));
       try {
         const module = "export const double = (n: number) => n * 2;\n";
-        writeFileSync(join(dir, "double.spec.ts"), module);
+        writeFileSync(join(dir, "double.ts"), module);
         writeFileSync(join(dir, "fake.ts"), module);
-        const paths = ["double.spec.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
+        const paths = ["double.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
         for (const path of paths) {
-          expect(isSource(path, () => readOrNull(join(ROOT, path)) ?? "")).toBe(true);
+          expect(isSource(path)).toBe(true);
         }
         const sweep = runSweep(paths);
         expect(sweep.completed).toBe(true);
@@ -103,6 +104,17 @@ describe("runSweep", () => {
     },
     SLOW,
   );
+});
+
+describe("bunfig.toml", () => {
+  test("keeps bun test out of a sweep probe left behind by a killed run", () => {
+    const config = Bun.TOML.parse(readFileSync(join(ROOT, "bunfig.toml"), "utf8")) as {
+      test?: { pathIgnorePatterns?: string[] };
+    };
+    const ignored = config.test?.pathIgnorePatterns ?? [];
+    const leftover = `${PROBE_PREFIX}AbC123/double.spec.ts`;
+    expect(ignored.some((pattern) => new Bun.Glob(pattern).match(leftover))).toBe(true);
+  });
 });
 
 const repo = (files: Record<string, string>) => {
@@ -153,33 +165,12 @@ describe("readBase", () => {
     });
   });
 
-  test("falls back to a base that still has the legacy single-file baseline", () => {
+  test("ignores a legacy single-file baseline left in the base", () => {
     const root = repo({
       [CHECKER_PATH]: "export {};\n",
-      [LEGACY_BASELINE_PATH]:
-        '{"lines":{"api":35.51,"worker":79,"shared":82.69,"plugins":60.11}}\n',
+      "scripts/checks/coverage/baseline.json": '{"lines":{"api":35.51,"worker":79}}\n',
     });
-    expect(readBase("HEAD", root)).toEqual({
-      baseline: { api: "35.51\n", worker: "79\n", shared: "82.69\n", plugins: "60.11\n" },
-      hasChecker: true,
-    });
-  });
-
-  test("prefers per-package files over a legacy baseline", () => {
-    const root = repo({
-      [CHECKER_PATH]: "export {};\n",
-      [baselinePath("api")]: "41\n",
-      [LEGACY_BASELINE_PATH]: '{"lines":{"api":10}}\n',
-    });
-    expect(readBase("HEAD", root)).toEqual({
-      baseline: { ...none, api: "41\n" },
-      hasChecker: true,
-    });
-  });
-
-  test("a malformed legacy baseline is an error", () => {
-    const root = repo({ [CHECKER_PATH]: "export {};\n", [LEGACY_BASELINE_PATH]: "nope\n" });
-    expect(readBase("HEAD", root)).toBeInstanceOf(Error);
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
   });
 
   test("an unresolvable base ref is an error", () => {
@@ -196,7 +187,7 @@ describe("readCommitted", () => {
 });
 
 describe("sources", () => {
-  test("lists non-test spec and test-folder modules, not suites or declared helpers", () => {
+  test("lists source and test-folder modules, not test-named files or declared helpers", () => {
     const suite = 'import { test } from "bun:test";\ntest("x", () => {});\n';
     const module = "export const one = 1;\n";
     const root = repo({
@@ -210,7 +201,6 @@ describe("sources", () => {
     });
     expect(sources(root).sort()).toEqual([
       "packages/api/src/app.ts",
-      "packages/api/src/openapi.spec.ts",
       "packages/api/test/server.ts",
       "plugins/slicers/orca/test/fake.ts",
     ]);

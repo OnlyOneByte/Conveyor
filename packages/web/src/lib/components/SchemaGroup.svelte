@@ -3,7 +3,7 @@
   import {
     clamp, controlFor, fieldLabel, groupSummary, hi, lo, numOf,
     type JsonSchemaProp, type Props,
-  } from "$lib/form-schema";
+  } from "#lib/form-schema.js";
 
   // One group of the generated config form: optional heading + readout, then its
   // fields laid out per `group.layout`. Rendered identically whether the group is in

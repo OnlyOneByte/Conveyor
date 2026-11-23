@@ -1,6 +1,6 @@
 import { createConnection, isIPv4, isIPv6 } from "node:net";
 
-export interface ReachResult {
+interface ReachResult {
   reachable: boolean;
   latencyMs?: number;
   host: string;
@@ -18,7 +18,7 @@ const BRACKETED = /^\[([^\]]*)\](?::(.*))?$/;
 const HOSTNAME =
   /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
 
-export type ParsedAddress =
+type ParsedAddress =
   | { kind: "parsed"; host: string; port: number }
   | { kind: "invalid"; reason: string };
 

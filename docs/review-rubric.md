@@ -81,7 +81,7 @@ Check the ones that apply and name them in the body:
 - A name that needs a comment to make sense is S2; one that is actively misleading is S1.
 
 ### 8. File and module size
-- A file is at most 250 lines, a Svelte component at most 150. Over is S1.
+- A file is at most 250 lines, a Svelte component at most 150. Over is S1. CI's `file-size` check enforces this, except for the files in `scripts/checks/lines/baseline.json`, which it only stops from growing.
 - Cognitive complexity at most 12 per function, at most 3 positional parameters. Over is S1.
 - The PR is at most 400 changed lines (lockfiles, snapshots, migrations, `docs/design/**` and pure deletions excluded). 401 to 800 is S2 with a request to split; over 800 without the owner's `large-ok` label is S1.
 - Dependency direction follows `docs/architecture.md` in the repo (today: `web → shared`, `api → shared`, `worker → shared`, generator plugins depend only on `shared`). An import against the documented direction is S1.
@@ -125,5 +125,5 @@ A PR is a UI PR when it touches `packages/web/**`, `docs/design/**`, `*.svelte`,
 - Open every image and look at it. It must show the surface the diff changes, in the state the diff changes. A screenshot of an unrelated screen, or a stale one that does not show the change, is S1.
 - The provenance line names a sha. If it is not the head sha, the diff between that sha and the head must not touch UI files; otherwise S1 stale.
 - Desktop (1440×900) and mobile (390×844) when layout changed. Light and dark when tokens changed.
-- Judge the design itself against `docs/design/principles.md` and the chosen mockup: hierarchy, one primary action, plain language, keyboard reachability, visible focus, WCAG AA contrast. A violation is S2, or S1 when it hides or blocks an action.
+- Judge the design itself against the chosen mockup and these principles: hierarchy, one primary action, plain language, keyboard reachability, visible focus, WCAG AA contrast. A violation is S2, or S1 when it hides or blocks an action.
 - Screenshots contain no secrets, tokens or real addresses (S0).

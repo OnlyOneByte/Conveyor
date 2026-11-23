@@ -1,5 +1,6 @@
 {
   "name": "@conveyor/visual",
+  "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,8 +16,8 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
+    "@types/bun": "~1.3.14",
     "@types/pngjs": "^6.0.5",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }

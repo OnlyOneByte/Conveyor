@@ -1,5 +1,5 @@
-import { type AreaTexts, BASELINE_DIR, LEGACY_BASELINE_PATH, parseAreas, readAreas } from "./areas";
-import { type Baseline, type Excess, excesses, parseBaseline, sameBaseline } from "./baseline";
+import { type AreaTexts, BASELINE_DIR, parseAreas, readAreas } from "./areas";
+import { type Baseline, type Excess, excesses, sameBaseline } from "./baseline";
 import { measure, type Tree } from "./tree";
 
 const CHECKER_PATH = "scripts/checks/comments.ts";
@@ -22,10 +22,6 @@ export function allowanceFrom(base: Tree): Baseline | string {
   const areas = parseAreas(readAreas(base));
   if (typeof areas === "string") return `base ${areas}`;
   if (areas !== null) return areas;
-  const text = base.read(LEGACY_BASELINE_PATH);
-  if (text !== null) {
-    return parseBaseline(text) ?? `base ${LEGACY_BASELINE_PATH} is not a valid baseline`;
-  }
   if (base.read(CHECKER_PATH) !== null) return `base has the checker but no ${BASELINE_DIR}/`;
   return measure(base);
 }

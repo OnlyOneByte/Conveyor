@@ -32,7 +32,7 @@ const printer = (overrides: Record<string, unknown>) => ({
 beforeAll(async () => {
   process.env.DB_PATH = join(dir, "conveyor.db");
   openDb();
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, async () => 0);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
@@ -68,7 +68,7 @@ describe("printers", () => {
   test("refuses an unknown transport with a 400 and stores nothing", async () => {
     const res = await put("/catalog/printers", printer({ id: "typo", transportId: "moonrakr" }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "unknown transport: moonrakr" });
+    expect(await res.json()).toEqual({ error: "transportId: unknown transport" });
     const listed = await (await get("/catalog/printers")).json();
     expect(listed).not.toContainEqual(expect.objectContaining({ id: "typo" }));
   });

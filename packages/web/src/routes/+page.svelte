@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Canvas } from "@threlte/core";
-  import PreviewScene from "$lib/components/PreviewScene.svelte";
-  import MeshScene from "$lib/components/MeshScene.svelte";
-  import SchemaForm from "$lib/components/SchemaForm.svelte";
-  import JobStatus from "$lib/components/JobStatus.svelte";
+  import { ACESFilmicToneMapping } from "three";
+  import PreviewScene from "#lib/components/PreviewScene.svelte";
+  import MeshScene from "#lib/components/MeshScene.svelte";
+  import SchemaForm from "#lib/components/SchemaForm.svelte";
+  import JobStatus from "#lib/components/JobStatus.svelte";
   import {
     submitJob,
     uploadStl,
@@ -15,10 +16,10 @@
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
-  } from "$lib/api";
-  import { rememberJob, updateJobState } from "$lib/recent-jobs";
-  import { takeRerun } from "$lib/rerun";
-  import { page } from "$app/stores";
+  } from "#lib/api.js";
+  import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
+  import { takeRerun } from "#lib/rerun.js";
+  import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -50,7 +51,7 @@
     // win over the reactive defaults (which only fill empty selections). The referenced
     // ids may no longer exist (a deleted printer/profile) — set them anyway; the
     // eligibility filters below fall back to a valid default and the user just re-picks.
-    if ($page.url.searchParams.get("rerun")) {
+    if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
         source = "generate";
@@ -241,12 +242,12 @@
   <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
   <section class="card viewport">
     {#if hasPreview}
-      <Canvas>
+      <Canvas toneMapping={ACESFilmicToneMapping}>
         <PreviewScene {params} />
       </Canvas>
       <span class="badge">live preview</span>
     {:else if source === "upload" && uploadFile}
-      <Canvas>
+      <Canvas toneMapping={ACESFilmicToneMapping}>
         <MeshScene file={uploadFile} />
       </Canvas>
       <span class="badge">uploaded mesh</span>
@@ -373,7 +374,7 @@
                 aria-checked={pr.id === selectedProfileId}
                 on:click={() => (selectedProfileId = pr.id)}
               >
-                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"} />
+                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"}></span>
                 <span class="pmeta">
                   <span class="pn">{pr.name}</span>
                   {#if chips(pr).length}

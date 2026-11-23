@@ -8,7 +8,7 @@
     type JobStatusEvent,
     type CatalogPrinter,
     type PrinterReachable,
-  } from "$lib/api";
+  } from "#lib/api.js";
 
   // Live monitoring: two independent polls. Active jobs churn fast (2s); printer
   // reachability is a network probe, so it runs slower (15s) to avoid hammering the
@@ -164,7 +164,7 @@
               </div>
             {/if}
             {#if j.state === "printing" && j.progress != null}
-              <div class="bar"><div class="fill" style={`width:${Math.round(j.progress * 100)}%`} /></div>
+              <div class="bar"><div class="fill" style={`width:${Math.round(j.progress * 100)}%`}></div></div>
             {/if}
             <div class="jobactions">
               <button class="ghost small" on:click={() => onCancel(j.jobId)} disabled={cancelling[j.jobId]}>
@@ -203,12 +203,12 @@
               <td class="mono addr">{p.address}</td>
               <td>
                 {#if r === undefined || r === "checking"}
-                  <span class="dot checking" /> <span class="muted">checking…</span>
+                  <span class="dot checking"></span> <span class="muted">checking…</span>
                 {:else if r.reachable}
-                  <span class="dot ok" /> <span class="reachok">online</span>
+                  <span class="dot ok"></span> <span class="reachok">online</span>
                   {#if r.latencyMs != null}<span class="muted"> · {r.latencyMs}ms</span>{/if}
                 {:else}
-                  <span class="dot down" /> <span class="reachdown">offline</span>
+                  <span class="dot down"></span> <span class="reachdown">offline</span>
                   {#if r.reason}<span class="muted"> · {r.reason}</span>{/if}
                 {/if}
               </td>

@@ -92,7 +92,17 @@ describe("POST /jobs", () => {
     const { jobId } = z.object({ jobId: z.string() }).parse(await res.json());
     expect(jobId).toMatch(/^[0-9a-f-]{36}$/);
     expect(fakes.add).toHaveBeenCalledTimes(1);
-    expect(fakes.add).toHaveBeenCalledWith("job", request, { jobId });
+    expect(fakes.add).toHaveBeenCalledWith(
+      "job",
+      {
+        ...request,
+        generator: {
+          id: "gridfinity",
+          params: expect.objectContaining({ gridX: 2 }),
+        },
+      },
+      { jobId },
+    );
   });
 
   test("a body that is not a job request is a 400 and enqueues nothing", async () => {
@@ -168,10 +178,11 @@ describe("GET /jobs/active", () => {
 
 describe("GET /jobs/:id", () => {
   test("returns the stored snapshot", async () => {
-    snapshot("j1", "printing", 42);
-    const res = await get("/jobs/j1");
+    const id = "0b0c4b9e-5d33-4c52-9f3a-7f1c2a4e8d10";
+    snapshot(id, "printing", 42);
+    const res = await get(`/jobs/${id}`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ jobId: "j1", state: "printing", at: 42 });
+    expect(await res.json()).toEqual({ jobId: id, state: "printing", at: 42 });
   });
 
   test("an unknown job is a 404", async () => {

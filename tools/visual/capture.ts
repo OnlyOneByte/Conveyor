@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
+import { pinHistoryRoute } from "./history.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -127,6 +128,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     viewport: { width, height: HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
   });
+  await pinHistoryRoute(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;
   try {

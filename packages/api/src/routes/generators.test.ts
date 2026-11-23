@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { gridfinity } from "@conveyor/generator-gridfinity";
-import { passthrough } from "@conveyor/generator-passthrough";
 import Fastify from "fastify";
 import { z } from "zod";
+import { apiRegistry } from "../registry.js";
 import { registerGeneratorRoutes } from "./generators.js";
 
 const app = Fastify();
@@ -21,24 +20,25 @@ describe("GET /generators", () => {
   test("lists every registered generator's UI metadata", async () => {
     const res = await fetch(`${base}/generators`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([
+    const expected = [...apiRegistry.generators.values()].map((g) =>
       JSON.parse(
         JSON.stringify({
-          id: gridfinity.id,
-          name: gridfinity.name,
-          paramSchema: gridfinity.paramSchema,
-          ui: gridfinity.ui,
-          preview: gridfinity.preview,
-          outputs: gridfinity.outputs,
+          id: g.id,
+          name: g.name,
+          paramSchema: g.paramSchema,
+          ui: g.ui,
+          preview: g.preview,
+          outputs: g.outputs,
         }),
       ),
-      expect.objectContaining({ id: passthrough.id, outputs: passthrough.outputs }),
-    ]);
+    );
+    expect(await res.json()).toEqual(expected);
+    expect(expected.map((g) => g.id)).toEqual(["gridfinity", "passthrough"]);
   });
 
   test("sends only the metadata keys, never the plugin's code or version", async () => {
     const body = z
-      .array(z.record(z.unknown()))
+      .array(z.record(z.string(), z.unknown()))
       .parse(await (await fetch(`${base}/generators`)).json());
     const allowed = ["id", "name", "paramSchema", "ui", "preview", "outputs"];
     for (const generator of body) {

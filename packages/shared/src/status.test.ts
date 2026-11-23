@@ -3,6 +3,7 @@ import { ACTIVE_JOBS_KEY, type JobStatusEvent, jobChannel, jobSnapshotKey } from
 import {
   jobCancelKey,
   jobControlChannel,
+  jobSeqKey,
   PUBLISH_STATUS_SCRIPT,
   publishStatus,
   type StatusScriptClient,
@@ -27,11 +28,12 @@ describe("publishStatus", () => {
     expect(calls).toEqual([
       {
         script: PUBLISH_STATUS_SCRIPT,
-        numKeys: 3,
+        numKeys: 4,
         args: [
           jobSnapshotKey("j1"),
           jobChannel("j1"),
           ACTIVE_JOBS_KEY,
+          jobSeqKey("j1"),
           JSON.stringify(evt),
           "j1",
           "0",
@@ -57,5 +59,6 @@ describe("cancel keys", () => {
   test("are scoped to the job", () => {
     expect(jobCancelKey("j1")).toBe("job:j1:cancel");
     expect(jobControlChannel("j1")).toBe("job:j1:control");
+    expect(jobSeqKey("j1")).toBe("job:j1:seq");
   });
 });

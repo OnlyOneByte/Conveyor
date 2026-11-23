@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { claimJob, DEFAULT_TIMING, releaseLease, renewLease } from "./lease.ts";
+import { tailEvents } from "./status.ts";
 
 let h: QueueHarness;
 afterEach(() => h.close());
@@ -53,7 +54,12 @@ describe("claimJob", () => {
     h.enqueue("queued", "p2");
     h.enqueue("orphan");
     h.set("orphan", "state = 'printing', submitted_at = 1, attempts = 1, lease_token = 4");
+    const events = (id: string) => tailEvents(h.db, id, 0, 100).map((e) => e.event.state);
+    const before = events("orphan");
     const claimed = claimJob(h.db, "w1", h.timing);
+    expect(events("orphan")).toEqual(before);
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("queued");
+    expect(events("queued").at(-1)).toBe("generating");
     expect(claimed).toMatchObject({ state: "printing", attempts: 1, resumed: true });
     expect(claimed?.lease).toMatchObject({ jobId: "orphan", token: 5 });
     expect(claimed?.request).toEqual({
@@ -61,6 +67,17 @@ describe("claimJob", () => {
       printerId: "p1",
       profileId: "prof",
     });
+  });
+
+  test("reads the clock only once it holds the write lock", async () => {
+    h = queueHarness();
+    h.enqueue("a");
+    const realClock = { ...DEFAULT_TIMING, now: Date.now };
+    const holder = await holdWriteLock(h.path);
+    const calledAt = Date.now();
+    const lease = claimJob(h.db, "w1", realClock)?.lease;
+    expect(await holder.exited).toBe(0);
+    expect((lease?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(calledAt + 200);
   });
 
   test("two connections claiming in turn never take the same job", () => {

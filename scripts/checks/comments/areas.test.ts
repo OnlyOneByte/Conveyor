@@ -4,7 +4,7 @@ import {
   areaOf,
   areaPath,
   areaWrites,
-  LEGACY_BASELINE_PATH,
+  BASELINE_DIR,
   parseAreas,
   readAreas,
   serializeAreas,
@@ -120,30 +120,12 @@ describe("areaWrites", () => {
 });
 
 describe("base baseline", () => {
-  test("a base with only the legacy single file is still the allowance", () => {
+  test("a base with only the legacy single file is refused, not used as the allowance", () => {
     const legacy = tree({
       ...CHECKER,
-      [LEGACY_BASELINE_PATH]: serializeBaseline(baseline({ [WEB]: 2 })),
+      "scripts/checks/comments-baseline.json": serializeBaseline(baseline({ [WEB]: 2 })),
     });
-    expect(run({ [WEB]: 2 }, legacy)).toEqual([]);
-    expect(run({ [WEB]: 3 }, legacy)).toEqual([
-      `added: ${WEB}: 3 comments (base allows 2)`,
-      `baseline raised: ${WEB}: 3 comments (base has 2)`,
-    ]);
-  });
-
-  test("area files win over a legacy file left in the base", () => {
-    const base = tree({
-      ...CHECKER,
-      ...areaFiles({ [WEB]: 1 }),
-      [LEGACY_BASELINE_PATH]: serializeBaseline(baseline({ [WEB]: 5 })),
-    });
-    expect(run({ [WEB]: 2 }, base)).toContain(`added: ${WEB}: 2 comments (base allows 1)`);
-  });
-
-  test("an invalid legacy file is an error", () => {
-    const base = tree({ ...CHECKER, [LEGACY_BASELINE_PATH]: "not json" });
-    expect(run({}, base)).toEqual([`base ${LEGACY_BASELINE_PATH} is not a valid baseline`]);
+    expect(run({ [WEB]: 2 }, legacy)).toEqual([`base has the checker but no ${BASELINE_DIR}/`]);
   });
 
   test("a base missing one area file fails instead of allowing nothing or everything", () => {

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dbUpsertProfile, openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { registerCatalogRoutes } from "./catalog";
+import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite";
 
 const previousDbPath = process.env.DB_PATH;
 process.env.DB_PATH = ":memory:";
@@ -39,13 +40,27 @@ const profile = (overrides: Record<string, string>) => ({
 });
 
 beforeAll(async () => {
-  await registerCatalogRoutes(app);
+  await registerCatalogRoutes(app, countSqliteLiveJobs);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
 afterAll(async () => {
   await app.close();
   process.env.DB_PATH = previousDbPath;
+});
+
+describe("GET /catalog/printers", () => {
+  test("reports hasSecrets and never returns the secrets themselves", async () => {
+    const printer = { id: "secret-p", transportId: "moonraker", name: "S", address: "10.0.0.9" };
+    const saved = await put("/catalog/printers", { ...printer, secrets: { apiKey: "hunter2" } });
+    expect(saved.status).toBe(200);
+    const body = await (await fetch(`${base}/catalog/printers`)).text();
+    expect(body).not.toContain("hunter2");
+    expect(body).not.toContain("secrets");
+    expect(JSON.parse(body)).toContainEqual(
+      expect.objectContaining({ id: "secret-p", hasSecrets: true }),
+    );
+  });
 });
 
 describe("PUT /catalog/profiles", () => {

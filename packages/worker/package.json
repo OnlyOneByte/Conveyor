@@ -1,5 +1,6 @@
 {
   "name": "@conveyor/worker",
+  "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
   "type": "module",
   "main": "./src/main.ts",
@@ -8,14 +9,10 @@
     "start": "bun src/main.ts"
   },
   "dependencies": {
-    "@conveyor/generator-gridfinity": "workspace:*",
-    "@conveyor/generator-passthrough": "workspace:*",
+    "@conveyor/plugin-registry": "workspace:*",
     "@conveyor/shared": "workspace:*",
-    "@conveyor/slicer-orca": "workspace:*",
-    "@conveyor/slicer-prusa": "workspace:*",
-    "@conveyor/transport-elegoo": "workspace:*",
-    "@conveyor/transport-moonraker": "workspace:*",
-    "bullmq": "^5.12.0",
-    "ioredis": "5.10.1"
+    "bullmq": "^6.7.8",
+    "ioredis": "6.0.0",
+    "zod": "^4.6.7"
   }
 }

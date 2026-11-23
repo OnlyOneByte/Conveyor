@@ -1,4 +1,4 @@
-import { fetchGenerators, fetchCatalogPrinters, fetchCatalogProfiles, fetchCatalogTransports } from "$lib/api";
+import { fetchGenerators, fetchCatalogPrinters, fetchCatalogProfiles, fetchCatalogTransports } from "#lib/api.js";
 import type { PageLoad } from "./$types";
 
 // Load the catalog the picker + form need. Runs on the client (SPA-style) so the

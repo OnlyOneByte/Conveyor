@@ -1,14 +1,13 @@
-import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type GeneratorPlugin,
-  type JSONSchema7,
   type ModelArtifact,
+  paramJsonSchema,
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { runEngine } from "@conveyor/shared/node";
 import { type GridfinityParams, gridfinityParams } from "./params.js";
 
 const scadFile = () =>
@@ -37,7 +36,8 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   version: "0.1.0",
   stage: "generator",
   outputs: ["stl"],
-  paramSchema: zodToJsonSchema(gridfinityParams, "GridfinityParams") as JSONSchema7,
+  params: gridfinityParams,
+  paramSchema: paramJsonSchema(gridfinityParams, "GridfinityParams"),
   ui: {
     groups: [
       { title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" },
@@ -79,21 +79,7 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
     const bin = process.env.OPENSCAD_BIN ?? "openscad";
     ctx.log(`${bin} ${args.join(" ")}`);
 
-    await run(bin, args, ctx);
+    await runEngine("generator", bin, args, ctx);
     return { path: out, format: "stl", meta: { params: parsed.data } };
   },
 };
-
-function run(cmd: string, args: string[], ctx: StageCtx): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { signal: ctx.signal });
-    let stderr = "";
-    child.stderr.on("data", (b) => (stderr += b.toString()));
-    child.on("error", (e) => reject(new StageError("generator", e.message, { cause: e })));
-    child.on("close", (code) =>
-      code === 0
-        ? resolve()
-        : reject(new StageError("generator", `${cmd} exited ${code}: ${stderr.slice(-500)}`)),
-    );
-  });
-}

@@ -1,6 +1,7 @@
 # packages/worker
 
-The BullMQ worker that drives a job through generate, slice and transport. Code in this package carries no
+The worker that drives a job through generate, slice and transport, on BullMQ by default or on the SQLite queue
+when `CONVEYOR_QUEUE=sqlite` ([main.ts and mode.ts](#maints-and-modets)). Code in this package carries no
 comments; the reasons behind it live here, one section per file.
 
 ## Dockerfile
@@ -15,20 +16,21 @@ the bun image, and bun runs the TypeScript worker directly with no `tsc` step.
 - **PrusaSlicer** comes from apt (Debian trixie). It is multi-arch and truly headless (no xvfb), and its apt
   package pulls its own runtime libraries. It is installed on every arch.
 - **OrcaSlicer** ships x86_64 and aarch64 Linux AppImages from v2.4.1. `scripts/install-orca.sh` resolves the
-  AppImage for this arch from GitHub's release API and extracts it. `ORCA_RELEASE` defaults to `latest`; pass
-  `x.y.z` to pin a build. Orca runs headless under xvfb: the Orca slicer plugin spawns it through
+  AppImage for this arch from GitHub's release API and extracts it. `ORCA_RELEASE` is pinned to `2.4.1`, the release the
+  bundled profile was exported from, and each AppImage is checked against a pinned sha256. Orca runs headless under xvfb: the Orca slicer plugin spawns it through
   `xvfb-run -a`. The GL/GTK libraries in the apt line (`libopengl0`, `libglu1-mesa`, `libwebkit2gtk`, the
   mesa GL/EGL drivers, gstreamer) are the minimal set found by running `--slice` in this image until it
   produced gcode. `ORCA_DATADIR` points at the bundled vendor profile tree, because Orca leaf presets resolve
   `inherits` against it.
-- **OpenSCAD** is the nightly AppImage, extracted so FUSE is not needed at runtime. The distro `openscad`
-  (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+ nightly.
-  `scripts/install-openscad.sh` resolves the latest snapshot for this arch from files.openscad.org; set
-  `OPENSCAD_RELEASE=YYYY.MM.DD` or `OPENSCAD_APPIMAGE_URL=<url>` to pin one. The script writes a wrapper that
-  scopes the AppImage's bundled libraries to the openscad process. A global `LD_LIBRARY_PATH` would shadow
-  system libraries and break prusa-slicer, so the image never sets one.
+- **OpenSCAD** is built from source in the `openscad` builder stage, on `debian:trixie-slim`, for every arch.
+  The distro `openscad` (2021.01) cannot parse the current gridfinity-rebuilt library, which needs a 2023+
+  build. `scripts/fetch-openscad-source.sh` downloads the upstream `openscad-2026.11-RC0.src.tar.gz` and checks its
+  pinned sha256, its GnuPG signature from the OpenSCAD release key and the commit in its `COMMIT.txt`; then
+  `scripts/build-openscad.sh` builds it headless (`NULLGL`, STL export only) and installs it to `/opt/openscad`. It links only against
+  Debian trixie's shared libraries, so no `LD_LIBRARY_PATH` is set; the final stage installs their runtime
+  packages. `/opt/openscad/share/doc/openscad/SOURCE` names the commit, tarball URL and sha256.
 
-Engine verification details: [M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
+Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md).
 
 ## main.ts and mode.ts
 
@@ -151,10 +153,11 @@ holds the printer. Clearing the intent for `PrintNotStartedError` without a hold
 - When validating or writing fails, the partial directory is removed. If that removal also fails, the
   `StageError` reason ends with `; partial profile not removed: <error>`.
 
-## registry.ts
+## Registry
 
-The worker is the only process that loads real adapters. `buildRegistry` registers every bundled plugin at
-startup ([ADR 0001](../adr/0001-plugin-isolation.md): in-process adapters, isolated engines).
+`buildRegistry` from `@conveyor/plugin-registry` (`plugins/registry/builtin`) registers every bundled plugin.
+The worker is the only process that runs the adapters; the api builds the same registry but only reads it
+([ADR 0001](../adr/0001-plugin-isolation.md): in-process adapters, isolated engines).
 
 ## status.ts
 

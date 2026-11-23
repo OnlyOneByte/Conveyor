@@ -1,0 +1,118 @@
+import { randomBytes } from "node:crypto";
+import { closeSync, fsyncSync, linkSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { dirname } from "node:path";
+
+const SECRETS_KEY_BYTES = 32;
+const HIDDEN = "[SecretsKey]";
+
+export interface SecretsKey {
+  readonly bytes: Buffer;
+}
+
+type KeySource = "env" | "file";
+
+type KeyResult =
+  | { ok: true; key: SecretsKey; source: KeySource | "generated" }
+  | { ok: false; error: { kind: "InvalidSecretsKey"; source: KeySource; message: string } };
+
+function hiddenKey(bytes: Buffer): SecretsKey {
+  return Object.freeze({
+    bytes,
+    toJSON: () => HIDDEN,
+    [Symbol.for("nodejs.util.inspect.custom")]: () => HIDDEN,
+  });
+}
+
+export function randomSecretsKey(): SecretsKey {
+  return hiddenKey(randomBytes(SECRETS_KEY_BYTES));
+}
+
+export function parseSecretsKey(raw: string): SecretsKey | null {
+  const bytes = Buffer.from(raw, "base64");
+  if (bytes.length !== SECRETS_KEY_BYTES || bytes.toString("base64") !== raw) return null;
+  return hiddenKey(bytes);
+}
+
+function invalid(source: KeySource, where: string): KeyResult {
+  return {
+    ok: false,
+    error: {
+      kind: "InvalidSecretsKey",
+      source,
+      message: `${where} must be exactly ${SECRETS_KEY_BYTES} bytes in canonical base64 (try \`openssl rand -base64 32\`)`,
+    },
+  };
+}
+
+const UNSUPPORTED_DIRECTORY_SYNC: ReadonlySet<unknown> = new Set([
+  "EISDIR",
+  "EPERM",
+  "EINVAL",
+  "ENOTSUP",
+]);
+
+function codeOf(err: unknown): unknown {
+  return err instanceof Error && "code" in err ? err.code : undefined;
+}
+
+function isAlreadyThere(err: unknown): boolean {
+  return codeOf(err) === "EEXIST";
+}
+
+export function syncDirectoryBestEffort(sync: () => void): void {
+  try {
+    sync();
+  } catch (err) {
+    if (!UNSUPPORTED_DIRECTORY_SYNC.has(codeOf(err))) throw err;
+  }
+}
+
+function writeDurably(path: string, text: string): void {
+  const fd = openSync(path, "wx", 0o600);
+  try {
+    writeSync(fd, text);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function fsyncDirectory(directory: string): void {
+  const fd = openSync(directory, "r");
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function createUnlessPresent(keyPath: string, syncDirectory: (directory: string) => void): boolean {
+  const draft = `${keyPath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    writeDurably(draft, `${randomSecretsKey().bytes.toString("base64")}\n`);
+    linkSync(draft, keyPath);
+    syncDirectoryBestEffort(() => syncDirectory(dirname(keyPath)));
+    return true;
+  } catch (err) {
+    if (isAlreadyThere(err)) return false;
+    throw err;
+  } finally {
+    rmSync(draft, { force: true });
+  }
+}
+
+export function loadSecretsKey(
+  env: Record<string, string | undefined>,
+  keyPath: string,
+  syncDirectory: (directory: string) => void = fsyncDirectory,
+): KeyResult {
+  const fromEnv = env.CONVEYOR_SECRETS_KEY;
+  if (fromEnv !== undefined && fromEnv !== "") {
+    const key = parseSecretsKey(fromEnv);
+    return key ? { ok: true, key, source: "env" } : invalid("env", "CONVEYOR_SECRETS_KEY");
+  }
+  const created = createUnlessPresent(keyPath, syncDirectory);
+  const key = parseSecretsKey(readFileSync(keyPath, "utf8").trim());
+  if (!key) return invalid("file", keyPath);
+  return { ok: true, key, source: created ? "generated" : "file" };
+}

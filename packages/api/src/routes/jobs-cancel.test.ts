@@ -7,16 +7,13 @@ import {
   type JobRequest,
   type JobState,
   jobCancelKey,
-  jobChannel,
   jobControlChannel,
   jobSnapshotKey,
   parseStatusEvent,
 } from "@conveyor/shared";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
-import websocket from "@fastify/websocket";
 import { Job, type JobState as QueueState } from "bullmq";
 import Fastify from "fastify";
-import { Redis } from "ioredis";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerJobRoutes } from "./jobs.js";
 
@@ -29,6 +26,9 @@ const store = new Map<string, string>();
 const app = Fastify({ forceCloseConnections: true });
 let base = "";
 
+const QUEUED = "6f1d2c3b-4a5e-4f60-8a71-9b2c3d4e5f60";
+const RACE = "7a2e3d4c-5b6f-4071-9b82-ac3d4e5f6071";
+
 const request: JobRequest = {
   generator: { id: "gridfinity", params: { gridX: 2 } },
   printerId: "klipper-garage",
@@ -40,7 +40,7 @@ function installFakes() {
     getJob: spyOn(jobQueue, "getJob").mockResolvedValue(undefined),
     get: spyOn(redis, "get").mockImplementation(async (key) => store.get(String(key)) ?? null),
     evalScript: spyOn(redis, "eval").mockImplementation(async (...args) => {
-      const [, , snapshotKey, , , event] = args.map(String);
+      const [, , snapshotKey, , , , event] = args.map(String);
       const prev = parseStatusEvent(store.get(snapshotKey));
       if (prev && isTerminal(prev.state)) return 0;
       store.set(snapshotKey, event);
@@ -58,7 +58,7 @@ function snapshot(jobId: string, state: JobState): void {
 }
 
 function queuedJob(state: QueueState): Job {
-  const job = new Job(jobQueue, "job", request, {}, "queued-job");
+  const job = new Job(jobQueue, "job", request, {}, QUEUED);
   spyOn(job, "getState").mockResolvedValue(state);
   spyOn(job, "remove").mockResolvedValue(undefined);
   return job;
@@ -73,19 +73,10 @@ function stubPipeline() {
   return { set, publish, multi };
 }
 
-async function until(what: string, condition: () => boolean): Promise<void> {
-  const deadline = Date.now() + 2000;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
-    await Bun.sleep(5);
-  }
-}
-
 beforeAll(async () => {
   process.env.DB_PATH = join(dir, "conveyor.db");
   openDb();
   fakes = installFakes();
-  await app.register(websocket);
   await registerJobRoutes(app);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
@@ -118,13 +109,13 @@ describe("POST /jobs/:id/cancel", () => {
   test("a waiting job is removed, settled canceled and recorded", async () => {
     fakes.getJob.mockResolvedValue(queuedJob("waiting"));
     const { set, publish, multi } = stubPipeline();
-    const res = await cancel("queued-job");
+    const res = await cancel(QUEUED);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, jobId: "queued-job", state: "canceled" });
-    expect(set).toHaveBeenCalledWith(jobCancelKey("queued-job"), "1", "EX", 604800);
-    expect(publish).toHaveBeenCalledWith(jobControlChannel("queued-job"), "cancel");
-    expect(parseStatusEvent(store.get(jobSnapshotKey("queued-job")))?.state).toBe("canceled");
-    expect(dbGetJob(openDb(), "queued-job")).toMatchObject({
+    expect(await res.json()).toEqual({ ok: true, jobId: QUEUED, state: "canceled" });
+    expect(set).toHaveBeenCalledWith(jobCancelKey(QUEUED), "1", "EX", 604800);
+    expect(publish).toHaveBeenCalledWith(jobControlChannel(QUEUED), "cancel");
+    expect(parseStatusEvent(store.get(jobSnapshotKey(QUEUED)))?.state).toBe("canceled");
+    expect(dbGetJob(openDb(), QUEUED)).toMatchObject({
       state: "canceled",
       request: { generator: { id: "gridfinity", params: { gridX: 2 } } },
     });
@@ -133,21 +124,21 @@ describe("POST /jobs/:id/cancel", () => {
 
   test("an active job is only signalled, and answers 202 canceling", async () => {
     fakes.getJob.mockResolvedValue(queuedJob("active"));
-    snapshot("queued-job", "printing");
+    snapshot(QUEUED, "printing");
     const { multi } = stubPipeline();
-    const res = await cancel("queued-job");
+    const res = await cancel(QUEUED);
     expect(res.status).toBe(202);
-    expect(await res.json()).toEqual({ ok: true, jobId: "queued-job", state: "canceling" });
+    expect(await res.json()).toEqual({ ok: true, jobId: QUEUED, state: "canceling" });
     expect(fakes.evalScript).not.toHaveBeenCalled();
     expect(multi).toHaveBeenCalledTimes(1);
     multi.mockRestore();
   });
 
   test("a job that already finished stays finished", async () => {
-    snapshot("queued-job", "done");
-    const res = await cancel("queued-job");
+    snapshot(QUEUED, "done");
+    const res = await cancel(QUEUED);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, jobId: "queued-job", state: "done" });
+    expect(await res.json()).toEqual({ ok: true, jobId: QUEUED, state: "done" });
     expect(fakes.getJob).not.toHaveBeenCalled();
   });
 
@@ -155,40 +146,10 @@ describe("POST /jobs/:id/cancel", () => {
     fakes.getJob.mockResolvedValue(queuedJob("waiting"));
     fakes.evalScript.mockResolvedValueOnce(0);
     const { multi } = stubPipeline();
-    const res = await cancel("race-job");
+    const res = await cancel(RACE);
     expect(res.status).toBe(200);
     expect(fakes.evalScript).toHaveBeenCalledTimes(1);
-    expect(dbGetJob(openDb(), "race-job")).toBeNull();
+    expect(dbGetJob(openDb(), RACE)).toBeNull();
     multi.mockRestore();
-  });
-});
-
-describe("GET /jobs/:id/ws", () => {
-  test("forwards status frames and closes after a terminal one", async () => {
-    const sub = new Redis({ lazyConnect: true });
-    const subscribe = spyOn(sub, "subscribe").mockResolvedValue(1);
-    const quit = spyOn(sub, "quit").mockResolvedValue("OK");
-    const duplicate = spyOn(redis, "duplicate").mockReturnValue(sub);
-
-    const socket = new WebSocket(`${base.replace("http", "ws")}/jobs/live/ws`);
-    const frames: string[] = [];
-    const closed = new Promise<void>((resolve) =>
-      socket.addEventListener("close", () => resolve()),
-    );
-    socket.addEventListener("message", (event) => frames.push(String(event.data)));
-    await new Promise<void>((resolve) => socket.addEventListener("open", () => resolve()));
-    await until("the subscription", () => subscribe.mock.calls.length > 0);
-
-    const printing = JSON.stringify({ jobId: "live", state: "printing", at: 1 });
-    const done = JSON.stringify({ jobId: "live", state: "done", at: 2 });
-    sub.emit("message", jobChannel("live"), printing);
-    sub.emit("message", jobChannel("live"), done);
-    await closed;
-
-    expect(subscribe).toHaveBeenCalledWith(jobChannel("live"));
-    expect(frames).toEqual([printing, done]);
-    await until("the subscriber to quit", () => quit.mock.calls.length > 0);
-    expect(quit).toHaveBeenCalledTimes(1);
-    duplicate.mockRestore();
   });
 });
