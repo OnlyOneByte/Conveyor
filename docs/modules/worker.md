@@ -64,6 +64,12 @@ The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
 
 ## pipeline.ts
 
+- Every status a transport yields while a print is watched calls `printerSeen(printerId)` before it is handled,
+  so a printer that is printing keeps a fresh `lastSeenAt` without a probe. `index.ts` and `sqlite.ts` wire it
+  to `markPrinterSeen` (`printer-target.ts`). `transferring` does not count: Moonraker and Elegoo yield it
+  before they contact the printer. A stream that fails before the printer's first status marks nothing.
+- A failed last-seen write never fails the print. It is logged, and noted once on the job
+  (`SEEN_WRITE_FAILED`).
 - After slicing, and again when a job resumes from its stored G-code, the worker calls
   `PipelineDeps.readFilament(gcodePath)` (`readFilamentUse` in both modes) and keeps the result for the job's
   history row. A read that fails is noted on the job (`FILAMENT_NOT_READ`) and never fails it; G-code without

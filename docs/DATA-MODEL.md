@@ -100,6 +100,7 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
 | `hold_job_id`, `hold_reason`, `hold_at` | text / text / integer, null | SQLite mode only: a [printer hold](design/sqlite-queue.md#printer-holds) after an outcome the queue cannot know |
+| `last_seen_at`, `last_checked_at` | integer null | epoch ms the printer last answered, and the last time anything tried it. Returned as `lastSeenAt` and `lastCheckedAt`, absent until the first check. Written by `dbRecordPrinterCheck`, which never moves either time back |
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while

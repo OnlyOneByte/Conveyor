@@ -8,7 +8,7 @@ import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
-import { resolvePrinterTarget } from "./printer-target.js";
+import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { StatusBus } from "./status.js";
 
@@ -45,6 +45,7 @@ const worker = new Worker<unknown>(
           record: recordTerminal,
           resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
           resolvePrinter: async (printerId) => resolvePrinterTarget(openDb(), printerId),
+          printerSeen: (printerId) => markPrinterSeen(openDb(), printerId),
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,

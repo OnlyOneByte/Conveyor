@@ -51,6 +51,7 @@ export interface Harness {
   events: { state: JobState; message?: string; reason?: string }[];
   records: { state: TerminalState; reason?: string; notes?: string }[];
   cancels: PrintHandle[];
+  seen: string[];
   order: string[];
   submits: number;
   generated: number;
@@ -143,6 +144,7 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
       address: "10.0.0.9",
       secrets: { mainboardId: "mainboard-abc" },
     }),
+    printerSeen: (printerId) => h.seen.push(printerId),
     readFilament: async () => undefined,
     resolveProfile: async () => ({
       profile: { id: "prof", name: "prof", path: "/profiles/prof" },
@@ -160,6 +162,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
     events: [],
     records: [],
     cancels: [],
+    seen: [],
     order: [],
     submits: 0,
     generated: 0,
