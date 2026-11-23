@@ -185,7 +185,7 @@ it goes to review:
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
    the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page. The
-   `lint` job's "One Redis tag in every pin" step fails while these and `docker-compose.yml` disagree.
+   `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
    the new Redis has rewritten the volume, going back to the old image may not work.
