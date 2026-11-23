@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:34379",
+  "url": "http://127.0.0.1:36601",
   "warnings": [
     "warm-up /primitives: waitFor: Timeout 120000ms exceeded."
   ],
@@ -11,11 +11,17 @@
       "png": "home-1440.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "upload-empty-1440.png"
+    },
+    {
       "scene": "new-job",
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 421682,
+      "gifBytes": 463447,
       "gif": "new-job-1440.gif"
     },
     {
@@ -23,7 +29,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 267377,
+      "gifBytes": 277944,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -77,11 +83,17 @@
       "png": "home-390.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 390,
+      "warnings": [],
+      "png": "upload-empty-390.png"
+    },
+    {
       "scene": "new-job",
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 608012,
+      "gifBytes": 558520,
       "gif": "new-job-390.gif"
     },
     {
@@ -89,7 +101,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 340306,
+      "gifBytes": 330479,
       "gif": "job-progress-390.gif"
     },
     {
