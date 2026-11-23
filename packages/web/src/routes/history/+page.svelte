@@ -168,13 +168,13 @@
   }
   .chip:hover { color: var(--text); }
   .chip.active { color: var(--ink); border-color: var(--accent); background: var(--surface-2); }
-  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .search {
     flex: 1; min-width: 12rem; font-size: 0.85rem; padding: 0.35rem 0.6rem;
     border-radius: var(--radius); border: 1px solid var(--border);
     background: var(--bg); color: var(--text);
   }
-  .search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   .resultnote { margin: 0.4rem 0 0; font-size: 0.82rem; }
   .strip { margin-top: 0.75rem; }
   .navlink { color: var(--live); text-decoration: none; }

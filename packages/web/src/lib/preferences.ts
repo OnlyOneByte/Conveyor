@@ -57,10 +57,12 @@ export const toTheme = (value: string | null): Theme =>
 
 const DARK = "(prefers-color-scheme: dark)";
 
+export const resolveTheme = (saved: string | null, osDark: boolean): "light" | "dark" =>
+  saved === "light" || saved === "dark" ? saved : osDark ? "dark" : "light";
+
 function applyTheme(choice: Theme): void {
   if (typeof document === "undefined") return;
-  const dark = choice === "dark" || (choice === "system" && matchMedia(DARK).matches);
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.documentElement.dataset.theme = resolveTheme(choice, matchMedia(DARK).matches);
 }
 
 function savedTheme(): Theme {

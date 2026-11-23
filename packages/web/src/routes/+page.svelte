@@ -448,7 +448,7 @@
   }
   .badge {
     position: absolute; top: 0.75rem; left: 0.75rem; font-size: 0.75rem;
-    background: color-mix(in oklch, var(--accent) 15%, transparent); color: var(--ink);
+    background: var(--paper); color: var(--ink);
     padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--accent-dim);
   }
   .noview { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 0.25rem; }
