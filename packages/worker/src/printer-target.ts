@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { type PrinterTarget, StageError } from "@conveyor/shared";
-import { dbGetPrinter, dbGetPrinterSecrets } from "@conveyor/shared/db";
+import { dbGetPrinter, dbGetPrinterSecrets, dbRecordPrinterCheck } from "@conveyor/shared/db";
 
 export function resolvePrinterTarget(db: Database, printerId: string): PrinterTarget {
   const printer = dbGetPrinter(db, printerId);
@@ -18,4 +18,8 @@ export function resolvePrinterTarget(db: Database, printerId: string): PrinterTa
     address: printer.address,
     secrets: secrets.value,
   };
+}
+
+export function markPrinterSeen(db: Database, printerId: string, at = Date.now()): void {
+  dbRecordPrinterCheck(db, printerId, { at, reachable: true });
 }

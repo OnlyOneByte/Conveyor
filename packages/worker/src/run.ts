@@ -52,6 +52,7 @@ export interface PipelineDeps {
   record(jobId: string, req: JobRequest, outcome: TerminalRecord): void;
   resolveJobTarget(req: JobRequest): JobTarget | null;
   resolvePrinter(printerId: string): Promise<PrinterTarget>;
+  printerSeen(printerId: string): void;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;

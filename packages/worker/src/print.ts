@@ -151,6 +151,7 @@ async function watchPrint(
         throw unread ? new ResumeFailedError(lost) : new StageError("transport", lost);
       }
       unread = false;
+      run.deps.printerSeen(handle.printerId);
       const outcome = await handleStatus(run, next.value);
       if (outcome) return outcome;
       await checkpoint(run);

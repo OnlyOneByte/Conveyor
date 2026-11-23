@@ -189,3 +189,28 @@ describe("runJob transport status contract", () => {
     expect(h.records).toEqual([{ state: "failed", reason: 'unhandled value: "paused"' }]);
   });
 });
+
+describe("runJob printer contact", () => {
+  test("marks the printer seen once for every status it sends, and not before it answers", async () => {
+    const h = harness({
+      status: async function* () {
+        yield { state: "transferring" };
+        yield { state: "printing", progress: 0.5 };
+        yield { state: "done" };
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(h.seen).toEqual(["p1", "p1", "p1"]);
+  });
+
+  test("a status stream that fails before any status marks nothing", async () => {
+    const h = harness({
+      status: async function* () {
+        yield* [];
+        throw new Error("socket reset");
+      },
+    });
+    await expect(h.run()).rejects.toThrow("socket reset");
+    expect(h.seen).toEqual([]);
+  });
+});
