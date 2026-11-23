@@ -211,6 +211,17 @@ describe("the auth routes", () => {
     expect(calls).toEqual([]);
   });
 
+  test("a limited client's wrong password is the same 429, and records no failure", async () => {
+    calls.length = 0;
+    waitMs = 1_500;
+    const res = await login({ password: "auth-unit-test-passwore" });
+    waitMs = 0;
+    expect(res.statusCode).toBe(429);
+    expect(res.json<unknown>()).toEqual({ error: "too many failed logins; try again later" });
+    expect(res.headers["retry-after"]).toBe("2");
+    expect(calls).toEqual([]);
+  });
+
   test("logout revokes the session and clears the cookie", async () => {
     const cookie = cookieOf(
       (await login({ password: "auth-unit-test-password" })).headers["set-cookie"],
