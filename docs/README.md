@@ -60,6 +60,6 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 Pages here get created by the PR that first needs them, then linked above:
 
 - `modules/web.md`: the web package's page, written with the UI rewrite. The other packages already have one.
-- `design/`: design tokens, principles, mockups and screenshots for the UI rewrite, alongside the design docs
-  listed above.
+- `design/` UI pages: today `design/` holds only `sqlite-queue.md`. The UI rewrite adds its design tokens,
+  principles, mockups and screenshots there.
 - `audits/YYYY-MM-DD.md`: doc audit reports.
