@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
 import { dbUpsertPrinter } from "../db/index.ts";
-import { claimJob, type Lease } from "./lease.ts";
+import { claimJob, DEFAULT_TIMING, type Lease } from "./lease.ts";
 import { reapExpired } from "./reaper.ts";
 import { tailEvents } from "./status.ts";
 import { markSubmitted, takePrinterSlot, withFullSync } from "./submit.ts";
@@ -35,6 +35,20 @@ describe("withFullSync", () => {
 });
 
 describe("takePrinterSlot", () => {
+  test("reads the clock only once it holds the write lock", async () => {
+    h = queueHarness();
+    h.enqueue("a", "p1");
+    const realClock = { ...DEFAULT_TIMING, now: Date.now };
+    const lease = claimJob(h.db, "w1", realClock)?.lease;
+    if (!lease) throw new Error("not claimed");
+    h.set("a", "state = 'slicing'");
+    const holder = await holdWriteLock(h.path);
+    const calledAt = Date.now();
+    expect(takePrinterSlot(h.db, lease, realClock)).toBe("taken");
+    expect(await holder.exited).toBe(0);
+    expect(Number(h.row("a").submit_started_at)).toBeGreaterThanOrEqual(calledAt + 200);
+  });
+
   test("moves a sliced job onto its printer and records the submit intent at FULL", () => {
     h = queueHarness();
     const lease = slicing();

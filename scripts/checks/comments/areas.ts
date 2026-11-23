@@ -9,8 +9,6 @@ const PACKAGE_AREAS: readonly Area[] = ["api", "worker", "shared", "web"];
 
 export const BASELINE_DIR = "scripts/checks/comments/baseline";
 
-export const LEGACY_BASELINE_PATH = "scripts/checks/comments-baseline.json";
-
 export const areaPath = (area: string) => `${BASELINE_DIR}/${area}.json`;
 
 export function areaOf(path: string): Area {

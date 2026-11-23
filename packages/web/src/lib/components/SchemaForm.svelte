@@ -2,9 +2,9 @@
   import { createEventDispatcher, onMount } from "svelte";
   import type { FormUiHints } from "@conveyor/shared";
   import SchemaGroup from "./SchemaGroup.svelte";
-  import { primaryGroups, resolveRoot, type JsonSchema } from "$lib/form-schema";
+  import { primaryGroups, resolveRoot, type JsonSchema } from "#lib/form-schema.js";
 
-  // A JSON Schema (zod-to-json-schema output) describing the generator's params.
+  // A JSON Schema (paramJsonSchema output) describing the generator's params.
   // We render one control per property — zero per-generator UI code (ADR: dynamic forms).
   export let schema: JsonSchema | null = null;
   export let value: Record<string, unknown> = {};

@@ -6,7 +6,13 @@ import { messageOf } from "./errors.ts";
 
 export const MARKER = "<!-- conveyor-visual -->";
 
-export const CHANGED_THRESHOLD = 0.005;
+export const CHANNEL_NOISE = 16;
+
+export interface PixelDiff {
+  changed: number;
+  touched: number;
+  maxChannel: number;
+}
 
 export interface Pair {
   file: string;
@@ -15,30 +21,36 @@ export interface Pair {
   kind: "png" | "gif";
   before: boolean;
   after: boolean;
-  diff?: number;
+  diff?: PixelDiff;
 }
 
 const NAME = /^(.+)-(\d+)\.(png|gif)$/;
+
+const RESIZED: PixelDiff = { changed: 1, touched: 1, maxChannel: 255 };
 
 function listMedia(dir: string): string[] {
   return existsSync(dir) ? readdirSync(dir).filter((f) => NAME.test(f)) : [];
 }
 
-export function pixelDiff(a: Buffer, b: Buffer): number {
+export function pixelDiff(a: Buffer, b: Buffer): PixelDiff {
   const x = PNG.sync.read(a);
   const y = PNG.sync.read(b);
-  if (x.width !== y.width || x.height !== y.height) return 1;
+  if (x.width !== y.width || x.height !== y.height) return RESIZED;
   let changed = 0;
+  let touched = 0;
+  let maxChannel = 0;
   for (let i = 0; i < x.data.length; i += 4) {
-    if (
-      Math.abs(x.data[i] - y.data[i]) > 16 ||
-      Math.abs(x.data[i + 1] - y.data[i + 1]) > 16 ||
-      Math.abs(x.data[i + 2] - y.data[i + 2]) > 16
-    ) {
-      changed++;
-    }
+    const largest = Math.max(
+      Math.abs(x.data[i] - y.data[i]),
+      Math.abs(x.data[i + 1] - y.data[i + 1]),
+      Math.abs(x.data[i + 2] - y.data[i + 2]),
+    );
+    if (largest > 0) touched++;
+    if (largest > CHANNEL_NOISE) changed++;
+    maxChannel = Math.max(maxChannel, largest);
   }
-  return changed / (x.width * x.height);
+  const pixels = x.width * x.height;
+  return { changed: changed / pixels, touched: touched / pixels, maxChannel };
 }
 
 function parseName(file: string): Pick<Pair, "file" | "scene" | "width" | "kind"> | undefined {
@@ -74,8 +86,19 @@ export function pairUp(beforeDir: string, afterDir: string): Pair[] {
   );
 }
 
+export function isSubtle(p: Pair): boolean {
+  return (
+    p.before &&
+    p.after &&
+    p.diff !== undefined &&
+    p.diff.touched > 0 &&
+    p.diff.maxChannel <= CHANNEL_NOISE
+  );
+}
+
 export function isChanged(p: Pair): boolean {
-  return !p.before || !p.after || (p.diff ?? 1) > CHANGED_THRESHOLD;
+  if (!p.before || !p.after || !p.diff) return true;
+  return p.diff.touched > 0;
 }
 
 function cell(present: boolean, url: string, width: number): string {
@@ -84,19 +107,28 @@ function cell(present: boolean, url: string, width: number): string {
   return `<a href="${url}"><img src="${url}" width="${shown}"></a>`;
 }
 
-function delta(p: Pair): string {
-  if (!p.before) return "new";
-  if (!p.after) return "removed";
-  if (p.diff === undefined) return "—";
-  return `${(p.diff * 100).toFixed(p.diff < 0.01 ? 2 : 1)}%`;
+function percent(share: number): string {
+  if (share > 0 && share < 0.0001) return "<0.01%";
+  return `${(share * 100).toFixed(share < 0.01 ? 2 : 1)}%`;
+}
+
+function deltas(p: Pair): string {
+  if (!p.before) return "new | new | new";
+  if (!p.after) return "removed | removed | removed";
+  if (!p.diff) return "— | — | —";
+  return `${percent(p.diff.changed)} | ${percent(p.diff.touched)} | ${p.diff.maxChannel}/255`;
 }
 
 function table(pairs: Pair[], beforeUrl: string, afterUrl: string): string {
   const rows = pairs.map(
     (p) =>
-      `| **${p.scene}** · ${p.width}px${p.kind === "gif" ? " · gif" : ""} | ${cell(p.before, `${beforeUrl}/${p.file}`, p.width)} | ${cell(p.after, `${afterUrl}/${p.file}`, p.width)} | ${delta(p)} |`,
+      `| **${p.scene}** · ${p.width}px${p.kind === "gif" ? " · gif" : ""} | ${cell(p.before, `${beforeUrl}/${p.file}`, p.width)} | ${cell(p.after, `${afterUrl}/${p.file}`, p.width)} | ${deltas(p)} |`,
   );
-  return ["| Scene | Before | After | Δ pixels |", "|---|---|---|---|", ...rows].join("\n");
+  return [
+    `| Scene | Before | After | Δ pixels (> ${CHANNEL_NOISE}/255) | Any Δ | Largest Δ |`,
+    "|---|---|---|---|---|---|",
+    ...rows,
+  ].join("\n");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,11 +180,17 @@ export function buildMarkdown({
 }: Report): string {
   const changed = pairs.filter(isChanged);
   const same = pairs.filter((p) => !isChanged(p));
+  const subtle = changed.filter(isSubtle);
   const parts = [MARKER, `### ${title ?? "Visual changes"}`];
   if (notes.length > 0) parts.push(["> [!WARNING]", ...notes.map((n) => `> - ${n}`)].join("\n"));
   if (pairs.length === 0) parts.push("No screenshots were captured.");
   else if (changed.length === 0) parts.push("No visible changes in any scene.");
   else parts.push(table(changed, beforeUrl, afterUrl));
+  if (subtle.length > 0) {
+    parts.push(
+      `${subtle.length} of these changed faintly: no pixel moved by more than ${CHANNEL_NOISE}/255, but some moved (shading, tone mapping, a theme colour). Compare them pixel by pixel; side by side they look the same.`,
+    );
+  }
   if (same.length > 0) {
     parts.push(
       `<details><summary>${same.length} unchanged</summary>\n\n${table(same, beforeUrl, afterUrl)}\n\n</details>`,

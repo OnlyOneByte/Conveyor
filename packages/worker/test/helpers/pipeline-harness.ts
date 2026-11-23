@@ -13,7 +13,8 @@ import {
   type StageCtx,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "./pipeline";
+import { z } from "zod";
+import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "../../src/pipeline";
 
 export const req: JobRequest = { generator: { id: "gen" }, printerId: "p1", profileId: "prof" };
 
@@ -93,6 +94,7 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     name: "fake generator",
     version: "0.0.0",
     stage: "generator",
+    params: z.unknown(),
     paramSchema: {},
     outputs: ["stl"],
     generate: async (_params, ctx) => {
@@ -108,7 +110,6 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
     stage: "slicer",
     accepts: ["stl"],
     gcodeFlavor: "klipper",
-    profiles: [],
     slice: async (_model, _profile, ctx) => {
       await opts.slice?.(ctx);
       return { path: "/tmp/model.gcode", format: "gcode" };

@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PNG } from "pngjs";
 import {
   buildMarkdown,
   isChanged,
@@ -10,36 +9,10 @@ import {
   manifestNotes,
   type Pair,
   pairUp,
-  pixelDiff,
   readNotes,
 } from "./compare.ts";
+import { solid } from "./fixtures.ts";
 import { sampleFrames } from "./gif.ts";
-
-function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
-  const png = new PNG({ width, height });
-  for (let i = 0; i < png.data.length; i += 4) {
-    png.data[i] = rgb[0];
-    png.data[i + 1] = rgb[1];
-    png.data[i + 2] = rgb[2];
-    png.data[i + 3] = 255;
-  }
-  return PNG.sync.write(png);
-}
-
-describe("pixelDiff", () => {
-  test("identical images differ by 0", () => {
-    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [10, 10, 10]))).toBe(0);
-  });
-  test("small channel noise is ignored", () => {
-    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [20, 20, 20]))).toBe(0);
-  });
-  test("different colours differ fully", () => {
-    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 4, [255, 0, 0]))).toBe(1);
-  });
-  test("different sizes count as fully changed", () => {
-    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 5, [0, 0, 0]))).toBe(1);
-  });
-});
 
 describe("pairUp and buildMarkdown", () => {
   const dirs: string[] = [];
@@ -80,8 +53,8 @@ describe("pairUp and buildMarkdown", () => {
   });
 
   test("a gif takes its png's diff", () => {
-    expect(byFile("home-1440.gif")?.diff).toBe(0);
-    expect(byFile("settings-390.gif")?.diff).toBe(1);
+    expect(byFile("home-1440.gif")?.diff).toEqual({ changed: 0, touched: 0, maxChannel: 0 });
+    expect(byFile("settings-390.gif")?.diff).toEqual({ changed: 1, touched: 1, maxChannel: 255 });
   });
 
   test("a gif whose png is unchanged is not flagged", () => {

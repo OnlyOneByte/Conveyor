@@ -1,7 +1,7 @@
 <script lang="ts">
   import { T } from "@threlte/core";
   import { OrbitControls } from "@threlte/extras";
-  import { spinPreview, prefersReducedMotion } from "$lib/preferences";
+  import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 

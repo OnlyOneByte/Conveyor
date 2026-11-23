@@ -1,6 +1,22 @@
+{
+	skip_install_trust
+}
+
 localhost {
 	encode gzip zstd
 
+	header {
+		defer
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+	}
+	@public_host not host localhost
+	header @public_host Strict-Transport-Security "max-age=31536000"
+
+	handle /health {
+		reverse_proxy api:3000
+	}
 	handle /jobs* {
 		reverse_proxy api:3000
 	}

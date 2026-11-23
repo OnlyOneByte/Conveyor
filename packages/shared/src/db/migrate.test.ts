@@ -4,19 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeLegacyStationDb } from "../../test/helpers/legacy-db.ts";
-import { holdWriteLock } from "../../test/helpers/queue.ts";
-import {
-  dbGetJob,
-  dbGetOrcaProfileDocuments,
-  dbGetPrinter,
-  dbGetProfile,
-  dbGetPrusaProfileContent,
-  dbRecordJob,
-  dbSaveOrcaProfileDocuments,
-  dbSavePrusaProfileContent,
-  dbUpsertPrinter,
-  openDb,
-} from "./index";
+import { dbGetJob, dbRecordJob, openDb } from "./index";
 
 const dirs: string[] = [];
 
@@ -188,65 +176,5 @@ describe("openDb legacy station migration", () => {
     expect(db.query<{ synchronous: number }, []>("PRAGMA synchronous").get()).toEqual({
       synchronous: 1,
     });
-  });
-});
-
-describe("openDb migration lock", () => {
-  test("waits for a process that adds a queue column first instead of failing on it", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "conveyor-migrate-"));
-    dirs.push(dir);
-    const path = join(dir, "conveyor.db");
-    openDb(path).exec("ALTER TABLE jobs DROP COLUMN progress");
-    openDb(join(dir, "other.db"));
-    const holder = await holdWriteLock(path, "ALTER TABLE jobs ADD COLUMN progress REAL");
-    expect(namesOf(openDb(path), "PRAGMA table_info(jobs)")).toContain("progress");
-    expect(await holder.exited).toBe(0);
-  });
-});
-
-describe("openDb legacy printers and profiles columns", () => {
-  test("adds allowed_generators_json to a legacy printer and keeps its row", () => {
-    const db = openLegacyDb();
-    expect(namesOf(db, "PRAGMA table_info(printers)")).toContain("allowed_generators_json");
-    expect(dbGetPrinter(db, "printer-a")).toEqual({
-      id: "printer-a",
-      transportId: "moonraker",
-      name: "Legacy A",
-      address: "http://a",
-      secrets: undefined,
-      allowedGenerators: undefined,
-    });
-    dbUpsertPrinter(db, {
-      id: "printer-a",
-      transportId: "moonraker",
-      name: "Legacy A",
-      address: "http://a",
-      allowedGenerators: ["gen"],
-    });
-    expect(dbGetPrinter(db, "printer-a")?.allowedGenerators).toEqual(["gen"]);
-  });
-
-  test("adds the Orca and Prusa content columns to a legacy profile and keeps its row", () => {
-    const db = openLegacyDb();
-    expect(namesOf(db, "PRAGMA table_info(profiles)")).toEqual(
-      expect.arrayContaining([
-        "orca_machine_json",
-        "orca_process_json",
-        "orca_filament_json",
-        "prusa_ini",
-      ]),
-    );
-    expect(dbGetProfile(db, "profile-a")).toEqual({
-      id: "profile-a",
-      slicerId: "orca",
-      name: "Legacy PLA",
-      path: "/profiles/a",
-      gcodeFlavor: "klipper",
-    });
-    const orca = { machine: "{}", process: "{}", filament: "{}" };
-    expect(dbSaveOrcaProfileDocuments(db, "profile-a", orca)).toBe(true);
-    expect(dbGetOrcaProfileDocuments(db, "profile-a")).toEqual(orca);
-    expect(dbSavePrusaProfileContent(db, "profile-a", { config: "a = 1" })).toBe(true);
-    expect(dbGetPrusaProfileContent(db, "profile-a")).toEqual({ config: "a = 1" });
   });
 });

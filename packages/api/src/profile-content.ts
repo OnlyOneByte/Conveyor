@@ -1,5 +1,5 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isBundledProfilePath,
@@ -14,9 +14,11 @@ import {
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
 } from "@conveyor/shared";
+import { isWithin } from "@conveyor/shared/node";
 
 const defaultProfilesRoot = fileURLToPath(new URL("../../../profiles", import.meta.url));
-const profilesRoot = resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
+const profilesRoot = (): string =>
+  resolve(process.env.CONVEYOR_PROFILES_ROOT ?? defaultProfilesRoot);
 const LOGICAL_PREFIX = "/profiles/";
 
 export class ProfileContentError extends Error {
@@ -26,11 +28,6 @@ export class ProfileContentError extends Error {
   ) {
     super(message);
   }
-}
-
-function isWithin(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate);
-  return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
 
 async function bundledDirectory(logicalPath: string): Promise<{ root: string; directory: string }> {
@@ -43,7 +40,7 @@ async function bundledDirectory(logicalPath: string): Promise<{ root: string; di
   const suffix = logicalPath.slice(LOGICAL_PREFIX.length);
 
   try {
-    const root = await realpath(profilesRoot);
+    const root = await realpath(profilesRoot());
     const directory = await realpath(resolve(root, suffix));
     if (!isWithin(root, directory)) {
       throw new ProfileContentError("profile path escapes the bundled profile root", 409);

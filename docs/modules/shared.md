@@ -168,7 +168,10 @@ of controls.
 
 ### Generator
 
-`paramSchema` is a zod-derived JSON Schema the PWA renders the form from. `outputs` lists the model formats
+`params` is the generator's strict zod schema: `POST /jobs` parses the request's params with it, applies its
+defaults, and rejects unknown keys. `validateRequest`, when present, checks the parsed params against the
+outside world (passthrough: the upload is a regular `.stl` file in the uploads dir, within
+`MAX_UPLOAD_BYTES`, with an STL header). `paramSchema` is the JSON Schema derived from `params`; the PWA renders the form from it. `outputs` lists the model formats
 the generator can emit (`["stl", "3mf"]`). `generate` is the exact, server-side model generation that
 shells out to OpenSCAD and similar.
 
@@ -178,7 +181,7 @@ shells out to OpenSCAD and similar.
 a bundled or per-job materialized profile directory.
 
 `SlicerPlugin.accepts` lists input formats, and `gcodeFlavor` is the flavour the slicer declares (`marlin`,
-`klipper`). `profiles` is the plugin's bundled defaults, not an allowlist for runtime profiles.
+`klipper`). A slicer declares no profile list: profiles are rows in SQLite, seeded once from `DEFAULT_PROFILES`.
 
 `slice` receives a profile the worker has already resolved. Adapters consume its path; they do not own
 profile persistence or look ids up in a hard-coded list. That is what lets the worker materialize edited
@@ -195,7 +198,7 @@ address, carried so `status()` and `cancel()` can reach the printer without re-r
 server-side only and never leaves the worker.
 
 `PrintStatus.progress` runs from 0 to 1. `TransportPlugin.acceptsFlavors` lists the g-code flavours it can
-print, and `discover` is optional mDNS or network discovery.
+print. There is no discovery hook: printers are added with an explicit address.
 
 ## registry.ts
 
@@ -216,8 +219,8 @@ incompatible combination fails fast with a 4xx instead of dying mid-pipeline. Th
 The flavour check uses the profile's `gcodeFlavor`, not the slicer's. A slicer declares one flavour but can
 offer profiles emitting others: `prusa` declares `klipper` yet ships `prusa/marlin-pla-0.2`.
 
-`slicer.profiles` is not consulted. The profile row has already been resolved from SQLite and its
-`slicerId` selected the adapter; edited and duplicated runtime profiles are valid without being compiled
+A slicer has no profile list to check against. The profile row has already been resolved from SQLite and
+its `slicerId` selected the adapter; edited and duplicated runtime profiles are valid without being compiled
 into the adapter.
 
 ## profile.ts
@@ -274,6 +277,19 @@ there makes its profiles editable everywhere at once.
 throws on anything else. `sqlite` also throws unless `CONVEYOR_QUEUE_UNSTABLE=1` is set. The worker and the
 api both call it at startup and exit with code 1 on a throw, so they always agree on what a value means.
 
+## node/ (`@conveyor/shared/node`)
+
+Server-only helpers, kept off the main entry so the web bundle never pulls in `node:` modules:
+
+- `runEngine(stage, cmd, args, ctx)` spawns an engine with the job's `AbortSignal`. A spawn error or a non-zero
+  exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
+  generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
+  error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
+  that streams logs there would need a rolling buffer.
+- `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
+  reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
+  pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.
+
 ## db/index.ts
 
 Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the same on aarch64 and x86_64).
@@ -286,9 +302,9 @@ same file on the shared `/data` volume. `openDb()` is a process-wide singleton, 
 |---|---|
 | `db/printers.ts` | `Printer` and the printer queries |
 | `db/profiles.ts` | `Profile` and the profile and profile-content queries |
+| `db/sessions.ts` | the `sessions` table behind server-side logout: create (pruning expired rows), check, delete |
 | `db/jobs.ts` | `SettledJob`, `dbResolveJobTarget` and the job queries. `dbListJobs` lists finished jobs only (done, failed, canceled), because on the SQLite queue a job has a row from the moment it is queued |
 | `db/migrate.ts` | `migrate()`, see [Migrations](#migrations) |
-| `db/epoch-ms.ts` | `epochMs()`, the one clock every write reads |
 
 Callers import from `@conveyor/shared/db` only; the module split is not part of the public surface.
 
@@ -566,4 +582,4 @@ each.
   slicing a cube to Klipper g-code in the worker image on 2026-06-30.
 - The `prusa/*` profiles use PrusaSlicer, which is multi-arch (apt) and verified headless.
 
-Both are described in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md).
+Both are described in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md).

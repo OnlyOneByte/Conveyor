@@ -1,5 +1,3 @@
-import { createSocket } from "node:dgram";
-import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   type GcodeArtifact,
@@ -11,19 +9,11 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import {
-  discoveryOutcome,
-  exhaustive,
-  parseDiscovery,
-  SDCP_CMD,
-  type SdcpDiscovery,
-  type SdcpRead,
-} from "./sdcp.js";
+import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
+import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const DISCOVERY_PORT = Number(process.env.ELEGOO_DISCOVERY_PORT ?? 3000);
-const DISCOVERY_MS = Number(process.env.ELEGOO_DISCOVERY_MS ?? 3000);
 const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
 
 export const elegoo: TransportPlugin = {
@@ -32,17 +22,6 @@ export const elegoo: TransportPlugin = {
   version: "0.1.0",
   stage: "transport",
   acceptsFlavors: ["klipper", "marlin"],
-
-  async discover(): Promise<PrinterTarget[]> {
-    if (STUB) return [];
-    const found = await discoverSdcp(DISCOVERY_MS);
-    return found.map((d) => ({
-      id: d.mainboardId,
-      transportId: "elegoo",
-      address: d.mainboardIp,
-      secrets: {},
-    }));
-  },
 
   async submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle> {
     const filename = basename(gcode.path);
@@ -112,49 +91,13 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
   };
 }
 
-function discoverSdcp(timeoutMs: number): Promise<SdcpDiscovery[]> {
-  return new Promise((resolve, reject) => {
-    const sock = createSocket("udp4");
-    const reads: SdcpRead<SdcpDiscovery>[] = [];
-    sock.on("error", (e) => {
-      sock.close();
-      reject(new StageError("transport", `elegoo discovery socket error: ${e.message}`));
-    });
-    sock.on("message", (msg) => {
-      reads.push(parseDiscovery(msg.toString()));
-    });
-    sock.bind(() => {
-      sock.setBroadcast(true);
-      const probe = Buffer.from("M99999");
-      sock.send(probe, 0, probe.length, DISCOVERY_PORT, "255.255.255.255");
-    });
-    setTimeout(() => {
-      sock.close();
-      const outcome = discoveryOutcome(reads);
-      switch (outcome.kind) {
-        case "found":
-          return resolve(outcome.printers);
-        case "none":
-          return reject(
-            new StageError(
-              "transport",
-              `elegoo discovery: no SDCP printer among ${outcome.reasons.length} replies: ${outcome.reasons.join("; ")}`,
-            ),
-          );
-        default:
-          return exhaustive(outcome);
-      }
-    }, timeoutMs);
-  });
-}
-
 async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
   const filename = basename(path);
-  const body = await readFile(path);
-  const form = new FormData();
-  form.append("File", new Blob([body]), filename);
+  const upload = multipartFileUpload("File", path, filename);
   const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
-  const res = await fetch(url, { method: "POST", body: form, signal: ctx.signal }).catch((e) => {
+  const signal = uploadSignal(ctx.signal);
+  const init = { method: "POST", body: upload.body, headers: upload.headers, signal };
+  const res = await fetch(url, init).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted
       ? new PrintNotStartedError(reason)

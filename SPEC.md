@@ -14,7 +14,7 @@ Generate ──▶ Slice ──▶ Transport (print)
  (model)     (gcode)     (to printer)
 ```
 
-Gridfinity is just the **default generator**. Orca is just the **default slicer**.
+Gridfinity is just the **first generator**. Orca and PrusaSlicer are just the **first slicers**.
 Klipper + Elegoo are just the **first transports**. None of them are baked into the name or core.
 
 ## 2. Vocabulary
@@ -34,23 +34,21 @@ Klipper + Elegoo are just the **first transports**. None of them are baked into 
 
 ## 3. The three stages
 
-| Stage | Job | Default | Also planned | Boundary it wraps |
+| Stage | Job | Bundled | Also planned | Boundary it wraps |
 |---|---|---|---|---|
-| **Generator** | params → 3D model | `gridfinity` | passthrough (upload STL), parametric box, nameplate | OpenSCAD headless / mesh libs |
-| **Slicer** | model + profile → gcode | `orca` | PrusaSlicer CLI, CuraEngine, Slic3r | slicer CLI (+ xvfb where needed) |
+| **Generator** | params → 3D model | `gridfinity`, `passthrough` (upload STL) | parametric box, nameplate | OpenSCAD headless / mesh libs |
+| **Slicer** | model + profile → gcode | `orca`, `prusa` | CuraEngine, Slic3r | slicer CLI (+ xvfb where needed) |
 | **Transport** | gcode + printer → live print | `moonraker` (Klipper), `elegoo` | Bambu (MQTT), PrusaLink, OctoPrint | printer HTTP/MQTT API |
 
 Anything with a CLI can become a slicer. Anything with an upload+start API can become a transport.
 
 ## 4. Plugin model
 
-- Every plugin ships a **manifest** (`id`, `name`, `version`, `capabilities`) and self-registers into its stage registry at startup.
 - Plugins are thin **in-process TypeScript adapters** that wrap external tools (OpenSCAD, Orca CLI, Moonraker HTTP, Elegoo). Process isolation already happens naturally at the tool boundary, so adding a CLI slicer ≈ writing one adapter file.
-- A generator declares a **param schema** (Zod → JSON Schema). The PWA renders its config form **dynamically** from that schema — zero per-generator UI code.
-- Stages negotiate via **capabilities**: a generator's output format must be in the slicer's accepted inputs; the slicer profile's gcode flavor must be in the transport's accepted flavors. The orchestrator validates a Job's stage compatibility before it is enqueued.
-- Contracts live in the `shared` package — the single source of truth imported by web, api, and worker.
+- A generator's **param schema** drives the PWA's config form, so a new generator needs no per-generator UI code.
+- A job's stages are checked for compatibility before it is enqueued.
 
-See `docs/PLUGINS.md` for the full interface definitions.
+The contracts, the registry and the compatibility rules are defined once, in [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## 5. Wicked-fast preview (dual-model)
 
@@ -61,23 +59,18 @@ The render must feel instant, so we never round-trip the real model on a slider 
 
 ## 6. Architecture
 
-- **pnpm monorepo**, TypeScript end-to-end so the `Job`/param contracts are shared verbatim.
-- Services: `web` (SvelteKit PWA) · `api` (REST + WebSocket) · `worker` (runs the stages) · `redis` (BullMQ queue + status pubsub).
+- **Bun workspace monorepo**, TypeScript end-to-end so the `Job`/param contracts are shared verbatim.
+- Services: `web` (SvelteKit PWA) · `api` (REST + WebSocket) · `worker` (runs the stages) · `redis` (BullMQ queue + status pubsub, the default queue). A job queue in SQLite is rolling out behind `CONVEYOR_QUEUE=sqlite` and will replace `redis`; see `docs/design/sqlite-queue.md`.
 - `docker-compose`, **Caddy** for auto-HTTPS (PWA service workers require it).
 - Job state streamed to the PWA over WS: `queued → generating → slicing → transferring → printing → done | failed | canceled`.
 
-```
-packages/  shared · web · api · worker
-plugins/   generators/* · slicers/* · transports/*
-profiles/  locked slicer profiles (operator-managed)
-scad/      gridfinity-rebuilt-openscad (submodule)
-data/      job artifacts (*.stl, *.gcode) — mounted volume
-```
+The repository layout is in [AGENTS.md §1](AGENTS.md#1-repository-layout-today), and the system as built is
+in [docs/architecture.md](docs/architecture.md).
 
 ## 7. v1 scope
 
 - Generators: **Gridfinity** + **Upload STL** (`passthrough`) + a Generator SDK & registry.
-- Slicers: **Orca** (default); pluggability proven by a 2nd adapter (PrusaSlicer CLI).
+- Slicers: **Orca** and **PrusaSlicer**; the second adapter proves the contract is pluggable. Neither is a default: a profile names its slicer.
 - Transports: **Klipper/Moonraker** + **ElegooLink** (the printers on hand).
 - Operator: register printers and upload locked profiles (in Settings).
 - User flow: pick generator *or upload an STL* → configure w/ live preview (procedural or real mesh) → pick a printer + profile → print → watch live status.
@@ -96,15 +89,15 @@ data/      job artifacts (*.stl, *.gcode) — mounted volume
 - [x] **Plugin isolation** — RESOLVED: in-process TS adapters, engines isolated at the tool boundary (subprocess/HTTP). Out-of-process is an additive future option. See `docs/adr/0001-plugin-isolation.md`.
 - [x] **Persistence** — RESOLVED: SQLite (durable config + job history) + Redis (live state/pubsub) + FS (artifacts). See `docs/DATA-MODEL.md`.
 - [x] **Preview** — RESOLVED: dual-model — client procedural preview + server exact model. See `docs/adr/0002-dual-model-preview.md`.
-- [x] **Profiles** — RESOLVED (2026-09-03): **edit the raw Orca JSON in Settings.** A profile's `machine`/`process`/`filament` JSON is editable directly in the Settings page (raw text, one tab each), not a curated per-setting UI. Bundled `/profiles` files are the read-only defaults and the reset target; edits are stored in SQLite (`orca_{machine,process,filament}_json` on `profiles`) and materialized to a per-job dir at slice time. The server validates on save (client `JSON.parse` is UX only). Prusa INI profiles stay read-only in this version. See `docs/DATA-MODEL.md`.
-- [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). On by default: the API refuses to start without `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET` unless `CONVEYOR_AUTH=disabled` is set (changed 2026-11-21, #2; see `docs/self-hosting.md`). **One access tier** — holding the password grants the whole app, `/catalog/*` and `/jobs-history` included. (A second `CONVEYOR_ADMIN_PASSWORD` granting an elevated role was removed 2026-09-02: with only `CONVEYOR_PASSWORD` set, no password could ever grant that role, so those two surfaces returned 403 to everyone with no diagnostic.) Cookie attrs per ARCC Secure Cookie Handling: HttpOnly, Secure, SameSite=Strict, Path=/, 12h. See `packages/api/src/auth.ts`.
+- [x] **Profiles** — RESOLVED (2026-09-03): **edit the raw Orca JSON in Settings.** A profile's `machine`/`process`/`filament` JSON is editable directly in the Settings page (raw text, one tab each), not a curated per-setting UI. Bundled `/profiles` files are the read-only defaults and the reset target; edits are stored in SQLite (`orca_{machine,process,filament}_json` on `profiles`) and materialized to a per-job dir at slice time. The server validates on save (client `JSON.parse` is UX only). Prusa profiles got the same raw editor for their `config.ini` on 2026-09-04 (`prusa_ini`). See `docs/DATA-MODEL.md`.
+- [x] **Auth** — RESOLVED (2026-06-29): **shared password + HMAC-signed session cookie** (Auth A). On by default: the API refuses to start without `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET` unless `CONVEYOR_AUTH=disabled` is set (changed 2026-11-21, [#2](https://github.com/OnlyOneByte/Conveyor/issues/2); see `docs/self-hosting.md`). **One access tier** — holding the password grants the whole app, `/catalog/*` and `/jobs-history` included. (A second `CONVEYOR_ADMIN_PASSWORD` granting an elevated role was removed 2026-09-02: with only `CONVEYOR_PASSWORD` set, no password could ever grant that role, so those two surfaces returned 403 to everyone with no diagnostic.) Cookie attributes: HttpOnly, Secure (dropped only under `CONVEYOR_COOKIE_INSECURE=1`), SameSite=Strict, Path=/, and a 12h Max-Age (`CONVEYOR_SESSION_TTL_MS`). See `packages/api/src/auth.ts`.
 - [ ] **Elegoo API** — confirm the local control protocol (SDCP / ElegooLink) via a discovery spike.
 
 ## 10. Milestones
 
 - **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
-- **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt, default) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/M1-WORKER-ENGINES.md`.
-- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (discover/submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
+- **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/archive/M1-WORKER-ENGINES.md`.
+- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
 - **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).
 - **M5 — Observability & convenience.** ✅ (2026-09-04) Raw Orca JSON profile editor (`v0.1.2`); a `/monitor` tab (live active jobs with per-stage timings + cancel, per-printer TCP reachability, auto-refresh); `/history` state-filter chips + text filter + auto-refresh; job-detail STL/gcode downloads, a per-stage timings section, and a Run again button. API: `GET /jobs/active`, `GET /catalog/printers/:id/reachable`, `GET /jobs/:id/artifact/:kind` (containment-guarded). Shipped in `v0.1.3`.

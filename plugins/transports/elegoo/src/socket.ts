@@ -16,13 +16,13 @@ export const WS_PORT = Number(process.env.ELEGOO_WS_PORT ?? 3030);
 const COMMAND_TIMEOUT_MS = 15000;
 export const MAX_BAD_STATUS_FRAMES = 3;
 
-export interface StatusStream {
+interface StatusStream {
   address: string;
   mainboardId: string;
   idleTimeoutMs: number;
 }
 
-export interface SdcpCommand {
+interface SdcpCommand {
   mainboardId: string;
   cmd: number;
   data: Record<string, unknown>;
@@ -106,7 +106,7 @@ export function sendCommand(
   });
 }
 
-export function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | undefined {
+function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | undefined {
   switch (push.kind) {
     case "error":
       if (printing)

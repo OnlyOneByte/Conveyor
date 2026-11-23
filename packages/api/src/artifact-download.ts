@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
+import { isWithin } from "@conveyor/shared/node";
 
 export type ArtifactKind = "model" | "gcode";
 
@@ -19,16 +20,11 @@ export class ArtifactError extends Error {
   }
 }
 
-export interface ResolvedArtifact {
+interface ResolvedArtifact {
   path: string;
   filename: string;
   contentType: string;
   size: number;
-}
-
-function isWithin(root: string, candidate: string): boolean {
-  const rel = relative(root, candidate);
-  return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
 }
 
 export async function resolveJobArtifact(

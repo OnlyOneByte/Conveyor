@@ -20,11 +20,11 @@ import {
 } from "@conveyor/shared/queue";
 import { LeaseLostError, type PipelineDeps, type TerminalState } from "./run.js";
 
-export const PROGRESS_FLUSH_MS = 1000;
-export const SLOT_RETRY_MS = 1000;
+const PROGRESS_FLUSH_MS = 1000;
+const SLOT_RETRY_MS = 1000;
 export const SLOT_WAIT_MESSAGE = "sliced; waiting for the printer";
 
-export interface QueueDepsOptions {
+interface QueueDepsOptions {
   db: Database;
   lease: Lease;
   controller: AbortController;
@@ -34,7 +34,7 @@ export interface QueueDepsOptions {
   slotRetryMs?: number;
 }
 
-export interface QueueDeps {
+interface QueueDeps {
   deps: Pick<PipelineDeps, "publish" | "record" | "cancelRequested" | "queue">;
   dispose(): void;
 }

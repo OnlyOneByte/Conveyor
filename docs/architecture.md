@@ -23,22 +23,32 @@ flowchart LR
 | Service | Code | Role |
 |---|---|---|
 | `caddy` | `Caddyfile` | TLS (the PWA's service worker needs https) and path routing. API namespaces never share a prefix with a page route. |
-| `web` | `packages/web` | SvelteKit 2 + Svelte 4 PWA on `adapter-node`. Client-side procedural Three.js preview ([ADR 0002](adr/0002-dual-model-preview.md)). |
+| `web` | `packages/web` | SvelteKit 3 + Svelte 5 PWA on `adapter-node`, in Svelte 4 (non-runes) component syntax. Client-side procedural Three.js preview ([ADR 0002](adr/0002-dual-model-preview.md)). |
 | `api` | `packages/api` | Fastify REST + WebSocket. Validates requests with zod, checks compatibility, enqueues, relays status to `/jobs/:id/ws`. Session auth (`CONVEYOR_PASSWORD`, `CONVEYOR_AUTH_SECRET`). |
-| `worker` | `packages/worker` | BullMQ `Worker` (`WORKER_CONCURRENCY`, default 2). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). |
+| `worker` | `packages/worker` | BullMQ `Worker` on the Redis queue, where `WORKER_CONCURRENCY` (default 2) caps all running jobs. On the SQLite queue it caps only jobs running an engine; one waiting at or on the printer doesn't count ([worker](modules/worker.md)). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). G-code uploads stream from disk, so a transfer doesn't hold the file in memory. |
 | `redis` | `docker-compose.yml` | Queue, live `job:<id>` snapshot, `job:<id>:status` channel. |
+
+### Queue modes
+
+This page shows the default, `CONVEYOR_QUEUE=redis`. With `CONVEYOR_QUEUE=sqlite` plus
+`CONVEYOR_QUEUE_UNSTABLE=1`, the api and the worker run jobs from the `jobs` table instead: the worker claims a
+leased row, live status goes to `job_events`, and the api polls that table for `/jobs/:id/ws`. Redis is not
+used for jobs in that mode. Both services must get the same value. The rollout is in
+[design/sqlite-queue.md](design/sqlite-queue.md), and the code as built in
+[modules/worker.md](modules/worker.md).
 
 ## Packages
 
 | Package | Depends on | Holds |
 |---|---|---|
 | `@conveyor/shared` | zod | Stage contracts, job and event types, registry, profiles, SQLite access (`bun:sqlite`) |
-| `@conveyor/api` | shared, generator plugins | HTTP routes in `src/routes/` (`jobs`, `generators`, `uploads`, `auth`, `catalog`) |
-| `@conveyor/worker` | shared, all plugins | Job loop, status bus, profile resolution |
+| `@conveyor/api` | shared, plugin registry | HTTP routes in `src/routes/` (`jobs` with its `job-stream`, or `jobs-sqlite`, by queue mode, sharing `job-common`; `generators`, `uploads`, `auth`, `catalog`, `printer-holds`) |
+| `@conveyor/worker` | shared, plugin registry | Job loop, status bus, profile resolution |
 | `@conveyor/web` | shared | Routes `/`, `/history`, `/monitor`, `/settings` |
 | `plugins/generators/*` | shared | `gridfinity` (OpenSCAD over the `scad/` submodule), `passthrough` (uploaded STL) |
 | `plugins/slicers/*` | shared | `orca`, `prusa` (headless CLIs) |
-| `plugins/transports/*` | shared | `moonraker` (Klipper HTTP), `elegoo` (LAN discovery + WebSocket) |
+| `plugins/registry/builtin` | every plugin | `buildRegistry`, the one list of bundled plugins the api and worker share |
+| `plugins/transports/*` | shared | `moonraker` (Klipper HTTP), `elegoo` (SDCP over WebSocket) |
 | `tools/visual` | standalone | Captures screenshots and GIFs of the stub-mode stack for UI PRs ([ADR 0003](adr/0003-visual-evidence.md)) |
 
 Contracts are in [PLUGINS.md](PLUGINS.md).
@@ -72,10 +82,10 @@ Schema and rationale: [DATA-MODEL.md](DATA-MODEL.md).
 - `CONVEYOR_ENGINE_STUB=1` replaces the engines with stubs so the pipeline runs without OpenSCAD or a slicer.
 - Images: three Dockerfiles (`packages/{api,worker,web}/Dockerfile`). `release.yml` publishes multi-arch
   images to GHCR on `v*` tags. The worker image bakes in OpenSCAD and the slicers
-  ([M1-WORKER-ENGINES.md](M1-WORKER-ENGINES.md)).
+  ([archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md)).
 
 ## Known gaps
 
 The audit issues on GitHub (label `audit`) track where today's code falls short of [AGENTS.md](../AGENTS.md):
-Svelte 4 instead of a decided UI stack, thrown errors instead of `Result`, comments still in the ratchet
+Svelte 4-style components instead of a decided UI stack, thrown errors instead of `Result`, comments still in the ratchet
 baseline, and low test coverage.

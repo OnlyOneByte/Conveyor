@@ -35,7 +35,6 @@ export function stubSlicer(options: StubSlicerOptions = {}): StubSlicer {
     stage: "slicer",
     accepts: ["stl", "3mf"],
     gcodeFlavor,
-    profiles: [{ id: `${id}/default`, name: "Stub default", path: "/profiles/stub" }],
     slice: async (model, profile, ctx) => {
       if (options.failWith !== undefined) throw new StageError("slicer", options.failWith);
       const path = join(ctx.workDir, "out.gcode");

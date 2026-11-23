@@ -1,86 +1,41 @@
+import { isTerminal } from "@conveyor/shared";
 import {
-  isTerminal,
-  MAX_ORCA_CONTENT_BYTES,
-  MAX_PRUSA_DOCUMENT_BYTES,
-  slicerFormat,
-} from "@conveyor/shared";
-import {
+  DEFAULT_PROFILES,
   dbDeletePrinter,
   dbDeleteProfile,
   dbGetJob,
-  dbGetOrcaProfileDocuments,
   dbGetPrinter,
   dbGetProfile,
-  dbGetPrusaProfileContent,
   dbListJobs,
   dbListPrinters,
   dbListProfiles,
-  dbResetOrcaProfileDocuments,
-  dbResetPrusaProfileContent,
-  dbSaveOrcaProfileDocuments,
-  dbSavePrusaProfileContent,
   dbUpsertPrinter,
   dbUpsertProfile,
   openDb,
-  type Printer,
 } from "@conveyor/shared/db";
-import type { FastifyInstance, FastifyReply } from "fastify";
-import { z } from "zod";
+import type { FastifyInstance } from "fastify";
+import { parsePrinter, parseProfile } from "../catalog-validation.js";
+import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
-import {
-  ProfileContentError,
-  readBundledOrcaDocuments,
-  readBundledPrusaConfig,
-  validateOrcaDocuments,
-  validatePrusaContent,
-} from "../profile-content.js";
-import { parseProfile } from "../profile-validation.js";
-import { listTransports, validatePrinterTransport } from "../validate.js";
+import { describeIssues, listTransports } from "../validate.js";
+import { registerProfileContentRoutes } from "./catalog-content.js";
 
-const printerSchema = z.object({
-  id: z.string().min(1).max(128),
-  transportId: z.string().min(1),
-  name: z.string().min(1).max(200),
-  address: z.string().min(1).max(255),
-  secrets: z.record(z.string()).optional(),
-  allowedGenerators: z.array(z.string()).optional(),
-});
+const BUNDLED_PROFILE_IDS: ReadonlySet<string> = new Set(DEFAULT_PROFILES.map((p) => p.id));
 
-const orcaDocumentsSchema = z
-  .object({
-    machine: z.string(),
-    process: z.string(),
-    filament: z.string(),
-  })
-  .strict();
-
-const orcaContentSchema = z
-  .object({
-    format: z.literal("orca-json"),
-    documents: orcaDocumentsSchema,
-  })
-  .strict();
-
-const prusaContentSchema = z
-  .object({
-    format: z.literal("prusa-ini"),
-    document: z.object({ config: z.string() }).strict(),
-  })
-  .strict();
-
-function publicPrinter(p: Printer): Omit<Printer, "secrets"> & { hasSecrets: boolean } {
-  const { secrets, ...rest } = p;
-  return { ...rest, hasSecrets: !!secrets && Object.keys(secrets).length > 0 };
+async function inUseError(
+  liveJobs: LiveJobCounter,
+  reference: JobReference,
+  id: string,
+): Promise<string | null> {
+  const count = await liveJobs(reference, id);
+  const noun = reference === "printerId" ? "printer" : "profile";
+  return count > 0 ? `${noun} ${id} is used by ${count} queued or running job(s)` : null;
 }
 
-function sendProfileContentError(reply: FastifyReply, error: unknown) {
-  if (error instanceof ProfileContentError) {
-    return reply.code(error.statusCode).send({ error: error.message });
-  }
-  reply.log.error({ err: error }, "profile content operation failed");
-  return reply.code(500).send({ error: "profile content operation failed" });
-}
-export async function registerCatalogRoutes(app: FastifyInstance): Promise<void> {
+export async function registerCatalogRoutes(
+  app: FastifyInstance,
+  liveJobs: LiveJobCounter,
+): Promise<void> {
   app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
     return dbListJobs(openDb(), limit);
@@ -94,22 +49,23 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
     return job;
   });
 
-  app.get("/catalog/printers", async () => dbListPrinters(openDb()).map(publicPrinter));
+  app.get("/catalog/printers", async () => dbListPrinters(openDb()));
 
   app.put("/catalog/printers", async (req, reply) => {
-    const parsed = printerSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
-    try {
-      validatePrinterTransport(parsed.data.transportId);
-    } catch (err) {
-      return reply.code(400).send({ error: (err as Error).message });
-    }
+    const parsed = parsePrinter(req.body);
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
     dbUpsertPrinter(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });
 
   app.delete<{ Params: { id: string } }>("/catalog/printers/:id", async (req, reply) => {
-    dbDeletePrinter(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetPrinter(openDb(), id))
+      return reply.code(404).send({ error: `unknown printer ${id}` });
+    const inUse = await inUseError(liveJobs, "printerId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeletePrinter(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 
@@ -126,117 +82,24 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
     dbUpsertProfile(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });
 
-  app.get<{ Params: { id: string } }>("/catalog/profiles/:id/content", async (req, reply) => {
-    const db = openDb();
-    const profile = dbGetProfile(db, req.params.id);
-    if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-    const format = slicerFormat(profile.slicerId);
-    if (format === null) {
-      return reply
-        .code(409)
-        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
-    }
-
-    try {
-      if (format === "orca-json") {
-        const edited = dbGetOrcaProfileDocuments(db, profile.id);
-        if (edited)
-          return { format: "orca-json" as const, source: "edited" as const, documents: edited };
-        const documents = await readBundledOrcaDocuments(profile.path);
-        try {
-          validateOrcaDocuments(documents);
-        } catch (error) {
-          if (error instanceof ProfileContentError)
-            throw new ProfileContentError(`bundled ${error.message}`, 409);
-          throw error;
-        }
-        return { format: "orca-json" as const, source: "bundled" as const, documents };
-      }
-      const edited = dbGetPrusaProfileContent(db, profile.id);
-      if (edited)
-        return { format: "prusa-ini" as const, source: "edited" as const, document: edited };
-      const document = await readBundledPrusaConfig(profile.path);
-      return { format: "prusa-ini" as const, source: "bundled" as const, document };
-    } catch (error) {
-      return sendProfileContentError(reply, error);
-    }
-  });
-
-  app.put<{ Params: { id: string } }>(
-    "/catalog/profiles/:id/content",
-    { bodyLimit: Math.max(MAX_ORCA_CONTENT_BYTES * 2, MAX_PRUSA_DOCUMENT_BYTES * 2) },
-    async (req, reply) => {
-      const db = openDb();
-      const profile = dbGetProfile(db, req.params.id);
-      if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-      const format = slicerFormat(profile.slicerId);
-      if (format === null) {
-        return reply
-          .code(409)
-          .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
-      }
-
-      try {
-        if (format === "orca-json") {
-          const parsed = orcaContentSchema.safeParse(req.body);
-          if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
-          validateOrcaDocuments(parsed.data.documents);
-          if (!dbSaveOrcaProfileDocuments(db, profile.id, parsed.data.documents)) {
-            return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-          }
-          return reply.code(200).send({ ok: true, source: "edited" });
-        }
-        const parsed = prusaContentSchema.safeParse(req.body);
-        if (!parsed.success) return reply.code(400).send({ error: parsed.error.format() });
-        validatePrusaContent(parsed.data.document);
-        if (!dbSavePrusaProfileContent(db, profile.id, parsed.data.document)) {
-          return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-        }
-        return reply.code(200).send({ ok: true, source: "edited" });
-      } catch (error) {
-        return sendProfileContentError(reply, error);
-      }
-    },
-  );
-
-  app.delete<{ Params: { id: string } }>("/catalog/profiles/:id/content", async (req, reply) => {
-    const db = openDb();
-    const profile = dbGetProfile(db, req.params.id);
-    if (!profile) return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-    const format = slicerFormat(profile.slicerId);
-    if (format === null) {
-      return reply
-        .code(409)
-        .send({ error: `raw editing is not supported for ${profile.slicerId} profiles` });
-    }
-
-    try {
-      if (format === "orca-json") {
-        const bundled = await readBundledOrcaDocuments(profile.path);
-        validateOrcaDocuments(bundled);
-        if (!dbResetOrcaProfileDocuments(db, profile.id)) {
-          return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-        }
-        return reply.code(200).send({ ok: true, source: "bundled" });
-      }
-      const bundled = await readBundledPrusaConfig(profile.path);
-      validatePrusaContent(bundled);
-      if (!dbResetPrusaProfileContent(db, profile.id)) {
-        return reply.code(404).send({ error: `unknown profile ${req.params.id}` });
-      }
-      return reply.code(200).send({ ok: true, source: "bundled" });
-    } catch (error) {
-      return sendProfileContentError(reply, error);
-    }
-  });
+  registerProfileContentRoutes(app);
 
   app.delete<{ Params: { id: string } }>("/catalog/profiles/:id", async (req, reply) => {
-    dbDeleteProfile(openDb(), req.params.id);
+    const { id } = req.params;
+    if (!dbGetProfile(openDb(), id))
+      return reply.code(404).send({ error: `unknown profile ${id}` });
+    if (BUNDLED_PROFILE_IDS.has(id)) {
+      return reply.code(409).send({ error: `profile ${id} is bundled and cannot be deleted` });
+    }
+    const inUse = await inUseError(liveJobs, "profileId", id);
+    if (inUse) return reply.code(409).send({ error: inUse });
+    dbDeleteProfile(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
 }

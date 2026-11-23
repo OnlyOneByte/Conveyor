@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PrintNotStartedError } from "@conveyor/shared";
-import { harness, states, waitForAbort } from "./pipeline-harness";
+import { harness, states, waitForAbort } from "../test/helpers/pipeline-harness";
 
 describe("runJob cancel before printing", () => {
   test("a durable cancel flag set before start skips every stage", async () => {

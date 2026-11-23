@@ -2,14 +2,16 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Coverage, parseLcov } from "./lcov";
+import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
 import {
-  type BaselineTexts,
-  baselinePath,
-  CHECKER_PATH,
-  LEGACY_BASELINE_PATH,
-  legacyTexts,
-} from "./ratchet";
-import { isSource, PACKAGES, SWEEP_ENV, SWEEP_REPORT_ENV } from "./summary";
+  isSource,
+  nonBlankLines,
+  PACKAGES,
+  SWEEP_ENV,
+  SWEEP_REPORT_ENV,
+  TEST_NAME,
+} from "./summary";
+import { typeOnlyLines } from "./type-lines";
 
 export const ROOT = join(import.meta.dir, "..", "..", "..");
 
@@ -25,7 +27,15 @@ export const readOrNull = (path: string) => (existsSync(path) ? readFileSync(pat
 export const sources = (root = ROOT) =>
   (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
     .split("\0")
-    .filter((path) => isSource(path, () => readOrNull(join(root, path)) ?? ""));
+    .filter((path) => isSource(path));
+
+export const testNamedFiles = (root = ROOT) =>
+  (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
+    .split("\0")
+    .filter((path) => TEST_NAME.test(path));
+
+export const stagedEntries = (root = ROOT) =>
+  git(root, ["ls-files", "-s", "-z", "--", "packages", "plugins"]) ?? "";
 
 export interface Sweep {
   coverage: Coverage;
@@ -83,15 +93,6 @@ const baselineTexts = (read: (path: string) => string | null): BaselineTexts =>
 
 export const readCommitted = (root = ROOT) => baselineTexts((path) => readOrNull(join(root, path)));
 
-function readBaseTexts(ref: string, root: string): BaselineTexts | Error {
-  const show = (path: string) => git(root, ["show", `${ref}:${path}`]);
-  const texts = baselineTexts(show);
-  if (Object.values(texts).some((text) => text !== null)) return texts;
-  const legacy = show(LEGACY_BASELINE_PATH);
-  if (legacy === null) return texts;
-  return legacyTexts(legacy) ?? new Error(`base ${LEGACY_BASELINE_PATH} is not a valid baseline`);
-}
-
 export interface Base {
   baseline: BaselineTexts;
   hasChecker: boolean;
@@ -101,10 +102,31 @@ export function readBase(ref: string, root = ROOT): Base | Error {
   if (git(root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) === null) {
     return new Error(`base ref ${ref} does not resolve; fetch it first`);
   }
-  const baseline = readBaseTexts(ref, root);
-  if (baseline instanceof Error) return baseline;
   return {
-    baseline,
+    baseline: baselineTexts((path) => git(root, ["show", `${ref}:${path}`])),
     hasChecker: git(root, ["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
+  };
+}
+
+export const readAt = (ref: string, path: string, root = ROOT) =>
+  git(root, ["show", `${ref}:${path}`]);
+
+export function renamedSince(ref: string, root = ROOT): (from: string, to: string) => boolean {
+  const moves = new Set(
+    (git(root, ["diff", "--name-status", "-M90%", ref, "HEAD"]) ?? "")
+      .split("\n")
+      .map((line) => line.split("\t"))
+      .filter((fields) => fields[0]?.startsWith("R") && fields.length === 3)
+      .map((fields) => `${fields[1]}\0${fields[2]}`),
+  );
+  return (from, to) => moves.has(`${from}\0${to}`);
+}
+
+export function linesAt(ref: string, root = ROOT): (path: string) => number | null {
+  return (path) => {
+    const text = readAt(ref, path, root);
+    if (text === null) return null;
+    const types = typeOnlyLines(path, text);
+    return [...nonBlankLines(text).keys()].filter((line) => !types.has(line)).length;
   };
 }

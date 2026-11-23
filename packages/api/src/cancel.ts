@@ -13,12 +13,12 @@ export interface CancelDeps {
   settleCanceled(jobId: string, req: JobRequest): Promise<boolean>;
 }
 
-export interface CancelResult {
+interface CancelResult {
   code: 200 | 202 | 404;
   body: { ok: boolean; jobId: string; state?: JobState | "canceling"; error?: string };
 }
 
-const REMOVABLE = new Set(["waiting", "delayed", "prioritized", "waiting-children", "paused"]);
+const REMOVABLE = new Set(["waiting", "delayed", "prioritized", "waiting-children"]);
 
 export async function cancelJob(jobId: string, deps: CancelDeps): Promise<CancelResult> {
   const settled = async (): Promise<CancelResult | undefined> => {

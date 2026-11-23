@@ -1,7 +1,7 @@
 # Plugins: implementation notes
 
 The why behind the bundled plugins in `plugins/`. Contracts live in [../PLUGINS.md](../PLUGINS.md); engine
-installs in [../M1-WORKER-ENGINES.md](../M1-WORKER-ENGINES.md); hardware runbooks in
+installs in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md); hardware runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
 With `CONVEYOR_ENGINE_STUB=1` the pipeline runs with no engine or printer: the Gridfinity generator writes a
@@ -22,8 +22,8 @@ every path they run: `bun test` reports only the last copy of a module it loads.
   `/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad`; `GRIDFINITY_SCAD` overrides it). File and
   variable names were verified against the library's HEAD as of 2025-08 by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
   measured 83.5×125.5 mm, matching the Gridfinity spec.
-- The worker image installs an OpenSCAD nightly at `OPENSCAD_BIN` (the library needs 2023+); without it the
-  plugin runs `openscad` from `PATH`.
+- The worker image builds OpenSCAD 2026.11-RC0 from source and installs it at `OPENSCAD_BIN` (the library
+  needs 2023+); without it the plugin runs `openscad` from `PATH`.
 - `gridfinityParams` (zod) is the single source of truth: the worker validates against it and the PWA renders
   the form from its JSON Schema. The `ui` block is presentation only. Footprint and height are shown first;
   everything else sits behind "More options". `unitMm` drives the live millimetre readout.
@@ -90,6 +90,17 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 Neither transport has been run against real hardware yet (written 2026-06-29). Confirm with the runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
+Both upload the g-code through `multipartFileUpload` (`@conveyor/shared/node`), which streams the file from
+disk as one multipart part with a fixed `Content-Length`. Two guards apply to every upload:
+
+- **Size.** The length is the file's size when the upload starts. If the file grows or shrinks before the last
+  byte is sent, the stream fails, and the job fails at the transport stage. It is never sent truncated, and
+  the printer isn't left waiting for bytes that won't come.
+- **Timeout.** `CONVEYOR_UPLOAD_TIMEOUT_MS` (default 600000, 10 minutes) bounds the whole upload request,
+  together with the job's cancel signal. A timeout fails the transport stage, while a cancel still ends the
+  job as canceled with no print started. A value that isn't a positive integer fails the upload, naming the
+  variable.
+
 ### Moonraker (`plugins/transports/moonraker`)
 
 - Klipper over the Moonraker HTTP API; the lowest-risk transport. Endpoints:
@@ -129,9 +140,6 @@ Neither transport has been run against real hardware yet (written 2026-06-29). C
 SDCP (Smart Device Control Protocol), written from the
 [SDCP V3.0.0 spec](https://github.com/cbd-tech/SDCP-Smart-Device-Control-Protocol-V3.0.0):
 
-- Discovery: UDP broadcast of the probe `M99999` to port 3000 (`ELEGOO_DISCOVERY_PORT`); each printer replies
-  with a JSON datagram (`MainboardIP`, `MainboardID`, …). Replies without those fields or that are not JSON
-  are left out; when replies arrive but none is a printer, `discover()` rejects with every reason.
 - Addresses: `printerEndpoint` parses the printer address with `parseHostPort` ([shared.md](shared.md#addressts)),
   with `ELEGOO_WS_PORT` as the default port, then formats it with `formatHostPort`. The WebSocket and the
   upload URL both use it, so `fe80::1` becomes `ws://[fe80::1]:3030/websocket`. An address it rejects fails
@@ -160,8 +168,8 @@ SDCP (Smart Device Control Protocol), written from the
   `sdcp/error` gives no end signal. A halted printer answers the refresh with idle, which does not restart
   the timer, so such a job stays `printing` for at most `ELEGOO_STATUS_TIMEOUT_MS` after its last print
   status, then fails.
-- Parsing: every frame is checked against a zod schema in `src/frames.ts` (discovery reply, push envelope,
-  status, error and ack shapes). `parseDiscovery`, `parsePushFrame` and `ackCode` return an `SdcpRead`
+- Parsing: every frame is checked against a zod schema in `src/frames.ts` (push envelope,
+  status, error and ack shapes). `parsePushFrame` and `ackCode` return an `SdcpRead`
   (`frame`, `other` or `malformed` with the failing field path) and never throw; each caller switches over all
   three.
 - Printer errors: SDCP V3.0.0 defines `ErrorCode` 1 (MD5 check failed) and 2 (file format incorrect), both

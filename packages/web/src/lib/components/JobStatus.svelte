@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from "svelte";
-  import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "$lib/api";
+  import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "#lib/api.js";
   import type { JobState } from "@conveyor/shared";
 
   export let jobId: string;
@@ -63,13 +63,13 @@
     <ol class="stages">
       {#each STAGES as s, i}
         <li class:done={i < idx || evt.state === "done"} class:active={i === idx && evt.state !== "done"}>
-          <span class="dot" />
+          <span class="dot"></span>
           {s.label}
         </li>
       {/each}
     </ol>
     {#if evt.state === "printing"}
-      <div class="bar"><div class="fill" style={`width:${pct}%`} /></div>
+      <div class="bar"><div class="fill" style={`width:${pct}%`}></div></div>
       <span class="muted">{pct}%</span>
     {/if}
   {/if}

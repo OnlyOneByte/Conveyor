@@ -6,7 +6,6 @@ import {
   baselineWrites,
   CHECKER_PATH,
   checkRatchet,
-  legacyTexts,
   type Percents,
   parseBaseline,
   raisedBaseline,
@@ -158,18 +157,6 @@ describe("baseline files", () => {
     for (const text of ["101", "-1", '"40"', '{"lines":{"api":40}}', "not json"]) {
       expect(parseBaseline({ api: text })).toBe(`${baselinePath("api")} is not a valid baseline`);
     }
-  });
-
-  test("a legacy single-file baseline splits into per-package texts", () => {
-    const legacy = JSON.stringify({ lines: { api: 35.51, worker: 79, shared: 82.69 } });
-    expect(legacyTexts(legacy)).toEqual({
-      api: "35.51\n",
-      worker: "79\n",
-      shared: "82.69\n",
-      plugins: null,
-    });
-    expect(legacyTexts('{"lines":{"api":101}}')).toBeNull();
-    expect(legacyTexts("not json")).toBeNull();
   });
 
   test("an update only ever raises the floor", () => {

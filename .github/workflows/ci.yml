@@ -17,16 +17,20 @@ permissions:
 env:
   BUN_VERSION: "1.3.14"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -34,16 +38,18 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Biome lint and import order
         run: bun run lint --reporter=github
+      - name: One Redis image in every pin
+        run: bun scripts/checks/redis-pins.ts
 
   format:
     name: format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -52,15 +58,59 @@ jobs:
       - name: Biome format check
         run: bun run format:check --reporter=github
 
+  audit:
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: No high or critical advisory outside the baseline
+        run: |
+          object_file() {
+            [ -s "$1" ] || { echo "::error::$2 is empty"; exit 1; }
+            jq -e 'type == "object"' "$1" > /dev/null || { echo "::error::$2 is not a JSON object"; exit 1; }
+          }
+          baseline=.github/audit-baseline.json
+          object_file "$baseline" "$baseline"
+          base=$(bun scripts/checks/base.ts)
+          if [ -n "$base" ]; then
+            git show "$base:$baseline" > "$RUNNER_TEMP/base-baseline.json"
+            object_file "$RUNNER_TEMP/base-baseline.json" "the base's $baseline"
+            bun audit --json > "$RUNNER_TEMP/audit.json" || true
+            object_file "$RUNNER_TEMP/audit.json" "bun audit --json output"
+            unknown=$(jq -r --slurpfile base "$RUNNER_TEMP/base-baseline.json" --slurpfile audit "$RUNNER_TEMP/audit.json" \
+              '[$audit[0][][].id | tostring] as $live | keys[] | select(in($base[0]) | not) | select(. as $id | $live | index($id) | not)' \
+              "$baseline")
+            if [ -n "$unknown" ]; then
+              echo "::error::baseline adds ids bun audit does not report on this tree: ${unknown//$'\n'/ }"
+              exit 1
+            fi
+            changed=$(git diff --no-renames --name-only "$base" HEAD)
+            if [ "$changed" != "$baseline" ]; then
+              jq --slurpfile head "$baseline" 'with_entries(select(.key | in($head[0])))' \
+                "$RUNNER_TEMP/base-baseline.json" > "$RUNNER_TEMP/effective-baseline.json"
+              baseline="$RUNNER_TEMP/effective-baseline.json"
+            fi
+          fi
+          mapfile -t ignores < <(jq -r 'keys[] | "--ignore=" + .' "$baseline")
+          bun audit --audit-level=high "${ignores[@]}"
+
   typecheck:
     name: typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -74,13 +124,16 @@ jobs:
       - name: Typecheck web
         working-directory: packages/web
         run: bunx svelte-check --tsconfig ./tsconfig.json
+      - name: Typecheck the service worker
+        working-directory: packages/web
+        run: bunx tsc -p src/service-worker/tsconfig.json --noEmit
 
   test:
     name: test
     runs-on: ubuntu-latest
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -91,13 +144,13 @@ jobs:
     env:
       REDIS_URL: redis://127.0.0.1:6379
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -107,9 +160,11 @@ jobs:
         run: bun run test:coverage
       - name: Coverage ratchet against the base
         env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
-        run: bun run check:coverage --base "$BASE_REF"
-      - uses: actions/upload-artifact@v4
+          PREVIOUS: ${{ github.event.before || 'origin/main' }}
+        run: |
+          base=$(bun scripts/checks/base.ts --previous "$PREVIOUS")
+          bun run check:coverage --base "$base"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: coverage-lcov
@@ -123,16 +178,35 @@ jobs:
     name: no-comments
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Comment ratchet against the base
         env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
-        run: bun scripts/checks/comments.ts --base "$BASE_REF"
+          PREVIOUS: ${{ github.event.before || 'origin/main' }}
+        run: |
+          base=$(bun scripts/checks/base.ts --previous "$PREVIOUS")
+          bun scripts/checks/comments.ts --base "$base"
+
+  file-size:
+    name: file-size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Line ratchet against the base
+        env:
+          PREVIOUS: ${{ github.event.before || 'origin/main' }}
+        run: |
+          base=$(bun scripts/checks/base.ts --previous "$PREVIOUS")
+          bun scripts/checks/lines.ts --base "$base"
 
   docker-build:
     name: Docker build (${{ matrix.service }})
@@ -143,15 +217,225 @@ jobs:
       matrix:
         service: [api, worker, web]
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build ${{ matrix.service }} image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: packages/${{ matrix.service }}/Dockerfile
           push: false
           build-args: |
             ORCA_ENABLE=0
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  orca-slice:
+    name: orca slice
+    runs-on: ubuntu-latest
+    needs: typecheck
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: true
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Build the worker with OrcaSlicer
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: packages/worker/Dockerfile
+          push: false
+          load: true
+          tags: conveyor-worker
+          build-args: |
+            ORCA_ENABLE=1
+          cache-from: |
+            type=gha,scope=worker-orca
+            type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker-orca
+      - name: Slice a cube with the bundled Orca profile as uid 10001 under the compose lockdown
+        run: |
+          docker compose run --rm --no-deps worker bun scripts/orca-smoke.ts | tee smoke.txt
+          grep -qE 'G1 moves, as uid 10001$' smoke.txt
+      - name: Render a gridfinity bin and slice it as uid 10001 under the compose lockdown
+        run: |
+          docker compose run --rm --no-deps worker bun scripts/gridfinity-smoke.ts | tee gridfinity.txt
+          grep -qE 'G1 moves, as uid 10001$' gridfinity.txt
+
+  compose:
+    name: compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOGIN_URL: https://localhost/auth/login
+      WRONG: '{"password":"not-the-password"}'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Throwaway login for this run
+        run: |
+          password=$(openssl rand -hex 16)
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$password"
+          echo "::add-mask::$secret"
+          echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Build the worker from source with the Docker build job's cache
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: packages/worker/Dockerfile
+          push: false
+          load: true
+          tags: conveyor-worker
+          build-args: |
+            ORCA_ENABLE=0
+          cache-from: type=gha,scope=worker
+      - name: Build the other images from source
+        run: docker compose build --build-arg ORCA_ENABLE=0 api web
+      - name: No checkout or local files in the images
+        run: |
+          for service in api web worker; do
+            docker run --rm --entrypoint sh "conveyor-$service" -c \
+              'test ! -e /app/.git && test ! -e /app/.env && test -z "$(find /app -name .git -not -path "*/node_modules/*")"'
+            echo "conveyor-$service: no .git, no .env"
+          done
+      - name: Stub the engines so a job can finish without OrcaSlicer or a printer
+        run: |
+          printf '%s\n' 'services:' '  worker:' '    environment:' '      - CONVEYOR_ENGINE_STUB=1' \
+            > docker-compose.override.yml
+      - name: Leave the Caddy volumes as a root Caddy wrote them, to test the upgrade
+        run: |
+          for volume in caddy_data caddy_config; do
+            docker volume create --label com.docker.compose.project=conveyor \
+              --label com.docker.compose.volume="$volume" "conveyor_$volume"
+          done
+          docker run -d --name seed-caddy --user 0:0 -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v conveyor_caddy_data:/data -v conveyor_caddy_config:/config caddy:2
+          leaf=/data/caddy/certificates/local/localhost/localhost.crt
+          for _ in $(seq 30); do docker exec seed-caddy test -s "$leaf" && break; sleep 1; done
+          docker rm -f seed-caddy
+          docker run --rm --network none -v conveyor_caddy_data:/data alpine sh -c \
+            "stat -c '%u:%g %n' $leaf && sha256sum /data/caddy/pki/authorities/local/root.crt $leaf" | tee caddy-before.txt
+          grep -q '^0:0 ' caddy-before.txt
+      - name: docker compose up
+        run: docker compose up -d --no-build --wait --wait-timeout 120
+      - name: Only Caddy publishes, on loopback only
+        run: |
+          docker compose ps --format '{{.Service}} {{.Ports}}' | tee ports.txt
+          test "$(awk '/->/ {print $1}' ports.txt | sort -u)" = caddy
+          test "$(grep -oE '[^ ,]+->' ports.txt | LC_ALL=C sort -u | tr '\n' ' ')" = "127.0.0.1:443-> 127.0.0.1:80-> "
+          caddy_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q caddy)")
+          echo "caddy: $caddy_ip"
+          test "$caddy_ip" = 172.31.250.2
+      - name: Caddy answers /health with 200 on 127.0.0.1
+        run: |
+          for _ in $(seq 60); do
+            code=$(curl -sk -o health.json -w '%{http_code}' --resolve localhost:443:127.0.0.1 https://localhost/health || true)
+            if [ "$code" = 200 ] && grep -q '"ok":true' health.json; then exit 0; fi
+            sleep 2
+          done
+          echo "last answer: $code"
+          exit 1
+      - name: A job submitted through Caddy runs to done
+        run: |
+          api() { curl -sk --resolve localhost:443:127.0.0.1 -b cookies.txt -c cookies.txt "$@"; }
+          body=$(jq -nc --arg password "$CONVEYOR_PASSWORD" '{password: $password}')
+          test "$(api -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -d "$body" https://localhost/auth/login)" = 200
+          job='{"generator":{"id":"gridfinity","params":{}},"printerId":"klipper-garage","profileId":"orca/klipper-pla-0.2"}'
+          id=$(api -H 'content-type: application/json' -d "$job" https://localhost/jobs | jq -er .jobId)
+          echo "job: $id"
+          for _ in $(seq 60); do
+            state=$(api "https://localhost/jobs/$id" | jq -r '.state // empty')
+            case "$state" in done) echo "state: done"; exit 0 ;; failed|canceled) break ;; esac
+            sleep 2
+          done
+          api "https://localhost/jobs/$id"
+          exit 1
+      - name: The api keys the real client, not Caddy or a forged header
+        run: |
+          login() {
+            curl -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:127.0.0.1 \
+              -H 'content-type: application/json' "$@" -d "$WRONG" "$LOGIN_URL"
+          }
+          for i in 1 2 3 4 5; do
+            test "$(login -H "X-Forwarded-For: 203.0.113.$i")" = 401
+          done
+          test "$(login)" = 429
+          test "$(login -H 'X-Forwarded-For: 198.51.100.7')" = 429
+          other=$(docker run --rm --network conveyor_default curlimages/curl:8.11.1 \
+            -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:172.31.250.2 \
+            -H 'content-type: application/json' -d "$WRONG" "$LOGIN_URL")
+          echo "another client on the network: $other"
+          test "$other" = 401
+          docker compose logs --no-log-prefix api | grep -oE '"remoteAddress":"[^"]*"' | sort | uniq -c | tee seen.txt
+          test -s seen.txt
+          ! grep -q '"172.31.250.2"' seen.txt
+      - name: Every service is still up and never restarted
+        run: |
+          test "$(docker compose ps --services --status running | sort | tr '\n' ' ')" = "api caddy redis web worker "
+          docker inspect -f '{{.Name}} restarts={{.RestartCount}}' $(docker compose ps -q) | tee restarts.txt
+          ! grep -v 'restarts=0$' restarts.txt
+      - name: Every app container runs unprivileged as uid 10001 on a read-only root and owns secrets.key at 0600
+        run: |
+          for service in api worker web; do
+            docker compose exec -T "$service" cat /proc/1/status > status.txt
+            field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
+            echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] NoNewPrivs=[$(field NoNewPrivs)]"
+            test "$(field Uid)" = "10001 10001 10001 10001"
+            test "$(field Gid)" = "10001 10001 10001 10001"
+            case "$(field Groups)" in ""|10001|"10001 ") ;; *) exit 1 ;; esac
+            test "$(field CapEff)" = 0000000000000000
+            test "$(field NoNewPrivs)" = 1
+            case "$service" in web) bounding=0000000000000000 ;; *) bounding=00000000000000c5 ;; esac
+            echo "$service: CapBnd=[$(field CapBnd)]"
+            test "$(field CapBnd)" = "$bounding"
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
+          done
+          key=$(docker compose exec -T api stat -c '%u:%g %a' /data/secrets.key)
+          echo "secrets.key: $key"
+          test "$key" = "10001:10001 600"
+      - name: caddy-init handed the root-owned volumes to 10002 once, keeping the CA and certificate
+        run: |
+          docker compose logs --no-log-prefix caddy-init | tee init.txt
+          grep -qE '^caddy-init: [1-9][0-9]* paths handed to 10002:10002$' init.txt
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq caddy-init)")" = 0
+          docker compose run --rm caddy-init | tee again.txt
+          grep -qx 'caddy-init: 0 paths handed to 10002:10002' again.txt
+          leaf=/data/caddy/certificates/local/localhost/localhost.crt
+          docker run --rm --network none -v conveyor_caddy_data:/data alpine sh -c \
+            "sha256sum /data/caddy/pki/authorities/local/root.crt $leaf" > after.txt
+          test "$(tail -n 2 caddy-before.txt)" = "$(cat after.txt)"
+          served=$(openssl s_client -connect 127.0.0.1:443 -servername localhost </dev/null 2>/dev/null \
+            | openssl x509 -outform der | sha256sum)
+          stored=$(docker run --rm --network none -v conveyor_caddy_data:/data alpine cat "$leaf" | openssl x509 -outform der | sha256sum)
+          echo "served $served stored $stored"
+          test "$served" = "$stored"
+      - name: Caddy and Redis run with no capabilities on a read-only root
+        run: |
+          for service in caddy redis; do
+            docker compose exec -T "$service" cat /proc/1/status > status.txt
+            field() { awk -v name="$1:" '$1 == name { $1 = ""; sub(/^ /, ""); print }' status.txt; }
+            echo "$service: Uid=[$(field Uid)] Gid=[$(field Gid)] Groups=[$(field Groups)] CapEff=[$(field CapEff)] CapBnd=[$(field CapBnd)] NoNewPrivs=[$(field NoNewPrivs)]"
+            case "$service" in caddy) uid=10002 gid=10002 ;; redis) uid=999 gid=1000 ;; esac
+            test "$(field Uid)" = "$uid $uid $uid $uid"
+            test "$(field Gid)" = "$gid $gid $gid $gid"
+            case "$(field Groups)" in "$gid"|"$gid ") ;; *) exit 1 ;; esac
+            test "$(field CapEff)" = 0000000000000000
+            test "$(field CapBnd)" = 0000000000000000
+            test "$(field NoNewPrivs)" = 1
+            root=$(docker compose exec -T "$service" awk '$2 == "/" {print $4}' /proc/mounts | tail -1)
+            echo "$service: / mounted ${root%%,*}"
+            test "${root%%,*}" = ro
+          done
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color
+      - name: docker compose down -v
+        if: always()
+        run: docker compose down -v

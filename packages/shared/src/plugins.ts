@@ -1,4 +1,5 @@
 import type { JSONSchema7 } from "json-schema";
+import type { ZodType } from "zod";
 import type { GcodeArtifact, ModelArtifact } from "./artifacts.js";
 import type { StageCtx } from "./context.js";
 
@@ -34,9 +35,16 @@ export interface FormUiHints {
   note?: string;
 }
 
+export interface ParamIssue {
+  field: string;
+  message: string;
+}
+
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
+  params: ZodType<P, unknown>;
   paramSchema: JSONSchema7;
+  validateRequest?(params: P): ParamIssue | null;
   ui?: FormUiHints;
   preview?: PreviewDescriptor;
   outputs: string[];
@@ -53,7 +61,6 @@ export interface SlicerPlugin extends PluginManifest {
   stage: "slicer";
   accepts: string[];
   gcodeFlavor: string;
-  profiles: ProfileRef[];
   slice(model: ModelArtifact, profile: ProfileRef, ctx: StageCtx): Promise<GcodeArtifact>;
 }
 
@@ -81,7 +88,6 @@ export interface PrintStatus {
 export interface TransportPlugin extends PluginManifest {
   stage: "transport";
   acceptsFlavors: string[];
-  discover?(): Promise<PrinterTarget[]>;
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
   status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>;
   cancel?(handle: PrintHandle): Promise<void>;

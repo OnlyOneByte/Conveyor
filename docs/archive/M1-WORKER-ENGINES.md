@@ -1,5 +1,7 @@
 # M1 — Worker engines (OpenSCAD + OrcaSlicer headless)
 
+> **Archived (2026-11-22):** the M1 verification log, kept as history. It records one machine's run and is not kept current; the worker image is documented in [modules/worker.md](../modules/worker.md) and [self-hosting.md](../self-hosting.md#slicer-and-cad-engines-in-the-worker-image).
+
 Goal: the worker image can do a **real** generate + slice — OpenSCAD produces an STL,
 OrcaSlicer slices it to gcode headlessly — replacing the M0 stubs.
 
@@ -40,12 +42,8 @@ All fixed in `plugins/generators/gridfinity/src/index.ts` `toScadDefines()`.
 the stable **2021.01** can't parse (`syntax error … line 125`). It needs a 2023+
 **nightly/development snapshot** (the lib README recommends this; also a 10min→sec render
 speedup). The worker Dockerfile extracts a nightly AppImage, not the distro stable.
-`scripts/install-openscad.sh` tracks the **latest** snapshot for the host arch from
-`files.openscad.org/snapshots/` (scrapes the listing, picks the newest date across both
-the `.ai-<arch>` and `-<arch>` naming patterns; `OPENSCAD_RELEASE`/`OPENSCAD_APPIMAGE_URL`
-override). Note: upstream currently ships **aarch64** nightlies only up to **2023.09.11**
-(the verified-working build), while x86_64 gets ongoing nightlies — so on this box "latest"
-resolves to 2023.09.11.
+Since #222 the worker no longer uses AppImages: `scripts/build-openscad.sh` builds the signed upstream
+`openscad-2026.11-RC0` source tarball on both arches. Bumping: [self-hosting.md](../self-hosting.md#bumping-the-openscad-pin).
 
 The SCAD lib is vendored as a submodule (`scad/gridfinity-rebuilt-openscad`, HEAD @ 2025-08).
 Run `git submodule update --init` after clone.
@@ -137,7 +135,7 @@ by running both engines in one image:
   xvfb + the verified GTK/GL lib set; runs `scripts/install-orca.sh` (arch-aware:
   x86_64 **and** aarch64); sets `ORCA_DATADIR` to the bundled vendor profile tree.
 - `scripts/install-orca.sh` — resolves the Linux AppImage asset for this arch from
-  GitHub's release API (latest by default; `ORCA_RELEASE=x.y.z` to pin a build),
+  GitHub's release API for the pinned `ORCA_RELEASE` (2.4.1), checks its pinned sha256,
   downloads + `--appimage-extract`s to `/opt/orca/AppRun`. Discovering the asset URL
   from the API is more robust than guessing filenames (which vary by release). It
   parses the release JSON with `grep` and `sed` because the worker image does not
@@ -155,10 +153,10 @@ The engine + CLI + image + a turnkey bundle are all proven (see above). What lan
 1. ✅ **Real Orca profile bundle shipped** — `profiles/orca-klipper-pla-0.2/`
    (verbatim Creality K1 leaf exports). The seed ships it as a pickable profile, and
    the full generate→slice E2E ran green in the rebuilt image.
-2. ✅ **Tracks the latest release** — `install-orca.sh` resolves the newest Orca
-   AppImage from GitHub's API at build time (no version/checksum pinning). This is a
-   personal self-host pulling from the official upstream release; tracking latest is
-   the intended posture. To freeze a build, pass `ORCA_RELEASE=x.y.z`.
+2. ✅ **Pinned to the profile's release** — `install-orca.sh` installs OrcaSlicer 2.4.1, the
+   release the bundle was exported from, and checks each AppImage against a pinned sha256.
+   Tracking latest broke the bundle (#172: a newer release rejects it with "Preset was not
+   found in the loaded bundle"). Bumping: [self-hosting.md](../self-hosting.md#bumping-the-orcaslicer-pin).
 
 Optional follow-up (not a blocker):
 
@@ -167,9 +165,9 @@ Optional follow-up (not a blocker):
    Marlin-flavored to match the transport's `acceptsFlavors`. A dedicated Marlin Orca
    bundle would round out the set (prusa already ships one).
 
-## Note: PrusaSlicer is the verified default slicer
+## Note: neither slicer is a default
 
-Both slicers now work on this box, but **PrusaSlicer** is the simpler default — apt
-install, genuinely headless (no xvfb), single `config.ini` bundle, and its profiles
-are already committed under `profiles/prusa-*`. Orca is fully supported as a second,
-pluggable engine (ADR 0001) for users who prefer its profile ecosystem.
+Both slicers work, and a job uses whichever slicer its profile names. PrusaSlicer is the
+simpler engine to run (apt install, genuinely headless with no xvfb, a single `config.ini`
+bundle), and Orca is supported equally as a pluggable engine (ADR 0001) for users who prefer
+its profile ecosystem. The seed ships profiles for both.

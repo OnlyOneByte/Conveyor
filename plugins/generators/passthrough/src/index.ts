@@ -2,16 +2,14 @@ import { copyFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   type GeneratorPlugin,
-  type JSONSchema7,
   type ModelArtifact,
+  paramJsonSchema,
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { uploadSettings } from "@conveyor/shared/uploads";
 import { type PassthroughParams, passthroughParams } from "./params.js";
-
-const DATA_DIR = process.env.DATA_DIR ?? "/data";
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(DATA_DIR, "uploads");
+import { checkUpload } from "./upload.js";
 
 export const passthrough: GeneratorPlugin<PassthroughParams> = {
   id: "passthrough",
@@ -19,14 +17,16 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
   version: "0.1.0",
   stage: "generator",
   outputs: ["stl"],
-  paramSchema: zodToJsonSchema(passthroughParams, "PassthroughParams") as JSONSchema7,
+  params: passthroughParams,
+  paramSchema: paramJsonSchema(passthroughParams, "PassthroughParams"),
+  validateRequest: (params) => checkUpload(params.uploadId, uploadSettings(process.env)),
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
     const parsed = passthroughParams.safeParse(rawParams);
     if (!parsed.success)
       throw new StageError("generator", `invalid params: ${parsed.error.message}`);
 
-    const src = join(UPLOAD_DIR, `${basename(parsed.data.uploadId)}.stl`);
+    const src = join(uploadSettings(process.env).dir, `${basename(parsed.data.uploadId)}.stl`);
     try {
       await stat(src);
     } catch {

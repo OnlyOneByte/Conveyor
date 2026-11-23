@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { stashRerun } from "$lib/rerun";
+  import { stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
   export let data: PageData;

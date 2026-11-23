@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   type GcodeArtifact,
@@ -11,6 +10,7 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
+import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
@@ -36,16 +36,14 @@ export const moonraker: TransportPlugin = {
     }
 
     const base = baseUrl(target.address);
-    const body = await readFile(gcode.path);
     const headers = apiKeyHeaders(target);
 
-    const form = new FormData();
-    form.append("file", new Blob([body]), filename);
+    const upload = multipartFileUpload("file", gcode.path, filename);
     const up = await fetch(`${base}/server/files/upload`, {
       method: "POST",
-      body: form,
-      headers,
-      signal: ctx.signal,
+      body: upload.body,
+      headers: { ...headers, ...upload.headers },
+      signal: uploadSignal(ctx.signal),
     }).catch((e) => {
       const reason = `moonraker upload failed: ${e instanceof Error ? e.message : String(e)}`;
       throw ctx.signal.aborted

@@ -1,5 +1,6 @@
 {
   "name": "conveyor",
+  "license": "AGPL-3.0-or-later",
   "version": "0.0.0",
   "private": true,
   "workspaces": [
@@ -22,6 +23,8 @@
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "check:comments": "bun scripts/checks/comments.ts",
     "check:comments:update": "bun scripts/checks/comments.ts --update",
+    "check:lines": "bun scripts/checks/lines.ts",
+    "check:lines:update": "bun scripts/checks/lines.ts --update",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
     "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",
     "check:coverage": "bun scripts/checks/coverage/main.ts",
@@ -29,11 +32,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
-    "@types/bun": "^1.3.14",
-    "@types/node": "^20.14.0",
-    "typescript": "^5.5.4"
-  },
-  "overrides": {
-    "ioredis": "5.10.1"
+    "@types/bun": "~1.3.14",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
   }
 }

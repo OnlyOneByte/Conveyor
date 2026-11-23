@@ -1,7 +1,7 @@
 import { createConnection } from "node:net";
 import { type HostPort, parseHostPort } from "@conveyor/shared/address";
 
-export interface ReachResult {
+interface ReachResult {
   reachable: boolean;
   latencyMs?: number;
   host: string;
