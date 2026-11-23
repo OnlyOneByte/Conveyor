@@ -20,7 +20,7 @@ const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
 const TEST_IMPORT = /\b(from|import|require)\s*\(?\s*["']bun:test["']/;
 
-export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/"];
+export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/", "packages/worker/test/helpers/"];
 
 const asPackage = (name: string | undefined): PackageName | null =>
   PACKAGES.find((known) => known === name) ?? null;

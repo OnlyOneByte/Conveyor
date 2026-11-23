@@ -41,7 +41,7 @@ updates:
       prefix: fix(deps)
     groups:
       images:
-        patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: docker-compose
     directory: /
@@ -50,6 +50,3 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: fix(deps)
-    groups:
-      images:
-        patterns: ["*"]

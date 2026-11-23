@@ -60,9 +60,10 @@ it says `dropped below base`, add the tests that cover what you changed.
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
 file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
-`import`; a text match, not a parse), and the declared helper folder `packages/shared/test/helpers/`. Any
-other module, including one named `*.spec.ts` or kept in a `test/` folder, is mapped by bun and counts;
-`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder and
+`import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
+`packages/worker/test/helpers/`. Any other module, including one named `*.spec.ts` or kept in another `test/`
+folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
+helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
@@ -163,11 +164,15 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 | --- | --- | --- | --- |
 | `bun` | `bun.lock` and every workspace `package.json` | minor and patch in one PR (`minor`), majors one per PR | `fix(deps)`, or `chore(deps)` for dev dependencies |
 | `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
-| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | every update in one PR (`images`) | `fix(deps)` |
-| `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | every update in one PR (`images`) | `fix(deps)` |
+| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | minor and patch in one PR (`images`), majors one per PR | `fix(deps)` |
+| `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | one PR per image | `fix(deps)` |
 
-The group names are short so a grouped title, such as
-`fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters.
+The group names are short, so a title for several updates, such as
+`fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters. A
+group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
+minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
+that title. Compose images get one PR each because their tags (`redis:7-alpine`, `caddy:2`) move only by
+major, so every compose bump is a major and should be reviewed on its own.
 
 Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
 `node:26-bookworm-slim` is the one `FROM` line with a version, so it is the only base image the `docker` entry
@@ -184,6 +189,35 @@ it goes to review:
 2. Rewrite the body to the PR template, ending with that builder's `Author-Session:` line.
 3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
    and commit for each bumped action.
+4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
+   in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
+   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page.
+   Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
+   Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
+   the new Redis has rewritten the volume, going back to the old image may not work.
+
+   Run it through `docker compose`, not a bare `docker run`. Compose starts Redis as uid `999:1000` with a
+   read-only root filesystem and only `/data` writable, as in production. A bare run as root would hide a new
+   image that can't write the volume the old one left behind.
+
+   1. On `main` (the old tag), start the stack, then stop the worker so a job stays queued:
+      `docker compose up -d` and `docker compose stop worker`.
+   2. Seed a probe key and a queued job. Run `docker compose exec redis redis-cli SET conveyor:upgrade-probe 1`,
+      log in, submit a job with `POST /jobs`, and note its `jobId`.
+   3. Flush and record: `docker compose exec redis redis-cli SAVE`, then
+      `docker compose exec redis redis-cli DBSIZE`. Note the count.
+   4. `docker compose stop redis`, check out the PR branch (the new tag), then `docker compose up -d redis`
+      on the same `redis_data` volume.
+   5. It passes only when all four hold (each `redis-cli` through `docker compose exec redis`):
+      - `docker compose ps redis` shows `healthy`.
+      - `redis-cli GET conveyor:upgrade-probe` returns `1`.
+      - `redis-cli DBSIZE` matches the count from step 3.
+      - The queued job survived: `redis-cli EXISTS bull:conveyor-jobs:<jobId>` returns `1`, and
+        `redis-cli LPOS bull:conveyor-jobs:wait <jobId>` returns a number, not `(nil)`.
+
+   Check the job in Redis, not through `GET /jobs/active`. That route lists only jobs the worker has reported
+   on, so with the worker stopped it is empty on the old Redis too. Put the four results in the PR's How
+   verified section.
 
 Once anyone but Dependabot pushes to its branch, Dependabot stops rebasing that PR. From then on the builder
 keeps it current with `main` by merging `main` in. Commenting `@dependabot recreate` throws the pushed commits

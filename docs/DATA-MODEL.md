@@ -63,7 +63,7 @@ optional per-profile edited JSON overriding the bundled files.
 >
 > A missing bundle directory or file is 404 (`packages/api/src/profile-content.ts`).
 >
-> **Routes** (`packages/api/src/routes/catalog.ts`):
+> **Routes** (`packages/api/src/routes/catalog-content.ts`):
 > `GET /catalog/profiles/:id/content` returns the effective documents plus a per-document
 > source badge (`bundled` | `edited`); `PUT` saves an edit (server-validated); `DELETE`
 > resets to bundled (validates the bundled files before clearing the override, so a reset

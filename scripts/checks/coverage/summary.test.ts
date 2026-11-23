@@ -108,10 +108,14 @@ describe("isSource", () => {
     expect(isSource("packages/api/test/server.ts", () => MODULE)).toBe(true);
   });
 
-  test("the declared test helper folder is excluded whatever it contains", () => {
-    expect(TEST_HELPER_DIRS).toEqual(["packages/shared/test/helpers/"]);
+  test("the declared test helper folders are excluded whatever they contain", () => {
+    expect(TEST_HELPER_DIRS).toEqual([
+      "packages/shared/test/helpers/",
+      "packages/worker/test/helpers/",
+    ]);
     expect(isSource("packages/shared/test/helpers/db.ts", () => MODULE)).toBe(false);
     expect(isTestFile("packages/shared/test/helpers/db.ts", MODULE)).toBe(true);
+    expect(isSource("packages/worker/test/helpers/loop-harness.ts", () => MODULE)).toBe(false);
   });
 });
 
