@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { HISTORY_EPOCH, pinHistory } from "./history.ts";
+import type { Route } from "playwright";
+import { fulfillPinned, HISTORY_EPOCH, isHistoryList, pinHistory } from "./history.ts";
 
 const job = (id: string, createdAt: number) => ({
   id,
@@ -34,5 +35,37 @@ describe("pinHistory", () => {
   test("leaves a body that is not a list of jobs as it is", () => {
     expect(pinHistory({ error: "boom" })).toEqual({ error: "boom" });
     expect(pinHistory([null, 3])).toEqual([null, 3]);
+  });
+});
+
+describe("the /jobs-history route", () => {
+  test("matches the list with or without a query, and not a single job's detail", () => {
+    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
+    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history?limit=200"))).toBe(true);
+    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history/4a136f3c"))).toBe(false);
+  });
+
+  const fakeRoute = (ok: boolean, body: unknown) => {
+    const fulfilled: unknown[] = [];
+    const response = { ok: () => ok, json: async () => body };
+    const route = {
+      fetch: async () => response,
+      fulfill: async (options: unknown) => {
+        fulfilled.push(options);
+      },
+    } as unknown as Route;
+    return { route, response, fulfilled };
+  };
+
+  test("pins the body of a successful response", async () => {
+    const { route, response, fulfilled } = fakeRoute(true, [job("live", 5)]);
+    await fulfillPinned(route);
+    expect(fulfilled).toEqual([{ response, json: pinHistory([job("live", 5)]) }]);
+  });
+
+  test("passes an error response through untouched", async () => {
+    const { route, response, fulfilled } = fakeRoute(false, { error: "boom" });
+    await fulfillPinned(route);
+    expect(fulfilled).toEqual([{ response }]);
   });
 });

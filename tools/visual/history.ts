@@ -1,4 +1,4 @@
-import type { BrowserContext } from "playwright";
+import type { BrowserContext, Route } from "playwright";
 
 export const HISTORY_EPOCH = Date.UTC(2026, 0, 1, 12, 0, 0);
 
@@ -17,13 +17,14 @@ export function pinHistory(body: unknown): unknown {
   });
 }
 
+export const isHistoryList = (url: URL): boolean => url.pathname === "/jobs-history";
+
+export async function fulfillPinned(route: Route): Promise<void> {
+  const response = await route.fetch();
+  if (!response.ok()) return route.fulfill({ response });
+  await route.fulfill({ response, json: pinHistory(await response.json()) });
+}
+
 export async function pinHistoryRoute(context: BrowserContext): Promise<void> {
-  await context.route(
-    (url) => url.pathname === "/jobs-history",
-    async (route) => {
-      const response = await route.fetch();
-      if (!response.ok()) return route.fulfill({ response });
-      await route.fulfill({ response, json: pinHistory(await response.json()) });
-    },
-  );
+  await context.route(isHistoryList, fulfillPinned);
 }
