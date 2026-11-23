@@ -82,6 +82,20 @@ describe("cancelJob", () => {
     expect(calls.settled).toBe(1);
   });
 
+  test("a job gone from the queue but still printing gets the durable flag", async () => {
+    const { calls, deps } = setup({ snapshot: "printing" });
+    const res = await cancelJob("j", deps);
+    expect(res).toEqual({ code: 202, body: { ok: true, jobId: "j", state: "canceling" } });
+    expect(calls).toEqual({ requested: 1, removed: 0, settled: 0 });
+  });
+
+  test("a completed queue job whose snapshot is not final yet is still canceling", async () => {
+    const { calls, deps } = setup({ state: "completed", snapshot: "transferring" });
+    const res = await cancelJob("j", deps);
+    expect(res).toEqual({ code: 202, body: { ok: true, jobId: "j", state: "canceling" } });
+    expect(calls).toEqual({ requested: 1, removed: 0, settled: 0 });
+  });
+
   test("an unknown id is a 404", async () => {
     const { calls, deps } = setup({});
     const res = await cancelJob("nope", deps);
