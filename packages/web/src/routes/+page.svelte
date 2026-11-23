@@ -228,10 +228,10 @@
   function dotColor(pr: CatalogProfile): string {
     switch (pr.gcodeFlavor?.toLowerCase()) {
       case "klipper":
-        return "var(--accent)"; // teal
+        return "var(--accent)";
       case "marlin":
       case "marlin2":
-        return "#fbbf24"; // amber
+        return "var(--ok)";
       default:
         return "var(--muted)"; // unknown / dangling profile
     }
@@ -252,12 +252,12 @@
       </Canvas>
       <span class="badge">uploaded mesh</span>
     {:else if source === "upload"}
-      <div class="noview muted">
+      <div class="noview">
         <p>Your STL renders here once selected.</p>
         <p>Drop a file in the Upload panel →</p>
       </div>
     {:else}
-      <div class="noview muted">
+      <div class="noview">
         <p>No live preview for this generator.</p>
         <p>The exact model is generated server-side at print time.</p>
       </div>
@@ -444,35 +444,35 @@
     position: relative; height: 60vh; min-height: 360px; padding: 0; overflow: hidden; position: sticky; top: 1rem;
     /* Depth backdrop from the locked mockup — replaces the flat .card surface so
        the empty state and 3D viewport both sit on a subtle dome of light. */
-    background: radial-gradient(120% 120% at 50% 0%, #1b2230 0%, #0e1116 70%);
+    background: var(--mat);
   }
   .badge {
     position: absolute; top: 0.75rem; left: 0.75rem; font-size: 0.75rem;
-    background: rgba(94,234,212,0.15); color: var(--accent);
+    background: var(--paper); color: var(--ink);
     padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--accent-dim);
   }
-  .noview { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 0.25rem; }
+  .noview { position: absolute; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100% - 2rem); display: flex; flex-direction: column; text-align: center; gap: 0.25rem; padding: var(--s4) var(--s5); border-radius: var(--r-card); border: 1px solid var(--line); background: var(--paper); color: var(--ink); } .noview p { margin: 0; }
   .panel { display: flex; flex-direction: column; gap: 1rem; }
 
   h3 { margin: 0 0 0.75rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; align-items: center; }
   .step-n {
     display: inline-flex; width: 1.4rem; height: 1.4rem; border-radius: 50%;
-    background: var(--surface-2); color: var(--accent); align-items: center; justify-content: center;
+    background: var(--surface-2); color: var(--live); align-items: center; justify-content: center;
     font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem;
   }
 
   /* segmented source toggle */
   .seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 0.25rem; gap: 0.25rem; margin-bottom: 0.85rem; }
   .seg button { flex: 1; border: none; background: transparent; border-radius: 7px; min-height: 38px; }
-  .seg button.active { background: var(--accent); color: #04211d; font-weight: 700; }
+  .seg button.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
   .pick { display: flex; flex-direction: column; gap: 0.3rem; }
   .pick span { font-size: 0.85rem; }
 
   .drop { display: block; position: relative; border: 2px dashed var(--border); border-radius: 10px; padding: 1.5rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(94,234,212,0.06); }
+  .drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 6%, transparent); }
   .drop p { margin: 0.2rem 0; }
-  .drop strong { color: var(--accent); }
+  .drop strong { color: var(--live); }
   /* native input fills the dropzone but stays invisible (the label is the UI) */
   .file-input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 
@@ -489,13 +489,13 @@
     border-radius: 10px; padding: 0.7rem 0.8rem; cursor: pointer;
   }
   .preset:hover { border-color: var(--accent-dim); }
-  .preset.sel { border-color: var(--accent); background: rgba(94,234,212,0.08); }
+  .preset.sel { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 8%, transparent); }
   .preset .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .pmeta { display: flex; flex-direction: column; gap: 0.2rem; }
   .preset .pn { font-weight: 600; color: var(--text); }
   .chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
   .chip { font-size: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 0.05rem 0.5rem; color: var(--muted); }
-  .preset .check { margin-left: auto; color: var(--accent); opacity: 0; font-weight: 700; }
+  .preset .check { margin-left: auto; color: var(--live); opacity: 0; font-weight: 700; }
   .preset.sel .check { opacity: 1; }
 
   .print { width: 100%; margin-top: 0.85rem; }

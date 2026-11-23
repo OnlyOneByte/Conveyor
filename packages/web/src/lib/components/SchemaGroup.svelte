@@ -159,7 +159,7 @@
     border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
   .stepper button { border: 0; background: transparent; border-radius: 0; width: 40px;
     padding: 0; font-size: 1.05rem; line-height: 1; color: var(--text); flex: none; }
-  .stepper button:hover:not(:disabled) { background: var(--border); color: var(--accent); }
+  .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
   .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 0.12rem; }
   .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
@@ -173,5 +173,5 @@
   .stack1 label { font-size: 0.85rem; color: var(--muted); }
   .slider { display: flex; align-items: center; gap: 0.6rem; }
   .slider input[type="range"] { flex: 1; }
-  .val { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+  .val { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--live); font-weight: 600; }
 </style>
