@@ -4,11 +4,12 @@ import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
+import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
+import { registerSecurityHeaders } from "./security-headers.js";
 import { parseTrustedProxies } from "./trusted-proxies.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -30,8 +31,9 @@ try {
 const app = Fastify({ logger: true, trustProxy });
 await app.register(websocket);
 await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
+registerSecurityHeaders(app);
 
-app.get("/health", async () => ({ ok: true }));
+app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 
 registerAuthGuard(app);
 await registerAuthRoutes(app);

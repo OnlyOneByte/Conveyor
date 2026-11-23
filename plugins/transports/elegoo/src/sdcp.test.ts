@@ -118,6 +118,8 @@ describe("ackCode", () => {
   test("a non-numeric Ack is malformed instead of read as a code", () => {
     const raw = JSON.stringify({ Data: { RequestID: "r1", Data: { Ack: "ok" } } });
     const read = ackCode(raw, "r1");
-    expect(read.kind === "malformed" && read.reason).toStartWith("Data.Data.Ack: Expected number");
+    expect(read.kind === "malformed" && read.reason).toStartWith(
+      "Data.Data.Ack: Invalid input: expected number, received string",
+    );
   });
 });
