@@ -20,7 +20,7 @@ Conveyor runs as a Docker Compose stack: Caddy (TLS and routing), `web` (the PWA
    Generate the secret with `openssl rand -hex 32` and paste the output; `.env` does not run commands.
 
    - `CONVEYOR_PASSWORD` must be 12 to 512 characters. 512 is also the longest password the login form accepts.
-   - `CONVEYOR_AUTH_SECRET` must be at least 32 characters, not counting leading or trailing whitespace. Keep it the same across restarts: it signs session cookies, so changing it logs everyone out.
+   - `CONVEYOR_AUTH_SECRET` must be at least 32 characters, not counting leading or trailing whitespace. Keep it the same across restarts: it signs session cookies, so changing it logs everyone out. Changing `CONVEYOR_PASSWORD` logs everyone out too, and **Log out** ends that session on the server, not just in the browser.
    - Wrap each value in single quotes. Compose interpolates `$` in unquoted and double-quoted `.env` values, so `pa$$w$ord` would reach the API as `pa$w`: `$$` becomes `$` and `$ord` becomes an empty variable. Inside single quotes every character is literal. A value that itself contains a single quote cannot be single-quoted; pick another value.
 
 3. Start the stack:
@@ -89,7 +89,7 @@ docker compose up -d caddy
 Before you expose Conveyor beyond the host:
 
 - Keep authentication on and use a strong `CONVEYOR_PASSWORD`.
-- Replace `localhost` in the `Caddyfile` with the hostname clients use, so Caddy issues a certificate for it. For a public domain, Caddy can obtain a Let's Encrypt certificate automatically once ports 80 and 443 are reachable.
+- Replace `localhost` in the `Caddyfile` with the hostname clients use, so Caddy issues a certificate for it. For a public domain, Caddy can obtain a Let's Encrypt certificate automatically once ports 80 and 443 are reachable. Once the hostname is not `localhost`, Caddy also sends `Strict-Transport-Security: max-age=31536000`; on `localhost` it doesn't, so a browser never pins HTTPS for every other local app. On every response it sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
 - Do not forward ports to the internet unless you need remote access. A VPN such as WireGuard or Tailscale is a safer way to reach a home install.
 
 ## Environment reference
