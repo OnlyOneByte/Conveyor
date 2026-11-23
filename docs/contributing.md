@@ -59,9 +59,10 @@ it says `dropped below base`, add the tests that cover what you changed.
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
 file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
-`import`; a text match, not a parse), and the declared helper folder `packages/shared/test/helpers/`. Any
-other module, including one named `*.spec.ts` or kept in a `test/` folder, is mapped by bun and counts;
-`bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only that helper folder and
+`import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
+`packages/worker/test/helpers/`. Any other module, including one named `*.spec.ts` or kept in another `test/`
+folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
+helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
