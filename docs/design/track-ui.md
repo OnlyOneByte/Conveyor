@@ -181,7 +181,7 @@ needs that backend change and is hidden until it lands.
 
 | State | Where | Ring | Value | Focus card adds |
 |---|---|---|---|---|
-| Queued | Queue box list | dashed, empty | `next` | Printer (now), place in line (browser), rough start (#337) |
+| Queued | Queue box list | dashed, empty | `next` | Printer (#342), place in line (browser, needs #342), rough start (#337) |
 | Modelling | Rail, Model | indeterminate quarter | `…` | Typical duration (#337) |
 | Slicing | Rail, Slice | fills with % | `35%` (now) | Time left (browser, from the progress rate) |
 | Sending | Rail, Send | fills with % | `72%` (now) | Bytes sent of total (#336) |
@@ -327,13 +327,14 @@ is one of three kinds:
 | Field | Shown in | Source | Until then |
 |---|---|---|---|
 | Live jobs, their stage and percent | rail, Jobs, Job detail | now: `GET /jobs/active` every 2 s while visible; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
+| A running job's name (chip label), printer, profile, generator, creation time | chips, Jobs rows, focus cards | backend: [#342](https://github.com/OnlyOneByte/Conveyor/issues/342). Today both endpoints return status snapshots only | the stage as the name ("Slicing job"), no printer |
 | Cancel; Retry and Print again | focus card, Jobs, Job detail | now: `POST /jobs/:id/cancel`; `POST /jobs` with the original request (`lib/rerun.ts`) | |
 | Stage times, took | Done card, receipt | now: `timings` | |
 | Failure stage and reason | Needs you, Job detail | now: `error`; the plain-language wording is mapped in the browser | |
-| Place in line | Queued card | browser: `GET /jobs/active` ordered by `createdAt` per printer | |
+| Place in line | Queued card | browser: `GET /jobs/active` ordered by `createdAt` per printer, both from [#342](https://github.com/OnlyOneByte/Conveyor/issues/342) | hidden |
 | Slicing time left | Slicing card | browser: from the rate of `progress` over the last updates; shown after two updates | |
 | Finished today | Finished bin | browser: settled jobs from `GET /jobs-history` with today's `updatedAt` | |
-| Printer ready, busy or not reachable | Make picker, Printers | now: `/jobs/active` and `GET /catalog/printers/:id/reachable` | |
+| Printer ready, busy or not reachable | Make picker, Printers | reachable: now (`GET /catalog/printers/:id/reachable`); busy: browser, from `/jobs/active` with each job's printer from [#342](https://github.com/OnlyOneByte/Conveyor/issues/342) | Ready or Not reachable; Busy hidden |
 | Layer, time left, finish time, "next done in" | Printing card, collapsed rail, mobile sheet, Job detail | backend: [#335](https://github.com/OnlyOneByte/Conveyor/issues/335) | percentage only; those rows hidden |
 | Bytes sent of total | Sending card | backend: [#336](https://github.com/OnlyOneByte/Conveyor/issues/336) | percentage only |
 | Typical duration, rough start | Modelling and Queued cards | backend: [#337](https://github.com/OnlyOneByte/Conveyor/issues/337) | hidden; place in line still shows |
@@ -350,8 +351,8 @@ props, so the same component renders stub data in the visual-capture scenes.
 ## Implementation plan
 
 Twelve UI PRs of at most 400 changed lines each, in dependency order, tracked in
-[#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334), plus the seven backend issues in
-[Data](#data) (#335 to #341). Each UI issue carries its acceptance criteria, the audit issues it closes, the
+[#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334), plus the eight backend issues in
+[Data](#data) (#335 to #342). Each UI issue carries its acceptance criteria, the audit issues it closes, the
 visuals it must attach, and the backend issues it waits on with their fallbacks.
 
 ## Not decided
