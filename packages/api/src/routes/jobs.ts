@@ -4,9 +4,11 @@ import {
   CANCEL_TTL_SECONDS,
   isTerminal,
   type JobStatusEvent,
+  type JobView,
   jobCancelKey,
   jobControlChannel,
   jobSnapshotKey,
+  jobView,
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
@@ -38,6 +40,20 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(202).send({ jobId });
   });
 
+  const withFields = async (snapshot: JobStatusEvent): Promise<JobView> => {
+    let fields: unknown;
+    try {
+      const job = await jobQueue.getJob(snapshot.jobId);
+      fields = job && { ...job.data, createdAt: job.timestamp };
+    } catch (err) {
+      app.log.error({ err, jobId: snapshot.jobId }, "job request fields unreadable");
+      return snapshot;
+    }
+    const { view, complete } = jobView(snapshot, fields);
+    if (!complete) app.log.error({ jobId: snapshot.jobId }, "job request fields incomplete");
+    return view;
+  };
+
   app.get("/jobs/active", async () => {
     const ids = await redis.smembers(ACTIVE_JOBS_KEY);
     if (ids.length === 0) return [];
@@ -50,14 +66,14 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
       else active.push(evt);
     }
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
-    return active.sort((a, b) => b.at - a.at);
+    return Promise.all(active.sort((a, b) => b.at - a.at).map(withFields));
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     if (!isJobId(req.params.id)) return reply.code(404).send({ error: "unknown job" });
-    const snapshot = await redis.get(jobSnapshotKey(req.params.id));
+    const snapshot = parseStatusEvent(await redis.get(jobSnapshotKey(req.params.id)));
     if (!snapshot) return reply.code(404).send({ error: "unknown job" });
-    return reply.send(JSON.parse(snapshot));
+    return reply.send(await withFields(snapshot));
   });
 
   registerArtifactRoute(app);

@@ -67,13 +67,19 @@ ordering, and `/jobs/:id` answers `404` for any id that is not a UUID.
 `GET /jobs/:id` returns the job's current snapshot. The PWA reads it when it opens a job's status, next to
 the WebSocket. The client does not reconnect a closed socket yet (#193).
 
+Both routes add what the job is to each snapshot: `printerId`, `profileId`, `generator` (`id` and `params`;
+an upload's `params` carry its `filename`) and `createdAt`, in epoch milliseconds. They come from the BullMQ
+job's data and `timestamp`, and are checked by `jobFieldsSchema` in `@conveyor/shared`. A job BullMQ no longer
+holds, a request that fails the schema, or a failed BullMQ read leaves those four fields out, logs, and still
+answers the snapshot, so the UI can label the job by its stage (#342).
+
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
 | --- | --- |
 | `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }`. `parseSubmission` (shared with the Redis route) answers `400 { error }` naming the field, e.g. `generator.params.gridX: ...`, for params the generator's schema or `validateRequest` rejects |
-| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot |
-| `GET /jobs/:id` | `readSnapshot`; 404 for an unknown id |
+| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot plus `printerId`, `profileId`, `generator` and `createdAt` from the `jobs` row (`readJobFields`) |
+| `GET /jobs/:id` | `readSnapshot` plus the same four fields; 404 for an unknown id. A row whose fields fail `jobFieldsSchema`, or whose `params_json` does not parse, answers the snapshot alone and logs |
 | `POST /jobs/:id/cancel` | `requestCancel`: `200` with the state of a finished job, `200 canceled` for a queued one, `202 canceling` for one in flight, `404` for an unknown id |
 | `GET /jobs/:id/ws` | the snapshot as the first frame, then the event-log tail from the snapshot's cursor |
 

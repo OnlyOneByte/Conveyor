@@ -1,8 +1,21 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { exhaustive, isTerminal, JOB_STREAM_CLOSE, type JobStatusEvent } from "@conveyor/shared";
+import {
+  exhaustive,
+  isTerminal,
+  JOB_STREAM_CLOSE,
+  type JobStatusEvent,
+  type JobView,
+  jobView,
+} from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
-import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
+import {
+  enqueueJob,
+  readJobFields,
+  readSnapshot,
+  requestCancel,
+  tailEvents,
+} from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
@@ -52,6 +65,19 @@ export async function registerJobRoutes(
     return reply.code(202).send({ jobId });
   });
 
+  const withFields = (snapshot: JobStatusEvent): JobView => {
+    let fields: unknown;
+    try {
+      fields = readJobFields(db, snapshot.jobId);
+    } catch (err) {
+      app.log.error({ err, jobId: snapshot.jobId }, "job request fields unreadable");
+      return snapshot;
+    }
+    const { view, complete } = jobView(snapshot, fields);
+    if (!complete) app.log.error({ jobId: snapshot.jobId }, "job request fields incomplete");
+    return view;
+  };
+
   app.get("/jobs/active", async () =>
     db
       .query<{ id: string }, []>(
@@ -61,7 +87,8 @@ export async function registerJobRoutes(
       .all()
       .flatMap(({ id }) => {
         try {
-          return readSnapshot(db, id)?.snapshot ?? [];
+          const read = readSnapshot(db, id);
+          return read ? withFields(read.snapshot) : [];
         } catch (err) {
           app.log.error({ err, jobId: id }, "unreadable job skipped in /jobs/active");
           return [];
@@ -72,7 +99,7 @@ export async function registerJobRoutes(
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     const read = readSnapshot(db, req.params.id);
     if (!read) return reply.code(404).send({ error: "unknown job" });
-    return reply.send(read.snapshot);
+    return reply.send(withFields(read.snapshot));
   });
 
   registerArtifactRoute(app);

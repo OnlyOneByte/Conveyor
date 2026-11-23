@@ -147,6 +147,29 @@ export function readSnapshot(db: Database, jobId: string): JobSnapshot | null {
   return { snapshot: toEvent(raw, `job ${jobId}`), cursor: row.cursor };
 }
 
+interface FieldsRow {
+  generator_id: string;
+  params_json: string | null;
+  printer_id: string | null;
+  profile_id: string | null;
+  created_at: number;
+}
+
+export function readJobFields(db: Database, jobId: string): unknown {
+  const row = db
+    .query<FieldsRow, [string]>(
+      "SELECT generator_id, params_json, printer_id, profile_id, created_at FROM jobs WHERE id = ?",
+    )
+    .get(jobId);
+  if (!row) return undefined;
+  return {
+    printerId: row.printer_id ?? undefined,
+    profileId: row.profile_id ?? undefined,
+    generator: { id: row.generator_id, params: parsedOrAbsent(row.params_json) },
+    createdAt: row.created_at,
+  };
+}
+
 export function tailEvents(
   db: Database,
   jobId: string,
