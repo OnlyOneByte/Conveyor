@@ -19,14 +19,7 @@ import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 
-const LIVE_STATES = [
-  "waiting",
-  "active",
-  "delayed",
-  "prioritized",
-  "paused",
-  "waiting-children",
-] as const;
+const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
