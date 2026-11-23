@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { JOB_QUEUE, jobSnapshotKey, publishStatus } from "@conveyor/shared";
+import { JOB_QUEUE, jobChannel, jobSnapshotKey, publishStatus } from "@conveyor/shared";
 import websocket from "@fastify/websocket";
 import { Queue } from "bullmq";
 import Fastify from "fastify";
@@ -17,6 +17,14 @@ if (!url && process.env.CI)
   throw new Error("REDIS_URL must be set in CI for the Redis stream tests");
 
 const VIEWERS = 5;
+
+async function until(what: string, ms: number, ready: () => boolean | Promise<boolean>) {
+  const deadline = Date.now() + ms;
+  while (!(await ready())) {
+    if (Date.now() > deadline) throw new Error(`${what} not within ${ms} ms`);
+    await Bun.sleep(10);
+  }
+}
 
 async function watching(ws: WebSocket) {
   const states: string[] = [];
@@ -67,15 +75,16 @@ describe.skipIf(!url)("the job status stream on Redis", () => {
   test(`${VIEWERS} viewers share one Redis connection, closed with 1000 on the terminal event`, async () => {
     const jobId = randomUUID();
     await publishStatus(redis, { jobId, state: "generating", at: 1 });
-    const viewers = [];
+    const viewers: Awaited<ReturnType<typeof viewer>>[] = [];
     for (let i = 0; i < VIEWERS; i++) viewers.push(await viewer(jobId));
-    await Bun.sleep(100);
+    await until("every viewer's snapshot", 5_000, () =>
+      viewers.every((v) => v.states.length === 1),
+    );
     expect(await clients()).toBe(1);
     await publishStatus(redis, { jobId, state: "done", at: 2 });
     expect(await Promise.all(viewers.map((v) => v.closed))).toEqual(Array(VIEWERS).fill(1000));
     for (const v of viewers) expect(v.states).toEqual(["generating", "done"]);
-    await Bun.sleep(100);
-    expect(await clients()).toBe(0);
+    await until("the shared subscriber to close", 5_000, async () => (await clients()) === 0);
   });
 
   test("the publish script never overwrites a terminal snapshot", async () => {
@@ -86,12 +95,13 @@ describe.skipIf(!url)("the job status stream on Redis", () => {
     await watcher.subscribe(`job:${jobId}:status`);
     expect(await publishStatus(redis, { jobId, state: "done", at: 1 })).toBe(true);
     expect(await publishStatus(redis, { jobId, state: "generating", at: 2 })).toBe(false);
-    await Bun.sleep(50);
+    await redis.publish(jobChannel(jobId), JSON.stringify({ state: "sentinel" }));
+    await until("the sentinel", 5_000, () => heard.includes("sentinel"));
     expect(JSON.parse((await redis.get(jobSnapshotKey(jobId))) ?? "{}")).toMatchObject({
       state: "done",
       seq: 1,
     });
-    expect(heard).toEqual(["done"]);
+    expect(heard).toEqual(["done", "sentinel"]);
     watcher.disconnect();
   });
 
@@ -139,7 +149,7 @@ describe.skipIf(!url)("the Redis job routes' stream wiring", () => {
     await publishStatus(redis, { jobId, state: "slicing", at: 1 });
     expect(JSON.parse((await redis.get(jobSnapshotKey(jobId))) ?? "{}").seq).toBe(1);
     const socket = await open(jobId);
-    await Bun.sleep(100);
+    await until("the snapshot frame", 5_000, () => socket.states.length === 1);
     await publishStatus(redis, { jobId, state: "done", at: 2 });
     expect(await socket.closed).toBe(1000);
     expect(socket.states).toEqual(["slicing", "done"]);
