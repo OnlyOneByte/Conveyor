@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:40867",
+  "url": "http://127.0.0.1:37585",
   "warnings": [],
   "results": [
     {
@@ -13,7 +13,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 511085,
+      "gifBytes": 421752,
       "gif": "new-job-1440.gif"
     },
     {
@@ -21,7 +21,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 311699,
+      "gifBytes": 267188,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -29,6 +29,18 @@
       "width": 1440,
       "warnings": [],
       "png": "history-1440.png"
+    },
+    {
+      "scene": "job-detail",
+      "width": 1440,
+      "warnings": [],
+      "png": "job-detail-1440.png"
+    },
+    {
+      "scene": "job-detail-failed",
+      "width": 1440,
+      "warnings": [],
+      "png": "job-detail-failed-1440.png"
     },
     {
       "scene": "monitor",
@@ -53,7 +65,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 610807,
+      "gifBytes": 608578,
       "gif": "new-job-390.gif"
     },
     {
@@ -61,7 +73,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 365771,
+      "gifBytes": 340306,
       "gif": "job-progress-390.gif"
     },
     {
@@ -69,6 +81,18 @@
       "width": 390,
       "warnings": [],
       "png": "history-390.png"
+    },
+    {
+      "scene": "job-detail",
+      "width": 390,
+      "warnings": [],
+      "png": "job-detail-390.png"
+    },
+    {
+      "scene": "job-detail-failed",
+      "width": 390,
+      "warnings": [],
+      "png": "job-detail-failed-390.png"
     },
     {
       "scene": "monitor",
