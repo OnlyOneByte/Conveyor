@@ -114,6 +114,28 @@ describe("elegoo status stream", () => {
     ]);
   });
 
+  test("reports the layer and layer count the printer sends, and no time left", async () => {
+    const layered = (info: Record<string, unknown>) =>
+      JSON.stringify({
+        Topic: "sdcp/status/mb",
+        Data: { Status: { CurrentStatus: [1], PrintInfo: { Status: 13, Progress: 5, ...info } } },
+      });
+    usePushes(
+      [
+        layered({ CurrentLayer: 12, TotalLayer: 240, CurrentTicks: 60, TotalTicks: 1200 }),
+        layered({ CurrentLayer: 0, TotalLayer: 0 }),
+        layered({ CurrentLayer: 2.5 }),
+      ],
+      true,
+    );
+    const seen = await drainStatus();
+    expect(seen.slice(1)).toStrictEqual([
+      { state: "printing", progress: 0.05, print: { layer: 12, layers: 240 } },
+      { state: "printing", progress: 0.05, print: { layer: 0 } },
+      { state: "printing", progress: 0.05, print: undefined },
+    ]);
+  });
+
   test("a spec-shaped frame with Status at the top level completes the print", async () => {
     const done = JSON.stringify({
       Topic: "sdcp/status/mb",

@@ -34,6 +34,7 @@ export interface PublishExtra {
   message?: string;
   error?: JobStatusEvent["error"];
   timings?: StageTiming[];
+  print?: JobStatusEvent["print"];
 }
 
 export type SlotResult = "taken" | "canceled";

@@ -116,6 +116,12 @@ disk as one multipart part with a fixed `Content-Length`. Two guards apply to ev
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
   `standby` after `printing` with progress at ~1 counts as done.
+- Print progress (`PrintStatus.print`, on `printing` and `paused` polls): `layer` is
+  `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper
+  fills `info` only when the slicer emits `SET_PRINT_STATS_INFO`, so either can be absent. `secondsLeft` is
+  `print_duration × (1 − p) / p`, rounded, where `p` is `virtual_sdcard.progress` (file position, not
+  `display_status`), and is left out when `print_duration` is 0 or `p` is under 1% or at the end. The reply
+  is parsed with zod (`query.ts`); a reply that does not match fails the stage.
 - Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
@@ -175,6 +181,10 @@ numeric string (`"40"`); any other string (`"40%"`) makes the frame malformed.
   "printing" sub-state FDM lines report. Idle and other states emit nothing, so the UI keeps its prior state.
 - `PrintInfo.Progress` is a 0..100 percentage on most firmware and is normalised to 0..1; without it, progress
   comes from `CurrentLayer / TotalLayer`.
+- Print progress (`PrintStatus.print`): `layer` from `PrintInfo.CurrentLayer` and `layers` from
+  `PrintInfo.TotalLayer` when it is above 0, each only when it is a whole number. `secondsLeft` is never set:
+  `CurrentTicks` and `TotalTicks` are in the spec, but their unit is not stated and differs between firmware,
+  so a time left from them would be a guess.
 
 To verify on hardware:
 

@@ -1,6 +1,12 @@
 import type { JobState, StageTiming } from "./job.js";
 import type { Stage } from "./plugins.js";
 
+export interface PrintProgress {
+  layer?: number;
+  layers?: number;
+  secondsLeft?: number;
+}
+
 export interface JobStatusEvent {
   jobId: string;
   state: JobState;
@@ -9,6 +15,7 @@ export interface JobStatusEvent {
   message?: string;
   error?: { stage: Stage; reason: string };
   timings?: StageTiming[];
+  print?: PrintProgress;
   at: number;
   seq?: number;
 }

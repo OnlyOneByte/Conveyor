@@ -51,6 +51,24 @@ describe("a job run on the sqlite queue", () => {
     expect(h.submits).toBe(1);
   });
 
+  test("keeps the printer's layer and time left on the printing event, and only there", async () => {
+    const print = { layer: 12, layers: 240, secondsLeft: 2460 };
+    const h = queued({
+      status: async function* () {
+        yield { state: "printing", progress: 0.05, print };
+        yield { state: "done", print };
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(events().map((e) => [e.state, e.print])).toEqual([
+      ...states()
+        .slice(0, -2)
+        .map((state) => [state, undefined]),
+      ["printing", print],
+      ["done", undefined],
+    ]);
+  });
+
   test("writes at most one progress update per flush interval", async () => {
     const h = queued({
       slice: async (ctx) => {

@@ -10,6 +10,7 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
+import { parseQuery, printProgressOf } from "./query.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
@@ -92,20 +93,21 @@ export const moonraker: TransportPlugin = {
       if (!res.ok)
         throw new StageError("transport", `moonraker status query failed: ${res.status}`);
 
-      const json = (await res.json()) as MoonrakerQueryResponse;
-      const ps = json.result?.status?.print_stats;
-      const vsd = json.result?.status?.virtual_sdcard;
-      const disp = json.result?.status?.display_status;
+      const objects = parseQuery(await res.json());
+      const ps = objects.print_stats;
       const state = ps?.state ?? "standby";
-      const progress = clamp01(disp?.progress ?? vsd?.progress ?? 0);
+      const progress = clamp01(
+        objects.display_status?.progress ?? objects.virtual_sdcard?.progress ?? 0,
+      );
+      const print = printProgressOf(objects);
 
       switch (state) {
         case "printing":
           printingSeen = true;
-          yield { state: "printing", progress, message: ps?.message };
+          yield { state: "printing", progress, message: ps?.message, print };
           break;
         case "paused":
-          yield { state: "printing", progress, message: "paused" };
+          yield { state: "printing", progress, message: "paused", print };
           break;
         case "complete":
           yield { state: "done", progress: 1 };
@@ -174,14 +176,4 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     };
     signal?.addEventListener("abort", onAbort, { once: true });
   });
-}
-
-interface MoonrakerQueryResponse {
-  result?: {
-    status?: {
-      print_stats?: { state?: string; message?: string };
-      virtual_sdcard?: { progress?: number };
-      display_status?: { progress?: number };
-    };
-  };
 }

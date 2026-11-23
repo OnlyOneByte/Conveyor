@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type PrintStatus, StageError } from "@conveyor/shared";
+import { type PrintProgress, type PrintStatus, StageError } from "@conveyor/shared";
 import { AckFrame, decodeFrame } from "./frames.js";
 import {
   buildCommand,
@@ -114,12 +114,21 @@ function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | un
   }
 }
 
+const isCount = (n: number | null): n is number => n !== null && Number.isInteger(n) && n >= 0;
+
+function layersOf({ currentLayer, totalLayer }: SdcpStatusFrame): PrintProgress | undefined {
+  const print: PrintProgress = {};
+  if (isCount(currentLayer)) print.layer = currentLayer;
+  if (isCount(totalLayer) && totalLayer > 0) print.layers = totalLayer;
+  return Object.keys(print).length > 0 ? print : undefined;
+}
+
 function printStatusOf(frame: SdcpStatusFrame): PrintStatus | undefined {
   const sub = frame.printStatus;
   if (sub === 9) return { state: "done", progress: 1 };
   if (sub === 8) return { state: "canceled", message: "stopped on printer" };
   if (frame.currentStatus.includes(1) || sub === 13) {
-    return { state: "printing", progress: frame.progress };
+    return { state: "printing", progress: frame.progress, print: layersOf(frame) };
   }
   return undefined;
 }

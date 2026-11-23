@@ -22,6 +22,13 @@ const statusEventSchema = z.object({
       }),
     )
     .optional(),
+  print: z
+    .object({
+      layer: z.number().int().nonnegative().optional(),
+      layers: z.number().int().positive().optional(),
+      secondsLeft: z.number().nonnegative().optional(),
+    })
+    .optional(),
 });
 
 export function parseStatusEvent(raw: string | null | undefined): JobStatusEvent | undefined {
