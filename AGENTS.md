@@ -215,7 +215,7 @@ independent pass. Keep guardrail changes in their own PR.
 ## Stack (TBD)
 
 The UI rewrite's framework (Svelte 5 or Solid) is not decided. Until its ADR merges, this section holds only
-placeholders, and today's `packages/web` (SvelteKit, Svelte 4) follows the language-level rules above.
+placeholders, and today's `packages/web` (SvelteKit on Svelte 5, still written in Svelte 4 component syntax) follows the language-level rules above.
 The ADR's PR fills in:
 
 - Component file naming and the 150-line component limit's exact scope.
