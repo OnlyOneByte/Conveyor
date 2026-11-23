@@ -181,6 +181,26 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 
 `CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
 
+## Upgrading to the BullMQ 6 release
+
+This applies only to the default Redis queue, and only if the job queue was paused. Conveyor never pauses it itself, so a pause comes from someone running `pause()` or a BullMQ admin tool by hand.
+
+Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
+
+Check before upgrading. This prints `1` when the queue is paused and nothing when it isn't:
+
+```bash
+docker compose exec redis redis-cli HGET bull:conveyor-jobs:meta paused
+```
+
+If it prints `1`, resume it from the api container. The same command works on either side of the upgrade, and a queue resumed after the upgrade gets its jobs back:
+
+```bash
+docker compose exec -w /app/packages/api api bun -e 'const { Queue } = await import("bullmq"); const { Redis } = await import("ioredis"); const connection = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null }); const q = new Queue("conveyor-jobs", { connection }); await q.resume(); console.log("paused:", await q.isPaused()); await q.close(); connection.disconnect();'
+```
+
+It prints `paused: false` when it's done.
+
 ## Releasing a held printer
 
 This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a
