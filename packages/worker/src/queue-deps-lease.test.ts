@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { requestCancel } from "@conveyor/shared/queue";
+import { bumpToken, cleanup, db, queued, row } from "../test/helpers/queue-deps-harness";
 import { waitForAbort } from "./pipeline-harness";
-import { bumpToken, cleanup, db, queued, row } from "./queue-deps-harness";
 import { LeaseLostError } from "./run";
 
 afterEach(cleanup);

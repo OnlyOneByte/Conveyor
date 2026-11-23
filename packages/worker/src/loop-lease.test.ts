@@ -13,7 +13,7 @@ import {
   setup,
   start,
   until,
-} from "./loop-harness";
+} from "../test/helpers/loop-harness";
 import { waitForAbort } from "./pipeline-harness";
 
 afterEach(cleanup);

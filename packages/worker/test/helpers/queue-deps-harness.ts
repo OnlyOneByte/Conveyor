@@ -12,9 +12,9 @@ import {
   tailEvents,
   takePrinterSlot,
 } from "@conveyor/shared/queue";
-import { type HarnessOptions, harness, req } from "./pipeline-harness";
-import { queueDeps } from "./queue-deps";
-import type { PipelineDeps } from "./run";
+import { type HarnessOptions, harness, req } from "../../src/pipeline-harness";
+import { queueDeps } from "../../src/queue-deps";
+import type { PipelineDeps } from "../../src/run";
 
 export let db: Database;
 let dir: string;

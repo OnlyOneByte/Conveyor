@@ -7,7 +7,7 @@ import {
   requestCancel,
   takePrinterSlot,
 } from "@conveyor/shared/queue";
-import { cleanup, db, enqueue, row, setup, start, until } from "./loop-harness";
+import { cleanup, db, enqueue, row, setup, start, until } from "../test/helpers/loop-harness";
 import { waitForAbort } from "./pipeline-harness";
 
 afterEach(cleanup);

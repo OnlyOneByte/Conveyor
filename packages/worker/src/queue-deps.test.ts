@@ -5,9 +5,18 @@ import {
   STOP_UNCONFIRMED_REASON,
   UPLOAD_SETTLE_REASON,
 } from "@conveyor/shared/queue";
+import {
+  bumpToken,
+  cleanup,
+  db,
+  events,
+  hold,
+  queued,
+  row,
+  states,
+} from "../test/helpers/queue-deps-harness";
 import { waitForAbort } from "./pipeline-harness";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
-import { bumpToken, cleanup, db, events, hold, queued, row, states } from "./queue-deps-harness";
 import { LeaseLostError } from "./run";
 
 afterEach(cleanup);
