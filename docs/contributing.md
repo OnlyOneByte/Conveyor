@@ -58,11 +58,20 @@ a single line-coverage percent, so PRs that move different packages never touch 
 it says `dropped below base`, add the tests that cover what you changed.
 
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
-in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
-file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
-`import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
-`packages/worker/test/helpers/`. Because those folders leave the denominator, only tests may import from a
-`test/helpers/` path: `check:coverage` fails on any non-test module that does. Any other module, including one named `*.spec.ts` or kept in another `test/`
+in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
+`*.spec.*` (the name decides, not what the file contains), and the declared helper folders
+`packages/shared/test/helpers/` and `packages/worker/test/helpers/`. Because those leave the denominator,
+`check:coverage` fails when a module that still counts:
+
+- imports a path that resolves, from its own folder, into a helper folder (`./helpers/db` from
+  `packages/shared/test/`, or the folder itself);
+- imports a `*.test.*` or `*.spec.*` file;
+- mentions `test` and `helpers` next to each other anywhere in its text (`\btest\W+helpers\b`). This is a text
+  match, not a parse, so it also catches template literals, concatenation, variables, `path.join` and
+  `import.meta.url`. A real source that trips it on a string has to reword the string.
+
+It also fails on any tracked symlink under `packages/` or `plugins/`, since a link could point into a helper
+folder unseen. Any other module, including one kept in another `test/`
 folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
 helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep

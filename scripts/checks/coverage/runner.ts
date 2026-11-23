@@ -19,7 +19,10 @@ export const readOrNull = (path: string) => (existsSync(path) ? readFileSync(pat
 export const sources = (root = ROOT) =>
   (git(root, ["ls-files", "-z", "--", "packages", "plugins"]) ?? "")
     .split("\0")
-    .filter((path) => isSource(path, () => readOrNull(join(root, path)) ?? ""));
+    .filter((path) => isSource(path));
+
+export const stagedEntries = (root = ROOT) =>
+  git(root, ["ls-files", "-s", "-z", "--", "packages", "plugins"]) ?? "";
 
 export interface Sweep {
   coverage: Coverage;

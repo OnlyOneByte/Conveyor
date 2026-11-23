@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import type { Coverage } from "./lcov";
 import {
   DEFAULT_SWEEP_TIMEOUT_MS,
-  helperImportErrors,
   isSource,
   isTestFile,
   mergeCoverage,
@@ -48,65 +47,30 @@ describe("coverage merge", () => {
   });
 });
 
-const MODULE = "export const total = (items: number[]) => items.length;\n";
-
-const IMPORT = 'import { describe, it, test } from "bun:test";\n';
-
-const SUITE = `${IMPORT}test("adds", () => {});\n`;
-
 describe("isSource", () => {
-  test("a spec or test file that imports bun:test is a test", () => {
-    expect(isSource("packages/api/src/auth.test.ts", () => SUITE)).toBe(false);
-    expect(isSource("packages/api/src/auth.spec.ts", () => SUITE)).toBe(false);
-    expect(
-      isSource(
-        "packages/worker/src/run.test.ts",
-        () => `${IMPORT}describe.each([1])('x', () => {});\n`,
-      ),
-    ).toBe(false);
-  });
-
-  test("suites in every code extension are tests", () => {
-    for (const name of ["a.test.js", "a.test.mts", "a.spec.mjs", "a.test.tsx", "a.spec.cts"]) {
-      expect(isSource(`packages/api/src/${name}`, () => SUITE)).toBe(false);
+  test("a test- or spec-named file in any code extension is a test", () => {
+    for (const name of [
+      "a.test.ts",
+      "a.spec.ts",
+      "a.test.js",
+      "a.test.mts",
+      "a.spec.mjs",
+      "a.test.tsx",
+    ]) {
+      expect(isSource(`packages/api/src/${name}`)).toBe(false);
     }
   });
 
-  test("a suite that calls bun:test through an alias or a namespace is a test", () => {
-    const suites = [
-      'import { test as check } from "bun:test";\ncheck("x", () => {});\n',
-      'import * as bt from "bun:test";\nbt.test("x", () => {});\n',
-      'import "bun:test";\n',
-      'const { test: t } = require("bun:test");\nt("x", () => {});\n',
-      'const bt = await import("bun:test");\nbt.it("x", () => {});\n',
-    ];
-    for (const text of suites) {
-      expect(isSource("packages/api/src/inflate.test.ts", () => text)).toBe(false);
-    }
-  });
-
-  test("a module that is not test-named counts even when it imports bun:test", () => {
-    const text = 'import { mock } from "bun:test";\nexport const fake = mock(() => 1);\n';
-    expect(isSource("packages/shared/src/fakes.ts", () => text)).toBe(true);
-    expect(isSource("plugins/slicers/orca/test/fake-slicer.ts", () => text)).toBe(true);
-  });
-
-  test("a spec-named module that never imports bun:test counts", () => {
-    expect(isSource("packages/api/src/openapi.spec.ts", () => MODULE)).toBe(true);
-    expect(
-      isSource(
-        "packages/api/src/hint.spec.ts",
-        () => 'export const hint = "call test(x) first, see bun:test";\n',
-      ),
-    ).toBe(true);
-    expect(
-      isSource("packages/api/src/view.spec.ts", () => "const test = (n: number) => n;\ntest(2);\n"),
-    ).toBe(true);
+  test("the file name decides, not whether the text mentions bun:test", () => {
+    expect(isTestFile("packages/api/src/hint.ts")).toBe(false);
+    expect(isSource("packages/api/src/hint.ts")).toBe(true);
+    expect(isSource("packages/shared/src/fakes.ts")).toBe(true);
+    expect(isSource("packages/api/src/openapi.spec.ts")).toBe(false);
   });
 
   test("a module in a package test folder outside the declared helpers counts", () => {
-    expect(isSource("plugins/slicers/orca/test/fake.ts", () => MODULE)).toBe(true);
-    expect(isSource("packages/api/test/server.ts", () => MODULE)).toBe(true);
+    expect(isSource("plugins/slicers/orca/test/fake.ts")).toBe(true);
+    expect(isSource("packages/api/test/server.ts")).toBe(true);
   });
 
   test("the declared test helper folders are excluded whatever they contain", () => {
@@ -114,9 +78,9 @@ describe("isSource", () => {
       "packages/shared/test/helpers/",
       "packages/worker/test/helpers/",
     ]);
-    expect(isSource("packages/shared/test/helpers/db.ts", () => MODULE)).toBe(false);
-    expect(isTestFile("packages/shared/test/helpers/db.ts", MODULE)).toBe(true);
-    expect(isSource("packages/worker/test/helpers/loop-harness.ts", () => MODULE)).toBe(false);
+    expect(isSource("packages/shared/test/helpers/db.ts")).toBe(false);
+    expect(isTestFile("packages/shared/test/helpers/db.ts")).toBe(true);
+    expect(isSource("packages/worker/test/helpers/loop-harness.ts")).toBe(false);
   });
 });
 
@@ -218,25 +182,5 @@ describe("coverage totals", () => {
     expect(withComments).toBe(50);
     expect(withoutComments).toBe(75);
     expect(withoutComments).toBeGreaterThanOrEqual(withComments);
-  });
-});
-
-describe("helperImportErrors", () => {
-  const files: Record<string, string> = {
-    "packages/worker/src/run.ts": 'import { fake } from "../test/helpers/loop-harness";\n',
-    "packages/api/src/lazy.ts": 'const m = await import("../../shared/test/helpers/index.ts");\n',
-    "packages/api/src/fine.ts": 'import { x } from "./helpers/x";\nimport "@conveyor/shared";\n',
-  };
-  const read = (path: string) => files[path] ?? "";
-
-  test("names every source that imports a test/helpers path, static or dynamic", () => {
-    expect(helperImportErrors(Object.keys(files), read)).toEqual([
-      "packages/worker/src/run.ts imports the test helper ../test/helpers/loop-harness; only tests may",
-      "packages/api/src/lazy.ts imports the test helper ../../shared/test/helpers/index.ts; only tests may",
-    ]);
-  });
-
-  test("passes sources that import nothing from a test/helpers folder", () => {
-    expect(helperImportErrors(["packages/api/src/fine.ts"], read)).toEqual([]);
   });
 });

@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { sourceImportErrors, symlinkErrors } from "./imports";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_DIR,
@@ -9,9 +10,16 @@ import {
   parseBaseline,
   updateRefusal,
 } from "./ratchet";
-import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
 import {
-  helperImportErrors,
+  ROOT,
+  readBase,
+  readCommitted,
+  readOrNull,
+  runSweep,
+  sources,
+  stagedEntries,
+} from "./runner";
+import {
   mergeCoverage,
   nonBlankLines,
   overall,
@@ -63,7 +71,8 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
   const errors = [
     ...sweepErrors({ ...sweep, estimated: merged.estimated }),
-    ...helperImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? ""),
+    ...sourceImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? ""),
+    ...symlinkErrors(stagedEntries()),
   ];
   for (const error of errors) console.error(error);
   return errors.length === 0 ? summary : null;
