@@ -32,6 +32,15 @@ libraries for the slicers, and the Debian packages `/opt/openscad/bin/openscad` 
 `libmpfr6`, `libtbb12` and `libxml2`. Each carries its license in `/usr/share/doc/<package>/copyright` inside
 the image. OpenSSL, nettle and libzip are found at build time but not linked into the binary.
 
+## Fonts in the web app
+
+Vite bundles these into the web build and the app serves them itself; no page loads a font from another origin.
+
+| Component | Version | License | Upstream | Installed by |
+| --- | --- | --- | --- | --- |
+| Bricolage Grotesque (variable) | `@fontsource-variable/bricolage-grotesque` `5.3.0` | SIL OFL-1.1 (`LICENSE`: © 2022 The Bricolage Grotesque Project Authors) | <https://github.com/ateliertriay/bricolage> | `packages/web/package.json` |
+| DM Mono 400 and 500 | `@fontsource/dm-mono` `5.3.0` | SIL OFL-1.1 (`LICENSE`: © 2020 The DM Mono Project Authors) | <https://github.com/googlefonts/dm-mono> | `packages/web/package.json` |
+
 ## Images the compose stack runs unmodified
 
 | Component | Version | License | Upstream | Service |
