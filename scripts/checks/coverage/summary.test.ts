@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Coverage } from "./lcov";
 import {
   DEFAULT_SWEEP_TIMEOUT_MS,
+  helperImportErrors,
   isSource,
   isTestFile,
   mergeCoverage,
@@ -217,5 +218,25 @@ describe("coverage totals", () => {
     expect(withComments).toBe(50);
     expect(withoutComments).toBe(75);
     expect(withoutComments).toBeGreaterThanOrEqual(withComments);
+  });
+});
+
+describe("helperImportErrors", () => {
+  const files: Record<string, string> = {
+    "packages/worker/src/run.ts": 'import { fake } from "../test/helpers/loop-harness";\n',
+    "packages/api/src/lazy.ts": 'const m = await import("../../shared/test/helpers/index.ts");\n',
+    "packages/api/src/fine.ts": 'import { x } from "./helpers/x";\nimport "@conveyor/shared";\n',
+  };
+  const read = (path: string) => files[path] ?? "";
+
+  test("names every source that imports a test/helpers path, static or dynamic", () => {
+    expect(helperImportErrors(Object.keys(files), read)).toEqual([
+      "packages/worker/src/run.ts imports the test helper ../test/helpers/loop-harness; only tests may",
+      "packages/api/src/lazy.ts imports the test helper ../../shared/test/helpers/index.ts; only tests may",
+    ]);
+  });
+
+  test("passes sources that import nothing from a test/helpers folder", () => {
+    expect(helperImportErrors(["packages/api/src/fine.ts"], read)).toEqual([]);
   });
 });

@@ -43,6 +43,16 @@ export const isTestFile = (path: string, text: string) =>
 export const isSource = (path: string, read: () => string) =>
   packageOf(path) !== null && !isTestFile(path, read());
 
+const HELPER_IMPORT = /\b(?:from|import|require)\s*\(?\s*["']([^"']*\btest\/helpers\/[^"']*)["']/g;
+
+export function helperImportErrors(sources: string[], read: (path: string) => string): string[] {
+  return sources.flatMap((path) =>
+    [...read(path).matchAll(HELPER_IMPORT)].map(
+      (match) => `${path} imports the test helper ${match[1]}; only tests may`,
+    ),
+  );
+}
+
 export function sweepTimeoutMs(env: Record<string, string | undefined>): number | Error {
   const raw = env[SWEEP_TIMEOUT_ENV];
   if (raw === undefined || raw === "") return DEFAULT_SWEEP_TIMEOUT_MS;

@@ -61,7 +61,8 @@ The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
 file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
 `import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
-`packages/worker/test/helpers/`. Any other module, including one named `*.spec.ts` or kept in another `test/`
+`packages/worker/test/helpers/`. Because those folders leave the denominator, only tests may import from a
+`test/helpers/` path: `check:coverage` fails on any non-test module that does. Any other module, including one named `*.spec.ts` or kept in another `test/`
 folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
 helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
@@ -77,7 +78,8 @@ The file-size baseline, `scripts/checks/lines/baseline.json`, lists each file ov
 ([AGENTS.md §4](../AGENTS.md#4-size-limits)) with its line count. `check:lines` compares every file with the base
 commit's baseline. In CI that is the commit the PR's merge commit was built on (`HEAD^1`), the merge base with
 `main` for a manual run on another branch, and the previous commit on `main` for a push; `scripts/checks/base.ts`
-picks it, as it does for `audit`. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
+picks it, as it does for `audit`, the comment ratchet (`no-comments`) and the coverage ratchet (`test`). Comparing
+with `main`'s newer tip instead would judge a PR against baselines it was never built on. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
 `.svelte` component. When you shrink a listed file, the check says the baseline is stale: run
 `bun run check:lines:update` and commit it. A file that drops to its limit leaves the baseline.
 
