@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { login } from "$lib/api";
+  import { login } from "#lib/api.js";
 
   const dispatch = createEventDispatcher<{ authed: Record<string, never> }>();
 

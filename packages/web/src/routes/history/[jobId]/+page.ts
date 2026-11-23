@@ -1,4 +1,4 @@
-import { fetchJobHistoryEntry } from "$lib/api";
+import { fetchJobHistoryEntry } from "#lib/api.js";
 import type { PageLoad } from "./$types";
 
 // Client-rendered like the rest of the app (cookies + fetch run in the browser).

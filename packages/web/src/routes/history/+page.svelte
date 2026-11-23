@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { fetchJobHistory, type JobHistoryEntry } from "$lib/api";
-  import RecentJobs from "$lib/components/RecentJobs.svelte";
+  import { fetchJobHistory, type JobHistoryEntry } from "#lib/api.js";
+  import RecentJobs from "#lib/components/RecentJobs.svelte";
 
   // The DURABLE, server-side job history (persisted in SQLite by the worker), as
   // opposed to the per-browser strip on the home page — that one is localStorage and

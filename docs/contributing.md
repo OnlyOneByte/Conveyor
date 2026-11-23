@@ -181,9 +181,11 @@ away.
 
 ## Toolchain notes
 
-`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 20 is pinned as a compatibility fallback for the API's Fastify and BullMQ. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
+`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 26 is pinned too: vite runs under `node` when one is on `PATH`, and SvelteKit 3 needs Node 22.17 or later. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
 
 The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` output with Node. Every Dockerfile copies the `package.json` of every workspace member before `bun install --frozen-lockfile`, even the members that image never imports (the web image copies the worker's and every plugin's). `--frozen-lockfile` checks the whole workspace graph against `bun.lock`, and a missing manifest makes bun report `lockfile had changes` and abort. A new workspace package needs a `COPY` line in all three Dockerfiles.
+
+The PWA's service worker, `packages/web/src/service-worker/index.ts` (with its own `tsconfig.json` extending `$app/tsconfig/service-worker`), is a minimal offline app-shell cache. On install it precaches the build's immutable assets and the `static` files (`immutable` and `assets` from `$app/manifest`, under a cache named after `version` from `$app/env`), and answers those paths cache-first. It never caches API or websocket traffic. Only the precached paths are cached at all, but it also skips every API namespace (`/jobs`, which covers `/jobs-history` by prefix, `/catalog`, `/generators`, `/uploads` and `/auth`), so a catalog path added to the precache by mistake can't serve a stale catalog. Keep that list in step with the API's namespaces.
 
 ## Releases
 

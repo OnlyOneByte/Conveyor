@@ -1,8 +1,8 @@
 <script lang="ts">
   import { T } from "@threlte/core";
   import { OrbitControls } from "@threlte/extras";
-  import { spinPreview, prefersReducedMotion } from "$lib/preferences";
-  import { buildGeometry, boundingRadius, binHeight, type GridfinityPreviewParams } from "$lib/previews/gridfinity";
+  import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
+  import { buildGeometry, boundingRadius, binHeight, type GridfinityPreviewParams } from "#lib/previews/gridfinity.js";
 
   // The current params object — drives a reactive geometry rebuild (sub-ms).
   export let params: Partial<GridfinityPreviewParams> = {};

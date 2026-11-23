@@ -8,7 +8,7 @@
     type JobStatusEvent,
     type CatalogPrinter,
     type PrinterReachable,
-  } from "$lib/api";
+  } from "#lib/api.js";
 
   // Live monitoring: two independent polls. Active jobs churn fast (2s); printer
   // reachability is a network probe, so it runs slower (15s) to avoid hammering the

@@ -99,10 +99,6 @@
     "packages/web/src/routes/settings/+page.ts": {
       "comments": 1,
       "suppressions": 0
-    },
-    "packages/web/src/service-worker.ts": {
-      "comments": 8,
-      "suppressions": 0
     }
   }
 }
