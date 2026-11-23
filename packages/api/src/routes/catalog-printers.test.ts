@@ -152,10 +152,17 @@ describe("job history", () => {
     expect(await res.json()).toMatchObject({ id: "history-7", state: "done" });
   });
 
-  test("an unsettled or unknown job is a 404", async () => {
-    const res = await get("/jobs-history/in-flight");
+  test.each(["in-flight", "never-recorded"])("a job that is %s is a 404", async (id) => {
+    dbRecordJob(openDb(), {
+      id: "in-flight",
+      generatorId: "gridfinity",
+      printerId: "klipper-garage",
+      profileId: "orca/klipper-pla-0.2",
+      state: "printing",
+    });
+    const res = await get(`/jobs-history/${id}`);
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "no settled job with id in-flight" });
+    expect(await res.json()).toEqual({ error: `no settled job with id ${id}` });
   });
 
   test.each([
