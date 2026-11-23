@@ -23,7 +23,7 @@ Debian package's own `copyright` file, not inferred.
 | GnuPG `gpgv` | Debian trixie package at build time | GPL-3.0-or-later (Debian `copyright`) | <https://gnupg.org> | worker `openscad` build stage only; not in the published image |
 | curl | Debian trixie package at build time | curl license (Debian `copyright`) | <https://curl.se> | worker |
 | Bun | the `oven/bun:debian` base image at build time | MIT; it statically links JavaScriptCore/WebKit, which is LGPL-2 (`LICENSE.md`) | <https://github.com/oven-sh/bun> | api, worker, web build |
-| Node.js | the `node:lts-bookworm-slim` base image at build time | MIT, plus bundled dependencies (`LICENSE`) | <https://github.com/nodejs/node> | web |
+| Node.js | 26, from the `node:26-bookworm-slim` base image (the 26.x release at build time) | MIT, plus bundled dependencies (`LICENSE`) | <https://github.com/nodejs/node> | web |
 
 The worker's other `apt-get` packages are runtime libraries: GTK, WebKitGTK, Mesa, GStreamer and their
 libraries for the slicers, and the Debian packages `/opt/openscad/bin/openscad` loads directly (its ELF

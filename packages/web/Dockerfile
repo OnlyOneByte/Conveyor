@@ -16,7 +16,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN cd packages/web && bunx vite build
 
-FROM node:lts-bookworm-slim
+FROM node:26-bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor web — SvelteKit + Threlte PWA" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"

@@ -160,9 +160,10 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 The group names are short so a grouped title, such as
 `fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters.
 
-Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The Dockerfile base
-images use moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot
-has no version to bump, so the `docker` entry opens PRs only once a `FROM` line pins a version or digest.
+Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
+`node:26-bookworm-slim` is the one `FROM` line with a version, so it is the only base image the `docker` entry
+bumps. The api and worker use moving tags (`oven/bun:debian`, `debian:trixie-slim`), which Dependabot has no
+version to bump.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
 `@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
 `ci.yml`), so it moves in the PR that bumps CI's Bun.
