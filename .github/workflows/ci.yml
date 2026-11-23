@@ -38,6 +38,14 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Biome lint and import order
         run: bun run lint --reporter=github
+      - name: One Redis tag in every pin
+        run: |
+          tags=$(grep -hoE 'redis:[0-9]+-alpine' docker-compose.yml .github/workflows/ci.yml \
+            tools/visual/stack.ts tools/visual/stack.test.ts docs/contributing.md | sort -u)
+          if [ -z "$tags" ] || [ "$(printf '%s\n' "$tags" | wc -l)" -ne 1 ]; then
+            printf 'The Redis image pins must all use one tag. Found:\n%s\n' "${tags:-none}"
+            exit 1
+          fi
 
   format:
     name: format

@@ -171,7 +171,8 @@ bumps. The api and worker use moving tags (`oven/bun:debian`, `debian:trixie-sli
 version to bump.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
 `@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
-`ci.yml`), so it moves in the PR that bumps CI's Bun.
+`ci.yml`), so it moves in the PR that bumps CI's Bun. Node image majors are ignored too: Node moves to the next
+LTS line on purpose, and the odd-numbered releases in between are never LTS.
 
 A Dependabot PR doesn't follow the PR rules on its own. A builder adopts each one as its author session before
 it goes to review:
@@ -182,7 +183,8 @@ it goes to review:
    and commit for each bumped action.
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
-   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page.
+   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page. The
+   `lint` job's "One Redis tag in every pin" step fails while these and `docker-compose.yml` disagree.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
    the new Redis has rewritten the volume, going back to the old image may not work.

@@ -39,6 +39,9 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: fix(deps)
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
     groups:
       images:
         update-types: [minor, patch]
