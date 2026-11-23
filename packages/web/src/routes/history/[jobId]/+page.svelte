@@ -182,7 +182,7 @@
   .block { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.7rem; overflow-x: auto; margin: 0; }
   .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
   .state.done { color: var(--ok); border-color: var(--ok); }
-  .state.failed, .state.canceled { color: var(--danger); border-color: var(--danger); }
+  .state.failed { color: var(--danger); border-color: var(--danger); } .state.canceled { color: var(--muted); border-color: var(--muted); }
   .failure { margin-top: 1rem; border: 1px solid var(--danger); border-radius: 6px; padding: 0.6rem 0.7rem; }
   .failure strong { color: var(--danger); }
   .reason { margin: 0.3rem 0 0; }
