@@ -9,6 +9,8 @@ export interface JobStatusEvent {
   message?: string;
   error?: { stage: Stage; reason: string };
   timings?: StageTiming[];
+  bytesSent?: number;
+  bytesTotal?: number;
   at: number;
   seq?: number;
 }

@@ -12,6 +12,13 @@ export interface PrinterInput {
 
 export interface Printer extends Omit<PrinterInput, "secrets"> {
   hasSecrets: boolean;
+  lastSeenAt?: number;
+  lastCheckedAt?: number;
+}
+
+export interface PrinterCheck {
+  at: number;
+  reachable: boolean;
 }
 
 interface PrinterRow {
@@ -21,6 +28,8 @@ interface PrinterRow {
   address: string;
   secrets_json: string | null;
   allowed_generators_json: string | null;
+  last_seen_at: number | null;
+  last_checked_at: number | null;
 }
 
 function rowToPrinter(r: PrinterRow): Printer {
@@ -33,6 +42,8 @@ function rowToPrinter(r: PrinterRow): Printer {
     allowedGenerators: r.allowed_generators_json
       ? (JSON.parse(r.allowed_generators_json) as string[])
       : undefined,
+    lastSeenAt: r.last_seen_at ?? undefined,
+    lastCheckedAt: r.last_checked_at ?? undefined,
   };
 }
 
@@ -73,4 +84,13 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
 
 export function dbDeletePrinter(db: Database, id: string): void {
   db.prepare("DELETE FROM printers WHERE id = ?").run(id);
+}
+
+export function dbRecordPrinterCheck(db: Database, id: string, check: PrinterCheck): void {
+  db.prepare(
+    `UPDATE printers SET
+       last_checked_at = MAX(COALESCE(last_checked_at, 0), ?1),
+       last_seen_at = IIF(?2, MAX(COALESCE(last_seen_at, 0), ?1), last_seen_at)
+     WHERE id = ?3`,
+  ).run(check.at, check.reachable, id);
 }

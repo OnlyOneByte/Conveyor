@@ -99,6 +99,20 @@ describe("moonraker submit, the printer answers", () => {
   }
   const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
 
+  test("reports the g-code bytes sent of the total as the printer reads the upload", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const sent: number[][] = [];
+    fakeFetch(async (url, init) => {
+      if (url.endsWith("/server/files/upload")) await new Response(init?.body).arrayBuffer();
+      return new Response("{}", { status: 201 });
+    });
+    await moonraker.submit({ path, format: "gcode" }, target, {
+      ...ctx,
+      reportUpload: (bytesSent, bytesTotal) => void sent.push([bytesSent, bytesTotal]),
+    });
+    expect(sent).toEqual([[4, 4]]);
+  });
+
   test("uploads the file, starts it and returns a handle naming it", async () => {
     const { path, ctx } = await gcodeCtx();
     const calls = fakeFetch(async () => new Response("{}", { status: 201 }));

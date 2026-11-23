@@ -90,8 +90,13 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 Neither transport has been run against real hardware yet (written 2026-06-29). Confirm with the runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
-Both upload the g-code through `multipartFileUpload` (`@conveyor/shared/node`), which streams the file from
-disk as one multipart part with a fixed `Content-Length`. Two guards apply to every upload:
+Both upload the g-code through `multipartFileUpload({ field, path, filename }, onSent)` (`@conveyor/shared/node`),
+which streams the file from disk as one multipart part with a fixed `Content-Length`. `onSent(bytesSent,
+bytesTotal)` counts the file's bytes only, not the multipart framing, against its size. It fires as the
+printer reads the body, at most once per `UPLOAD_REPORT_MS` (250 ms, so 4 a second), and always for the last
+chunk. Both transports pass it to `ctx.reportUpload`. On the SQLite queue the worker's progress flush (one
+write a second per step) coalesces these further, and a report still pending when the stage moves on is
+dropped. Two guards apply to every upload:
 
 - **Size.** The length is the file's size when the upload starts. If the file grows or shrinks before the last
   byte is sent, the stream fails, and the job fails at the transport stage. It is never sent truncated, and
