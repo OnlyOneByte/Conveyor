@@ -28,7 +28,7 @@ Output, per scene and width (1440 and 390):
 - `<scene>-<width>.gif` is made for scenes with `record: true`. Viewport screenshots are sampled while the steps run, then encoded with `gifenc`. A GIF over 5 MB is re-encoded smaller; if it still does not fit, the scene fails.
 - `manifest.json` lists every shot, its warnings and any error. The exit code is 1 if any scene failed.
 
-`compare.ts` pairs files by name across two directories. It prints a markdown table with before, after and the share of changed pixels. A GIF takes its PNG's diff, and rows under 0.5% fold into a `<details>` block. Warnings and failures from both manifests are listed at the top. `--before-url` and `--after-url` set the image link prefixes.
+`compare.ts` pairs files by name across two directories. It prints a markdown table with before, after and three numbers per scene: the share of pixels whose largest channel moved by more than 16/255, the share that moved at all, and the largest channel change. A GIF takes its PNG's numbers. A row folds into a `<details>` block only when both shares are 0.5% or less. The second rule catches a faint, uniform change (shading, tone mapping, a theme colour) that stays under 16/255 everywhere, like three r187's 2.6–3.2% at 8–9/255 on the 3D preview. Unchanged captures are deterministic: on PRs with no visual change every scene diffs to exactly 0 except `history`, whose live content moves 0.04–0.29% of pixels. 0.5% sits above that and well below the smallest real shading shift seen. The comment says how many listed rows changed only faintly. Warnings and failures from both manifests are listed at the top. `--before-url` and `--after-url` set the image link prefixes.
 
 ## Scenes
 
