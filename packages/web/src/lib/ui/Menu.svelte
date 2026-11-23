@@ -34,7 +34,7 @@
 <button bind:this={button} type="button" class="btn" popovertarget={id} aria-haspopup="menu" aria-expanded={expanded} style="anchor-name: --{id}">
   {label}
 </button>
-<div bind:this={menu} {id} popover role="menu" aria-label={label} style="position-anchor: --{id}" on:toggle={toggled} on:keydown={keydown}>
+<div bind:this={menu} {id} popover role="menu" tabindex="-1" aria-label={label} style="position-anchor: --{id}" on:toggle={toggled} on:keydown={keydown}>
   {#each items as item (item.label)}
     <button type="button" role="menuitem" tabindex="-1" on:click={() => choose(item.run)}>{item.label}</button>
   {/each}
