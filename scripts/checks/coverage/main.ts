@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { runtimeResolver, sourceImportErrors, suiteErrors, symlinkErrors } from "./imports";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_DIR,
@@ -9,7 +10,16 @@ import {
   parseBaseline,
   updateRefusal,
 } from "./ratchet";
-import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
+import {
+  ROOT,
+  readBase,
+  readCommitted,
+  readOrNull,
+  runSweep,
+  sources,
+  stagedEntries,
+  testNamedFiles,
+} from "./runner";
 import {
   mergeCoverage,
   nonBlankLines,
@@ -60,7 +70,12 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   const report = `### Line coverage (all source files in ${PACKAGES.join(", ")})\n\n${table(summary)}\n\n${merged.unloaded.length} of ${all.length} source files are loaded by no test and count as 0%.\n`;
   console.log(report);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
-  const errors = sweepErrors({ ...sweep, estimated: merged.estimated });
+  const errors = [
+    ...sweepErrors({ ...sweep, estimated: merged.estimated }),
+    ...sourceImportErrors(all, (path) => readOrNull(join(ROOT, path)) ?? "", runtimeResolver(ROOT)),
+    ...symlinkErrors(stagedEntries()),
+    ...suiteErrors(testNamedFiles(), (path) => readOrNull(join(ROOT, path)) ?? ""),
+  ];
   for (const error of errors) console.error(error);
   return errors.length === 0 ? summary : null;
 }

@@ -16,9 +16,7 @@ const CODE = /\.(ts|tsx|mts|cts|js|mjs)$/;
 
 const DECLARATION = /\.d\.ts$/;
 
-const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
-
-const TEST_IMPORT = /\b(from|import|require)\s*\(?\s*["']bun:test["']/;
+export const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
 export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/", "packages/worker/test/helpers/"];
 
@@ -36,12 +34,10 @@ export function packageOf(path: string): PackageName | null {
   return rawPackageOf(path);
 }
 
-export const isTestFile = (path: string, text: string) =>
-  TEST_HELPER_DIRS.some((dir) => path.startsWith(dir)) ||
-  (TEST_NAME.test(path) && TEST_IMPORT.test(text));
+export const isTestFile = (path: string) =>
+  TEST_HELPER_DIRS.some((dir) => path.startsWith(dir)) || TEST_NAME.test(path);
 
-export const isSource = (path: string, read: () => string) =>
-  packageOf(path) !== null && !isTestFile(path, read());
+export const isSource = (path: string) => packageOf(path) !== null && !isTestFile(path);
 
 export function sweepTimeoutMs(env: Record<string, string | undefined>): number | Error {
   const raw = env[SWEEP_TIMEOUT_ENV];

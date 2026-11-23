@@ -40,4 +40,24 @@ describe("redisPinErrors", () => {
     };
     expect(redisPinErrors(files)).toEqual([]);
   });
+
+  test.each([
+    "docker.io/library/redis:8-alpine",
+    "index.docker.io/library/redis:8-alpine",
+    "library/redis:8-alpine",
+  ])("reads the Docker Hub form %s as the same image", (ref) => {
+    const files = { ...pinned("redis:8-alpine"), "docker-compose.yml": `image: ${ref}\n` };
+    expect(redisPinErrors(files)).toEqual([]);
+  });
+
+  test.each([
+    "ghcr.io/example/redis:8-alpine",
+    "localhost:5000/redis:8-alpine",
+    "bitnami/redis:8-alpine",
+  ])("counts the registry-prefixed pin %s as a different image", (ref) => {
+    const files = { ...pinned("redis:8-alpine"), "docker-compose.yml": `image: ${ref}\n` };
+    expect(redisPinErrors(files)).toEqual([
+      `the Redis image pins must all use one reference; found ${ref} (docker-compose.yml); redis:8-alpine (.github/workflows/ci.yml, tools/visual/stack.ts)`,
+    ]);
+  });
 });

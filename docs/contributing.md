@@ -58,10 +58,24 @@ a single line-coverage percent, so PRs that move different packages never touch 
 it says `dropped below base`, add the tests that cover what you changed.
 
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
-in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only real tests leave it: a `*.test.*` or `*.spec.*`
-file whose text imports `bun:test` in any form (named, aliased, namespace, side-effect, `require` or dynamic
-`import`; a text match, not a parse), and the declared helper folders `packages/shared/test/helpers/` and
-`packages/worker/test/helpers/`. Any other module, including one named `*.spec.ts` or kept in another `test/`
+in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
+`*.spec.*` (the name decides, not what the file contains), and the declared helper folders
+`packages/shared/test/helpers/` and `packages/worker/test/helpers/`. Because those leave the denominator,
+`check:coverage` fails when a module that still counts:
+
+- imports something that lands in a helper folder or a `*.test.*`/`*.spec.*` file. Each quoted specifier is
+  resolved the way Bun resolves it at run time (`Bun.resolveSync`, then `realpathSync`), so a relative path, a
+  `package.json` `imports` or `exports` alias, a `tsconfig` `paths` alias and a symlink anywhere in the repo are all judged by where they
+  really land. A specifier that doesn't resolve is skipped;
+- names a `*.test.*` or `*.spec.*` file in an import;
+- mentions `test` and `helpers` next to each other anywhere in its text (`\btest\W+helpers\b`). This is a text
+  match, not a parse, so it also catches template literals, concatenation, variables, `path.join` and
+  `import.meta.url`. A real source that trips it on a string has to reword the string.
+
+It also fails on any tracked symlink under `packages/` or `plugins/`. Resolution follows a link only for a
+quoted specifier, and the ban also covers a computed import through a linked folder. And it fails on a
+`*.test.*` or `*.spec.*` file that never imports `bun:test`, because the name alone takes it out of the
+denominator: a real module named like that has to be renamed. Any other module, including one kept in another `test/`
 folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles = false` and ignores only those
 helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
@@ -77,7 +91,8 @@ The file-size baseline, `scripts/checks/lines/baseline.json`, lists each file ov
 ([AGENTS.md §4](../AGENTS.md#4-size-limits)) with its line count. `check:lines` compares every file with the base
 commit's baseline. In CI that is the commit the PR's merge commit was built on (`HEAD^1`), the merge base with
 `main` for a manual run on another branch, and the previous commit on `main` for a push; `scripts/checks/base.ts`
-picks it, as it does for `audit`. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
+picks it, as it does for `audit`, the comment ratchet (`no-comments`) and the coverage ratchet (`test`). Comparing
+with `main`'s newer tip instead would judge a PR against baselines it was never built on. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
 `.svelte` component. When you shrink a listed file, the check says the baseline is stale: run
 `bun run check:lines:update` and commit it. A file that drops to its limit leaves the baseline.
 
@@ -194,7 +209,7 @@ it goes to review:
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
    the local `docker run --rm -p 6379:6379 redis:8-alpine` hint under "Before you push" on this page. The
-   `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one.
+   `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one. A Docker Hub prefix (`docker.io/library/`) reads as the same image; any other registry or namespace is a different one.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
    the new Redis has rewritten the volume, going back to the old image may not work.

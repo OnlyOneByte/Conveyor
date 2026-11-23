@@ -9,10 +9,14 @@ export const PIN_FILES = [
   "docs/contributing.md",
 ];
 
-const IMAGE_REF = /(?<![\w/.-])redis[:@][A-Za-z0-9._:@-]+/g;
+const IMAGE_REF = /(?<![\w/.:-])(?:[\w.-]+(?::\d+)?\/)*redis[:@][A-Za-z0-9._:@-]+/g;
+
+const DOCKER_HUB = /^(?:(?:index\.)?docker\.io\/)?(?:library\/)?(?=redis[:@])/;
 
 const refsIn = (text: string) =>
-  [...text.matchAll(IMAGE_REF)].map((match) => match[0].replace(/[.:-]+$/, ""));
+  [...text.matchAll(IMAGE_REF)].map((match) =>
+    match[0].replace(/[.:-]+$/, "").replace(DOCKER_HUB, ""),
+  );
 
 export function redisPinErrors(files: Record<string, string>): string[] {
   const errors: string[] = [];

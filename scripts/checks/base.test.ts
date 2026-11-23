@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Git, pullRequestBase } from "./base";
 import { BASELINE_PATH, serializeBaseline } from "./lines/baseline";
+import { commit, sh } from "./test-repo";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-base-test-"));
 
@@ -48,34 +49,6 @@ describe("pullRequestBase", () => {
     expect(pullRequestBase({ event: "pull_request", ref: "" }, recording(null).run)).toBeNull();
   });
 });
-
-const sh = (cwd: string, args: string[], env: Record<string, string> = {}) => {
-  const result = Bun.spawnSync(args, {
-    cwd,
-    env: {
-      ...process.env,
-      GIT_AUTHOR_NAME: "t",
-      GIT_AUTHOR_EMAIL: "t@example.com",
-      GIT_COMMITTER_NAME: "t",
-      GIT_COMMITTER_EMAIL: "t@example.com",
-      ...env,
-    },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  return {
-    code: result.exitCode,
-    out: result.stdout.toString().trim(),
-    err: result.stderr.toString(),
-  };
-};
-
-const commit = (root: string, files: Record<string, string>, message: string) => {
-  for (const [path, text] of Object.entries(files)) writeFileSync(join(root, path), text);
-  sh(root, ["git", "add", "-A"]);
-  sh(root, ["git", "commit", "-q", "-m", message]);
-  return sh(root, ["git", "rev-parse", "HEAD"]).out;
-};
 
 function staleMergeRepo() {
   const root = mkdtempSync(join(scratch, "repo-"));

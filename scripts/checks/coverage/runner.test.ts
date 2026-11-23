@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { baselinePath, CHECKER_PATH } from "./ratchet";
-import { ROOT, readBase, readCommitted, readOrNull, runSweep, sources } from "./runner";
+import { ROOT, readBase, readCommitted, runSweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
@@ -76,16 +76,16 @@ describe("runSweep", () => {
   );
 
   test(
-    "a non-test spec module and a test-folder module are mapped by the sweep and counted",
+    "a source module and a test-folder module are mapped by the sweep and counted",
     () => {
       const dir = mkdtempSync(join(ROOT, PROBE_PREFIX));
       try {
         const module = "export const double = (n: number) => n * 2;\n";
-        writeFileSync(join(dir, "double.spec.ts"), module);
+        writeFileSync(join(dir, "double.ts"), module);
         writeFileSync(join(dir, "fake.ts"), module);
-        const paths = ["double.spec.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
+        const paths = ["double.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
         for (const path of paths) {
-          expect(isSource(path, () => readOrNull(join(ROOT, path)) ?? "")).toBe(true);
+          expect(isSource(path)).toBe(true);
         }
         const sweep = runSweep(paths);
         expect(sweep.completed).toBe(true);
@@ -187,7 +187,7 @@ describe("readCommitted", () => {
 });
 
 describe("sources", () => {
-  test("lists non-test spec and test-folder modules, not suites or declared helpers", () => {
+  test("lists source and test-folder modules, not test-named files or declared helpers", () => {
     const suite = 'import { test } from "bun:test";\ntest("x", () => {});\n';
     const module = "export const one = 1;\n";
     const root = repo({
@@ -201,7 +201,6 @@ describe("sources", () => {
     });
     expect(sources(root).sort()).toEqual([
       "packages/api/src/app.ts",
-      "packages/api/src/openapi.spec.ts",
       "packages/api/test/server.ts",
       "plugins/slicers/orca/test/fake.ts",
     ]);
