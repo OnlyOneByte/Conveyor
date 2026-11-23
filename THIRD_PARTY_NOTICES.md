@@ -11,6 +11,8 @@ Debian package's own `copyright` file, not inferred.
 | OrcaSlicer | `v2.4.1` (`ORCA_RELEASE`), AppImage, SHA-256-checked | AGPL-3.0 (`LICENSE.txt`) | <https://github.com/OrcaSlicer/OrcaSlicer> | `scripts/install-orca.sh` |
 | PrusaSlicer | the Debian trixie `prusa-slicer` package at build time (`2.9.2+dfsg-1` when this was written) | AGPL-3; its icons are CC-BY-3.0 (Debian `copyright`) | <https://github.com/prusa3d/PrusaSlicer> | `apt-get` in `packages/worker/Dockerfile` |
 | OpenSCAD | `2026.11-RC0`, commit `9ba0cee7c947`, built from the signed upstream source tarball on every arch | GPL-2.0-or-later, with an exception for linking CGAL (`COPYING` and source headers); it statically links its bundled manifold (Apache-2.0), Clipper2 (BSL-1.0) and mimalloc (MIT) | <https://github.com/openscad/openscad> | the `openscad` stage of `packages/worker/Dockerfile`, with `scripts/fetch-openscad-source.sh` and `scripts/build-openscad.sh` |
+| Liberation fonts | `2.00.1`, bundled in the OpenSCAD source tarball, installed to `/opt/openscad/share/openscad/fonts/` | SIL OFL-1.1 (`fonts/Liberation-2.00.1/LICENSE`) | <https://github.com/liberationfonts/liberation-fonts> | `scripts/build-openscad.sh` (OpenSCAD's `cmake --install`) |
+| MCAD | bundled in the OpenSCAD source tarball, installed to `/opt/openscad/share/openscad/libraries/MCAD/` | LGPL-2.1 (`README.markdown` and `lgpl-2.1.txt`) | <https://github.com/openscad/MCAD> | `scripts/build-openscad.sh` (OpenSCAD's `cmake --install`) |
 | gridfinity-rebuilt-openscad | the `scad/gridfinity-rebuilt-openscad` submodule commit | MIT (`LICENSE`) | <https://github.com/kennetek/gridfinity-rebuilt-openscad> | `COPY . .` and the `./scad` mount |
 
 ## Other programs the Dockerfiles install
@@ -24,11 +26,13 @@ Debian package's own `copyright` file, not inferred.
 | Node.js | the `node:lts-bookworm-slim` base image at build time | MIT, plus bundled dependencies (`LICENSE`) | <https://github.com/nodejs/node> | web |
 
 The worker's other `apt-get` packages are runtime libraries: GTK, WebKitGTK, Mesa, GStreamer and their
-libraries for the slicers, and `libboost-program-options1.83.0`, `libcairo2`, `libdouble-conversion3`,
-`libgmp10`, `libmpfr6`, `libtbb12` and `libxml2`, which OpenSCAD links against. Each carries its license in
-`/usr/share/doc/<package>/copyright` inside the image.
+libraries for the slicers, and the Debian packages `/opt/openscad/bin/openscad` loads directly (its ELF
+`NEEDED` entries, besides libc and libstdc++): `libboost-program-options1.83.0`, `libcairo2`,
+`libdouble-conversion3`, `libfontconfig1`, `libfreetype6`, `libglib2.0-0t64`, `libgmp10`, `libharfbuzz0b`,
+`libmpfr6`, `libtbb12` and `libxml2`. Each carries its license in `/usr/share/doc/<package>/copyright` inside
+the image. OpenSSL, nettle and libzip are found at build time but not linked into the binary.
 
-## Source for the GPL, AGPL and LGPL components
+## Source for the GPL, AGPL, LGPL and OFL components
 
 - **OrcaSlicer:** the `v2.4.1` tag, <https://github.com/OrcaSlicer/OrcaSlicer/releases/tag/v2.4.1>.
 - **PrusaSlicer, Xvfb, curl and the other Debian packages:** the matching Debian source package, with
@@ -36,7 +40,7 @@ libraries for the slicers, and `libboost-program-options1.83.0`, `libcairo2`, `l
   `dpkg -l` inside the image gives the exact versions.
 - **OpenSCAD:** `openscad-2026.11-RC0.src.tar.gz` (sha256
   `9e64122961b3bafadfb7a4581498a3e7efd50f61316806fc7a137fd699ffc9d2`), the exact source the image builds,
-  with its manifold, Clipper2 and mimalloc submodules. `release.yml` attaches it, with its `.asc` and
+  with its manifold, Clipper2 and mimalloc submodules, the Liberation fonts and MCAD. `release.yml` attaches it, with its `.asc` and
   `.sha256`, to each Conveyor GitHub release. Upstream:
   <https://github.com/openscad/openscad/releases/tag/openscad-2026.11-RC0>.
   `/opt/openscad/share/doc/openscad/SOURCE` in the image names the commit, URL and sha256.
