@@ -116,15 +116,15 @@ function toPrintStatus(push: SdcpPush, printing?: PrintStatus): PrintStatus | un
 
 const isCount = (n: number | null): n is number => n !== null && Number.isInteger(n) && n >= 0;
 
-const MS_PER_SECOND = 1000;
+const isTime = (n: number | null): n is number => n !== null && Number.isFinite(n) && n >= 0;
 
 function printProgressOf(frame: SdcpStatusFrame): PrintProgress | undefined {
   const { currentLayer, totalLayer, currentTicks, totalTicks } = frame;
   const print: PrintProgress = {};
   if (isCount(currentLayer)) print.layer = currentLayer;
   if (isCount(totalLayer) && totalLayer > 0) print.layers = totalLayer;
-  if (isCount(currentTicks) && isCount(totalTicks) && totalTicks >= currentTicks && totalTicks > 0)
-    print.secondsLeft = Math.round((totalTicks - currentTicks) / MS_PER_SECOND);
+  if (isTime(currentTicks) && isTime(totalTicks) && totalTicks >= currentTicks && totalTicks > 0)
+    print.secondsLeft = Math.round(totalTicks - currentTicks);
   return Object.keys(print).length > 0 ? print : undefined;
 }
 

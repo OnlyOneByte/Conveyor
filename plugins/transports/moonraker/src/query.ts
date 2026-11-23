@@ -42,9 +42,11 @@ export function parseQuery(json: unknown): PrinterObjects {
 }
 
 const MIN_PROGRESS_FOR_ESTIMATE = 0.01;
+const MIN_ELAPSED_SECONDS = 1;
 
 function secondsLeftOf(elapsed: number | undefined, fileProgress: number | undefined) {
-  if (elapsed === undefined || elapsed <= 0 || fileProgress === undefined) return undefined;
+  if (elapsed === undefined || elapsed < MIN_ELAPSED_SECONDS || fileProgress === undefined)
+    return undefined;
   if (fileProgress < MIN_PROGRESS_FOR_ESTIMATE || fileProgress >= 1) return undefined;
   return Math.round((elapsed * (1 - fileProgress)) / fileProgress);
 }

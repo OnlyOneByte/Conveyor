@@ -19,10 +19,13 @@ describe("moonraker print progress", () => {
     expect(printProgressOf(objects({ print_duration: 50 }, 0.01))).toStrictEqual({
       secondsLeft: 4950,
     });
+    expect(printProgressOf(objects({ print_duration: 1 }, 0.5))).toStrictEqual({ secondsLeft: 1 });
   });
 
   test.each([
     ["no elapsed time", { print_duration: 0 }, 0.5],
+    ["a float error just above zero", { print_duration: 1e-14 }, 0.5],
+    ["under a second of print time", { print_duration: 0.999 }, 0.5],
     ["no file progress", { print_duration: 60 }, undefined],
     ["under 1% through the file", { print_duration: 60 }, 0.009],
     ["at the end of the file", { print_duration: 60 }, 1],
