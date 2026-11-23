@@ -142,6 +142,35 @@ describe("elegoo submit", () => {
     await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
     expect(FakeWebSocket.sent).toHaveLength(0);
   });
+
+  test("streams the g-code as the multipart File part", async () => {
+    useFakeSocket("ack");
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const path = join(dir, "a.gcode");
+    await writeFile(path, "G28\nG1 X5\n");
+    const parts: { field: string; name: string; text: string }[] = [];
+    const upload = async (_url: string | URL | Request, init?: RequestInit) => {
+      const form = await new Response(init?.body, {
+        headers: new Headers(init?.headers),
+      }).formData();
+      for (const [field, value] of form) {
+        if (typeof value !== "string")
+          parts.push({ field, name: value.name, text: await value.text() });
+      }
+      return new Response("{}", { status: 200 });
+    };
+    fetchSpy.mockImplementation(Object.assign(upload, { preconnect }));
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: new AbortController().signal,
+      report: () => {},
+      log: () => {},
+    };
+    const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
+    await elegoo.submit({ path, format: "gcode" }, target, ctx);
+    expect(parts).toEqual([{ field: "File", name: "a.gcode", text: "G28\nG1 X5\n" }]);
+  });
 });
 
 describe("elegoo handles", () => {
