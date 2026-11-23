@@ -9,7 +9,7 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { multipartFileUpload } from "@conveyor/shared/node";
+import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
 import { SDCP_CMD } from "./sdcp.js";
 import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
 
@@ -95,7 +95,8 @@ async function uploadGcode(address: string, path: string, ctx: StageCtx): Promis
   const filename = basename(path);
   const upload = multipartFileUpload("File", path, filename);
   const url = `http://${address}:${WS_PORT}/uploadFile/upload`;
-  const init = { method: "POST", body: upload.body, headers: upload.headers, signal: ctx.signal };
+  const signal = uploadSignal(ctx.signal);
+  const init = { method: "POST", body: upload.body, headers: upload.headers, signal };
   const res = await fetch(url, init).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted

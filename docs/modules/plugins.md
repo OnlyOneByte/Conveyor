@@ -90,6 +90,17 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 Neither transport has been run against real hardware yet (written 2026-06-29). Confirm with the runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
+Both upload the g-code through `multipartFileUpload` (`@conveyor/shared/node`), which streams the file from
+disk as one multipart part with a fixed `Content-Length`. Two guards apply to every upload:
+
+- **Size.** The length is the file's size when the upload starts. If the file grows or shrinks before the last
+  byte is sent, the stream fails, and the job fails at the transport stage. It is never sent truncated, and
+  the printer isn't left waiting for bytes that won't come.
+- **Timeout.** `CONVEYOR_UPLOAD_TIMEOUT_MS` (default 600000, 10 minutes) bounds the whole upload request,
+  together with the job's cancel signal. A timeout fails the transport stage, while a cancel still ends the
+  job as canceled with no print started. A value that isn't a positive integer fails the upload, naming the
+  variable.
+
 ### Moonraker (`plugins/transports/moonraker`)
 
 - Klipper over the Moonraker HTTP API; the lowest-risk transport. Endpoints:
