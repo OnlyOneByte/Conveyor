@@ -102,6 +102,7 @@ describe("a uniform shift below the noise threshold", () => {
     const whole = pairOf(shifted(100, 100 * 100, 16));
     expect(whole.diff).toEqual({ changed: 0, touched: 1, maxChannel: 16 });
     expect(isChanged(whole)).toBe(true);
+    expect(isSubtle(whole)).toBe(true);
   });
 
   test("stays folded when it touches 0.5% of pixels or fewer", () => {
