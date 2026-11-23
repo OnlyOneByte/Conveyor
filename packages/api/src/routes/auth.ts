@@ -19,19 +19,16 @@ function hasSession(req: FastifyRequest): boolean {
   return verifyToken(readSessionCookie(req.headers.cookie));
 }
 
-const PUBLIC_PATHS = ["/health"];
-const PUBLIC_PREFIXES = ["/auth/"];
+export const PUBLIC_ROUTE = { config: { public: true } } as const;
 
-function isPublic(url: string): boolean {
-  return PUBLIC_PATHS.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
-}
+const isPublic = (req: FastifyRequest) =>
+  (req.routeOptions.config as { public?: unknown } | undefined)?.public === true;
 
 export function registerAuthGuard(app: FastifyInstance): void {
   if (!authEnabled) return;
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
-    const url = req.url.split("?")[0];
-    if (isPublic(url)) return;
+    if (isPublic(req)) return;
     if (!hasSession(req)) return reply.code(401).send({ error: "authentication required" });
   });
 }
@@ -41,11 +38,11 @@ export async function registerAuthRoutes(
   limiter: LoginLimiter = loginLimiter(),
   now: () => number = Date.now,
 ): Promise<void> {
-  app.get("/auth/status", async (req) => {
+  app.get("/auth/status", PUBLIC_ROUTE, async (req) => {
     return { authEnabled, authenticated: hasSession(req) };
   });
 
-  app.post("/auth/login", async (req, reply) => {
+  app.post("/auth/login", PUBLIC_ROUTE, async (req, reply) => {
     if (!authEnabled) return reply.send({ ok: true });
     const client = clientKey(req.ip);
     const waitMs = limiter.retryAfterMs(client, now());
@@ -67,7 +64,7 @@ export async function registerAuthRoutes(
     return reply.send({ ok: true });
   });
 
-  app.post("/auth/logout", async (req, reply) => {
+  app.post("/auth/logout", PUBLIC_ROUTE, async (req, reply) => {
     revokeToken(readSessionCookie(req.headers.cookie));
     reply.header("set-cookie", clearCookie());
     return reply.send({ ok: true });

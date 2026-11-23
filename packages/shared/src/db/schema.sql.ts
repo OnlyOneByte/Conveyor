@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS job_events (
 CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events (job_id, seq);
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id         TEXT    PRIMARY KEY,
-  expires_at INTEGER NOT NULL
+  id               TEXT    PRIMARY KEY,
+  expires_at       INTEGER NOT NULL,
+  password_version TEXT    NOT NULL DEFAULT ''
 );
 `;
