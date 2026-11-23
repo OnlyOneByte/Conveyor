@@ -99,8 +99,18 @@ change in their own PR and need a second, independent review; the list and the g
 The `audit` CI job runs `bun audit --audit-level=high`, which reads `bun.lock` and fails on any high or critical
 advisory. The job skips only the advisories listed in `.github/audit-baseline.json`, which maps bun's numeric
 advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
-was added; #231 tracks fixing them. When an upgrade fixes one, delete its entry. Adding an entry is a guardrail
-change, so it needs the second review. To see the current findings, run `bun audit --audit-level=high`.
+was added; #231 tracks fixing them. To see the current findings, run `bun audit --audit-level=high`.
+
+Like the comment and coverage ratchets, the job reads the baseline from the base branch, not from the PR. It
+skips an advisory only when both the base's and the PR's baseline list it, so the baseline can only shrink
+inside a PR:
+
+- **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
+  present, that PR's `audit` fails.
+- **Adding an entry:** a PR can't add a dependency and its entry together, because the base doesn't list the
+  entry yet and the PR's `audit` stays red. An entry for an advisory already on `main` lands in its own PR
+  that changes only the baseline. Its `audit` fails for the same reason; `audit` isn't a required check, so
+  that PR merges on its two guardrail reviews.
 
 ### Pinned actions
 

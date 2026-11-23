@@ -61,12 +61,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: No high or critical advisory outside the baseline
+      - name: No high or critical advisory outside the base's baseline
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
         run: |
-          mapfile -t ignores < <(jq -r 'keys[] | "--ignore=" + .' .github/audit-baseline.json)
+          git show "$BASE_REF:.github/audit-baseline.json" > "$RUNNER_TEMP/base-baseline.json"
+          mapfile -t ignores < <(jq -r --slurpfile head .github/audit-baseline.json \
+            'keys[] | select(in($head[0])) | "--ignore=" + .' "$RUNNER_TEMP/base-baseline.json")
           bun audit --audit-level=high "${ignores[@]}"
 
   typecheck:
