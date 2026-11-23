@@ -37,7 +37,10 @@ export const moonraker: TransportPlugin = {
     const base = baseUrl(target.address);
     const headers = apiKeyHeaders(target);
 
-    const upload = multipartFileUpload("file", gcode.path, filename);
+    const upload = multipartFileUpload(
+      { field: "file", path: gcode.path, filename },
+      (sent, total) => ctx.reportUpload?.(sent, total),
+    );
     const up = await fetch(`${base}/server/files/upload`, {
       method: "POST",
       body: upload.body,

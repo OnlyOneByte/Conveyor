@@ -20,6 +20,10 @@ An `Artifact` is a file on the shared `/data` volume that one stage hands to the
 - `workDir` is the job's absolute working directory under `/data`.
 - `report(progress, message)` takes progress from 0 to 1 within the current stage and surfaces it on the
   status bus.
+- `reportUpload(bytesSent, bytesTotal)` is optional and only transports call it. The worker publishes it as a
+  `transferring` event with `bytesSent`, `bytesTotal` and `progress = bytesSent / bytesTotal` (1 for an empty
+  file). `parseStatusEvent` takes both counts only as whole, non-negative numbers; old events without them
+  still parse.
 - `signal` is cooperative cancellation. Adapters pass it to every spawned engine and every `fetch`.
 
 `StageError` is the typed failure a stage adapter throws. It records which stage failed and why, and its

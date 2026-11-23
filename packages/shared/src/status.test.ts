@@ -5,6 +5,7 @@ import {
   jobControlChannel,
   jobSeqKey,
   PUBLISH_STATUS_SCRIPT,
+  parseStatusEvent,
   publishStatus,
   type StatusScriptClient,
 } from "./status";
@@ -61,4 +62,24 @@ describe("cancel keys", () => {
     expect(jobControlChannel("j1")).toBe("job:j1:control");
     expect(jobSeqKey("j1")).toBe("job:j1:seq");
   });
+});
+
+describe("a status event's upload bytes", () => {
+  const event = (bytes: Record<string, unknown>) =>
+    JSON.stringify({ jobId: "j1", state: "transferring", at: 5, ...bytes });
+
+  test("are kept when whole and not negative, and an event without them still parses", () => {
+    expect(parseStatusEvent(event({ bytesSent: 0, bytesTotal: 7_500_000 }))).toMatchObject({
+      bytesSent: 0,
+      bytesTotal: 7_500_000,
+    });
+    expect(parseStatusEvent(event({}))).toEqual({ jobId: "j1", state: "transferring", at: 5 });
+  });
+
+  test.each([{ bytesSent: -1 }, { bytesSent: 1.5 }, { bytesTotal: "7.5 MB" }])(
+    "refuse the event when they are out of range: %j",
+    (bytes) => {
+      expect(parseStatusEvent(event(bytes))).toBeUndefined();
+    },
+  );
 });
