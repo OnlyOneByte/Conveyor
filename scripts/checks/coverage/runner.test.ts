@@ -19,18 +19,36 @@ const fixture = (name: string, source: string) => {
 const SLOW = 60_000;
 const PROBE_PREFIX = join("packages", "shared", "test", "sweep-probe-");
 
-const withSweepTimeout = <T>(value: string, run: () => T): T => {
-  const previous = process.env[SWEEP_TIMEOUT_ENV];
-  process.env[SWEEP_TIMEOUT_ENV] = value;
+const withEnv = <T>(name: string, value: string, run: () => T): T => {
+  const previous = process.env[name];
+  process.env[name] = value;
   try {
     return run();
   } finally {
-    if (previous === undefined) delete process.env[SWEEP_TIMEOUT_ENV];
-    else process.env[SWEEP_TIMEOUT_ENV] = previous;
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
   }
 };
 
+const withSweepTimeout = <T>(value: string, run: () => T): T =>
+  withEnv(SWEEP_TIMEOUT_ENV, value, run);
+
 describe("runSweep", () => {
+  test(
+    "runs the sweep without GITHUB_ACTIONS, so its expected failures post no CI annotations",
+    () => {
+      const seen = join(scratch, "seen-github-actions.txt");
+      const probe = fixture(
+        "reads-env.ts",
+        `require("node:fs").writeFileSync(${JSON.stringify(seen)}, String(process.env.GITHUB_ACTIONS));\n`,
+      );
+      const sweep = withEnv("GITHUB_ACTIONS", "true", () => runSweep([probe]));
+      expect(sweep.completed).toBe(true);
+      expect(readFileSync(seen, "utf8")).toBe("undefined");
+    },
+    SLOW,
+  );
+
   test(
     "reports imports that throw or exit, and maps the ones that load",
     () => {
