@@ -65,8 +65,16 @@ describe("PUT /catalog/profiles", () => {
       profile({ id: "bad-flavor", gcodeFlavor: "reprap" }),
       "gcodeFlavor: unknown gcode flavor",
     ],
-    ["a missing name", profile({ id: "no-name", name: undefined }), "name: Required"],
-    ["a body that is not an object", "profile", "body: Expected object, received string"],
+    [
+      "a missing name",
+      profile({ id: "no-name", name: undefined }),
+      "name: Invalid input: expected string, received undefined",
+    ],
+    [
+      "a body that is not an object",
+      "profile",
+      "body: Invalid input: expected object, received string",
+    ],
   ])("refuses %s with a 400 naming the field", async (_label, body, error) => {
     expect(await put("/catalog/profiles", body)).toEqual({ status: 400, body: { error } });
   });
@@ -115,12 +123,12 @@ describe("PUT /catalog/printers", () => {
     [
       "an oversized secret",
       printer({ secrets: { apiKey: "k".repeat(MAX_SECRET_VALUE_LENGTH + 1) } }),
-      `secrets.apiKey: String must contain at most ${MAX_SECRET_VALUE_LENGTH} character(s)`,
+      `secrets.apiKey: Too big: expected string to have <=${MAX_SECRET_VALUE_LENGTH} characters`,
     ],
     [
       "an oversized secret name",
       printer({ secrets: { ["k".repeat(65)]: "v" } }),
-      `secrets.${"k".repeat(65)}: String must contain at most 64 character(s)`,
+      `secrets.${"k".repeat(65)}: Too big: expected string to have <=64 characters`,
     ],
     [
       "an unknown transport",
@@ -140,7 +148,10 @@ describe("PUT /catalog/profiles/:id/content", () => {
     });
     expect(res).toEqual({
       status: 400,
-      body: { error: "documents.process: Required; documents.filament: Required" },
+      body: {
+        error:
+          "documents.process: Invalid input: expected string, received undefined; documents.filament: Invalid input: expected string, received undefined",
+      },
     });
   });
 });

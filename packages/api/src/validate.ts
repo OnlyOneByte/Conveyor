@@ -8,13 +8,18 @@ export function validateJobRequest(req: JobRequest, target: JobTarget): void {
 
 type ParamsResult = { ok: true; params: unknown } | { ok: false; error: string };
 
-type FieldPath = readonly (string | number)[];
+type FieldPath = readonly PropertyKey[];
 
-const fieldName = (path: FieldPath) => (path.length > 0 ? path.join(".") : "body");
+const fieldName = (path: FieldPath) => (path.length > 0 ? path.map(String).join(".") : "body");
 
 function describeIssue(issue: ZodIssue, prefix: FieldPath): string[] {
   if (issue.code === "unrecognized_keys") {
     return issue.keys.map((key) => `${fieldName([...prefix, ...issue.path, key])}: unknown field`);
+  }
+  if (issue.code === "invalid_key") {
+    return issue.issues.map(
+      (inner) => `${fieldName([...prefix, ...issue.path])}: ${inner.message}`,
+    );
   }
   return [`${fieldName([...prefix, ...issue.path])}: ${issue.message}`];
 }

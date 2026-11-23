@@ -2,7 +2,7 @@ import { z } from "zod";
 
 type Decoded<T> = { kind: "decoded"; value: T } | { kind: "malformed"; reason: string };
 
-type Schema<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
+type Schema<T> = z.ZodType<T, unknown>;
 
 function quote(raw: string): string {
   return JSON.stringify(raw.slice(0, 80));
@@ -21,7 +21,7 @@ export function decodeShape<T>(schema: Schema<T>, value: unknown, raw: string): 
   const parsed = schema.safeParse(value);
   if (parsed.success) return { kind: "decoded", value: parsed.data };
   const issues = parsed.error.issues
-    .map((issue) => `${issue.path.join(".") || "frame"}: ${issue.message}`)
+    .map((issue) => `${issue.path.map(String).join(".") || "frame"}: ${issue.message}`)
     .join(", ");
   return { kind: "malformed", reason: `${issues} in ${quote(raw)}` };
 }
@@ -46,8 +46,8 @@ const reading = z
 
 export const PushEnvelope = z.object({
   Topic: z.string().default(""),
-  Data: z.unknown(),
-  Status: z.unknown(),
+  Data: z.unknown().optional(),
+  Status: z.unknown().optional(),
 });
 
 export const StatusData = z
@@ -62,11 +62,11 @@ export const StatusData = z
             CurrentLayer: reading,
             TotalLayer: reading,
           })
-          .default({}),
+          .prefault({}),
       })
-      .default({}),
+      .prefault({}),
   })
-  .default({});
+  .prefault({});
 
 export const ErrorData = z.object({
   Data: z.object({ ErrorCode: z.union([z.number(), z.string()]) }),
