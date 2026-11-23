@@ -25,6 +25,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     redis = new Redis(url ?? "");
     const { registerJobRoutes } = await import("./jobs.js");
     const queue = await import("../queue.js");
+    if (queue.redis.status === "end") await queue.redis.connect();
     closeQueue = async () => {
       await queue.jobQueue.close();
       queue.redis.disconnect();
