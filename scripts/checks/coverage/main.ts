@@ -26,6 +26,7 @@ import {
   sources,
   stagedEntries,
   testNamedFiles,
+  treeAt,
 } from "./runner";
 import {
   mergeCoverage,
@@ -111,14 +112,21 @@ function reclassified(summary: Summary, ref: string, base: BaselineTexts) {
   const old = parseReclassifications(readAt(ref, RECLASSIFIED_PATH));
   if (typeof head === "string") return { floors: {}, errors: [head], notes: [] };
   if (typeof old === "string") return { floors: {}, errors: [`base ${old}`], notes: [] };
-  return reclassificationFloors(head, old, {
-    renamed: renamedSince(ref),
-    changes: changesSince(ref),
-    baseLines: linesAt(ref),
-    current: summary,
-    base: linesOf(base),
-    committed: linesOf(readCommitted()),
-  });
+  const tree = treeAt(ref);
+  try {
+    return reclassificationFloors(head, old, {
+      renamed: renamedSince(ref),
+      changes: changesSince(ref),
+      resolveAtBase: tree.resolve,
+      resolveAtHead: runtimeResolver(ROOT),
+      baseLines: linesAt(ref),
+      current: summary,
+      base: linesOf(base),
+      committed: linesOf(readCommitted()),
+    });
+  } finally {
+    tree.dispose();
+  }
 }
 
 function check(summary: Summary, ref: string): number {

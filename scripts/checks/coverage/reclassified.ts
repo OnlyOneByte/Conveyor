@@ -1,3 +1,4 @@
+import type { Resolve } from "./imports";
 import { BASELINE_DIR, type Percents } from "./ratchet";
 import {
   isSource,
@@ -52,6 +53,8 @@ export interface FileChange {
 export interface MoveFacts {
   renamed: (from: string, to: string) => boolean;
   changes: FileChange[] | null;
+  resolveAtBase: Resolve;
+  resolveAtHead: Resolve;
   baseLines: (from: string) => number | null;
   current: Summary;
   base: Percents;
@@ -81,38 +84,80 @@ function entryError(entry: Reclassification, facts: MoveFacts): string | null {
 }
 
 const IMPORT_LINE =
-  /^(\s*(?:(?:import|export)\b.*\bfrom|\}\s*from|import)\s*)(["'])[^"'\n]*\2(;?\s*)$/;
+  /^(\s*(?:(?:import|export)\b.*\bfrom|\}\s*from|import)\s*)(["'])([^"'\n]*)\2(;?\s*)$/;
 
-const withoutSpecifiers = (lines: string[]) =>
-  lines.every((line) => IMPORT_LINE.test(line))
-    ? lines
-        .map((line) => line.replace(IMPORT_LINE, "$1$2$2$3"))
-        .sort()
-        .join("\n")
-    : null;
+type Pair = { old: string; new: string };
 
-const importPathsOnly = (change: FileChange) => {
-  if (change.opaque) return false;
-  const removed = withoutSpecifiers(change.removed);
-  return removed !== null && removed === withoutSpecifiers(change.added);
+function specifierPairs(change: FileChange): Pair[] | null {
+  const split = (lines: string[]) => {
+    const parsed = lines.map((line) => IMPORT_LINE.exec(line));
+    return parsed.every((match) => match !== null)
+      ? parsed.map((match) => ({
+          key: `${match[1]}${match[2]}${match[2]}${match[4]}`,
+          specifier: match[3] ?? "",
+        }))
+      : null;
+  };
+  const removed = split(change.removed);
+  const added = split(change.added);
+  if (change.opaque || removed === null || added === null) return null;
+  if (removed.length !== added.length) return null;
+  const pairs: Pair[] = [];
+  for (const line of removed) {
+    const index = added.findIndex((other) => other.key === line.key);
+    if (index < 0) return null;
+    pairs.push({ old: line.specifier, new: added.splice(index, 1)[0]?.specifier ?? "" });
+  }
+  return pairs;
+}
+
+const followsMove = (moves: Reclassification[], change: FileChange, facts: MoveFacts) => {
+  const from = change.from ?? "";
+  const to = change.to ?? "";
+  const moved = (path: string | null) => moves.find((move) => move.from === path)?.to ?? path;
+  return (pair: Pair) => {
+    const before = facts.resolveAtBase(pair.old, from);
+    const after = facts.resolveAtHead(pair.new, to);
+    return before !== null && after !== null && moved(before) === after;
+  };
 };
+
+const importsFollowMove = (moves: Reclassification[], change: FileChange, facts: MoveFacts) =>
+  specifierPairs(change)?.every(followsMove(moves, change, facts)) ?? false;
 
 const inPackage = (name: string, path: string | null) =>
   path !== null && (path.startsWith('"') || rawPackageOf(path) === name);
+
+const mayChangeBesideMove = (path: string) =>
+  /^(packages|plugins)\//.test(path) || path.startsWith(`${BASELINE_DIR}/`) || path.endsWith(".md");
+
+const outsideErrors = (changes: FileChange[]) =>
+  changes
+    .flatMap((change) => [change.from, change.to])
+    .filter(
+      (path): path is string =>
+        path !== null && !path.startsWith('"') && !mayChangeBesideMove(path),
+    )
+    .map(
+      (path) =>
+        `${RECLASSIFIED_PATH}: ${path} changes; beside a recorded move only packages, plugins, coverage baselines and Markdown may change`,
+    );
 
 function rideAlongErrors(name: string, moves: Reclassification[], facts: MoveFacts): string[] {
   if (facts.changes === null) return [`${RECLASSIFIED_PATH}: could not read this PR's changes`];
   const allowed = (change: FileChange) =>
     (change.renamed
       ? moves.some((move) => move.from === change.from && move.to === change.to)
-      : change.from !== null && change.from === change.to) && importPathsOnly(change);
-  return facts.changes
+      : change.from !== null && change.from === change.to) &&
+    importsFollowMove(moves, change, facts);
+  const inside = facts.changes
     .filter((change) => inPackage(name, change.from) || inPackage(name, change.to))
     .filter((change) => !allowed(change))
     .map(
       (change) =>
         `${RECLASSIFIED_PATH}: ${change.to ?? change.from} changes ${name} beyond the recorded move and import-path edits`,
     );
+  return [...new Set([...inside, ...outsideErrors(facts.changes)])];
 }
 
 export function reclassificationFloors(

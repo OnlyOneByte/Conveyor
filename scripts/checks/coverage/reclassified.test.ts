@@ -20,6 +20,8 @@ const MOVE: Reclassification = { package: "worker", from: FROM, to: TO, floor: 8
 const facts = (overrides: Partial<MoveFacts> = {}): MoveFacts => ({
   renamed: (from, to) => from === FROM && to === TO,
   changes: [],
+  resolveAtBase: () => null,
+  resolveAtHead: () => null,
   baseLines: (path) => (path === FROM ? 130 : null),
   current: {
     api: { hit: 1, found: 1 },

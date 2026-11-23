@@ -70,8 +70,13 @@ only when all of these hold:
 - the move explains the whole drop: counting the moved file's lines on the base as fully covered brings the
   package back to at least the base's floor;
 - nothing else in that package changes: besides the rename, every changed line is a one-line import or
-  export whose path is the only difference, so a new file, a deletion or any other edit fails the check.
-  Land other work in the package in its own PR.
+  export whose path is the only difference, and that path still reaches the same file once the move is
+  applied. Both sides are resolved the way Bun resolves them, the old one on the base and the new one on the
+  PR, so an import pointed at another file fails, as does a new file, a deletion or any other edit;
+- outside `packages/` and `plugins/`, only the coverage baselines and Markdown change, so root config such as
+  `bunfig.toml` or `package.json` can't hide tests beside the move.
+
+Land other work in its own PR.
 
 Otherwise it fails and names the rule. The log prints how far the move could explain coverage, so a reviewer
 sees the slack. Entries stay in the file as history and have no effect once they are on the base.

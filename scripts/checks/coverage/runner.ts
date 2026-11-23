@@ -1,6 +1,7 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { type Resolve, runtimeResolver } from "./imports";
 import { type Coverage, parseLcov } from "./lcov";
 import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
 import type { FileChange } from "./reclassified";
@@ -187,6 +188,34 @@ export function changesSince(ref: string, root = ROOT): FileChange[] | null {
     "--no-color",
     "--no-ext-diff",
   ];
-  const text = git(root, [...args, "--no-textconv", ref, "HEAD", "--", "packages", "plugins"]);
+  const text = git(root, [...args, "--no-textconv", ref, "HEAD"]);
   return text === null ? null : parseDiff(text);
+}
+
+export interface Tree {
+  resolve: Resolve;
+  dispose: () => void;
+}
+
+export function treeAt(ref: string, root = ROOT): Tree {
+  let dir: string | null = null;
+  let resolve: Resolve | null = null;
+  const build = (): Resolve => {
+    dir = mkdtempSync(join(tmpdir(), "conveyor-base-tree-"));
+    const tree = join(dir, "tree");
+    const archive = join(dir, "tree.tar");
+    mkdirSync(tree);
+    const packed = git(root, ["archive", "--format=tar", `--output=${archive}`, ref]) !== null;
+    const unpacked = packed && Bun.spawnSync(["tar", "-xf", archive, "-C", tree]).exitCode === 0;
+    return unpacked ? runtimeResolver(tree) : () => null;
+  };
+  return {
+    resolve: (specifier, from) => {
+      resolve ??= build();
+      return resolve(specifier, from);
+    },
+    dispose: () => {
+      if (dir !== null) rmSync(dir, { recursive: true, force: true });
+    },
+  };
 }

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { commit, sh } from "../test-repo";
 import {
   type FileChange,
@@ -37,9 +37,18 @@ const MOVED = change({
   added: ['import { runJob } from "../../src/pipeline";'],
 });
 
+const lexical = (files: string[]) => (specifier: string, from: string) => {
+  const path = `${posix.normalize(posix.join(posix.dirname(from), specifier))}.ts`;
+  return files.includes(path) ? path : null;
+};
+
+const PIPELINE = "packages/worker/src/pipeline.ts";
+
 const facts = (changes: FileChange[] | null): MoveFacts => ({
   renamed: (from, to) => from === FROM && to === TO,
   changes,
+  resolveAtBase: lexical([FROM, PIPELINE, "packages/worker/src/x.ts"]),
+  resolveAtHead: lexical([TO, PIPELINE, "packages/worker/src/x.ts"]),
   baseLines: () => 130,
   current: {
     api: { hit: 1, found: 1 },
@@ -54,14 +63,20 @@ const facts = (changes: FileChange[] | null): MoveFacts => ({
 const run = (changes: FileChange[] | null) => reclassificationFloors([MOVE], [], facts(changes));
 
 describe("a recorded move carries nothing else in its package", () => {
-  test("allows the rename and one-line import-path edits, in any order", () => {
+  test("allows the rename and import paths that follow it, in any order", () => {
     const multiLine = change({
       removed: ['} from "./pipeline-harness";'],
-      added: ['} from "../x";'],
+      added: ['} from "../test/helpers/pipeline-harness";'],
     });
     const sorted = change({
-      removed: ['import { a } from "./a";', 'import { b } from "./b";'],
-      added: ['import { b } from "./b2";', 'import { a } from "./a";'],
+      removed: [
+        'import { a } from "./pipeline-harness";',
+        'import type { B } from "./pipeline-harness";',
+      ],
+      added: [
+        'import type { B } from "../test/helpers/pipeline-harness";',
+        'import { a } from "../test/helpers/pipeline-harness";',
+      ],
     });
     const other = change({ from: "packages/api/src/x.ts", to: "packages/api/src/x.ts" });
     other.added = ["export const extra = 1;"];
@@ -73,8 +88,49 @@ describe("a recorded move carries nothing else in its package", () => {
   test.each([
     ["a new file", change({ from: null, to: "packages/worker/src/new.ts", removed: [] })],
     ["a deleted file", change({ to: null, added: [] })],
-    ["a code line", change({ added: ['import { harness } from "../x";', "const y = 1;"] })],
-    ["an import that changes names", change({ added: ['import { other } from "../x";'] })],
+    [
+      "a code line",
+      change({
+        added: ['import { harness } from "../test/helpers/pipeline-harness";', "const y = 1;"],
+      }),
+    ],
+    [
+      "an import that changes names",
+      change({ added: ['import { other } from "../test/helpers/pipeline-harness";'] }),
+    ],
+    [
+      "an import pointed somewhere other than the move",
+      change({ added: ['import { harness } from "./x";'] }),
+    ],
+    [
+      "an extra import line",
+      change({
+        added: [
+          'import { harness } from "../test/helpers/pipeline-harness";',
+          'import { x } from "../test/helpers/pipeline-harness";',
+        ],
+      }),
+    ],
+    [
+      "another import pointed at the moved file",
+      change({
+        removed: ['import { x } from "./x";'],
+        added: ['import { x } from "../test/helpers/pipeline-harness";'],
+      }),
+    ],
+    [
+      "an edit between two paths that do not resolve",
+      change({ removed: ['import { x } from "./gone";'], added: ['import { x } from "./lost";'] }),
+    ],
+    ["an import that does not resolve", change({ added: ['import { harness } from "./gone";'] })],
+    [
+      "an edit to an import the move did not touch",
+      change({ removed: ['import { x } from "./x";'], added: ['import { x } from "./pipeline";'] }),
+    ],
+    [
+      "the moved file's import pointed elsewhere",
+      { ...MOVED, added: ['import { runJob } from "../../src/x";'] },
+    ],
     ["an import removed", change({ added: [] })],
     ["a mode or binary change", change({ removed: [], added: [], opaque: true })],
     ["a path git quoted", change({ from: '"packages/worker/a\\tb.ts"', to: '"x"' })],
@@ -87,6 +143,33 @@ describe("a recorded move carries nothing else in its package", () => {
     expect(result.errors.join("\n")).toContain(
       "changes worker beyond the recorded move and import-path edits",
     );
+  });
+
+  test("allows the coverage baselines, Markdown and other packages beside the move", () => {
+    const at = (path: string) => change({ from: path, to: path, removed: [], added: ["x"] });
+    const result = run([
+      MOVED,
+      at("scripts/checks/coverage/baseline/worker.json"),
+      at("scripts/checks/coverage/baseline/reclassified.json"),
+      at("docs/contributing.md"),
+      at("packages/api/src/x.ts"),
+    ]);
+    expect(result.errors).toEqual([]);
+  });
+
+  test.each([
+    "bunfig.toml",
+    "package.json",
+    "tsconfig.json",
+    "scripts/checks/coverage/main.ts",
+    ".github/workflows/ci.yml",
+  ])("refuses a change to %s beside the move", (path) => {
+    const outside = change({ from: path, to: path, removed: [], added: ['  "x",'] });
+    const result = run([MOVED, outside]);
+    expect(result.floors).toEqual({});
+    expect(result.errors).toEqual([
+      `scripts/checks/coverage/baseline/reclassified.json: ${path} changes; beside a recorded move only packages, plugins, coverage baselines and Markdown may change`,
+    ]);
   });
 
   test("refuses the move when the PR's changes cannot be read", () => {
