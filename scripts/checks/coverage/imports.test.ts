@@ -104,7 +104,9 @@ function aliasRepo() {
   }
   mkdirSync(join(root, "tools"));
   symlinkSync("../packages/worker/test/helpers", join(root, "tools", "probe-link"));
-  return root;
+  const linked = `${root}-link`;
+  symlinkSync(root, linked);
+  return linked;
 }
 
 describe("sourceImportErrors with the runtime resolver", () => {
