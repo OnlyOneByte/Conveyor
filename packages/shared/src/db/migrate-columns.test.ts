@@ -51,9 +51,11 @@ describe("openDb migration lock", () => {
 });
 
 describe("openDb legacy printers and profiles columns", () => {
-  test("adds allowed_generators_json to a legacy printer and keeps its row", () => {
+  test("adds allowed_generators_json and the check times to a legacy printer and keeps its row", () => {
     const db = openLegacyDb();
-    expect(namesOf(db, "PRAGMA table_info(printers)")).toContain("allowed_generators_json");
+    expect(namesOf(db, "PRAGMA table_info(printers)")).toEqual(
+      expect.arrayContaining(["allowed_generators_json", "last_seen_at", "last_checked_at"]),
+    );
     expect(dbGetPrinter(db, "printer-a")).toEqual({
       id: "printer-a",
       transportId: "moonraker",

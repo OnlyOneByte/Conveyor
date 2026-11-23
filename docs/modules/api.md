@@ -157,7 +157,12 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
-  `reachable: false` is a successful probe of an offline printer, not an error.
+  `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
+  `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
+  printer that was seen and then failed a probe shows how long it has been offline. Probing stays on demand:
+  nothing probes on a timer.
+- A busy printer's time left is not a printer field. It is `print.secondsLeft` on the printer's active job's
+  latest `printing` event.
 - `GET /catalog/transports` feeds the Settings printer form's transport picker.
 - Profile content (`/catalog/profiles/:id/content`) dispatches on the slicer format: Orca serves three JSON
   documents, Prusa one `config.ini`, and a slicer with no editable format answers 409.
