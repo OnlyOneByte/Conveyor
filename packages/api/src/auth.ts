@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-
+import { dbCreateSession, dbDeleteSession, dbSessionActive, openDb } from "@conveyor/shared/db";
 import { AuthConfigError, DISABLED_WARNING, resolveAuthConfig } from "./auth-config.js";
 
 const SESSION_TTL_MS = Number(process.env.CONVEYOR_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000);
@@ -19,6 +19,9 @@ function loadAuthConfig() {
 const config = loadAuthConfig();
 const PASSWORD = config.password;
 const signingKey = config.secret;
+const PASSWORD_VERSION = createHmac("sha256", signingKey)
+  .update(`password:${PASSWORD}`)
+  .digest("base64url");
 
 export const authEnabled = config.enabled;
 
@@ -42,31 +45,54 @@ type EpochMs = number;
 
 interface TokenPayload {
   exp: EpochMs;
+  sid: string;
+  pv: string;
 }
 
 export function issueToken(): string {
-  const payload: TokenPayload = { exp: Date.now() + SESSION_TTL_MS };
+  const now = Date.now();
+  const payload: TokenPayload = {
+    exp: now + SESSION_TTL_MS,
+    sid: randomBytes(16).toString("base64url"),
+    pv: PASSWORD_VERSION,
+  };
+  dbCreateSession(openDb(), payload.sid, payload.exp, now);
   const data = b64url(JSON.stringify(payload));
   const sig = createHmac("sha256", signingKey).update(data).digest("base64url");
   return `${data}.${sig}`;
 }
 
-export function verifyToken(token: string | undefined): boolean {
-  if (!token) return false;
+function signedPayload(token: string | undefined): TokenPayload | null {
+  if (!token) return null;
   const dot = token.lastIndexOf(".");
-  if (dot < 0) return false;
+  if (dot < 0) return null;
   const data = token.slice(0, dot);
   const sig = token.slice(dot + 1);
 
   const expected = createHmac("sha256", signingKey).update(data).digest("base64url");
-  if (!constantTimeEqual(sig, expected)) return false;
+  if (!constantTimeEqual(sig, expected)) return null;
 
   try {
-    const payload = JSON.parse(Buffer.from(data, "base64url").toString()) as TokenPayload;
-    return typeof payload.exp === "number" && payload.exp >= Date.now();
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString()) as Partial<TokenPayload>;
+    if (typeof payload.exp !== "number" || typeof payload.sid !== "string") return null;
+    if (typeof payload.pv !== "string") return null;
+    return { exp: payload.exp, sid: payload.sid, pv: payload.pv };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function verifyToken(token: string | undefined): boolean {
+  const payload = signedPayload(token);
+  if (!payload) return false;
+  const now = Date.now();
+  if (payload.exp < now || !constantTimeEqual(payload.pv, PASSWORD_VERSION)) return false;
+  return dbSessionActive(openDb(), payload.sid, now);
+}
+
+export function revokeToken(token: string | undefined): void {
+  const payload = signedPayload(token);
+  if (payload) dbDeleteSession(openDb(), payload.sid);
 }
 
 export function sessionCookie(token: string): string {

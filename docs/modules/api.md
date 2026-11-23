@@ -95,9 +95,16 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
-- One tier only: the password grants the whole app, catalog included. Session cookies minted by the former
-  two-tier scheme still carry a role field; verification ignores it rather than invalidating the cookie.
-- The session token is `base64url(payload).hmac`. The payload's only claim is `exp`, epoch milliseconds.
+- One tier only: the password grants the whole app, catalog included.
+- The session token is `base64url(payload).hmac`. The payload holds `exp` (epoch milliseconds), `sid` (a
+  random session id) and `pv`, an HMAC of the current password under the signing key. A token is valid only
+  while its signature, `exp` and `pv` all check out **and** its `sid` is still in the `sessions` table.
+- Revocation is server-side. `POST /auth/logout` deletes that session's row, so the same cookie is refused
+  afterwards even if a copy was kept; other sessions stay. Changing `CONVEYOR_PASSWORD` changes `pv`, so every
+  session issued under the old password is refused after the restart. Changing `CONVEYOR_AUTH_SECRET` does the
+  same through the signature. A cookie from before sessions were stored (no `sid`) is refused, which logs
+  everyone out once on upgrade. Sessions survive a restart with the same password and secret. Logging in
+  prunes expired rows.
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
@@ -105,8 +112,12 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   (`/auth/`), so a new route cannot fall outside the protected tree by accident. Everything else needs a valid session.
 - With auth disabled there is no gate (a warning is logged at boot), and `POST /auth/login` answers `ok`.
 - `GET /auth/status` tells the client whether to show a login screen.
-- A successful login sets `cache-control: private, no-store` so the gated response is never cached or
-  cross-served.
+- Every `/auth/*` response, a successful login included, carries `cache-control: private, no-store`, so
+  it is never cached or cross-served.
+- Every API response carries `content-security-policy: default-src 'none'; frame-ancestors 'none'`,
+  `x-content-type-options: nosniff`, `x-frame-options: DENY` and `referrer-policy: no-referrer`
+  (`security-headers.ts`). The API serves only JSON, so its CSP allows nothing. The PWA's own CSP comes from
+  SvelteKit (`kit.csp` in `packages/web/svelte.config.js`), with a nonce for its inline start-up script.
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
   successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the

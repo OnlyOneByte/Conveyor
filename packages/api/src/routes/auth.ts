@@ -6,6 +6,7 @@ import {
   clearCookie,
   issueToken,
   readSessionCookie,
+  revokeToken,
   sessionCookie,
   verifyToken,
 } from "../auth.js";
@@ -66,7 +67,8 @@ export async function registerAuthRoutes(
     return reply.send({ ok: true });
   });
 
-  app.post("/auth/logout", async (_req, reply) => {
+  app.post("/auth/logout", async (req, reply) => {
+    revokeToken(readSessionCookie(req.headers.cookie));
     reply.header("set-cookie", clearCookie());
     return reply.send({ ok: true });
   });
