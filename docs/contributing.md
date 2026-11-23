@@ -68,7 +68,15 @@ only when all of these hold:
 - git sees the commit range as a rename from `from` to `to` (`git diff -M90%`);
 - `floor` equals the committed baseline;
 - the move explains the whole drop: counting the moved file's lines on the base as fully covered brings the
-  package back to at least the base's floor.
+  package back to at least the base's floor;
+- nothing else in the repository changes. Every changed file is the recorded rename, a file under
+  `scripts/checks/coverage/baseline/`, a Markdown file, or a file whose only changed lines are one-line
+  imports or exports that follow the move. Both sides of each such line are resolved the way Bun resolves
+  them, the old one on the base and the new one on the PR, and the new target must be the old target with
+  the move applied. An import pointed at another file fails, and so does any other change anywhere,
+  including root config such as `bunfig.toml`, `package.json` or a `tsconfig`.
+
+Land other work in its own PR. What a whole-tree allowlist still can't see is left to the two-review gate.
 
 Otherwise it fails and names the rule. The log prints how far the move could explain coverage, so a reviewer
 sees the slack. Entries stay in the file as history and have no effect once they are on the base.

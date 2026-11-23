@@ -1,8 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { type Resolve, runtimeResolver } from "./imports";
 import { type Coverage, parseLcov } from "./lcov";
 import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
+import type { FileChange } from "./reclassified";
 import {
   isSource,
   nonBlankLines,
@@ -128,5 +130,92 @@ export function linesAt(ref: string, root = ROOT): (path: string) => number | nu
     if (text === null) return null;
     const types = typeOnlyLines(path, text);
     return [...nonBlankLines(text).keys()].filter((line) => !types.has(line)).length;
+  };
+}
+
+const diffPath = (field: string) => (field === "/dev/null" ? null : field.replace(/^[ab]\//, ""));
+
+function samePathPair(rest: string): string | null {
+  const path = rest.slice(2, (rest.length - 1) / 2);
+  return rest === `a/${path} b/${path}` ? path : null;
+}
+
+function readHeader(change: FileChange, line: string) {
+  if (line.startsWith("rename from ")) change.from = line.slice(12);
+  else if (line.startsWith("rename to ")) {
+    change.to = line.slice(10);
+    change.renamed = true;
+  } else if (line.startsWith("--- ")) change.from = diffPath(line.slice(4));
+  else if (line.startsWith("+++ ")) change.to = diffPath(line.slice(4));
+  else if (line.startsWith("new file mode ")) change.from = null;
+  else if (line.startsWith("deleted file mode ")) change.to = null;
+  else if (!/^(index |similarity index )/.test(line)) change.opaque = true;
+}
+
+function readBody(change: FileChange, line: string) {
+  if (line.startsWith("-")) change.removed.push(line.slice(1));
+  else if (line.startsWith("+")) change.added.push(line.slice(1));
+}
+
+const startChange = (line: string): FileChange => {
+  const path = samePathPair(line.slice(11)) ?? `"${line.slice(11)}`;
+  return { from: path, to: path, renamed: false, opaque: false, removed: [], added: [] };
+};
+
+export function parseDiff(text: string): FileChange[] {
+  const changes: FileChange[] = [];
+  let hunk = false;
+  for (const line of text.split("\n")) {
+    const change = changes.at(-1);
+    if (line.startsWith("diff --git ")) {
+      changes.push(startChange(line));
+      hunk = false;
+    } else if (change === undefined || line === "") continue;
+    else if (line.startsWith("@@")) hunk = true;
+    else if (hunk) readBody(change, line);
+    else readHeader(change, line);
+  }
+  return changes;
+}
+
+export function changesSince(ref: string, root = ROOT): FileChange[] | null {
+  const args = [
+    "-c",
+    "core.quotePath=false",
+    "diff",
+    "-U0",
+    "-M90%",
+    "--no-color",
+    "--no-ext-diff",
+  ];
+  const text = git(root, [...args, "--no-textconv", ref, "HEAD"]);
+  return text === null ? null : parseDiff(text);
+}
+
+export interface Tree {
+  resolve: Resolve;
+  dispose: () => void;
+}
+
+export function treeAt(ref: string, root = ROOT): Tree {
+  let dir: string | null = null;
+  let resolve: Resolve | null = null;
+  const build = (): Resolve => {
+    dir = mkdtempSync(join(tmpdir(), "conveyor-base-tree-"));
+    const tree = join(dir, "tree");
+    const archive = join(dir, "tree.tar");
+    mkdirSync(tree);
+    const packed = git(root, ["archive", "--format=tar", `--output=${archive}`, ref]) !== null;
+    const unpacked = packed && Bun.spawnSync(["tar", "-xf", archive, "-C", tree]).exitCode === 0;
+    return unpacked ? runtimeResolver(tree) : () => null;
+  };
+  return {
+    resolve: (specifier, from) => {
+      resolve ??= build();
+      return resolve(specifier, from);
+    },
+    dispose: () => {
+      if (dir !== null) rmSync(dir, { recursive: true, force: true });
+    },
   };
 }
