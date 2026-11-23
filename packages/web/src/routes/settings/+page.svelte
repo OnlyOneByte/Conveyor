@@ -21,9 +21,9 @@
     type GeneratorSummary,
     type OrcaProfileContent,
     type PrusaProfileContent,
-  } from "$lib/api";
+  } from "#lib/api.js";
   import { slicerFormat } from "@conveyor/shared";
-  import { spinPreview, prefersReducedMotion } from "$lib/preferences";
+  import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
 
   const reducedMotion = prefersReducedMotion();
 

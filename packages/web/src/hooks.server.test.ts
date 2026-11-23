@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Handle } from "@sveltejs/kit";
+import type { Handle } from "@sveltejs/kit/hooks";
 import { handle } from "./hooks.server";
 
 const CSP = "default-src 'self'; connect-src 'self'; frame-ancestors 'none'";

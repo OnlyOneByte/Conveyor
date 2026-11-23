@@ -2,10 +2,10 @@
   import { onMount } from "svelte";
   import { Canvas } from "@threlte/core";
   import { ACESFilmicToneMapping } from "three";
-  import PreviewScene from "$lib/components/PreviewScene.svelte";
-  import MeshScene from "$lib/components/MeshScene.svelte";
-  import SchemaForm from "$lib/components/SchemaForm.svelte";
-  import JobStatus from "$lib/components/JobStatus.svelte";
+  import PreviewScene from "#lib/components/PreviewScene.svelte";
+  import MeshScene from "#lib/components/MeshScene.svelte";
+  import SchemaForm from "#lib/components/SchemaForm.svelte";
+  import JobStatus from "#lib/components/JobStatus.svelte";
   import {
     submitJob,
     uploadStl,
@@ -16,10 +16,10 @@
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
-  } from "$lib/api";
-  import { rememberJob, updateJobState } from "$lib/recent-jobs";
-  import { takeRerun } from "$lib/rerun";
-  import { page } from "$app/stores";
+  } from "#lib/api.js";
+  import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
+  import { takeRerun } from "#lib/rerun.js";
+  import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -51,7 +51,7 @@
     // win over the reactive defaults (which only fill empty selections). The referenced
     // ids may no longer exist (a deleted printer/profile) — set them anyway; the
     // eligibility filters below fall back to a valid default and the user just re-picks.
-    if ($page.url.searchParams.get("rerun")) {
+    if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
         source = "generate";

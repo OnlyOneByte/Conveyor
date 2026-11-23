@@ -1,8 +1,8 @@
 <script lang="ts">
-  import "$lib/styles/app.css";
+  import "#lib/styles/app.css";
   import { onMount } from "svelte";
-  import { fetchAuthStatus, logout, type AuthStatus } from "$lib/api";
-  import Login from "$lib/components/Login.svelte";
+  import { fetchAuthStatus, logout, type AuthStatus } from "#lib/api.js";
+  import Login from "#lib/components/Login.svelte";
 
   let status: AuthStatus | null = null;
   let loaded = false;

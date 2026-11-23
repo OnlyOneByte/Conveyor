@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from "svelte";
-  import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "$lib/api";
+  import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "#lib/api.js";
   import type { JobState } from "@conveyor/shared";
 
   export let jobId: string;
