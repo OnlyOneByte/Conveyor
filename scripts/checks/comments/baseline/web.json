@@ -1,9 +1,5 @@
 {
   "files": {
-    "packages/web/Dockerfile": {
-      "comments": 5,
-      "suppressions": 0
-    },
     "packages/web/src/lib/api.ts": {
       "comments": 26,
       "suppressions": 0
@@ -106,14 +102,6 @@
     },
     "packages/web/src/service-worker.ts": {
       "comments": 8,
-      "suppressions": 0
-    },
-    "packages/web/svelte.config.js": {
-      "comments": 1,
-      "suppressions": 0
-    },
-    "packages/web/vite.config.ts": {
-      "comments": 9,
       "suppressions": 0
     }
   }

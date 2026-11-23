@@ -24,9 +24,9 @@ Work from a fresh `origin/main`. Every item is checked or written down as a find
    symbol is still exported (`git grep -n "export .*<symbol>"`).
 4. **Architecture.** [architecture.md](architecture.md) matches the code: services in `docker-compose.yml`,
    packages and their imports, routes in `packages/api/src/routes/`, job states in `packages/shared/src/job.ts`.
-5. **Env and config.** Every `process.env.*` and `Bun.env.*` read in the code is documented, and every
-   documented variable is still read:
-   `git grep -ohE "(process|Bun)\.env\.[A-Z_]+" -- packages plugins | sort -u`.
+5. **Env and config.** Every environment variable the code reads is documented, and every documented
+   variable is still read. The grep catches `process.env.X`, `Bun.env.X`, an injected `env.X` and `env["X"]`:
+   `git grep -ohE '\benv(\.|\[")[A-Z_]+' -- packages plugins scripts tools | sort -u`.
 6. **Rules vs CI.** The check table in `AGENTS.md` matches the job names in `.github/workflows/ci.yml`, and
    each `[CI]` tag points at a check that really enforces it. A `[review]` rule that is now enforced becomes
    `[CI]`.

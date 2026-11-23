@@ -18,6 +18,16 @@ CONVEYOR_ENGINE_STUB=1 bun run dev:worker
 CONVEYOR_ENGINE_STUB=1 bun run dev:api
 ```
 
+The web dev server (`vite dev` in `packages/web`) proxies the API paths (`/jobs` with its WebSocket,
+`/generators`, `/uploads`, `/auth`, `/jobs-history` and `/catalog`) to the api, so the PWA only ever calls its
+own origin. A page route never shares a prefix with an API path: `/admin` and `/jobs` pages both 404ed on a
+direct load when they did. Two variables tune it:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `CONVEYOR_API_TARGET` | `http://127.0.0.1:3000` | where the proxy sends API requests, for an api on another port |
+| `CONVEYOR_DEV_ALLOWED_HOSTS` | empty | comma-separated extra `Host` names Vite accepts; a leading dot matches subdomains (`.example.dev`). Vite 5.4.12 and later refuse an unknown `Host` to block DNS rebinding, so set it when you reach the dev server through a tunnel or reverse proxy |
+
 ## Before you push
 
 Each command matches a required CI check of the same name.
@@ -87,6 +97,8 @@ change in their own PR and need a second, independent review; the list and the g
 ## Toolchain notes
 
 `mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 20 is pinned as a compatibility fallback for the API's Fastify and BullMQ. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
+
+The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` output with Node. Every Dockerfile copies the `package.json` of every workspace member before `bun install --frozen-lockfile`, even the members that image never imports (the web image copies the worker's and every plugin's). `--frozen-lockfile` checks the whole workspace graph against `bun.lock`, and a missing manifest makes bun report `lockfile had changes` and abort. A new workspace package needs a `COPY` line in all three Dockerfiles.
 
 ## Releases
 
