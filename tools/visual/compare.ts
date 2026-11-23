@@ -95,8 +95,8 @@ export function isSubtle(p: Pair): boolean {
     p.before &&
     p.after &&
     p.diff !== undefined &&
-    p.diff.changed <= CHANGED_THRESHOLD &&
-    p.diff.touched > TOUCHED_FLOOR
+    p.diff.touched > TOUCHED_FLOOR &&
+    p.diff.maxChannel <= CHANNEL_NOISE
   );
 }
 
@@ -191,7 +191,7 @@ export function buildMarkdown({
   else parts.push(table(changed, beforeUrl, afterUrl));
   if (subtle.length > 0) {
     parts.push(
-      `${subtle.length} of these changed faintly: under ${percent(CHANGED_THRESHOLD)} of pixels moved by more than ${CHANNEL_NOISE}/255, but more than ${percent(TOUCHED_FLOOR)} moved at all (shading, tone mapping, a theme colour). Compare them pixel by pixel; side by side they look the same.`,
+      `${subtle.length} of these changed faintly: no pixel moved by more than ${CHANNEL_NOISE}/255, but more than ${percent(TOUCHED_FLOOR)} moved at all (shading, tone mapping, a theme colour). Compare them pixel by pixel; side by side they look the same.`,
     );
   }
   if (same.length > 0) {

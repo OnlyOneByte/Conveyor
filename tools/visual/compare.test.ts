@@ -122,6 +122,21 @@ describe("a uniform shift below the noise threshold", () => {
     expect(md).toContain("1 of these changed faintly");
   });
 
+  test("a strong change on few pixels next to a faint one is listed but not called faint", () => {
+    const png = PNG.sync.read(BASE);
+    for (let n = 0; n < 140; n++) {
+      const by = n < 40 ? 128 : 9;
+      for (let c = 0; c < 3; c++) png.data[n * 4 + c] += by;
+    }
+    const mixed = pairOf(PNG.sync.write(png));
+    expect(mixed.diff).toEqual({ changed: 0.004, touched: 0.014, maxChannel: 128 });
+    expect(isChanged(mixed)).toBe(true);
+    expect(isSubtle(mixed)).toBe(false);
+    const md = buildMarkdown({ pairs: [mixed], beforeUrl: "b", afterUrl: "a" });
+    expect(md).toContain("| 0.40% | 1.4% | 128/255 |");
+    expect(md).not.toContain("changed faintly");
+  });
+
   test("a clearly visible change does not get the faint-change note", () => {
     const visible = pairOf(solid(100, 100, [255, 255, 255]));
     expect(isSubtle(visible)).toBe(false);
