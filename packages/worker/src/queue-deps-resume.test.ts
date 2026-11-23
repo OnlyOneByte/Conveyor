@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { dbGetJob } from "@conveyor/shared/db";
 import { RESUME_FAILED_REASON, requestCancel } from "@conveyor/shared/queue";
+import { waitForAbort } from "../test/helpers/pipeline-harness";
 import {
   bumpToken,
   cleanup,
@@ -10,7 +11,6 @@ import {
   queued,
   row,
 } from "../test/helpers/queue-deps-harness";
-import { waitForAbort } from "./pipeline-harness";
 import { RESUMED_MESSAGE } from "./print";
 import { LeaseLostError } from "./run";
 

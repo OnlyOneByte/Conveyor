@@ -65,6 +65,7 @@ export interface RatchetInput {
   committed: BaselineTexts;
   base: BaselineTexts;
   baseHasChecker: boolean;
+  reclassifiedFloors?: Percents;
 }
 
 export interface RatchetResult {
@@ -87,7 +88,8 @@ function load(input: RatchetInput): Loaded | string {
   }
   if (allowed === null) return { committed, allowed: committed, bootstrap: true };
   if (typeof allowed === "string") return `base ${allowed}`;
-  return { committed, allowed, bootstrap: false };
+  const lines = { ...allowed.lines, ...input.reclassifiedFloors };
+  return { committed, allowed: { lines }, bootstrap: false };
 }
 
 const fmt = (value: number) => `${round2(value).toFixed(2)}%`;

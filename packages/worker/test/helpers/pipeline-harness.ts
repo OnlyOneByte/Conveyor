@@ -14,7 +14,7 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { z } from "zod";
-import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "./pipeline";
+import { type PipelineDeps, resumeJob, runJob, type TerminalState } from "../../src/pipeline";
 
 export const req: JobRequest = { generator: { id: "gen" }, printerId: "p1", profileId: "prof" };
 
