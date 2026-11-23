@@ -23,7 +23,7 @@ flowchart LR
 | Service | Code | Role |
 |---|---|---|
 | `caddy` | `Caddyfile` | TLS (the PWA's service worker needs https) and path routing. API namespaces never share a prefix with a page route. |
-| `web` | `packages/web` | SvelteKit 2 + Svelte 4 PWA on `adapter-node`. Client-side procedural Three.js preview ([ADR 0002](adr/0002-dual-model-preview.md)). |
+| `web` | `packages/web` | SvelteKit 2 + Svelte 5 PWA on `adapter-node`, in Svelte 4 (non-runes) component syntax. Client-side procedural Three.js preview ([ADR 0002](adr/0002-dual-model-preview.md)). |
 | `api` | `packages/api` | Fastify REST + WebSocket. Validates requests with zod, checks compatibility, enqueues, relays status to `/jobs/:id/ws`. Session auth (`CONVEYOR_PASSWORD`, `CONVEYOR_AUTH_SECRET`). |
 | `worker` | `packages/worker` | BullMQ `Worker` (`WORKER_CONCURRENCY`, default 2). Runs the three stages through in-process plugin adapters ([ADR 0001](adr/0001-plugin-isolation.md)). |
 | `redis` | `docker-compose.yml` | Queue, live `job:<id>` snapshot, `job:<id>:status` channel. |
@@ -87,5 +87,5 @@ Schema and rationale: [DATA-MODEL.md](DATA-MODEL.md).
 ## Known gaps
 
 The audit issues on GitHub (label `audit`) track where today's code falls short of [AGENTS.md](../AGENTS.md):
-Svelte 4 instead of a decided UI stack, thrown errors instead of `Result`, comments still in the ratchet
+Svelte 4-style components instead of a decided UI stack, thrown errors instead of `Result`, comments still in the ratchet
 baseline, and low test coverage.
