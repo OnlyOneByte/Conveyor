@@ -32,6 +32,10 @@ mini-rail works unchanged as the 40 px collapsed belt and the mobile summary.
 All tokens are CSS custom properties on `:root`, switched by `data-theme="light|dark"` on `<html>`. No raw colours,
 sizes or durations appear outside the token file; the lint rule for this lands with the tokens PR.
 
+The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by
+`static/theme-init.js`, a few lines loaded synchronously in `app.html`'s `<head>`. Being an external same-origin
+file, it is allowed by the CSP's `default-src 'self'`; there is no inline script, so no nonce or hash is needed.
+
 ### Type
 
 | Token | Value | Use |
@@ -64,7 +68,8 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--muted` | `oklch(.45 .02 60)` | `oklch(.78 .015 80)` | Secondary text |
 | `--faint` | `oklch(.5 .02 65)` | `oklch(.7 .015 75)` | Labels |
 | `--line` / `--line-2` | ink at 13% / 24% | ink at 10% / 20% | Borders |
-| `--accent` | `oklch(.68 .19 45)` | `oklch(.74 .17 50)` | The one primary action, focus ring |
+| `--accent` | `oklch(.68 .19 45)` | `oklch(.74 .17 50)` | The one primary action |
+| `--focus` | `oklch(.52 .17 42)` | `oklch(.74 .17 50)` | Focus ring: at least 4.8:1 on `--bg`, `--paper` and `--sunk` in both themes (WCAG 1.4.11 needs 3:1) |
 | `--accent-ink` | `oklch(.2 .03 45)` | `oklch(.18 .02 50)` | Text on `--accent` |
 | `--live` | `oklch(.54 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
 | `--ok` | `oklch(.48 .13 150)` | `oklch(.78 .14 150)` | Printed |
@@ -115,19 +120,35 @@ Every route sets `<title>` to `<h1> · Conveyor` (#32). Under 760 px the nav is 
 items (#31).
 
 - **Make:** the model on the mat on the left, the form on the right as three questions (How big? What's inside?
-  Where should it print?), and a dark dock holding the summary and the one orange **Print** button. The dock is
+  Where should it print?), and an `--ink` dock holding the summary and the one orange **Print** button (dark in the
+  light theme, light in the dark theme). The dock is
   sticky and sits on a solid band of the page colour, so no content shows behind it. Upload STL is the second
   source tab, reachable by keyboard (#45, #34).
 - **Jobs:** one server-backed list. An **On the belt** group comes first (live, from `GET /jobs/active`), then day
-  groups from history. Each row is one link with state, name, printer, plain status and time. Filters are pills
-  (All, On the belt, Printed, Failed, Canceled), and `/` focuses the filter (#38).
+  groups from history. Each row is one link with state, name, printer, plain status and time; under 760 px the
+  status word stays, so state never rests on colour alone. Filters are pills (All, On the belt, Printed, Failed,
+  Canceled), and `/` focuses the filter (#38).
 - **Job detail:** one page for every state. A running job shows its chip, stage, progress and Cancel. A settled job
   shows the receipt: model preview, settings with the form's own labels and units, stage times, filament, files to
   download, and the job ID behind Copy. **Print again** is the primary action in the header. A failed job leads with
   the reason in plain words and Retry (#39, #37).
 - **Printers:** one card per printer with status (ready, busy with the current job and time left, offline since),
   its waiting count, and Edit. Add printer is a dialog. Reachability checks move here from Monitor (#46).
-- **Settings:** profiles (bundled ones read-only), sign-in, about. Real dialogs replace `confirm()` (#40, #41, #43).
+- **Settings:** profiles (bundled ones read-only), the switch for single-key shortcuts, and about. Sign-in is set by
+  `CONVEYOR_PASSWORD` in the environment, so it is not a setting. Real dialogs replace `confirm()` (#40, #41, #43).
+
+The mockup covers Make, Jobs, the Track rail in every state and the command menu. Job detail, Printers,
+Settings, sign-in and 404 are not mocked here: each is designed in its own issue (#331, #332, #333 and #325),
+which adds its mockup under `docs/design/` and captures it before writing code.
+
+### Words
+
+- Display names, never IDs: "Voron 2.4", not `voron-1`; "PLA · 0.20 mm", not `orca/klipper-pla-0.2`. IDs live
+  behind Copy (#37).
+- Say what happened and what to do next, in plain words: "Elegoo Centauri didn't answer within 10 seconds", then
+  Retry. No errno codes, stack traces or stage identifiers in the main text.
+- Short, sentence-case labels and questions; numbers with units ("126 mm", "41 min left").
+- An empty state never stands in for an error: "Can't reach Conveyor" is not "No jobs yet".
 
 ## The Track rail
 
@@ -150,25 +171,33 @@ never sits on a tick. The stage label that holds at least one chip is shown in `
 
 A 34 px pill: a 24 px progress ring, the job's short name, and a mono value at the right. Minimum width 156 px; the
 name shows up to 150 px and then ends in an ellipsis. The full name, printer and status are always in the chip's
-accessible name and in the focus card, so nothing is lost to truncation.
+accessible name (after its visible text, see [ARIA](#aria)) and in the focus card, so nothing is lost to truncation.
 
 Names are shortened for the rail only: "Gridfinity bin 2×3 · 6u" becomes "Bin 2×3 · 6u", and an upload keeps its file
 name.
 
+Sources, as in [Data](#data): **now** is in today's API, **browser** is derived on the page, and an issue number
+needs that backend change and is hidden until it lands.
+
 | State | Where | Ring | Value | Focus card adds |
 |---|---|---|---|---|
-| Queued | Queue box list | dashed, empty | `next` | Place in line, printer, rough start |
-| Modelling | Rail, Model | indeterminate quarter | `…` | Typical duration |
-| Slicing | Rail, Slice | fills with % | `35%` | Time left |
-| Sending | Rail, Send | fills with % | `72%` | Bytes sent of total |
-| Printing | Rail, Print | fills with % | `64%` | Layer, minutes left, finish time |
-| Done | Finished bin | full, `--ok` | `✓` | Took, filament |
-| Failed | Needs-you tray | full, `--err` | `!` | Stage and reason in plain words, Retry, Pick printer |
+| Queued | Queue box list | dashed, empty | `next` | Printer (now), place in line (browser), rough start (#337) |
+| Modelling | Rail, Model | indeterminate quarter | `…` | Typical duration (#337) |
+| Slicing | Rail, Slice | fills with % | `35%` (now) | Time left (browser, from the progress rate) |
+| Sending | Rail, Send | fills with % | `72%` (now) | Bytes sent of total (#336) |
+| Printing | Rail, Print | fills with % | `64%` (now) | Layer, minutes left, finish time (#335) |
+| Done | Finished bin | full, `--ok` | `✓` | Took (now, from `timings`), filament (#338) |
+| Failed | Needs-you tray | full, `--err` | `!` | Stage (now), reason in plain words (browser, from `error.reason`), Retry, Pick printer |
 | Canceled | Toast only | full, `--off`, name struck through | `×` | Print again |
 
 Hover (after 300 ms) or focus (at once) lifts the chip and opens its **focus card** under it: the full name, what is
 happening, the numbers, and **Open job** plus the state's one action (Cancel, Retry). Clicking the chip itself opens
 Job detail.
+
+The card follows WCAG 1.4.13. It stays open while the pointer is over the chip or the card, closes with Esc without
+moving focus, and never covers the chip. From the keyboard, `↓` on a focused chip moves focus into the card's first
+action, Tab and Shift+Tab move between its actions, and Esc or `↑` returns focus to the chip. The card is a
+non-modal popover placed right after its chip in the DOM, and the chip points at it with `aria-describedby`.
 
 ### Collision and merge
 
@@ -182,8 +211,8 @@ Recomputed on every update and on resize:
 4. Clamp every chip to the rail's ends.
 5. Hysteresis: a group only splits again when the gap would exceed 16 px, so chips don't flicker at the boundary.
 
-The group chip's accessible name lists every member and its status. Focus opens a member list in the card;
-←/→ walk the members and Enter opens one.
+The group chip's accessible name starts with its visible text and then lists every member and its status. Focus
+opens a member list in the card; ←/→ walk the members and Enter opens one.
 
 ### Job counts
 
@@ -209,21 +238,24 @@ The group chip's accessible name lists every member and its status. Focus opens 
 ### The collapsed rail (40 px)
 
 Shown after 80 px of scroll on Make, and always on every other page. One dark bar holds "Belt", the waiting count, a
-mini-rail with a dot per moving job and the stage ticks, "next done in 41 min", the Finished and Needs-you counts, and
+mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (#335; hidden until then), the Finished and Needs-you counts, and
 an expand button (`aria-expanded`) that opens the full Track in place.
 
 ### Mobile (under 760 px)
 
 The full Track does not fit, so the belt becomes a **summary chip**: "6 on the belt · Ender 64%, 41 min", the waiting
 and Needs-you counts, and the mini-rail. Its expand button opens a sheet of full-width chips that show their status
-in words ("printing · 41 min left"), plus the two bins. On Make the summary scrolls with the page; once scrolled, a
+in words ("printing", plus "· 41 min left" once #335 lands), plus the two bins. On Make the summary scrolls with the page; once scrolled, a
 sticky copy takes its place. On every other page it is sticky from the start.
 
 ## Keyboard, ARIA and screen readers
 
 ### Keyboard
 
-Shortcuts never fire while focus is in a text field, and `?` lists them all.
+Shortcuts never fire while focus is in a text field, and `?` lists them all. Single-key shortcuts (every row below
+without `⌘`, `Ctrl` or an arrow) can be turned off, as WCAG 2.1.4 requires: the shortcut sheet and Settings both
+have the switch, saved per browser. `⌘K`, `⌘↵` and the rail's arrow keys stay on, because they need a modifier or
+a focused component.
 
 | Keys | Where | Does |
 |---|---|---|
@@ -236,7 +268,8 @@ Shortcuts never fire while focus is in a text field, and `?` lists them all.
 | `←` `→` | Rail | Previous or next chip, then group members |
 | `Enter` | Chip | Opens Job detail |
 | `Esc` | Card, sheet, menu | Closes it and returns focus |
-| `J` `K` | Jobs | Next or previous row |
+| `↓` / `↑` | Chip | Into its focus card's actions / back to the chip |
+| `J` `K` | Jobs | Next or previous row (moves real focus) |
 | `Enter` | Jobs | Opens the row |
 | `C` / `R` | Jobs, selected row | Cancel (asks first) / Retry |
 | `/` | Jobs | Focuses the filter |
@@ -247,13 +280,22 @@ jobs (with their state), actions (with their shortcut) and printers. ↑/↓ mov
 
 ### ARIA
 
-- The belt is a `region` named "On the belt". The rail is a `group` named "Rail, N moving"; the Queue box and bins
-  are links with their counts in their names.
-- A chip is a link. Its accessible name is "`<full name>` on `<printer>`, `<status>`", for example "Gridfinity bin 2×3
-  · 6u on Ender 3 V3, printing, 64%, 41 min left".
-- A group chip is a button with `aria-expanded` that controls its member list.
-- Jobs is a `listbox` with `aria-activedescendant` for J/K; each row is an `option`.
-- Every page has one `h1`, a `<title>`, visible focus (3 px `--accent` outline, 2 px offset) and no positive
+Every accessible name starts with the control's visible text (WCAG 2.5.3, Label in Name), and details follow in
+visually hidden text after it. No `aria-label` replaces visible words.
+
+| Element | Visible text | Accessible name |
+|---|---|---|
+| Chip | `Bin 2×3 · 6u 64%` | "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing" (plus ", 41 min left" once #335 lands) |
+| Group chip | `3 jobs 35% · … · 12%` | "3 jobs 35% · … · 12%: Bin 1×1 · 3u, slicing; …" |
+| Queue box | `Waiting 3` | "Waiting 3" |
+| Bins | `Finished 1 today`, `Needs you 1` | the same |
+| Command button | `Search` and `⌘K` | "Search jobs, printers and actions ⌘K"; on mobile the word is visually hidden, not removed |
+
+- The belt is a `region` named "On the belt". The rail is a `group` named "Rail, N moving".
+- A chip is a link; a group chip is a button with `aria-expanded` that controls its member list.
+- Jobs is a plain list of links with a roving `tabindex`: one Tab stop, and `J`/`K` move real focus. There is no
+  `listbox` role and no `aria-activedescendant`.
+- Every page has one `h1`, a `<title>`, a visible focus ring (3 px `--focus` outline, 2 px offset) and no positive
   `tabindex`.
 
 ### aria-live
@@ -273,23 +315,44 @@ nothing lifts on hover, and leaving the rail is an instant swap into the bin. Th
 
 ## Data
 
-| Need | Source today |
-|---|---|
-| Live jobs on the rail | `GET /jobs/active`, polled every 2 s while the tab is visible |
-| One job's progress | `WS /jobs/:id/ws`, opened for each chip on the rail (at most 10; the rest poll) |
-| Cancel | `POST /jobs/:id/cancel` |
-| Retry, Print again | `POST /jobs` with the original request (`lib/rerun.ts`) |
-| History, Finished count | `GET /jobs-history`, `GET /jobs-history/:id` |
+Today a job's events (`JobStatusEvent` in `packages/shared/src/events.ts`) carry `state`, `stage`, `progress`,
+`message`, `error` and `timings`; `GET /jobs-history` takes only `limit` (at most 200). Every field the design shows
+is one of three kinds:
 
-A single server-sent stream of all job events would replace the polling and the per-chip sockets. That is a
-backend change, outside this plan. The rail takes its jobs as props, so the same component renders stub data in the
-visual-capture scenes.
+- **Now:** in today's API.
+- **Browser:** derived on the page from data that exists now.
+- **Backend:** needs an `area/backend` issue. Until it lands, the UI issue that shows the field builds the fallback,
+  and the field appears when the backend ships.
+
+| Field | Shown in | Source | Until then |
+|---|---|---|---|
+| Live jobs, their stage and percent | rail, Jobs, Job detail | now: `GET /jobs/active` every 2 s while visible; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
+| Cancel; Retry and Print again | focus card, Jobs, Job detail | now: `POST /jobs/:id/cancel`; `POST /jobs` with the original request (`lib/rerun.ts`) | |
+| Stage times, took | Done card, receipt | now: `timings` | |
+| Failure stage and reason | Needs you, Job detail | now: `error`; the plain-language wording is mapped in the browser | |
+| Place in line | Queued card | browser: `GET /jobs/active` ordered by `createdAt` per printer | |
+| Slicing time left | Slicing card | browser: from the rate of `progress` over the last updates; shown after two updates | |
+| Finished today | Finished bin | browser: settled jobs from `GET /jobs-history` with today's `updatedAt` | |
+| Printer ready, busy or not reachable | Make picker, Printers | now: `/jobs/active` and `GET /catalog/printers/:id/reachable` | |
+| Layer, time left, finish time, "next done in" | Printing card, collapsed rail, mobile sheet, Job detail | backend: [#335](https://github.com/OnlyOneByte/Conveyor/issues/335) | percentage only; those rows hidden |
+| Bytes sent of total | Sending card | backend: [#336](https://github.com/OnlyOneByte/Conveyor/issues/336) | percentage only |
+| Typical duration, rough start | Modelling and Queued cards | backend: [#337](https://github.com/OnlyOneByte/Conveyor/issues/337) | hidden; place in line still shows |
+| Filament | Done card, receipt | backend: [#338](https://github.com/OnlyOneByte/Conveyor/issues/338) | hidden |
+| Busy time left, offline since | Make picker, Printers | backend: [#339](https://github.com/OnlyOneByte/Conveyor/issues/339) | Ready, Busy or Not reachable, no times |
+| History paging, filters, counts | Jobs | backend: [#340](https://github.com/OnlyOneByte/Conveyor/issues/340) | newest 200, filtered in the browser, counts "in the last 200" |
+| Dismissed failures | Needs you | backend: [#341](https://github.com/OnlyOneByte/Conveyor/issues/341) | failures from the last 24 h, no Dismiss |
+
+Dismiss is stored on the server rather than in the browser, because a browser-only store would bring back the
+per-browser job state the audit removes (#46). A single server-sent stream of all job events would replace the
+polling and the per-chip sockets; it is a later backend change, not needed for this plan. The rail takes its jobs as
+props, so the same component renders stub data in the visual-capture scenes.
 
 ## Implementation plan
 
-Twelve PRs of at most 400 changed lines each, in dependency order, tracked in
-[#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334). Each issue carries its acceptance
-criteria, the audit issues it closes and the visuals it must attach.
+Twelve UI PRs of at most 400 changed lines each, in dependency order, tracked in
+[#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334), plus the seven backend issues in
+[Data](#data) (#335 to #341). Each UI issue carries its acceptance criteria, the audit issues it closes, the
+visuals it must attach, and the backend issues it waits on with their fallbacks.
 
 ## Not decided
 
