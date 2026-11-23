@@ -104,7 +104,10 @@ folder, is mapped by bun and counts; `bunfig.toml` sets `coverageSkipTestFiles =
 helper folders and
 `scripts/checks/coverage/sweep.ts` (the sweep runner itself) so it can. The sweep
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
-`CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that.
+`CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that. The sweep runs as a child `bun test` without
+`GITHUB_ACTIONS`, so the coverage checker's own tests, which make it fail on purpose (a hanging import, a
+timeout of `soon`), don't post CI error annotations. Their output still shows in the log; the run's real
+failures are the annotations and the final pass/fail count.
 
 Lines that hold only types leave the denominator, so writing a type inline or as a named `interface` measures
 the same. The checker parses each file with TypeScript and drops a line only when every token on it sits inside

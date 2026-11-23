@@ -59,8 +59,13 @@ function readFailures(text: string | null): string[] | null {
   }
 }
 
+const withoutCiAnnotations = (env: Record<string, string | undefined>) => {
+  const { GITHUB_ACTIONS: _annotations, ...rest } = env;
+  return rest;
+};
+
 const sweepEnv = (dir: string, files: string[]) => ({
-  ...process.env,
+  ...withoutCiAnnotations(process.env),
   CONVEYOR_AUTH: "disabled",
   DB_PATH: join(dir, "sweep.db"),
   DATA_DIR: join(dir, "data"),
