@@ -23,7 +23,7 @@ packages/api/           Fastify REST + WebSocket front door, enqueues jobs
 packages/worker/        job worker (BullMQ, or SQLite via CONVEYOR_QUEUE + CONVEYOR_QUEUE_UNSTABLE), drives generate → slice → transport
 packages/web/           SvelteKit PWA (rewrite pending, see Stack (TBD))
 plugins/<kind>/<name>/  generators | slicers | transports
-scripts/checks/         house-rule checkers (no-comments and coverage ratchets)
+scripts/checks/         house-rule checkers (no-comments, coverage and file-size ratchets)
 tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
@@ -76,11 +76,13 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 
 | Limit | Max | Tag |
 |---|---|---|
-| Lines per file | 250 | [review], S1 |
-| Lines per UI component | 150 | [review], S1 |
+| Lines per file | 250 | [CI: `file-size`]; also [review], S1, in `packages/web`, which Biome doesn't format |
+| Lines per UI component (`.svelte`) | 150 | [CI: `file-size`]; also [review], S1 |
 | Cognitive complexity per function | 12 | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Positional parameters | 3 (then pass one object) | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Changed lines per PR (lockfiles, snapshots, migrations, `docs/design/**`, pure deletions excluded) | 400 | [review]: 401–800 is S2 with a request to split; over 800 is S1 unless the owner applied `large-ok` |
+
+The `file-size` check counts lines in code, style and component files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.svelte`, `.css`). A file listed in `scripts/checks/lines/baseline.json` may stay as long as its entry there; every other file must keep to the limit. The baseline only shrinks: an entry above the base branch's, or a new entry, fails, and so does a baseline that no longer matches the files over the limit.
 
 ## 5. Types
 
@@ -158,8 +160,9 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
 | `test` | `bun run test:coverage && bun run check:coverage`; after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
+| `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline. Not yet in the ruleset |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
-| `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v`. Not yet in the ruleset |
+| `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
 
 Review may start before CI is green. Merge needs both: every required check and the review status green on
