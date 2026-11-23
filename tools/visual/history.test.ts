@@ -39,10 +39,11 @@ describe("pinHistory", () => {
 });
 
 describe("the /jobs-history route", () => {
-  test("matches the list with or without a query, and not a single job's detail", () => {
+  test("matches the list with or without a query, and not a single job's detail or another path", () => {
     expect(isHistoryList(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
     expect(isHistoryList(new URL("http://127.0.0.1/jobs-history?limit=200"))).toBe(true);
     expect(isHistoryList(new URL("http://127.0.0.1/jobs-history/4a136f3c"))).toBe(false);
+    expect(isHistoryList(new URL("http://127.0.0.1/jobs/active"))).toBe(false);
   });
 
   const fakeRoute = (ok: boolean, body: unknown) => {
