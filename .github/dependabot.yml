@@ -8,6 +8,9 @@ updates:
     commit-message:
       prefix: fix(deps)
       prefix-development: chore(deps)
+    ignore:
+      - dependency-name: "@types/bun"
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       minor:
         update-types: [minor, patch]
