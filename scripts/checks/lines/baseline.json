@@ -1,8 +1,5 @@
 {
   "files": {
-    "packages/api/src/routes/catalog.ts": 258,
-    "packages/shared/src/db/migrate.test.ts": 252,
-    "packages/shared/src/queue/status.test.ts": 290,
     "packages/web/src/lib/api.ts": 296,
     "packages/web/src/lib/components/SchemaGroup.svelte": 177,
     "packages/web/src/lib/previews/gridfinity.ts": 452,
@@ -10,9 +7,6 @@
     "packages/web/src/routes/history/[jobId]/+page.svelte": 190,
     "packages/web/src/routes/history/+page.svelte": 195,
     "packages/web/src/routes/monitor/+page.svelte": 280,
-    "packages/web/src/routes/settings/+page.svelte": 751,
-    "packages/worker/src/loop.test.ts": 323,
-    "packages/worker/src/queue-deps.test.ts": 469,
-    "tools/visual/compare.test.ts": 252
+    "packages/web/src/routes/settings/+page.svelte": 751
   }
 }
