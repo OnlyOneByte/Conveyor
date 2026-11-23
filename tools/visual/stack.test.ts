@@ -5,6 +5,7 @@ import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } 
 import { EXIT_TRIGGERS } from "./teardown.ts";
 
 const opts = {
+  root: "/repo",
   redisUrl: "redis://127.0.0.1:6379",
   dataDir: "/tmp/conveyor-visual-x",
   apiPort: 4321,
@@ -32,6 +33,11 @@ describe("stackEnv", () => {
   test("pins the engines to stub mode", () => {
     const env = stackEnv({ CONVEYOR_ENGINE_STUB: "0" }, opts);
     expect(env.CONVEYOR_ENGINE_STUB).toBe("1");
+  });
+
+  test("points the worker at the checkout's bundled profiles, not the runner's", () => {
+    const env = stackEnv({ CONVEYOR_PROFILES_ROOT: "/profiles" }, opts);
+    expect(env.CONVEYOR_PROFILES_ROOT).toBe("/repo/profiles");
   });
 });
 
@@ -63,6 +69,7 @@ interface FakeStack {
   children: { name: string; signals: string[] }[];
   dockerCalls: string[][];
   dataDirs: string[];
+  seeded: { root: string; dbPath: string; spawnedBefore: number }[];
   listenersAtSpawn: number[][];
   emitter: EventEmitter;
   sleeps: number[];
@@ -85,6 +92,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
     children: [],
     dockerCalls: [],
     dataDirs: [],
+    seeded: [],
     listenersAtSpawn: [],
     emitter,
     sleeps: [],
@@ -96,6 +104,9 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
       },
       exit: (code) => {
         fake.exits.push(code);
+      },
+      seed: async (root, env) => {
+        fake.seeded.push({ root, dbPath: env.DB_PATH ?? "", spawnedBefore: fake.children.length });
       },
       sleep: (ms) => {
         fake.sleeps.push(ms);
@@ -154,6 +165,9 @@ describe("bootStack teardown wiring", () => {
     expect(fake.children.map((c) => c.name)).toEqual(["api", "worker", "build", "web"]);
     expect(fake.listenersAtSpawn[0]).toEqual([1, 1, 1, 1]);
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(true);
+    expect(fake.seeded).toEqual([
+      { root: "/repo", dbPath: `${fake.dataDirs[0]}/conveyor.db`, spawnedBefore: 0 },
+    ]);
     await stack.stop();
     expect(fake.children.map((c) => c.signals)).toEqual([
       ["SIGTERM"],

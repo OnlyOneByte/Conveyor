@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "bun";
 import { messageOf } from "./errors.ts";
+import { seedHistory } from "./seed.ts";
 import {
   type ChildHandle,
   createTeardown,
@@ -37,6 +38,7 @@ export interface StackDeps {
   events: ExitEvents;
   exit: (code: number) => void;
   sleep: (ms: number) => Promise<void>;
+  seed: (root: string, env: Record<string, string | undefined>) => Promise<void>;
 }
 
 const KILL_AFTER_MS = 5000;
@@ -47,6 +49,7 @@ const defaultDeps: StackDeps = {
   events: process,
   exit: (code) => process.exit(code),
   sleep: (ms) => Bun.sleep(ms),
+  seed: seedHistory,
 };
 
 async function freePort(): Promise<number> {
@@ -130,7 +133,7 @@ async function pipeLines(
 
 export function stackEnv(
   base: Record<string, string | undefined>,
-  opts: { redisUrl: string; dataDir: string; apiPort: number },
+  opts: { root: string; redisUrl: string; dataDir: string; apiPort: number },
 ): Record<string, string | undefined> {
   return {
     ...base,
@@ -140,6 +143,7 @@ export function stackEnv(
     REDIS_URL: opts.redisUrl,
     DATA_DIR: opts.dataDir,
     DB_PATH: join(opts.dataDir, "conveyor.db"),
+    CONVEYOR_PROFILES_ROOT: join(opts.root, "profiles"),
     PORT: String(opts.apiPort),
     CONVEYOR_API_TARGET: `http://127.0.0.1:${opts.apiPort}`,
   };
@@ -178,7 +182,8 @@ export async function bootStack(
     const redisUrl = await startRedis(deps, handles, leftovers);
     const apiPort = await freePort();
     const webPort = await freePort();
-    const env = stackEnv(process.env, { redisUrl, dataDir, apiPort });
+    const env = stackEnv(process.env, { root, redisUrl, dataDir, apiPort });
+    await deps.seed(root, env);
     const launch = (name: string, cmd: string[], cwd: string) => {
       const proc = deps.spawn({ cmd, cwd, env });
       handles.children.push(proc);

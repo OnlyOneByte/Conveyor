@@ -23,6 +23,10 @@ setTimeout(() => process.exit(0), ${ORPHANED_API_EXIT_MS});
 await Bun.write(\`\${process.env.VISUAL_TEST_MARKERS}/api.pid\`, String(process.pid));
 `;
 
+const NO_OP_DB = `export const openDb = () => ({ close() {} });
+export const dbRecordJob = () => {};
+`;
+
 const scratch: string[] = [];
 
 afterEach(async () => {
@@ -43,6 +47,8 @@ async function fixture() {
   await chmod(join(dirs.bin, "docker"), 0o755);
   await mkdir(join(dirs.root, "packages/api/src"), { recursive: true });
   await writeFile(join(dirs.root, "packages/api/src/index.ts"), HANGING_API);
+  await mkdir(join(dirs.root, "packages/shared/src/db"), { recursive: true });
+  await writeFile(join(dirs.root, "packages/shared/src/db/index.ts"), NO_OP_DB);
   return { base, ...dirs };
 }
 
