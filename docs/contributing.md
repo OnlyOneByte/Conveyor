@@ -39,6 +39,7 @@ bun run typecheck
 (cd packages/web && bunx svelte-kit sync && bunx svelte-check)
 bun run test:coverage && bun run check:coverage
 bun run check:comments
+bun run check:lines
 ```
 
 The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when `REDIS_URL` is set, and CI
@@ -72,6 +73,14 @@ the same. The checker parses each file with TypeScript and drops a line only whe
 a type (a type annotation, a type literal, an `interface` or a `type` alias), apart from bare `,` and `;`. A line
 with any other token stays counted, and so do `extends`/`implements` clauses and `enum`s.
 
+The file-size baseline, `scripts/checks/lines/baseline.json`, lists each file over its limit
+([AGENTS.md §4](../AGENTS.md#4-size-limits)) with its line count. `check:lines` compares every file with the base
+commit's baseline. In CI that is the commit the PR's merge commit was built on (`HEAD^1`), the merge base with
+`main` for a manual run on another branch, and the previous commit on `main` for a push; `scripts/checks/base.ts`
+picks it, as it does for `audit`. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
+`.svelte` component. When you shrink a listed file, the check says the baseline is stale: run
+`bun run check:lines:update` and commit it. A file that drops to its limit leaves the baseline.
+
 ## The PR flow
 
 1. **Issue.** Find or open the issue the change answers.
@@ -81,7 +90,7 @@ with any other token stays counted, and so do `extends`/`implements` clauses and
    names the issue (`Closes #N` or `Part of #N`). Agent PRs carry the `agent` label and one `area/*` label.
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
-6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, the three Docker builds and `compose`, which
+6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, `file-size`, the three Docker builds and `compose`, which
    brings the whole stack up and checks it through Caddy.
 7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`, following
    [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
