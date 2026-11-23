@@ -176,11 +176,31 @@ it goes to review:
 2. Rewrite the body to the PR template, ending with that builder's `Author-Session:` line.
 3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
    and commit for each bumped action.
-4. For a Redis major, check the upgrade on an existing data volume before merging: start the old image and let
-   it write the `redis_data` volume, then start the new image on that volume and confirm the queue still reads.
-   The CI `compose` job pre-seeds only the Caddy volumes and starts Redis on a fresh one, so it can't catch
-   this, and once the new Redis has rewritten the volume, going back to the old image may not work. Bump the
-   `redis` service image of the `test` job in `ci.yml` in the same PR, since Dependabot doesn't update it.
+4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
+   in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`) and `tools/visual/stack.test.ts`.
+   Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
+   Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
+   the new Redis has rewritten the volume, going back to the old image may not work.
+
+   Run it through `docker compose`, not a bare `docker run`. Compose starts Redis as uid `999:1000` with a
+   read-only root filesystem and only `/data` writable, as in production. A bare run as root would hide a new
+   image that can't write the volume the old one left behind.
+
+   1. On `main` (the old tag), start the stack, then stop the worker so a job stays queued:
+      `docker compose up -d` and `docker compose stop worker`.
+   2. Seed a probe key and a queued job. Run `docker compose exec redis redis-cli SET conveyor:upgrade-probe 1`,
+      log in, submit a job with `POST /jobs`, and note its `jobId`.
+   3. Flush and record: `docker compose exec redis redis-cli SAVE`, then
+      `docker compose exec redis redis-cli DBSIZE`. Note the count.
+   4. `docker compose stop redis`, check out the PR branch (the new tag), then `docker compose up -d redis api`
+      on the same `redis_data` volume.
+   5. It passes only when all four hold:
+      - `docker compose ps redis` shows `healthy`.
+      - `redis-cli GET conveyor:upgrade-probe` returns `1`.
+      - `redis-cli DBSIZE` matches the count from step 3.
+      - `GET /jobs/active` still lists the job from step 2.
+
+   Put the four results in the PR's How verified section.
 
 Once anyone but Dependabot pushes to its branch, Dependabot stops rebasing that PR. From then on the builder
 keeps it current with `main` by merging `main` in. Commenting `@dependabot recreate` throws the pushed commits
