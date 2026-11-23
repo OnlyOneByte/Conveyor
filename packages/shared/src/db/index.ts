@@ -16,6 +16,7 @@ export * from "./printers.js";
 export * from "./profiles.js";
 export { DEFAULT_PROFILES } from "./seed.js";
 export * from "./sessions.js";
+export * from "./typical.js";
 
 let singleton: Database | null = null;
 let singletonPath: string | null = null;

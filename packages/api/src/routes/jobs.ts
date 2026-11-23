@@ -6,13 +6,15 @@ import {
   type JobStatusEvent,
   jobCancelKey,
   jobControlChannel,
+  jobRequestSchema,
   jobSnapshotKey,
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbRecordJob, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
+import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
@@ -23,6 +25,17 @@ const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-chi
 
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
+
+async function activeJob(event: JobStatusEvent): Promise<ActiveJob> {
+  const job = await jobQueue.getJob(event.jobId);
+  const request = jobRequestSchema.safeParse(job?.data);
+  return {
+    event,
+    printerId: request.success ? request.data.printerId : "",
+    generatorId: request.success ? request.data.generator.id : "",
+    createdAt: job?.timestamp ?? event.at,
+  };
+}
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   const statusHub = createStatusHub(
@@ -50,7 +63,14 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
       else active.push(evt);
     }
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
-    return active.sort((a, b) => b.at - a.at);
+    active.sort((a, b) => b.at - a.at);
+    try {
+      const jobs = await Promise.all(active.map(activeJob));
+      return withEstimates(jobs, (job) => dbTypicalStageMs(openDb(), job), Date.now());
+    } catch (err) {
+      app.log.warn({ err }, "job estimates left out of /jobs/active");
+      return active;
+    }
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {

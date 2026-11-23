@@ -4,7 +4,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@conveyor/shared/db";
-import { claimJob, enqueueJob, type Lease, writeStatus } from "@conveyor/shared/queue";
+import {
+  claimJob,
+  enqueueJob,
+  type Lease,
+  markSubmitted,
+  takePrinterSlot,
+  writeStatus,
+} from "@conveyor/shared/queue";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerCatalogRoutes } from "./catalog.js";
@@ -100,6 +107,48 @@ describe("job routes on the sqlite queue", () => {
     expect(history.map((j) => j.id)).toContain(finished);
     expect(history.map((j) => j.id)).not.toContain(live);
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
+  });
+
+  test("GET /jobs/active adds typical durations and a rough start from history and the print's time left", async () => {
+    db.query("DELETE FROM jobs").run();
+    for (let i = 0; i < 3; i++) {
+      const done = queued();
+      db.query("UPDATE jobs SET state = 'done', timings_json = ? WHERE id = ?").run(
+        JSON.stringify([
+          { stage: "generator", enteredAt: 0, durationMs: 1_000 },
+          { stage: "slicer", enteredAt: 1, durationMs: 2_000 },
+          { stage: "transport", enteredAt: 2, durationMs: 60_000 },
+        ]),
+        done,
+      );
+    }
+    const lease = claimed();
+    db.query("UPDATE printers SET hold_job_id = NULL, hold_reason = NULL").run();
+    writeStatus(db, lease, { state: "slicing", stage: "slicer" });
+    expect(takePrinterSlot(db, lease)).toBe("taken");
+    markSubmitted(db, lease, {
+      transportId: "moonraker",
+      printerId: "klipper-garage",
+      ref: "m.gcode",
+    });
+    expect(
+      writeStatus(db, lease, {
+        state: "printing",
+        stage: "transport",
+        print: { secondsLeft: 120 },
+      }),
+    ).toBe(true);
+    const waiting = queued();
+    const active = (await inject("GET", "/jobs/active")).json<
+      { jobId: string; estimate?: { typicalMs?: unknown; startsAt?: number } }[]
+    >();
+    const typicalMs = { generator: 1_000, slicer: 2_000, transport: 60_000 };
+    const running = active.find((j) => j.jobId === lease.jobId);
+    const next = active.find((j) => j.jobId === waiting);
+    expect(running?.estimate).toEqual({ typicalMs });
+    expect(next?.estimate?.typicalMs).toEqual(typicalMs);
+    expect(next?.estimate?.startsAt).toBeGreaterThan(Date.now() + 100_000);
+    expect(next?.estimate?.startsAt).toBeLessThanOrEqual(Date.now() + 120_000);
   });
 
   test("POST /jobs/:id/cancel answers 200, 202 or 404 by the job's state", async () => {

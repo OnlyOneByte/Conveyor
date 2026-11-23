@@ -1,13 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ACTIVE_JOBS_KEY,
   type JobStatusEvent,
   jobSnapshotKey,
   publishStatus,
 } from "@conveyor/shared";
+import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
+import { z } from "zod";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -61,5 +66,45 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     expect(
       await Promise.all(Object.values(ids).map((id) => redis.sismember(ACTIVE_JOBS_KEY, id))),
     ).toEqual([1, 1, 0, 0]);
+  });
+
+  test("adds typical durations from history to a live job, using its queued request", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "conveyor-redis-estimates-"));
+    const previous = process.env.DB_PATH;
+    process.env.DB_PATH = join(dir, "conveyor.db");
+    const jobId = randomUUID();
+    mine.add(jobId);
+    try {
+      for (let i = 0; i < 3; i++)
+        dbRecordJob(openDb(), {
+          id: `${jobId}-history-${i}`,
+          generatorId: "gridfinity",
+          printerId: "estimate-printer",
+          profileId: "prof",
+          state: "done",
+          timings: [{ stage: "slicer", enteredAt: 0, durationMs: 4_000 }],
+        });
+      const { jobQueue } = await import("../queue.js");
+      const request = {
+        generator: { id: "gridfinity", params: {} },
+        printerId: "estimate-printer",
+        profileId: "prof",
+      };
+      await jobQueue.add("job", request, { jobId });
+      await publishStatus(redis, { jobId, state: "queued", at: 40 });
+      const listed = z
+        .array(z.object({ jobId: z.string(), estimate: z.unknown().optional() }))
+        .parse(await (await fetch(`${base}/jobs/active`)).json());
+      expect(listed.find((evt) => evt.jobId === jobId)?.estimate).toEqual({
+        typicalMs: { slicer: 4_000 },
+        startsAt: expect.any(Number),
+      });
+      await (await jobQueue.getJob(jobId))?.remove();
+    } finally {
+      openDb().close();
+      if (previous === undefined) delete process.env.DB_PATH;
+      else process.env.DB_PATH = previous;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
