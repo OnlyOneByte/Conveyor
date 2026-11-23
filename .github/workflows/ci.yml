@@ -139,7 +139,8 @@ jobs:
         working-directory: packages/web
         run: bunx svelte-check --tsconfig ./tsconfig.json
       - name: Typecheck the service worker
-        run: bunx tsc -p packages/web/src/service-worker/tsconfig.json --noEmit
+        working-directory: packages/web
+        run: bunx tsc -p src/service-worker/tsconfig.json --noEmit
 
   test:
     name: test
