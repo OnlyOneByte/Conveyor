@@ -68,18 +68,26 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - name: No high or critical advisory outside the baseline
         env:
-          BASE_REF: >-
-            ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref)
-            || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') && 'origin/main'
-            || '' }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
+          object_file() {
+            [ -s "$1" ] || { echo "::error::$2 is empty"; exit 1; }
+            jq -e 'type == "object"' "$1" > /dev/null || { echo "::error::$2 is not a JSON object"; exit 1; }
+          }
           baseline=.github/audit-baseline.json
-          jq -e 'type == "object"' "$baseline" > /dev/null
-          if [ -n "$BASE_REF" ]; then
-            git show "$BASE_REF:$baseline" > "$RUNNER_TEMP/base-baseline.json"
-            jq -e 'type == "object"' "$RUNNER_TEMP/base-baseline.json" > /dev/null
+          object_file "$baseline" "$baseline"
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            base=$(git rev-parse HEAD^1)
+          elif [ "$EVENT" = workflow_dispatch ] && [ "$REF" != refs/heads/main ]; then
+            base=$(git merge-base origin/main HEAD)
+          fi
+          if [ -n "$base" ]; then
+            git show "$base:$baseline" > "$RUNNER_TEMP/base-baseline.json"
+            object_file "$RUNNER_TEMP/base-baseline.json" "the base's $baseline"
             bun audit --json > "$RUNNER_TEMP/audit.json" || true
-            jq -e 'type == "object"' "$RUNNER_TEMP/audit.json" > /dev/null
+            object_file "$RUNNER_TEMP/audit.json" "bun audit --json output"
             unknown=$(jq -r --slurpfile base "$RUNNER_TEMP/base-baseline.json" --slurpfile audit "$RUNNER_TEMP/audit.json" \
               '[$audit[0][][].id | tostring] as $live | keys[] | select(in($base[0]) | not) | select(. as $id | $live | index($id) | not)' \
               "$baseline")
@@ -87,7 +95,7 @@ jobs:
               echo "::error::baseline adds ids bun audit does not report on this tree: ${unknown//$'\n'/ }"
               exit 1
             fi
-            changed=$(git diff --no-renames --name-only "$BASE_REF...HEAD")
+            changed=$(git diff --no-renames --name-only "$base" HEAD)
             if [ "$changed" != "$baseline" ]; then
               jq --slurpfile head "$baseline" 'with_entries(select(.key | in($head[0])))' \
                 "$RUNNER_TEMP/base-baseline.json" > "$RUNNER_TEMP/effective-baseline.json"

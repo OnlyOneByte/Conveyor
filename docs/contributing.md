@@ -101,15 +101,17 @@ advisory. The job skips only the advisories listed in `.github/audit-baseline.js
 advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
 was added; #231 tracks fixing them. To see the current findings, run `bun audit --audit-level=high`.
 
-Which baseline the job uses depends on the run. A pull request compares with its base branch. A manual run on any branch except `main` compares with `origin/main`, so a dispatch can't launder a PR's red `audit`.
+Which baseline the job uses depends on the run. Each run picks one base commit, and uses it both to read the base's baseline and to compute the diff (`git diff --no-renames --name-only <base> HEAD`):
 
-| Run | Baseline used |
+| Run | Base commit |
 | --- | --- |
-| A pull request, or a manual run off `main`, whose diff (`git diff --no-renames --name-only <base>...HEAD`) touches any file besides `.github/audit-baseline.json` | Only the entries both the base's and the branch's baseline list |
-| The same, with a diff that is `.github/audit-baseline.json` alone | The branch's own baseline |
-| A push to `main`, or a manual run on `main` | The checked-out tree's baseline |
+| A pull request | `HEAD^1`, the first parent of the merge commit GitHub checks out, so a re-run judges the same base even after `main` moves |
+| A manual run on any branch except `main` | `git merge-base origin/main HEAD`, so a dispatch can't launder a PR's red `audit` |
+| A push to `main`, or a manual run on `main` | none |
 
-When there is a base, every id the branch's baseline adds over it must appear in `bun audit --json` on that tree, or the job fails naming the id. That stops a PR from pre-seeding an id for an advisory that doesn't exist yet. If the diff can't be computed, the job fails. If either baseline or the audit output isn't a JSON object, it fails with jq's error.
+With a base, the job skips only the entries both the base's and the branch's baseline list. When the diff is `.github/audit-baseline.json` alone, it uses the branch's own file. Without a base, it uses the checked-out tree's file.
+
+When there is a base, every id the branch's baseline adds over it must appear in `bun audit --json` on that tree, or the job fails naming the id. That stops a PR from pre-seeding an id for an advisory that doesn't exist yet. If the base can't be resolved, the job fails. If either baseline or the audit output is empty or isn't a JSON object, the job fails and says which.
 
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.
