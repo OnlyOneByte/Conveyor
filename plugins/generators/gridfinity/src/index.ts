@@ -2,13 +2,12 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type GeneratorPlugin,
-  type JSONSchema7,
   type ModelArtifact,
+  paramJsonSchema,
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
 import { runEngine } from "@conveyor/shared/node";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { type GridfinityParams, gridfinityParams } from "./params.js";
 
 const scadFile = () =>
@@ -38,7 +37,7 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
   stage: "generator",
   outputs: ["stl"],
   params: gridfinityParams,
-  paramSchema: zodToJsonSchema(gridfinityParams, "GridfinityParams") as JSONSchema7,
+  paramSchema: paramJsonSchema(gridfinityParams, "GridfinityParams"),
   ui: {
     groups: [
       { title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" },

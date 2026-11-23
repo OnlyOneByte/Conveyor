@@ -2,13 +2,12 @@ import { copyFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   type GeneratorPlugin,
-  type JSONSchema7,
   type ModelArtifact,
+  paramJsonSchema,
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
 import { uploadSettings } from "@conveyor/shared/uploads";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { type PassthroughParams, passthroughParams } from "./params.js";
 import { checkUpload } from "./upload.js";
 
@@ -19,7 +18,7 @@ export const passthrough: GeneratorPlugin<PassthroughParams> = {
   stage: "generator",
   outputs: ["stl"],
   params: passthroughParams,
-  paramSchema: zodToJsonSchema(passthroughParams, "PassthroughParams") as JSONSchema7,
+  paramSchema: paramJsonSchema(passthroughParams, "PassthroughParams"),
   validateRequest: (params) => checkUpload(params.uploadId, uploadSettings(process.env)),
 
   async generate(rawParams, ctx: StageCtx): Promise<ModelArtifact> {
