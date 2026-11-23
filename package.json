@@ -35,8 +35,5 @@
     "@types/bun": "~1.3.14",
     "@types/node": "^26.0.0",
     "typescript": "^6.0.3"
-  },
-  "overrides": {
-    "ioredis": "5.10.1"
   }
 }

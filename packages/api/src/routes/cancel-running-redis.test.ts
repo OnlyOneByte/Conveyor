@@ -86,6 +86,9 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
       const pid = Number(readFileSync(marker, "utf8"));
       if (alive(pid)) process.kill(pid, "SIGKILL");
     }
+    const redis = new Redis(redisUrl);
+    await redis.flushdb();
+    redis.disconnect();
     rmSync(dir, { recursive: true, force: true });
   });
 

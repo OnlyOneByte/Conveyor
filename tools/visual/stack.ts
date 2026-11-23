@@ -88,7 +88,7 @@ async function waitHttp(
 export function redisContainer(port: number): { url: string; dockerRun: string[] } {
   return {
     url: `redis://127.0.0.1:${port}`,
-    dockerRun: ["docker", "run", "-d", "--rm", "-p", `127.0.0.1:${port}:6379`, "redis:7-alpine"],
+    dockerRun: ["docker", "run", "-d", "--rm", "-p", `127.0.0.1:${port}:6379`, "redis:8-alpine"],
   };
 }
 

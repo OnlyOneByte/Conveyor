@@ -105,7 +105,7 @@ services:
       redis: { condition: service_healthy }
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     user: "999:1000"
     security_opt: ["no-new-privileges:true"]
@@ -113,6 +113,7 @@ services:
     cap_drop: [ALL]
     command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
+    tmpfs: ["/usr/local/lib/redis/modules:ro"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

@@ -43,7 +43,7 @@ bun run check:lines
 ```
 
 The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when `REDIS_URL` is set, and CI
-fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:7-alpine`) and
+fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 How the comments baseline works, and what each `check:comments` message means, is in
@@ -172,7 +172,7 @@ The group names are short, so a title for several updates, such as
 `fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters. A
 group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
 minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
-that title. Compose images get one PR each because their tags (`redis:7-alpine`, `caddy:2`) move only by
+that title. Compose images get one PR each because their tags (`redis:8-alpine`, `caddy:2`) move only by
 major, so every compose bump is a major and should be reviewed on its own.
 
 Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
@@ -181,7 +181,8 @@ bumps. The api and worker use moving tags (`oven/bun:debian`, `debian:trixie-sli
 version to bump.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
 `@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
-`ci.yml`), so it moves in the PR that bumps CI's Bun.
+`ci.yml`), so it moves in the PR that bumps CI's Bun. Node image majors are ignored too: Node moves to the next
+LTS line on purpose, and the odd-numbered releases in between are never LTS.
 
 A Dependabot PR doesn't follow the PR rules on its own. A builder adopts each one as its author session before
 it goes to review:
@@ -192,7 +193,8 @@ it goes to review:
    and commit for each bumped action.
 4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
-   the local `docker run --rm -p 6379:6379 redis:7-alpine` hint under "Before you push" on this page.
+   the local `docker run --rm -p 6379:6379 redis:8-alpine` hint under "Before you push" on this page. The
+   `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once
    the new Redis has rewritten the volume, going back to the old image may not work.
@@ -226,7 +228,7 @@ away.
 
 ## Toolchain notes
 
-`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 26 is pinned too: vite runs under `node` when one is on `PATH`, and SvelteKit 3 needs Node 22.17 or later. CI's `typecheck` job and the Visual evidence workflow set up the same Node 26 with `actions/setup-node`, so the `bunx` tools there don't run on whatever Node the runner image ships. The `typecheck` job also type-checks the service worker (`tsc -p packages/web/src/service-worker/tsconfig.json`), which `svelte-check` doesn't cover. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
+`mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 26 is pinned too: vite runs under `node` when one is on `PATH`, and SvelteKit 3 needs Node 22.17 or later. CI's `typecheck` job and the Visual evidence workflow set up the same Node 26 with `actions/setup-node`, so the `bunx` tools there don't run on whatever Node the runner image ships. The `typecheck` job also type-checks the service worker (`tsc -p src/service-worker/tsconfig.json` from `packages/web`, so it uses the web package's TypeScript), which `svelte-check` doesn't cover. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
 
 The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` output with Node. Every Dockerfile copies the `package.json` of every workspace member before `bun install --frozen-lockfile`, even the members that image never imports (the web image copies the worker's and every plugin's). `--frozen-lockfile` checks the whole workspace graph against `bun.lock`, and a missing manifest makes bun report `lockfile had changes` and abort. A new workspace package needs a `COPY` line in all three Dockerfiles.
 
