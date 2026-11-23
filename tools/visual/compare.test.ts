@@ -105,10 +105,10 @@ describe("a uniform shift below the noise threshold", () => {
     expect(isSubtle(whole)).toBe(true);
   });
 
-  test("stays folded when it touches 0.5% of pixels or fewer", () => {
-    expect(isChanged(pairOf(shifted(100, 29, 9)))).toBe(false);
-    expect(isChanged(pairOf(shifted(100, 50, 9)))).toBe(false);
-    expect(isChanged(pairOf(shifted(100, 51, 9)))).toBe(true);
+  test("is listed however few pixels it touches, and only an identical capture folds", () => {
+    expect(isChanged(pairOf(BASE))).toBe(false);
+    expect(isChanged(pairOf(shifted(100, 1, 1)))).toBe(true);
+    expect(isChanged(pairOf(shifted(100, 50, 9)))).toBe(true);
   });
 
   test("is listed with all three numbers and the faint-change note, not as no visible changes", () => {
@@ -136,6 +136,40 @@ describe("a uniform shift below the noise threshold", () => {
     const md = buildMarkdown({ pairs: [mixed], beforeUrl: "b", afterUrl: "a" });
     expect(md).toContain("| 0.40% | 1.4% | 128/255 |");
     expect(md).not.toContain("changed faintly");
+  });
+
+  test("an 88x88 square at full contrast on a 1440x1087 capture is listed, not folded", () => {
+    const before = solid(1440, 1087, [0, 0, 0]);
+    const png = PNG.sync.read(before);
+    for (let y = 0; y < 88; y++) {
+      for (let x = 0; x < 88; x++) {
+        const i = (y * 1440 + x) * 4;
+        png.data[i] = 255;
+        png.data[i + 1] = 255;
+        png.data[i + 2] = 255;
+      }
+    }
+    const diff = pixelDiff(before, PNG.sync.write(png));
+    expect(diff.touched).toBeCloseTo((88 * 88) / (1440 * 1087), 10);
+    expect(diff.touched).toBeLessThan(0.005);
+    expect(diff.maxChannel).toBe(255);
+    const square: Pair = { ...pairOf(BASE), diff };
+    expect(isChanged(square)).toBe(true);
+    const md = buildMarkdown({ pairs: [square], beforeUrl: "b", afterUrl: "a" });
+    expect(md).not.toContain("No visible changes");
+    expect(md).not.toContain("<details>");
+    expect(md).toContain("| 0.49% | 0.49% | 255/255 |");
+  });
+
+  test("a one-pixel change shows as <0.01% rather than 0.00%", () => {
+    const md = buildMarkdown({
+      pairs: [
+        { ...pairOf(BASE), diff: { changed: 1 / 1565280, touched: 1 / 1565280, maxChannel: 255 } },
+      ],
+      beforeUrl: "b",
+      afterUrl: "a",
+    });
+    expect(md).toContain("| <0.01% | <0.01% | 255/255 |");
   });
 
   test("a clearly visible change does not get the faint-change note", () => {
