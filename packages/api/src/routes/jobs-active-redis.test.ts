@@ -62,4 +62,9 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       await Promise.all(Object.values(ids).map((id) => redis.sismember(ACTIVE_JOBS_KEY, id))),
     ).toEqual([1, 1, 0, 0]);
   });
+
+  test("serves the Needs-you list and dismiss routes", () => {
+    expect(app.hasRoute({ method: "GET", url: "/jobs/needs-you" })).toBe(true);
+    expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);
+  });
 });

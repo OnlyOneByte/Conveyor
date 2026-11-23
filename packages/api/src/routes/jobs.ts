@@ -16,7 +16,7 @@ import { cancelJob } from "../cancel.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
-import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
@@ -61,6 +61,7 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   });
 
   registerArtifactRoute(app);
+  registerNeedsYouRoutes(app);
 
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const jobId = req.params.id;

@@ -102,6 +102,15 @@ describe("job routes on the sqlite queue", () => {
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
   });
 
+  test("a failed job is in the Needs-you list until it is dismissed", async () => {
+    const id = queued();
+    db.query("UPDATE jobs SET state = 'failed' WHERE id = ?").run(id);
+    const listed = () => inject("GET", "/jobs/needs-you").then((r) => r.json<{ id: string }[]>());
+    expect((await listed()).map((j) => j.id)).toContain(id);
+    expect((await inject("POST", `/jobs/${id}/dismiss`)).statusCode).toBe(200);
+    expect((await listed()).map((j) => j.id)).not.toContain(id);
+  });
+
   test("POST /jobs/:id/cancel answers 200, 202 or 404 by the job's state", async () => {
     const id = queued();
     expect((await inject("POST", `/jobs/${id}/cancel`)).json<unknown>()).toEqual({
