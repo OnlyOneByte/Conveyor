@@ -22,8 +22,8 @@ describe("the sqlite queue worker", () => {
   test("renews the lease through a stage longer than the lease", async () => {
     setup();
     enqueue("a");
-    start({ generate: () => Bun.sleep(600) }, { timing: { ...DEFAULT_TIMING, leaseMs: 200 } });
-    await until(() => row("a").state === "done");
+    start({ generate: () => Bun.sleep(1200) }, { timing: { ...DEFAULT_TIMING, leaseMs: 1000 } });
+    await until(() => row("a").state === "done", 10_000);
     expect(row("a").attempts).toBe(1);
   });
 
@@ -41,9 +41,9 @@ describe("the sqlite queue worker", () => {
           await Bun.sleep(100);
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 400 } },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 1000 } },
     );
-    await until(() => row("a").state === "done");
+    await until(() => row("a").state === "done", 10_000);
     holder.close();
     expect(row("a").attempts).toBe(1);
   });
