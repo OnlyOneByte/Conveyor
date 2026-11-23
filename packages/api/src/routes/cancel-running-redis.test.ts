@@ -110,7 +110,9 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
     expect(running.state).toBe("generating");
 
     const cancel = await fetch(`${base}/jobs/${jobId}/cancel`, { method: "POST" });
-    expect(cancel.status).toBe(202);
+    const answer = { 200: "canceled", 202: "canceling" }[cancel.status];
+    expect(answer).toBeDefined();
+    expect(await cancel.json()).toEqual({ ok: true, jobId, state: answer });
 
     const settled = await until("the job to settle", 15_000, async () => {
       const res = await fetch(`${base}/jobs/${jobId}`);
@@ -121,5 +123,5 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
     await until("the engine to exit", 5_000, async () => (alive(pid) ? undefined : true));
     const active = (await (await fetch(`${base}/jobs/active`)).json()) as { jobId: string }[];
     expect(active.map((evt) => evt.jobId)).not.toContain(jobId);
-  });
+  }, 45_000);
 });
