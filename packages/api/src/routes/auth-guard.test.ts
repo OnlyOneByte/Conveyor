@@ -87,7 +87,7 @@ describe("the global auth guard on a booted api", () => {
     expect(await response.json()).toEqual({ error: "authentication required" });
   });
 
-  test("keeps /health and /auth/ public, and only /health exactly", async () => {
+  test("opens only the routes that opt in, not paths that merely look like them", async () => {
     expect((await send("GET", "/health")).status).toBe(200);
     expect((await send("GET", "/auth/status")).status).toBe(200);
     expect((await send("GET", "/health-report")).status).toBe(401);
@@ -96,7 +96,7 @@ describe("the global auth guard on a booted api", () => {
     expect((await send("GET", "/auth-foo")).status).toBe(401);
   });
 
-  test("judges the path alone, so a query string can neither open nor close a route", async () => {
+  test("matches the route without its query string, so a query can neither open nor close one", async () => {
     expect((await send("GET", "/jobs?/health")).status).toBe(401);
     expect((await send("POST", "/jobs?x=/auth/login")).status).toBe(401);
     expect((await send("GET", "/health?probe=1")).status).toBe(200);

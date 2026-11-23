@@ -108,6 +108,8 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   same through the signature. A cookie from before sessions were stored (no `sid`) is refused, which logs
   everyone out once on upgrade. Sessions survive a restart with the same password and secret. Logging in
   prunes expired rows.
+- Upgrading past #239 also logs everyone out once: the migration gives existing `sessions` rows an empty
+  password version, which never matches, so those cookies are refused and users log in again.
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
@@ -119,6 +121,11 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `x-content-type-options: nosniff`, `x-frame-options: DENY` and `referrer-policy: no-referrer`
   (`security-headers.ts`). The API serves JSON and file downloads (job artifacts), never a page, so its CSP allows nothing. The PWA's own CSP comes from
   SvelteKit (`kit.csp` in `packages/web/svelte.config.js`), with a nonce for its inline start-up script.
+- The PWA's `handle` hook (`packages/web/src/hooks.server.ts`) adds `ws://<host> wss://<host>` for the
+  request's own host to `connect-src`, so Safari before 15.4, which does not count a same-origin socket as
+  `'self'`, can still open the job status socket. `kit.csp` is fixed at build time and cannot name the host,
+  hence the hook. A host that is not a plain name or IPv4 address with an optional port leaves the policy at
+  `'self'`.
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
   successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
