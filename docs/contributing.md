@@ -146,6 +146,24 @@ same PR. For an annotated tag, follow the tag object to the commit it points to.
 gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 ```
 
+### Dependency updates
+
+`.github/dependabot.yml` opens update PRs every week, at most 5 open per ecosystem, with minor and patch
+updates grouped into one PR (the `minor` group) and majors one per PR:
+
+| Ecosystem | Covers | Title prefix |
+| --- | --- | --- |
+| `bun` | `bun.lock` and every workspace `package.json` | `fix(deps)`, or `chore(deps)` for dev dependencies |
+| `github-actions` | the SHA pins in `.github/workflows` | `ci` |
+| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | `fix(deps)` |
+
+Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The base images use
+moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot has no
+version to bump, so the `docker` entry opens PRs only once a `FROM` line pins a version or digest.
+
+A `github-actions` PR changes the SHA but not the table above, so before it merges, push a commit that
+updates the table's release and commit for each bumped action.
+
 ## Toolchain notes
 
 `mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 20 is pinned as a compatibility fallback for the API's Fastify and BullMQ. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
