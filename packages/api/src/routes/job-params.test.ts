@@ -141,4 +141,26 @@ describe("POST /jobs on the sqlite queue", () => {
   test("queues a job with valid params", async () => {
     expect((await post(job("gridfinity", {}))).status).toBe(202);
   });
+
+  test.each([
+    [
+      "a generator that is not an object",
+      { generator: "gridfinity", printerId: "klipper-garage", profileId: "orca/klipper-pla-0.2" },
+      "generator: Invalid input: expected object, received string",
+    ],
+    [
+      "a missing printer and profile",
+      { generator: { id: "gridfinity", params: {} } },
+      "printerId: Invalid input: expected string, received undefined; profileId: Invalid input: expected string, received undefined",
+    ],
+    [
+      "a body that is not an object",
+      "job",
+      "body: Invalid input: expected object, received string",
+    ],
+  ])("answers a string 400 naming the field for %s", async (_label, body, error) => {
+    const res = await post(body);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
+  });
 });

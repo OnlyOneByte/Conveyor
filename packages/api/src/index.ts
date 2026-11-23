@@ -9,7 +9,7 @@ import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
-import { registerSecurityHeaders } from "./security-headers.js";
+import { frameworkErrors, registerSecurityHeaders } from "./security-headers.js";
 import { parseTrustedProxies } from "./trusted-proxies.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -28,7 +28,7 @@ try {
   process.exit(1);
 }
 
-const app = Fastify({ logger: true, trustProxy });
+const app = Fastify({ logger: true, trustProxy, frameworkErrors });
 await app.register(websocket);
 await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
 registerSecurityHeaders(app);
