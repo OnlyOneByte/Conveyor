@@ -97,6 +97,7 @@ services:
       - CONVEYOR_QUEUE_UNSTABLE=${CONVEYOR_QUEUE_UNSTABLE:-}
       - DB_PATH=/data/conveyor.db
       - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
+      - CONVEYOR_UPLOAD_TIMEOUT_MS=${CONVEYOR_UPLOAD_TIMEOUT_MS:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
