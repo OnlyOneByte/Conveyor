@@ -1,13 +1,9 @@
-<script context="module" lang="ts">
-  let next = 0;
-</script>
-
 <script lang="ts">
-  import { closesOn, nextIndex } from "./behaviour";
+  import { closesOn, nextIndex, uid } from "./behaviour";
 
   export let label: string;
   export let items: { label: string; run: () => void }[];
-  const id = `menu-${++next}`;
+  const id = uid("menu");
   let button: HTMLButtonElement;
   let menu: HTMLDivElement;
   let expanded = false;

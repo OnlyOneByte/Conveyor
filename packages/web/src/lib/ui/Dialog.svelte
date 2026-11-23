@@ -1,13 +1,9 @@
-<script context="module" lang="ts">
-  let next = 0;
-</script>
-
 <script lang="ts">
-  import { rememberFocus, wrapTab } from "./behaviour";
+  import { rememberFocus, uid, wrapTab } from "./behaviour";
 
   export let title: string;
   export let open = false;
-  const id = `dialog-${++next}`;
+  const id = uid("dialog");
   let dialog: HTMLDialogElement;
   let restore = () => {};
 

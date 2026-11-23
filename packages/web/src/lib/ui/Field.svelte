@@ -1,15 +1,13 @@
-<script context="module" lang="ts">
-  let next = 0;
-</script>
-
 <script lang="ts">
+  import { uid } from "./behaviour";
+
   export let label: string;
   export let value = "";
   export let numeric = false;
   export let unit = "";
   export let hint = "";
   export let error = "";
-  const id = `field-${++next}`;
+  const id = uid("field");
   $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
 </script>
 
@@ -34,7 +32,7 @@
   .field { display: grid; gap: var(--s1); }
   label { font-weight: 650; }
   .box { display: flex; align-items: center; border: 1.5px solid var(--line-2); border-radius: var(--r-control); background: var(--paper); }
-  .box:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .box:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .box.bad { border-color: var(--err); }
   input { flex: 1; min-width: 0; border: 0; background: transparent; min-height: 30px; outline: none; }
   .unit { padding: 0 var(--s3); font: 500 var(--fs-chip) var(--mono); color: var(--muted); }

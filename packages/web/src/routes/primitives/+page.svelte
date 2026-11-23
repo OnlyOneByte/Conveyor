@@ -7,9 +7,8 @@
   import Switch from "#lib/ui/Switch.svelte";
 
   let open = false;
-  let picked = "nothing yet";
-  const items = ["Open job", "Print again", "Cancel"].map((label) => ({ label, run: () => (picked = label) }));
-  const toast = () => toasts.show("Canceled Bin 2×1", { label: "Print again", run: () => (picked = "Print again") });
+  const items = ["Open job", "Print again", "Cancel"].map((label) => ({ label, run: () => toasts.show(label) }));
+  const toast = () => toasts.show("Canceled Bin 2×1", { label: "Print again", run: () => toasts.show("Printing") });
 </script>
 
 <h1>Primitives</h1>
@@ -20,7 +19,6 @@
     <Menu label="Job actions" {items} />
     <Button on:click={toast}>Show a toast</Button>
   </div>
-  <p class="muted">Menu picked: {picked}</p>
 </section>
 <section class="card">
   <h2>Buttons</h2>

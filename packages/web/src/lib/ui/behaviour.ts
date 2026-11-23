@@ -1,5 +1,8 @@
 import { writable } from "svelte/store";
 
+let ids = 0;
+export const uid = (prefix: string) => `${prefix}-${++ids}`;
+
 export function rememberFocus(active: () => { focus(): void } | null) {
   const opener = active();
   return () => opener?.focus();
