@@ -8,6 +8,9 @@ updates:
     commit-message:
       prefix: fix(deps)
       prefix-development: chore(deps)
+    ignore:
+      - dependency-name: "@types/bun"
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       minor:
         update-types: [minor, patch]
@@ -19,6 +22,9 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
       minor:
         update-types: [minor, patch]
@@ -34,5 +40,16 @@ updates:
     commit-message:
       prefix: fix(deps)
     groups:
-      minor:
-        update-types: [minor, patch]
+      images:
+        patterns: ["*"]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: fix(deps)
+    groups:
+      images:
+        patterns: ["*"]
