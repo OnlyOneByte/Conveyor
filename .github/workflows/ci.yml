@@ -187,6 +187,21 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
         run: bun scripts/checks/comments.ts --base "$BASE_REF"
 
+  file-size:
+    name: file-size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Line ratchet against the base
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before || 'origin/main' }}
+        run: bun scripts/checks/lines.ts --base "$BASE_REF"
+
   docker-build:
     name: Docker build (${{ matrix.service }})
     runs-on: ubuntu-latest
