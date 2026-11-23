@@ -94,6 +94,39 @@ Changes to the rules themselves, the checkers, CI and the compiler and linter co
 change in their own PR and need a second, independent review; the list and the gate are in
 [AGENTS.md §12](../AGENTS.md#12-guardrail-paths).
 
+### Dependency audit
+
+The `audit` CI job runs `bun audit --audit-level=high`, which reads `bun.lock` and fails on any high or critical
+advisory. The job skips only the advisories listed in `.github/audit-baseline.json`, which maps bun's numeric
+advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
+was added; #231 tracks fixing them. When an upgrade fixes one, delete its entry. Adding an entry is a guardrail
+change, so it needs the second review. To see the current findings, run `bun audit --audit-level=high`.
+
+### Pinned actions
+
+Every third-party action in `.github/workflows` is pinned to a full commit SHA. The YAML can't say which
+release a SHA is, because the no-comments check covers YAML, so this table does. Each SHA is the commit the
+release tag pointed to when it was pinned.
+
+| Action | Release | Commit |
+| --- | --- | --- |
+| `actions/checkout` | `v4.4.0` | `11d5960a326750d5838078e36cf38b85af677262` |
+| `actions/cache` | `v4.3.0` | `0057852bfaa89a56745cba8c7296529d2fc39830` |
+| `actions/upload-artifact` | `v4.6.2` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
+| `actions/download-artifact` | `v4.3.0` | `d3f86a106a0bac45b974a628896c90dbdf5c8093` |
+| `oven-sh/setup-bun` | `v2.2.0` | `0c5077e51419868618aeaa5fe8019c62421857d6` |
+| `docker/build-push-action` | `v6.19.2` | `10e90e3645eae34f1e60eeb005ba3a3d33f178e8` |
+| `docker/login-action` | `v3.7.0` | `c94ce9fb468520275223c153574b00df6fe4bcc9` |
+| `docker/metadata-action` | `v5.10.0` | `c299e40c65443455700f0fdfc63efafe5b349051` |
+| `docker/setup-buildx-action` | `v3.12.0` | `8d2750c68a42422c14e847fe6c8ac0403b4cbd6f` |
+
+To bump an action, resolve the new release tag to its commit and update the workflows and this table in the
+same PR. For an annotated tag, follow the tag object to the commit it points to.
+
+```bash
+gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
+```
+
 ## Toolchain notes
 
 `mise.toml` pins Bun, which is both the package manager and the runtime: it runs TypeScript directly, so there is no build step. Node 20 is pinned as a compatibility fallback for the API's Fastify and BullMQ. `bunfig.toml` points installs at the public npm registry, so a machine whose global config names a private mirror still resolves the same packages.
@@ -102,4 +135,4 @@ The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` ou
 
 ## Releases
 
-Pushing a `v*` tag, or running `.github/workflows/release.yml` by hand, builds the `api`, `web` and `worker` images and publishes multi-arch (amd64 and arm64) manifests to GHCR, authenticated with the built-in `GITHUB_TOKEN`. The image path is `ghcr.io/<owner>/conveyor-<service>` with the owner lowercased, because GHCR requires a lowercase path and the owner (`OnlyOneByte`) is mixed-case. Each image and architecture builds on a native runner, because the worker's engine downloads are too heavy to emulate. Each build pushes an untagged image by digest; a per-service job joins the two digests into one tag set: `x.y.z`, `x.y`, `latest` (tag runs only) and `sha-<short>`. A manual run on a branch therefore never moves `latest`. Release builds keep `ORCA_ENABLE` at its `auto` default, unlike CI, which disables Orca. The build cache uses `mode=min`: exporting every intermediate layer of the multi-gigabyte worker image was the likely cause of the v0.1.0 arm64 failure. A newer run for the same ref cancels the older one.
+Pushing a `v*` tag, or running `.github/workflows/release.yml` by hand, builds the `api`, `web` and `worker` images and publishes multi-arch (amd64 and arm64) manifests to GHCR, authenticated with the built-in `GITHUB_TOKEN`. The image path is `ghcr.io/<owner>/conveyor-<service>` with the owner lowercased, because GHCR requires a lowercase path and the owner (`OnlyOneByte`) is mixed-case. Each image and architecture builds on a native runner, because the worker's engine downloads are too heavy to emulate. Each build pushes an untagged image by digest; a per-service job joins the two digests into one tag set: `x.y.z`, `x.y`, `latest` (tag runs only) and `sha-<short>`. A manual run on a branch therefore never moves `latest`. Release builds keep `ORCA_ENABLE` at its `auto` default, unlike CI, which disables Orca. The build cache uses `mode=min`: exporting every intermediate layer of the multi-gigabyte worker image was the likely cause of the v0.1.0 arm64 failure. A newer run for the same ref cancels the older one. Each build pushes a SLSA provenance attestation (`provenance: mode=max`) and an SPDX SBOM (`sbom: true`) with its image, and the multi-arch tag carries both; `docker buildx imagetools inspect <image>:<tag> --format '{{json .Provenance}}'` (or `.SBOM`) reads them.
