@@ -138,6 +138,18 @@ describe("POST /jobs on the sqlite queue", () => {
     expect(await res.text()).toContain('"error":"generator.params.gridX:');
   });
 
+  test("answers 400 naming the field when the params key is absent", async () => {
+    const res = await post({
+      generator: { id: "gridfinity" },
+      printerId: "klipper-garage",
+      profileId: "orca/klipper-pla-0.2",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "generator.params: Invalid input: expected object, received undefined",
+    });
+  });
+
   test("queues a job with valid params", async () => {
     expect((await post(job("gridfinity", {}))).status).toBe(202);
   });
