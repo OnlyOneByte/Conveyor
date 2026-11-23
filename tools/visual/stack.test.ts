@@ -53,7 +53,7 @@ describe("redisContainer", () => {
       "--rm",
       "-p",
       "127.0.0.1:6390:6379",
-      "redis:7-alpine",
+      "redis:8-alpine",
     ]);
   });
 });
