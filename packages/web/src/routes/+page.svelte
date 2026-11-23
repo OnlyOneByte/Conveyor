@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Canvas } from "@threlte/core";
+  import { ACESFilmicToneMapping } from "three";
   import PreviewScene from "$lib/components/PreviewScene.svelte";
   import MeshScene from "$lib/components/MeshScene.svelte";
   import SchemaForm from "$lib/components/SchemaForm.svelte";
@@ -241,12 +242,12 @@
   <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
   <section class="card viewport">
     {#if hasPreview}
-      <Canvas>
+      <Canvas toneMapping={ACESFilmicToneMapping}>
         <PreviewScene {params} />
       </Canvas>
       <span class="badge">live preview</span>
     {:else if source === "upload" && uploadFile}
-      <Canvas>
+      <Canvas toneMapping={ACESFilmicToneMapping}>
         <MeshScene file={uploadFile} />
       </Canvas>
       <span class="badge">uploaded mesh</span>
