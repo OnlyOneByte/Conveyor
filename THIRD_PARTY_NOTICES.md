@@ -27,7 +27,7 @@ Debian package's own `copyright` file, not inferred.
 
 The worker's other `apt-get` packages are runtime libraries: GTK, WebKitGTK, Mesa, GStreamer and their
 libraries for the slicers, and the Debian packages `/opt/openscad/bin/openscad` loads directly (its ELF
-`NEEDED` entries, besides libc and libstdc++): `libboost-program-options1.83.0`, `libcairo2`,
+`NEEDED` entries, besides libc, libm, libgcc_s and libstdc++): `libboost-program-options1.83.0`, `libcairo2`,
 `libdouble-conversion3`, `libfontconfig1`, `libfreetype6`, `libglib2.0-0t64`, `libgmp10`, `libharfbuzz0b`,
 `libmpfr6`, `libtbb12` and `libxml2`. Each carries its license in `/usr/share/doc/<package>/copyright` inside
 the image. OpenSSL, nettle and libzip are found at build time but not linked into the binary.
