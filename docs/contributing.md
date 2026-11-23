@@ -178,7 +178,7 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 
 | Ecosystem | Covers | Grouping | Title prefix |
 | --- | --- | --- | --- |
-| `bun` | `bun.lock` and every workspace `package.json` | minor and patch in one PR (`minor`), majors one per PR | `fix(deps)`, or `chore(deps)` for dev dependencies |
+| `bun` | `bun.lock` and every workspace `package.json`, plus `tools/visual`'s own `package.json` and `bun.lock` | minor and patch in one PR (`minor`) across both directories, majors one per PR per directory | `fix(deps)`, or `chore(deps)` for dev dependencies |
 | `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
 | `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | minor and patch in one PR (`images`), majors one per PR | `fix(deps)` |
 | `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | one PR per image | `fix(deps)` |
@@ -189,6 +189,11 @@ group with a single update is titled after its package instead (`bump <package> 
 minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
 that title. Compose images get one PR each because their tags (`redis:8-alpine`, `caddy:2`) move only by
 major, so every compose bump is a major and should be reviewed on its own.
+
+`tools/visual` isn't a workspace member, so the `bun` entry lists it as a second directory
+(`directories: [/, /tools/visual]`) rather than in a separate entry. Both then share one schedule, PR limit,
+`minor` group and set of ignores, and a shared tool such as `typescript` or `@types/bun` moves in both in the
+same grouped PR.
 
 Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
 `node:26-bookworm-slim` is the one `FROM` line with a version, so it is the only base image the `docker` entry
