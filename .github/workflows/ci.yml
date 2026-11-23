@@ -38,6 +38,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Biome lint and import order
         run: bun run lint --reporter=github
+      - name: One Redis image in every pin
+        run: bun scripts/checks/redis-pins.ts
 
   format:
     name: format
@@ -123,7 +125,8 @@ jobs:
         working-directory: packages/web
         run: bunx svelte-check --tsconfig ./tsconfig.json
       - name: Typecheck the service worker
-        run: bunx tsc -p packages/web/src/service-worker/tsconfig.json --noEmit
+        working-directory: packages/web
+        run: bunx tsc -p src/service-worker/tsconfig.json --noEmit
 
   test:
     name: test
