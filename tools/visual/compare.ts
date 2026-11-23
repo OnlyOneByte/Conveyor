@@ -6,10 +6,6 @@ import { messageOf } from "./errors.ts";
 
 export const MARKER = "<!-- conveyor-visual -->";
 
-export const CHANGED_THRESHOLD = 0.005;
-
-export const TOUCHED_FLOOR = 0.005;
-
 export const CHANNEL_NOISE = 16;
 
 export interface PixelDiff {
@@ -95,14 +91,14 @@ export function isSubtle(p: Pair): boolean {
     p.before &&
     p.after &&
     p.diff !== undefined &&
-    p.diff.touched > TOUCHED_FLOOR &&
+    p.diff.touched > 0 &&
     p.diff.maxChannel <= CHANNEL_NOISE
   );
 }
 
 export function isChanged(p: Pair): boolean {
   if (!p.before || !p.after || !p.diff) return true;
-  return p.diff.changed > CHANGED_THRESHOLD || p.diff.touched > TOUCHED_FLOOR;
+  return p.diff.touched > 0;
 }
 
 function cell(present: boolean, url: string, width: number): string {
@@ -112,6 +108,7 @@ function cell(present: boolean, url: string, width: number): string {
 }
 
 function percent(share: number): string {
+  if (share > 0 && share < 0.0001) return "<0.01%";
   return `${(share * 100).toFixed(share < 0.01 ? 2 : 1)}%`;
 }
 
@@ -191,7 +188,7 @@ export function buildMarkdown({
   else parts.push(table(changed, beforeUrl, afterUrl));
   if (subtle.length > 0) {
     parts.push(
-      `${subtle.length} of these changed faintly: no pixel moved by more than ${CHANNEL_NOISE}/255, but more than ${percent(TOUCHED_FLOOR)} moved at all (shading, tone mapping, a theme colour). Compare them pixel by pixel; side by side they look the same.`,
+      `${subtle.length} of these changed faintly: no pixel moved by more than ${CHANNEL_NOISE}/255, but some moved (shading, tone mapping, a theme colour). Compare them pixel by pixel; side by side they look the same.`,
     );
   }
   if (same.length > 0) {
