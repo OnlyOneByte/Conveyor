@@ -101,15 +101,15 @@ advisory. The job skips only the advisories listed in `.github/audit-baseline.js
 advisory id (the `--ignore` value) to its GHSA id. The baseline records the advisories present when the job
 was added; #231 tracks fixing them. To see the current findings, run `bun audit --audit-level=high`.
 
-Which baseline the job uses depends on the run:
+Which baseline the job uses depends on the run. A pull request compares with its base branch. A manual run on any branch except `main` compares with `origin/main`, so a dispatch can't launder a PR's red `audit`.
 
 | Run | Baseline used |
 | --- | --- |
-| A pull request that changes any file besides `.github/audit-baseline.json` | Only the entries both the base branch's and the PR's baseline list |
-| A pull request whose diff (`git diff --name-only <base>...HEAD`) is `.github/audit-baseline.json` alone | The PR's own baseline |
-| A push to `main`, or a manual run | The checked-out tree's baseline |
+| A pull request, or a manual run off `main`, whose diff (`git diff --no-renames --name-only <base>...HEAD`) touches any file besides `.github/audit-baseline.json` | Only the entries both the base's and the branch's baseline list |
+| The same, with a diff that is `.github/audit-baseline.json` alone | The branch's own baseline |
+| A push to `main`, or a manual run on `main` | The checked-out tree's baseline |
 
-If the diff can't be computed, the job fails. If either baseline isn't a JSON object, it fails with jq's error.
+When there is a base, every id the branch's baseline adds over it must appear in `bun audit --json` on that tree, or the job fails naming the id. That stops a PR from pre-seeding an id for an advisory that doesn't exist yet. If the diff can't be computed, the job fails. If either baseline or the audit output isn't a JSON object, it fails with jq's error.
 
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.

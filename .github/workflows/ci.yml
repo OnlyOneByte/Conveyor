@@ -68,16 +68,27 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - name: No high or critical advisory outside the baseline
         env:
-          EVENT: ${{ github.event_name }}
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          BASE_REF: >-
+            ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref)
+            || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main') && 'origin/main'
+            || '' }}
         run: |
           baseline=.github/audit-baseline.json
           jq -e 'type == "object"' "$baseline" > /dev/null
-          if [ "$EVENT" = pull_request ]; then
-            changed=$(git diff --name-only "$BASE_REF...HEAD")
+          if [ -n "$BASE_REF" ]; then
+            git show "$BASE_REF:$baseline" > "$RUNNER_TEMP/base-baseline.json"
+            jq -e 'type == "object"' "$RUNNER_TEMP/base-baseline.json" > /dev/null
+            bun audit --json > "$RUNNER_TEMP/audit.json" || true
+            jq -e 'type == "object"' "$RUNNER_TEMP/audit.json" > /dev/null
+            unknown=$(jq -r --slurpfile base "$RUNNER_TEMP/base-baseline.json" --slurpfile audit "$RUNNER_TEMP/audit.json" \
+              '[$audit[0][][].id | tostring] as $live | keys[] | select(in($base[0]) | not) | select(. as $id | $live | index($id) | not)' \
+              "$baseline")
+            if [ -n "$unknown" ]; then
+              echo "::error::baseline adds ids bun audit does not report on this tree: ${unknown//$'\n'/ }"
+              exit 1
+            fi
+            changed=$(git diff --no-renames --name-only "$BASE_REF...HEAD")
             if [ "$changed" != "$baseline" ]; then
-              git show "$BASE_REF:$baseline" > "$RUNNER_TEMP/base-baseline.json"
-              jq -e 'type == "object"' "$RUNNER_TEMP/base-baseline.json" > /dev/null
               jq --slurpfile head "$baseline" 'with_entries(select(.key | in($head[0])))' \
                 "$RUNNER_TEMP/base-baseline.json" > "$RUNNER_TEMP/effective-baseline.json"
               baseline="$RUNNER_TEMP/effective-baseline.json"
