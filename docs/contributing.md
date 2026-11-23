@@ -154,11 +154,15 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 | --- | --- | --- | --- |
 | `bun` | `bun.lock` and every workspace `package.json` | minor and patch in one PR (`minor`), majors one per PR | `fix(deps)`, or `chore(deps)` for dev dependencies |
 | `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
-| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | every update in one PR (`images`) | `fix(deps)` |
-| `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | every update in one PR (`images`) | `fix(deps)` |
+| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | minor and patch in one PR (`images`), majors one per PR | `fix(deps)` |
+| `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | one PR per image | `fix(deps)` |
 
-The group names are short so a grouped title, such as
-`fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters.
+The group names are short, so a title for several updates, such as
+`fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters. A
+group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
+minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
+that title. Compose images get one PR each because their tags (`redis:7-alpine`, `caddy:2`) move only by
+major, so every compose bump is a major and should be reviewed on its own.
 
 Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The Dockerfile base
 images use moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot
@@ -172,6 +176,11 @@ it goes to review:
 2. Rewrite the body to the PR template, ending with that builder's `Author-Session:` line.
 3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
    and commit for each bumped action.
+4. For a Redis major, check the upgrade on an existing data volume before merging: start the old image and let
+   it write the `redis_data` volume, then start the new image on that volume and confirm the queue still reads.
+   The CI `compose` job pre-seeds only the Caddy volumes and starts Redis on a fresh one, so it can't catch
+   this, and once the new Redis has rewritten the volume, going back to the old image may not work. Bump the
+   `redis` service image of the `test` job in `ci.yml` in the same PR, since Dependabot doesn't update it.
 
 Once anyone but Dependabot pushes to its branch, Dependabot stops rebasing that PR. From then on the builder
 keeps it current with `main` by merging `main` in. Commenting `@dependabot recreate` throws the pushed commits
