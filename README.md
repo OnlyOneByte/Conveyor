@@ -22,7 +22,7 @@ mounts at runtime (`data/`, `profiles/`, `scad/`) are described in
 ## Toolchain
 
 **Bun** is both package manager and runtime — it runs the TypeScript directly, so
-there is no `tsc` build step and no `dist/`. `mise.toml` pins bun + Node 20.
+there is no `tsc` build step and no `dist/`. `mise.toml` pins bun + Node 26.
 
 ```bash
 bun install
