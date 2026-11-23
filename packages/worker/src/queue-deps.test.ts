@@ -16,6 +16,7 @@ import {
   row,
   states,
 } from "../test/helpers/queue-deps-harness";
+import { FILAMENT_NOT_READ } from "./pipeline";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 import { LeaseLostError } from "./run";
 
@@ -49,6 +50,32 @@ describe("a job run on the sqlite queue", () => {
     expect(row().submit_started_at).not.toBeNull();
     expect(JSON.parse(String(row().print_handle_json))).toMatchObject({ ref: "model.gcode" });
     expect(h.submits).toBe(1);
+  });
+
+  test("records the filament the slicer output reports on the settled job", async () => {
+    const read: string[] = [];
+    const h = queued(
+      {},
+      {
+        readFilament: async (path) => {
+          read.push(path);
+          return { grams: 3.08, metres: 1.032 };
+        },
+      },
+    );
+    expect(await h.run()).toBe("done");
+    expect(read).toEqual(["/tmp/model.gcode"]);
+    expect(dbGetJob(db, "job-1")?.filament).toEqual({ grams: 3.08, metres: 1.032 });
+  });
+
+  test("a filament read that fails is noted, and the job still finishes without it", async () => {
+    const h = queued({}, { readFilament: async () => Promise.reject(new Error("EACCES")) });
+    expect(await h.run()).toBe("done");
+    expect(dbGetJob(db, "job-1")).toMatchObject({
+      state: "done",
+      notes: `${FILAMENT_NOT_READ}: EACCES`,
+    });
+    expect(dbGetJob(db, "job-1")?.filament).toBeUndefined();
   });
 
   test("writes at most one progress update per flush interval", async () => {

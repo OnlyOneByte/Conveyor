@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { buildRegistry } from "@conveyor/plugin-registry";
 import { JOB_QUEUE, type JobRequest, jobCancelKey, jobControlChannel } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { readFilamentUse } from "@conveyor/shared/node";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { readJobPayload } from "./job-payload.js";
@@ -44,6 +45,7 @@ const worker = new Worker<unknown>(
           record: recordTerminal,
           resolveJobTarget: (r) => dbResolveJobTarget(openDb(), r.printerId, r.profileId),
           resolvePrinter: async (printerId) => resolvePrinterTarget(openDb(), printerId),
+          readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
           log: (msg) => console.log(`[${jobId}] ${msg}`),
@@ -72,6 +74,7 @@ function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): 
     modelPath: extra.modelPath,
     gcodePath: extra.gcodePath,
     timings: extra.timings,
+    filament: extra.filament,
     notes: extra.notes,
   });
 }

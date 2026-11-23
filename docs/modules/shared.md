@@ -245,6 +245,17 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
   reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
   pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.
+- `readFilamentUse(path)` returns the slicer's filament estimate as `FilamentUse` (`{ grams?, metres? }`), or
+  `undefined`. `parseFilamentUse(text)` does the parsing:
+  - PrusaSlicer and OrcaSlicer both write `; filament used [mm] = …` and `; filament used [g] = …` (one value
+    per extruder, comma-separated, summed) near the end, and `; total filament used [g] = …`, which wins for
+    grams. OrcaSlicer's header block has `; total filament length [mm] : …` and
+    `; total filament weight [g] : …`, used when the footer lines are missing. Fixtures are in
+    `packages/shared/test/fixtures/gcode/`.
+  - A total of 0 is unknown, not zero: a slicer writes `0.00` g when the filament has no density set. A
+    negative, empty or unreadable value leaves that field out.
+  - A file up to 576 KiB is read whole. A larger one is read only in its first 64 KiB (the header block) and
+    last 512 KiB (the footer, before PrusaSlicer's config block), and the tail wins.
 
 ## db/index.ts
 

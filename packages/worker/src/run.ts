@@ -1,5 +1,6 @@
 import {
   computeStageTimings,
+  type FilamentUse,
   type JobRequest,
   type JobState,
   type JobStatusEvent,
@@ -22,6 +23,7 @@ export interface TerminalRecord {
   state: TerminalState;
   modelPath?: string;
   gcodePath?: string;
+  filament?: FilamentUse;
   stage?: Stage;
   reason?: string;
   notes?: string;
@@ -52,6 +54,7 @@ export interface PipelineDeps {
   record(jobId: string, req: JobRequest, outcome: TerminalRecord): void;
   resolveJobTarget(req: JobRequest): JobTarget | null;
   resolvePrinter(printerId: string): Promise<PrinterTarget>;
+  readFilament(gcodePath: string): Promise<FilamentUse | undefined>;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;
@@ -101,6 +104,7 @@ export interface Run {
   enters: { stage: Stage; at: number }[];
   modelPath?: string;
   gcodePath?: string;
+  filament?: FilamentUse;
   print?: PrintAttempt;
   notes: string[];
 }

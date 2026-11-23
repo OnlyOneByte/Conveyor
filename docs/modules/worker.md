@@ -64,6 +64,11 @@ The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
 
 ## pipeline.ts
 
+- After slicing, and again when a job resumes from its stored G-code, the worker calls
+  `PipelineDeps.readFilament(gcodePath)` (`readFilamentUse` in both modes) and keeps the result for the job's
+  history row. A read that fails is noted on the job (`FILAMENT_NOT_READ`) and never fails it; G-code without
+  the estimate records nothing. Filament reported by the printer itself is not read.
+
 - Settlement runs outside the stage `try`, so an error while settling a finished or printer-canceled job
   (such as the history write) propagates as is. It is not re-settled as `failed`, and the finished job's work
   directory is kept.

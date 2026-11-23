@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { buildRegistry } from "@conveyor/plugin-registry";
 import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { readFilamentUse } from "@conveyor/shared/node";
 import { type BaseDeps, type QueueWorker, startQueueWorker } from "./loop.js";
 import { resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
@@ -12,6 +13,7 @@ export function sqliteBase(db: Database): BaseDeps {
     registry: buildRegistry(),
     resolveJobTarget: (r) => dbResolveJobTarget(db, r.printerId, r.profileId),
     resolvePrinter: async (printerId) => resolvePrinterTarget(db, printerId),
+    readFilament: readFilamentUse,
     resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
     log: (msg) => console.log(msg),
   };

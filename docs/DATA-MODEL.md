@@ -156,6 +156,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `model_path` | text null | `/data/<id>/model.stl` |
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
 | `timings_json` | text null | when each stage was entered and how long it took (`StageTiming[]`) |
+| `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |

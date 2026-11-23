@@ -99,7 +99,8 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
             .query(
               `UPDATE jobs SET model_path = $model, gcode_path = $gcode, notes = $notes,
                  message = $notes, progress = NULL, stage = COALESCE($stage, stage),
-                 timings_json = COALESCE($timings, timings_json) WHERE ${FENCE}`,
+                 timings_json = COALESCE($timings, timings_json),
+                 filament_json = COALESCE($filament, filament_json) WHERE ${FENCE}`,
             )
             .run({
               ...fenceOf(lease, at),
@@ -108,6 +109,7 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
               $notes: outcome.notes ?? null,
               $stage: outcome.stage ?? null,
               $timings: outcome.timings?.length ? JSON.stringify(outcome.timings) : null,
+              $filament: outcome.filament ? JSON.stringify(outcome.filament) : null,
             }),
         );
       },

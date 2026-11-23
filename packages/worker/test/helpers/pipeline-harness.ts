@@ -143,6 +143,7 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
       address: "10.0.0.9",
       secrets: { mainboardId: "mainboard-abc" },
     }),
+    readFilament: async () => undefined,
     resolveProfile: async () => ({
       profile: { id: "prof", name: "prof", path: "/profiles/prof" },
       source: "bundled",

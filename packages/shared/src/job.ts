@@ -49,9 +49,15 @@ export interface Job {
   error?: { stage: Stage; reason: string };
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
+  filament?: FilamentUse;
   notes?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface FilamentUse {
+  grams?: number;
+  metres?: number;
 }
 
 export interface StageTiming {
