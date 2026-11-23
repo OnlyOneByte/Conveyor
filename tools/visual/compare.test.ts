@@ -6,6 +6,7 @@ import { PNG } from "pngjs";
 import {
   buildMarkdown,
   isChanged,
+  isSubtle,
   MARKER,
   manifestNotes,
   type Pair,
@@ -26,18 +27,106 @@ function solid(width: number, height: number, rgb: [number, number, number]): Bu
   return PNG.sync.write(png);
 }
 
+function shifted(size: number, patch: number, by: number): Buffer {
+  const png = PNG.sync.read(solid(size, size, [40, 60, 80]));
+  for (let n = 0; n < patch; n++) {
+    const i = n * 4;
+    png.data[i] += by;
+    png.data[i + 1] += by;
+    png.data[i + 2] += by;
+  }
+  return PNG.sync.write(png);
+}
+
+const BASE = solid(100, 100, [40, 60, 80]);
+
+function pairOf(after: Buffer): Pair {
+  return {
+    file: "new-job-1440.png",
+    scene: "new-job",
+    width: 1440,
+    kind: "png",
+    before: true,
+    after: true,
+    diff: pixelDiff(BASE, after),
+  };
+}
+
 describe("pixelDiff", () => {
   test("identical images differ by 0", () => {
-    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [10, 10, 10]))).toBe(0);
+    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [10, 10, 10]))).toEqual({
+      changed: 0,
+      touched: 0,
+      maxChannel: 0,
+    });
   });
-  test("small channel noise is ignored", () => {
-    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [20, 20, 20]))).toBe(0);
+  test("a change of 16/255 or less is below the noise threshold but still counted as touched", () => {
+    expect(pixelDiff(solid(4, 4, [10, 10, 10]), solid(4, 4, [20, 20, 20]))).toEqual({
+      changed: 0,
+      touched: 1,
+      maxChannel: 10,
+    });
   });
   test("different colours differ fully", () => {
-    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 4, [255, 0, 0]))).toBe(1);
+    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 4, [255, 0, 0]))).toEqual({
+      changed: 1,
+      touched: 1,
+      maxChannel: 255,
+    });
   });
   test("different sizes count as fully changed", () => {
-    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 5, [0, 0, 0]))).toBe(1);
+    expect(pixelDiff(solid(4, 4, [0, 0, 0]), solid(4, 5, [0, 0, 0]))).toEqual({
+      changed: 1,
+      touched: 1,
+      maxChannel: 255,
+    });
+  });
+});
+
+describe("a uniform shift below the noise threshold", () => {
+  test("a 4% patch shifted by 9/255 reports 0% over threshold, 4% touched and a largest change of 9", () => {
+    expect(pixelDiff(BASE, shifted(100, 400, 9))).toEqual({
+      changed: 0,
+      touched: 0.04,
+      maxChannel: 9,
+    });
+  });
+
+  test("is not folded as unchanged once more than 0.5% of pixels moved", () => {
+    const patch = pairOf(shifted(100, 400, 9));
+    expect(isChanged(patch)).toBe(true);
+    expect(isSubtle(patch)).toBe(true);
+  });
+
+  test("a whole-image shift of exactly 16/255 counts as a subtle change", () => {
+    const whole = pairOf(shifted(100, 100 * 100, 16));
+    expect(whole.diff).toEqual({ changed: 0, touched: 1, maxChannel: 16 });
+    expect(isChanged(whole)).toBe(true);
+  });
+
+  test("stays folded when it touches 0.5% of pixels or fewer", () => {
+    expect(isChanged(pairOf(shifted(100, 29, 9)))).toBe(false);
+    expect(isChanged(pairOf(shifted(100, 50, 9)))).toBe(false);
+    expect(isChanged(pairOf(shifted(100, 51, 9)))).toBe(true);
+  });
+
+  test("is listed with all three numbers and the faint-change note, not as no visible changes", () => {
+    const md = buildMarkdown({
+      pairs: [pairOf(shifted(100, 400, 9))],
+      beforeUrl: "https://raw/b",
+      afterUrl: "https://raw/a",
+    });
+    expect(md).not.toContain("No visible changes");
+    expect(md).toContain("| Δ pixels (> 16/255) | Any Δ | Largest Δ |");
+    expect(md).toContain("| 0.00% | 4.0% | 9/255 |");
+    expect(md).toContain("1 of these changed faintly");
+  });
+
+  test("a clearly visible change does not get the faint-change note", () => {
+    const visible = pairOf(solid(100, 100, [255, 255, 255]));
+    expect(isSubtle(visible)).toBe(false);
+    const md = buildMarkdown({ pairs: [visible], beforeUrl: "b", afterUrl: "a" });
+    expect(md).not.toContain("changed faintly");
   });
 });
 
@@ -80,8 +169,8 @@ describe("pairUp and buildMarkdown", () => {
   });
 
   test("a gif takes its png's diff", () => {
-    expect(byFile("home-1440.gif")?.diff).toBe(0);
-    expect(byFile("settings-390.gif")?.diff).toBe(1);
+    expect(byFile("home-1440.gif")?.diff).toEqual({ changed: 0, touched: 0, maxChannel: 0 });
+    expect(byFile("settings-390.gif")?.diff).toEqual({ changed: 1, touched: 1, maxChannel: 255 });
   });
 
   test("a gif whose png is unchanged is not flagged", () => {
