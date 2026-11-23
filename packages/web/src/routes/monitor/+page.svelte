@@ -226,8 +226,8 @@
   h1 { margin: 0; }
   h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
   .secthead { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .navlink { color: var(--accent); text-decoration: none; }
-  .inlink { color: var(--accent); text-decoration: none; }
+  .navlink { color: var(--live); text-decoration: none; }
+  .inlink { color: var(--live); text-decoration: none; }
   .inlink:hover { text-decoration: underline; }
   .live { font-size: 0.72rem; color: var(--ok); letter-spacing: 0.02em; }
   .muted { color: var(--muted); }
@@ -239,7 +239,7 @@
   .jobmain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
   .jobactions { display: flex; justify-content: flex-end; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
-  .jobid { color: var(--accent); text-decoration: none; }
+  .jobid { color: var(--live); text-decoration: none; }
   .jobid:hover { text-decoration: underline; }
   .elapsed { font-size: 0.85rem; }
   .small { min-height: 30px; padding: 0.15rem 0.55rem; font-size: 0.78rem; }
@@ -250,8 +250,8 @@
     border: 1px solid var(--border); border-radius: 99px; padding: 0.08rem 0.5rem;
   }
   .timing b { color: var(--text); font-weight: 600; }
-  .timing.open { border-color: var(--accent); color: var(--accent); }
-  .timing.open b { color: var(--accent); }
+  .timing.open { border-color: var(--accent); color: var(--live); }
+  .timing.open b { color: var(--live); }
 
   .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
   .fill { height: 100%; background: var(--accent); transition: width 0.3s; }
@@ -263,7 +263,7 @@
   .addr { word-break: break-all; }
 
   .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
-  .state.printing, .state.generating, .state.slicing, .state.transferring { color: var(--accent); border-color: var(--accent); }
+  .state.printing, .state.generating, .state.slicing, .state.transferring { color: var(--live); border-color: var(--accent); }
   .state.queued { color: var(--muted); }
 
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }

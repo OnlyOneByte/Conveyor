@@ -52,16 +52,12 @@
       "comments": 13,
       "suppressions": 0
     },
-    "packages/web/src/lib/styles/app.css": {
-      "comments": 5,
-      "suppressions": 0
-    },
     "packages/web/src/routes/+layout.svelte": {
       "comments": 12,
       "suppressions": 0
     },
     "packages/web/src/routes/+page.svelte": {
-      "comments": 67,
+      "comments": 65,
       "suppressions": 0
     },
     "packages/web/src/routes/+page.ts": {
@@ -93,7 +89,7 @@
       "suppressions": 0
     },
     "packages/web/src/routes/settings/+page.svelte": {
-      "comments": 32,
+      "comments": 30,
       "suppressions": 0
     },
     "packages/web/src/routes/settings/+page.ts": {

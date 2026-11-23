@@ -47,7 +47,7 @@
   .gate { min-height: 70vh; display: flex; align-items: center; justify-content: center; }
   .card { display: flex; flex-direction: column; gap: 0.85rem; width: min(22rem, 90vw); padding: 1.5rem; }
   .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; font-size: 1.4rem; }
-  .logo { color: var(--accent); }
+  .logo { color: var(--live); }
   input { width: 100%; padding: 0.6rem; }
   .primary { width: 100%; }
   .err { color: var(--danger); font-size: 0.85rem; margin: 0; }

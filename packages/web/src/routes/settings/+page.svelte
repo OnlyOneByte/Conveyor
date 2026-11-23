@@ -24,6 +24,7 @@
   } from "#lib/api.js";
   import { slicerFormat } from "@conveyor/shared";
   import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
+  import ThemePicker from "#lib/components/ThemePicker.svelte";
 
   const reducedMotion = prefersReducedMotion();
 
@@ -419,7 +420,6 @@
   {#if !loaded}
     <p class="muted">Loading…</p>
   {:else}
-    <!-- Preferences -->
     <section class="card">
       <h2>Preferences</h2>
       <p class="muted">How this browser displays things. Stored on this device only.</p>
@@ -431,13 +431,13 @@
         />
         <span>Spin the 3D preview automatically</span>
       </label>
+      <ThemePicker />
       {#if reducedMotion}
         <p class="muted note">
           Your system is set to reduce motion, so the preview stays still even with this on.
         </p>
       {/if}
     </section>
-    <!-- Profiles -->
     <section class="card">
       <h2>Profiles</h2>
       <p class="muted">Slicer bundles on the <span class="mono">/profiles</span> mount. Orca JSON and Prusa config.ini are editable here.</p>
@@ -683,7 +683,7 @@
   .head { display: flex; align-items: baseline; justify-content: space-between; }
   h1 { margin: 0; }
   h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
-  .navlink { color: var(--accent); text-decoration: none; }
+  .navlink { color: var(--live); text-decoration: none; }
   /* Tables carry mono ids/addresses plus an actions column, so they can exceed a
      narrow card. Without this wrapper the table overflowed the .card outright and
      the Edit/Delete buttons rendered off-screen, unreachable. */
@@ -695,7 +695,7 @@
   details { margin-top: 0.85rem; }
   /* Same disclosure affordance as SchemaForm: hide the native triangle and use one
      rotating caret, so a section no longer shows both a ▶ marker and a literal +. */
-  summary { list-style: none; cursor: pointer; color: var(--accent);
+  summary { list-style: none; cursor: pointer; color: var(--live);
     display: flex; align-items: center; gap: 0.45rem; min-height: 32px; }
   summary::-webkit-details-marker { display: none; }
   .caret { font-size: 0.6rem; transition: transform 0.15s; }
@@ -717,7 +717,7 @@
   .source { display: inline-block; padding: 0.1rem 0.42rem; border: 1px solid var(--border);
     border-radius: 99px; color: var(--muted); font-size: 0.72rem; text-transform: uppercase;
     letter-spacing: 0.04em; }
-  .source.edited { color: var(--accent); border-color: var(--accent); }
+  .source.edited { color: var(--live); border-color: var(--accent); }
   .source.readonly { text-transform: none; }
   .readonly-note { font-size: 0.72rem; vertical-align: middle; }
   .profile-editor { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
@@ -725,12 +725,12 @@
     gap: 1rem; margin-bottom: 0.75rem; }
   .editor-state { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
     justify-content: flex-end; }
-  .unsaved { color: var(--accent); font-size: 0.78rem; }
+  .unsaved { color: var(--live); font-size: 0.78rem; }
   .editor-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); }
   .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0;
     background: transparent; color: var(--muted); padding: 0.45rem 0.65rem;
     font-family: ui-monospace, monospace; font-size: 0.78rem; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab.active { color: var(--live); border-bottom-color: var(--accent); }
   .json-editor { box-sizing: border-box; width: 100%; min-height: 28rem; margin-top: 0.65rem;
     resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem;
     background: var(--bg); color: var(--text); font-family: ui-monospace, monospace;

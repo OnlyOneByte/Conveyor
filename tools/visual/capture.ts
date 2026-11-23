@@ -43,8 +43,11 @@ const { values } = parseArgs({
     out: { type: "string", default: resolve(process.cwd(), "visual-out") },
     only: { type: "string" },
     verbose: { type: "boolean", default: false },
+    scheme: { type: "string", default: "light" },
   },
 });
+
+const colorScheme = values.scheme === "dark" ? "dark" : "light";
 
 const outDir = resolve(values.out);
 const only = values.only?.split(",").map((s) => s.trim());
@@ -127,6 +130,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   const context = await browser.newContext({
     viewport: { width, height: HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
+    colorScheme,
   });
   await pinHistoryRoute(context);
   const page = await context.newPage();
