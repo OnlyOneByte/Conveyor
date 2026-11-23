@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { fetchAuthStatus, logout, type AuthStatus } from "#lib/api.js";
   import Login from "#lib/components/Login.svelte";
+  import Toasts from "#lib/ui/Toasts.svelte";
 
   let status: AuthStatus | null = null;
   let loaded = false;
@@ -89,6 +90,7 @@
       <Login on:authed={onAuthed} />
     {/if}
   </main>
+  <Toasts />
 </div>
 
 <style>
