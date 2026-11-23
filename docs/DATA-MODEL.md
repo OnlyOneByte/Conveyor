@@ -184,6 +184,7 @@ rows stay inert history.
 |---|---|---|
 | `id` | text PK | the `sid` claim of a session cookie |
 | `expires_at` | integer | epoch ms, the cookie's `exp` |
+| `password_version` | text | HMAC of the password the session was issued under, keyed by the signing secret; a session whose value no longer matches is refused |
 
 A row exists for every live login. Logout deletes it, and a login prunes the expired ones. See `docs/modules/api.md` § Auth.
 

@@ -7,7 +7,7 @@ import { loadSecretsKey, randomSecretsKey, type SecretsKey } from "../secrets/ke
 
 const KEY_CHECK = "secrets_key_check";
 const KEY_CHECK_PLAINTEXT = "conveyor-secrets-key-check";
-const SecretsRecord = z.record(z.string());
+const SecretsRecord = z.record(z.string(), z.string());
 const keys = new WeakMap<Database, SecretsKey>();
 
 type PrinterSecretsResult =

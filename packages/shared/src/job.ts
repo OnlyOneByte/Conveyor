@@ -21,7 +21,7 @@ export function isTerminal(state: JobState): boolean {
 }
 
 export const jobRequestSchema = z.object({
-  generator: z.object({ id: z.string(), params: z.unknown() }),
+  generator: z.object({ id: z.string(), params: z.unknown().optional() }),
   printerId: z.string(),
   profileId: z.string(),
 });

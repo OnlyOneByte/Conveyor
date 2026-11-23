@@ -8,9 +8,10 @@ It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only i
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
 routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
-registered in. Requests whose path (query string removed) is exactly an entry in `PUBLIC_PATHS` (today `/health`) or
-starts with an entry in `PUBLIC_PREFIXES` (today `/auth/`) skip it; everything else needs a valid session.
-`/health` is an exact match so that a later route such as `/health-report` is not public by accident.
+registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
+read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
+Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
+that does not opt in.
 `routes/auth-guard.test.ts` boots the real `index.ts` with auth on and checks that every mutating route
 answers `401` without a session. `routes/auth-guard-sqlite.test.ts` does the same in `CONVEYOR_QUEUE=sqlite`
 mode for every job route, the WebSocket upgrade and the history routes.
@@ -96,27 +97,27 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 ## Auth (`auth.ts`, `routes/auth.ts`)
 
 - One tier only: the password grants the whole app, catalog included.
-- The session token is `base64url(payload).hmac`. The payload holds `exp` (epoch milliseconds), `sid` (a
-  random session id) and `pv`, an HMAC of the current password under the signing key. A token is valid only
-  while its signature, `exp` and `pv` all check out **and** its `sid` is still in the `sessions` table.
+- The session token is `base64url(payload).hmac`. The payload holds only `exp` (epoch milliseconds) and
+  `sid` (16 random bytes). The `sessions` row for that `sid` stores the password version, an HMAC of the
+  password keyed by the signing secret, so the cookie carries no fingerprint of the password. A token is valid
+  only while its signature and `exp` check out, its `sid` still has an unexpired row, and that row's password
+  version matches the current password's.
 - Revocation is server-side. `POST /auth/logout` deletes that session's row, so the same cookie is refused
-  afterwards even if a copy was kept; other sessions stay. Changing `CONVEYOR_PASSWORD` changes `pv`, so every
-  session issued under the old password is refused after the restart. Changing `CONVEYOR_AUTH_SECRET` does the
+  afterwards even if a copy was kept; other sessions stay. Changing `CONVEYOR_PASSWORD` changes the password
+  version, so every session issued under the old password is refused after the restart. Changing `CONVEYOR_AUTH_SECRET` does the
   same through the signature. A cookie from before sessions were stored (no `sid`) is refused, which logs
   everyone out once on upgrade. Sessions survive a restart with the same password and secret. Logging in
   prunes expired rows.
 - Password and signature checks compare fixed-length SHA-256 digests with `timingSafeEqual`, so a length
   mismatch cannot short-circuit the comparison.
 - The cookie is read from the `Cookie` header by hand; there is no cookie-parser dependency.
-- The public paths live in two short lists, `PUBLIC_PATHS` (exact, `/health`) and `PUBLIC_PREFIXES`
-  (`/auth/`), so a new route cannot fall outside the protected tree by accident. Everything else needs a valid session.
 - With auth disabled there is no gate (a warning is logged at boot), and `POST /auth/login` answers `ok`.
 - `GET /auth/status` tells the client whether to show a login screen.
 - Every `/auth/*` response, a successful login included, carries `cache-control: private, no-store`, so
   it is never cached or cross-served.
 - Every API response carries `content-security-policy: default-src 'none'; frame-ancestors 'none'`,
   `x-content-type-options: nosniff`, `x-frame-options: DENY` and `referrer-policy: no-referrer`
-  (`security-headers.ts`). The API serves only JSON, so its CSP allows nothing. The PWA's own CSP comes from
+  (`security-headers.ts`). The API serves JSON and file downloads (job artifacts), never a page, so its CSP allows nothing. The PWA's own CSP comes from
   SvelteKit (`kit.csp` in `packages/web/svelte.config.js`), with a nonce for its inline start-up script.
 - The PWA's `handle` hook (`packages/web/src/hooks.server.ts`) adds `ws://<host> wss://<host>` for the
   request's own host to `connect-src`, so Safari before 15.4, which does not count a same-origin socket as
