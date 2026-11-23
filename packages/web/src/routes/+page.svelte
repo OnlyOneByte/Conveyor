@@ -252,12 +252,12 @@
       </Canvas>
       <span class="badge">uploaded mesh</span>
     {:else if source === "upload"}
-      <div class="noview muted">
+      <div class="noview">
         <p>Your STL renders here once selected.</p>
         <p>Drop a file in the Upload panel →</p>
       </div>
     {:else}
-      <div class="noview muted">
+      <div class="noview">
         <p>No live preview for this generator.</p>
         <p>The exact model is generated server-side at print time.</p>
       </div>
@@ -451,7 +451,7 @@
     background: var(--paper); color: var(--ink);
     padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--accent-dim);
   }
-  .noview { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 0.25rem; }
+  .noview { position: absolute; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100% - 2rem); display: flex; flex-direction: column; text-align: center; gap: 0.25rem; padding: var(--s4) var(--s5); border-radius: var(--r-card); border: 1px solid var(--line); background: var(--paper); color: var(--ink); } .noview p { margin: 0; }
   .panel { display: flex; flex-direction: column; gap: 1rem; }
 
   h3 { margin: 0 0 0.75rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; align-items: center; }

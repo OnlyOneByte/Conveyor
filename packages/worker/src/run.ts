@@ -34,6 +34,8 @@ export interface PublishExtra {
   message?: string;
   error?: JobStatusEvent["error"];
   timings?: StageTiming[];
+  bytesSent?: number;
+  bytesTotal?: number;
 }
 
 export type SlotResult = "taken" | "canceled";
@@ -52,6 +54,7 @@ export interface PipelineDeps {
   record(jobId: string, req: JobRequest, outcome: TerminalRecord): void;
   resolveJobTarget(req: JobRequest): JobTarget | null;
   resolvePrinter(printerId: string): Promise<PrinterTarget>;
+  printerSeen(printerId: string): void;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;
@@ -134,6 +137,13 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
       signal,
       report: (progress, message) =>
         void deps.publish(opts.jobId, run.state, { stage: run.stage, progress, message }),
+      reportUpload: (bytesSent, bytesTotal) =>
+        void deps.publish(opts.jobId, run.state, {
+          stage: run.stage,
+          progress: bytesTotal === 0 ? 1 : bytesSent / bytesTotal,
+          bytesSent,
+          bytesTotal,
+        }),
       log: deps.log,
     },
   };
