@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { PrintStatus } from "@conveyor/shared";
 import { harness, never, states, waitForAbort } from "../test/helpers/pipeline-harness";
+import { SEEN_WRITE_FAILED } from "./print";
 
 function withinMs<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -191,7 +192,7 @@ describe("runJob transport status contract", () => {
 });
 
 describe("runJob printer contact", () => {
-  test("marks the printer seen once for every status it sends, and not before it answers", async () => {
+  test("marks the printer seen for every status it reports, but not for the transport's own transferring", async () => {
     const h = harness({
       status: async function* () {
         yield { state: "transferring" };
@@ -200,9 +201,39 @@ describe("runJob printer contact", () => {
       },
     });
     expect(await h.run()).toBe("done");
-    expect(h.seen).toEqual(["p1", "p1", "p1"]);
+    expect(h.seen).toEqual(["p1", "p1"]);
   });
 
+  test("a stream that says transferring and then fails marks nothing", async () => {
+    const h = harness({
+      status: async function* () {
+        yield { state: "transferring" };
+        throw new Error("connect ECONNREFUSED 127.0.0.1:1");
+      },
+    });
+    await expect(h.run()).rejects.toThrow("ECONNREFUSED");
+    expect(h.seen).toEqual([]);
+  });
+
+  test("a last-seen write that fails is noted once and the print still finishes", async () => {
+    const h = harness({
+      status: async function* () {
+        yield { state: "printing", progress: 0.2 };
+        yield { state: "printing", progress: 0.6 };
+        yield { state: "done" };
+      },
+      deps: () => ({
+        printerSeen: () => {
+          throw new Error("database is locked");
+        },
+      }),
+    });
+    expect(await h.run()).toBe("done");
+    expect(h.records[0]).toMatchObject({
+      state: "done",
+      notes: `${SEEN_WRITE_FAILED}: database is locked`,
+    });
+  });
   test("a status stream that fails before any status marks nothing", async () => {
     const h = harness({
       status: async function* () {
