@@ -14,7 +14,7 @@ import {
   start,
   until,
 } from "../test/helpers/loop-harness";
-import { waitForAbort } from "./pipeline-harness";
+import { waitForAbort } from "../test/helpers/pipeline-harness";
 
 afterEach(cleanup);
 

@@ -5,6 +5,7 @@ import {
   STOP_UNCONFIRMED_REASON,
   UPLOAD_SETTLE_REASON,
 } from "@conveyor/shared/queue";
+import { waitForAbort } from "../test/helpers/pipeline-harness";
 import {
   bumpToken,
   cleanup,
@@ -15,7 +16,6 @@ import {
   row,
   states,
 } from "../test/helpers/queue-deps-harness";
-import { waitForAbort } from "./pipeline-harness";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 import { LeaseLostError } from "./run";
 

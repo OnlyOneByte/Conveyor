@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Coverage, parseLcov } from "./lcov";
 import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
-import { isSource, PACKAGES, SWEEP_ENV, SWEEP_REPORT_ENV, TEST_NAME } from "./summary";
+import {
+  isSource,
+  nonBlankLines,
+  PACKAGES,
+  SWEEP_ENV,
+  SWEEP_REPORT_ENV,
+  TEST_NAME,
+} from "./summary";
+import { typeOnlyLines } from "./type-lines";
 
 export const ROOT = join(import.meta.dir, "..", "..", "..");
 
@@ -97,5 +105,28 @@ export function readBase(ref: string, root = ROOT): Base | Error {
   return {
     baseline: baselineTexts((path) => git(root, ["show", `${ref}:${path}`])),
     hasChecker: git(root, ["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
+  };
+}
+
+export const readAt = (ref: string, path: string, root = ROOT) =>
+  git(root, ["show", `${ref}:${path}`]);
+
+export function renamedSince(ref: string, root = ROOT): (from: string, to: string) => boolean {
+  const moves = new Set(
+    (git(root, ["diff", "--name-status", "-M90%", ref, "HEAD"]) ?? "")
+      .split("\n")
+      .map((line) => line.split("\t"))
+      .filter((fields) => fields[0]?.startsWith("R") && fields.length === 3)
+      .map((fields) => `${fields[1]}\0${fields[2]}`),
+  );
+  return (from, to) => moves.has(`${from}\0${to}`);
+}
+
+export function linesAt(ref: string, root = ROOT): (path: string) => number | null {
+  return (path) => {
+    const text = readAt(ref, path, root);
+    if (text === null) return null;
+    const types = typeOnlyLines(path, text);
+    return [...nonBlankLines(text).keys()].filter((line) => !types.has(line)).length;
   };
 }

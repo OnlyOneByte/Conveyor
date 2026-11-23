@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { harness } from "./pipeline-harness";
+import { harness } from "../test/helpers/pipeline-harness";
 
 test("a job whose printer or profile was deleted fails before generating anything", async () => {
   const h = harness({ deps: () => ({ resolveJobTarget: () => null }) });

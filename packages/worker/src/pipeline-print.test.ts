@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PrintStatus } from "@conveyor/shared";
-import { harness, never, states, waitForAbort } from "./pipeline-harness";
+import { harness, never, states, waitForAbort } from "../test/helpers/pipeline-harness";
 
 function withinMs<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { harness, states } from "./pipeline-harness";
+import { harness, states } from "../test/helpers/pipeline-harness";
 
 const locked: string[] = [];
 

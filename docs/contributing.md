@@ -57,6 +57,22 @@ a single line-coverage percent, so PRs that move different packages never touch 
 `bun run check:coverage:update` and commit the files it names; it rewrites only packages whose floor rose. If
 it says `dropped below base`, add the tests that cover what you changed.
 
+Moving a test-only file out of `src/` into a declared helper folder lowers that package's number without any
+real coverage being lost: the file leaves the denominator. That is the one case where a floor may go down, and
+it is recorded where review sees it. Add an entry to `scripts/checks/coverage/baseline/reclassified.json`,
+`{ "package", "from", "to", "floor" }`, and set the package's baseline to the measured value, the same number
+as `floor`. `check:coverage` accepts the lower floor only for an entry the base does not already have, and
+only when all of these hold:
+
+- `from` is a counted source file of that package, and `to` is in that package's declared helper folder;
+- git sees the commit range as a rename from `from` to `to` (`git diff -M90%`);
+- `floor` equals the committed baseline;
+- the move explains the whole drop: counting the moved file's lines on the base as fully covered brings the
+  package back to at least the base's floor.
+
+Otherwise it fails and names the rule. The log prints how far the move could explain coverage, so a reviewer
+sees the slack. Entries stay in the file as history and have no effect once they are on the base.
+
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
 `*.spec.*` (the name decides, not what the file contains), and the declared helper folders

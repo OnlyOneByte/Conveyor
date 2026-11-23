@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { dbUpsertPrinter, openDb } from "@conveyor/shared/db";
 import { enqueueJob } from "@conveyor/shared/queue";
 import { type QueueWorker, type QueueWorkerOptions, startQueueWorker } from "../../src/loop";
-import { buildDeps, type HarnessOptions, harness, req } from "../../src/pipeline-harness";
+import { buildDeps, type HarnessOptions, harness, req } from "./pipeline-harness";
 
 export let db: Database;
 export let dir: string;

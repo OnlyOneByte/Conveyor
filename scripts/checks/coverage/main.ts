@@ -5,16 +5,22 @@ import { runtimeResolver, sourceImportErrors, suiteErrors, symlinkErrors } from 
 import { parseLcov, serializeLcov } from "./lcov";
 import {
   BASELINE_DIR,
+  type BaselineTexts,
   baselineWrites,
   checkRatchet,
+  type Percents,
   parseBaseline,
   updateRefusal,
 } from "./ratchet";
+import { parseReclassifications, RECLASSIFIED_PATH, reclassificationFloors } from "./reclassified";
 import {
+  linesAt,
   ROOT,
+  readAt,
   readBase,
   readCommitted,
   readOrNull,
+  renamedSince,
   runSweep,
   sources,
   stagedEntries,
@@ -94,25 +100,47 @@ function update(summary: Summary): number {
   return 0;
 }
 
+const linesOf = (texts: BaselineTexts): Percents => {
+  const parsed = parseBaseline(texts);
+  return parsed !== null && typeof parsed !== "string" ? parsed.lines : {};
+};
+
+function reclassified(summary: Summary, ref: string, base: BaselineTexts) {
+  const head = parseReclassifications(readOrNull(join(ROOT, RECLASSIFIED_PATH)));
+  const old = parseReclassifications(readAt(ref, RECLASSIFIED_PATH));
+  if (typeof head === "string") return { floors: {}, errors: [head], notes: [] };
+  if (typeof old === "string") return { floors: {}, errors: [`base ${old}`], notes: [] };
+  return reclassificationFloors(head, old, {
+    renamed: renamedSince(ref),
+    baseLines: linesAt(ref),
+    current: summary,
+    base: linesOf(base),
+    committed: linesOf(readCommitted()),
+  });
+}
+
 function check(summary: Summary, ref: string): number {
   const base = readBase(ref);
   if (base instanceof Error) {
     console.error(base.message);
     return 1;
   }
+  const moves = reclassified(summary, ref, base.baseline);
   const { errors } = checkRatchet({
     current: percents(summary),
     committed: readCommitted(),
     base: base.baseline,
     baseHasChecker: base.hasChecker,
+    reclassifiedFloors: moves.floors,
   });
-  for (const error of errors) console.error(error);
+  for (const error of [...moves.errors, ...errors]) console.error(error);
+  for (const note of moves.notes) console.log(note);
   if (parseBaseline(base.baseline) === null && !base.hasChecker) {
     console.log(
       `base ${ref} predates the coverage checker; bootstrapping from the committed baseline`,
     );
   }
-  return errors.length === 0 ? 0 : 1;
+  return errors.length === 0 && moves.errors.length === 0 ? 0 : 1;
 }
 
 function main(argv: string[]): number {
