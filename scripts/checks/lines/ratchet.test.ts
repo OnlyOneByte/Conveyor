@@ -37,6 +37,14 @@ describe("counting lines", () => {
     expect(countLines("a\n\n")).toBe(2);
   });
 
+  test("counts CR and CRLF line endings like LF", () => {
+    expect(countLines("a\rb")).toBe(2);
+    expect(countLines("a\rb\r")).toBe(2);
+    expect(countLines("a\r\nb\r\n")).toBe(2);
+    expect(countLines("x\r".repeat(400))).toBe(400);
+    expect(countLines("a\r\rb")).toBe(3);
+  });
+
   test("measures code, styles and components, not docs, config or data", () => {
     const tree = treeOf({
       "a.ts": lines(3),

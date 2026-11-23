@@ -76,8 +76,8 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 
 | Limit | Max | Tag |
 |---|---|---|
-| Lines per file | 250 | [CI: `file-size`] |
-| Lines per UI component (`.svelte`) | 150 | [CI: `file-size`] |
+| Lines per file | 250 | [CI: `file-size`]; also [review], S1, in `packages/web`, which Biome doesn't format |
+| Lines per UI component (`.svelte`) | 150 | [CI: `file-size`]; also [review], S1 |
 | Cognitive complexity per function | 12 | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Positional parameters | 3 (then pass one object) | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Changed lines per PR (lockfiles, snapshots, migrations, `docs/design/**`, pure deletions excluded) | 400 | [review]: 401–800 is S2 with a request to split; over 800 is S1 unless the owner applied `large-ok` |
