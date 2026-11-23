@@ -9,7 +9,7 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { multipartFileUpload } from "@conveyor/shared/node";
+import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
@@ -42,7 +42,7 @@ export const moonraker: TransportPlugin = {
       method: "POST",
       body: upload.body,
       headers: { ...headers, ...upload.headers },
-      signal: ctx.signal,
+      signal: uploadSignal(ctx.signal),
     }).catch((e) => {
       const reason = `moonraker upload failed: ${e instanceof Error ? e.message : String(e)}`;
       throw ctx.signal.aborted

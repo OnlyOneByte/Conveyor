@@ -2,7 +2,7 @@ import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PrintNotStartedError, type StageCtx } from "@conveyor/shared";
+import { PrintNotStartedError, type StageCtx, StageError } from "@conveyor/shared";
 import { moonraker } from "./index";
 
 const handle = {
@@ -14,6 +14,14 @@ const handle = {
 
 const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
+
+const within = <T>(promise: Promise<T>, ms: number) =>
+  Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) =>
+      setTimeout(() => reject(new Error(`no answer within ${ms} ms`)), ms),
+    ),
+  ]);
 
 afterAll(() => {
   fetchSpy.mockRestore();
@@ -128,6 +136,29 @@ describe("moonraker submit, the printer answers", () => {
     const keyed = { ...target, secrets: { apiKey: "k1" } };
     await moonraker.submit({ path, format: "gcode" }, keyed, ctx);
     expect(parts).toEqual([{ field: "file", name: "bin 1.gcode", text: "G28\n", key: "k1" }]);
+  });
+
+  test("an upload the printer never answers times out as a transport failure, not a cancel", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const calls = fakeFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+            once: true,
+          }),
+        ),
+    );
+    const before = process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
+    process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = "30";
+    try {
+      const submit = within(moonraker.submit({ path, format: "gcode" }, target, ctx), 2000);
+      await expect(submit).rejects.toBeInstanceOf(StageError);
+      await expect(submit).rejects.toThrow("moonraker upload failed");
+      expect(calls).toHaveLength(1);
+    } finally {
+      if (before === undefined) delete process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
+      else process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = before;
+    }
   });
 
   test("a rejected upload fails the transport stage and starts nothing", async () => {
