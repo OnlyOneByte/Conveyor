@@ -7,15 +7,13 @@ import {
   openArtifactStream,
   resolveJobArtifact,
 } from "../artifact-download.js";
-import { parseGeneratorParams, validateJobRequest } from "../validate.js";
+import { describeIssues, parseGeneratorParams, validateJobRequest } from "../validate.js";
 
-type Submission =
-  | { ok: true; request: JobRequest }
-  | { ok: false; code: 400 | 404; error: unknown };
+type Submission = { ok: true; request: JobRequest } | { ok: false; code: 400 | 404; error: string };
 
 export function parseSubmission(body: unknown): Submission {
   const parsed = jobRequestSchema.safeParse(body);
-  if (!parsed.success) return { ok: false, code: 400, error: parsed.error.format() };
+  if (!parsed.success) return { ok: false, code: 400, error: describeIssues(parsed.error.issues) };
   const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
   if (!target) {
     return {
