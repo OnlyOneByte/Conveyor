@@ -54,8 +54,6 @@ services:
     security_opt: ["no-new-privileges:true"]
     read_only: true
     cap_drop: [ALL]
-    environment:
-      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://localhost}
     depends_on: [api]
 
   api:

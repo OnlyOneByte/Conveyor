@@ -61,7 +61,7 @@ jobs:
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
 
       - name: Export digest
         run: |
