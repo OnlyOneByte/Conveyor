@@ -148,21 +148,34 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 
 ### Dependency updates
 
-`.github/dependabot.yml` opens update PRs every week, at most 5 open per ecosystem, with minor and patch
-updates grouped into one PR (the `minor` group) and majors one per PR:
+`.github/dependabot.yml` opens update PRs every week, at most 5 open per ecosystem:
 
-| Ecosystem | Covers | Title prefix |
-| --- | --- | --- |
-| `bun` | `bun.lock` and every workspace `package.json` | `fix(deps)`, or `chore(deps)` for dev dependencies |
-| `github-actions` | the SHA pins in `.github/workflows` | `ci` |
-| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | `fix(deps)` |
+| Ecosystem | Covers | Grouping | Title prefix |
+| --- | --- | --- | --- |
+| `bun` | `bun.lock` and every workspace `package.json` | minor and patch in one PR (`minor`), majors one per PR | `fix(deps)`, or `chore(deps)` for dev dependencies |
+| `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
+| `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | every update in one PR (`images`) | `fix(deps)` |
+| `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | every update in one PR (`images`) | `fix(deps)` |
 
-Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The base images use
-moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot has no
-version to bump, so the `docker` entry opens PRs only once a `FROM` line pins a version or digest.
+The group names are short so a grouped title, such as
+`fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters.
 
-A `github-actions` PR changes the SHA but not the table above, so before it merges, push a commit that
-updates the table's release and commit for each bumped action.
+Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The Dockerfile base
+images use moving tags (`oven/bun:debian`, `node:lts-bookworm-slim`, `debian:trixie-slim`), which Dependabot
+has no version to bump, so the `docker` entry opens PRs only once a `FROM` line pins a version or digest.
+Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
+
+A Dependabot PR doesn't follow the PR rules on its own. A builder adopts each one as its author session before
+it goes to review:
+
+1. Retitle it to RUBRIC §12 if needed (72 characters at most, an allowed type and scope).
+2. Rewrite the body to the PR template, ending with that builder's `Author-Session:` line.
+3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
+   and commit for each bumped action.
+
+Once anyone but Dependabot pushes to its branch, Dependabot stops rebasing that PR. From then on the builder
+keeps it current with `main` by merging `main` in. Commenting `@dependabot recreate` throws the pushed commits
+away.
 
 ## Toolchain notes
 
