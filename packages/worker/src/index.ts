@@ -10,7 +10,7 @@ import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
-import { redisReaperDeps, startRedisReaper } from "./redis-reaper.js";
+import { redisReaperDeps, startRedisReaper, WORKER_OPTIONS } from "./redis-reaper.js";
 import { StatusBus } from "./status.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
@@ -57,7 +57,7 @@ const worker = new Worker<unknown>(
       await control.quit();
     }
   },
-  { connection, concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2) },
+  { ...WORKER_OPTIONS, connection, concurrency: Number(process.env.WORKER_CONCURRENCY ?? 2) },
 );
 
 worker.on("ready", () => console.log("conveyor worker ready"));

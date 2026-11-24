@@ -24,6 +24,7 @@ import type { Redis } from "ioredis";
 export const ORPHAN_REASON =
   "the worker stopped before recording how this job ended; check the printer before you retry";
 export const REAPER_INTERVAL_MS = 60_000;
+export const WORKER_OPTIONS = { maxStalledCount: 0 } as const;
 
 const LIVE_STATES = new Set(["waiting", "active", "delayed", "prioritized", "waiting-children"]);
 

@@ -70,7 +70,7 @@ state would otherwise appear nowhere: not in history and not in Needs-you (#383)
 
 - **Jobs that died.** For each id in `ACTIVE_JOBS_KEY` with no SQLite row, the reaper asks BullMQ. A job still
   `waiting`, `active`, `delayed`, `prioritized` or `waiting-children` is left alone, and so is one whose snapshot
-  is already terminal. Anything else is a job BullMQ gave up on (a stalled job past `maxStalledCount` is `failed`)
+  is already terminal. Anything else is a job BullMQ gave up on (a stalled job is `failed`; see `WORKER_OPTIONS` below)
   or no longer has. It is recorded `failed` at its last stage with `ORPHAN_REASON`:
   "the worker stopped before recording how this job ended; check the printer before you retry". Its request
   comes from the BullMQ job when there is one; without one the generator is `unknown` and the printer and
@@ -82,6 +82,11 @@ state would otherwise appear nowhere: not in history and not in Needs-you (#383)
 - **Claims whose retry was never queued.** `dbListUnrecordedRetryClaims` lists claims whose retry has no row.
   A claim whose retry BullMQ also lacks is released on the second sweep in a row that finds it missing, so a
   claim made just before its `add` isn't cut short.
+
+The production `Worker` is created with `WORKER_OPTIONS` (`maxStalledCount: 0`). BullMQ's default of 1
+would move a job whose worker died back to `waiting` and run it again from the start, which re-sends a print
+that may already be on the bed. With 0, BullMQ marks the job `failed` on the first stall, and the reaper
+records it with `ORPHAN_REASON`, so a person checks the printer before retrying.
 
 Several workers may each run the reaper. Recording is an upsert, a second terminal publish is refused, and
 releasing a claim is conditional on its holder, so overlapping sweeps agree.
