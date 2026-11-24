@@ -28,7 +28,7 @@
   <div class="chip">
     <div class="tx">
       <b>{offline ? OFFLINE : beltSummary(jobs)}</b>
-      <span>{offline ? "Last known jobs" : `${waiting} ${BINS.waiting}`}{#if needs.length} · <span class="bad">{BINS.needs} {needs.length}</span>{/if}</span>
+      <span>{offline ? "Last known jobs" : `${waiting} ${BINS.waiting}`}{#if needs.length}{" · "}<span class="bad">{BINS.needs} {needs.length}</span>{/if}</span>
       <span class="mini" class:stale={offline} aria-hidden="true">{#each moving as { job, x } (job.id)}<i style="left: {x * 100}%"></i>{/each}</span>
     </div>
     <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={() => (open = !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
