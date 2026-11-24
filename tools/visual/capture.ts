@@ -48,6 +48,7 @@ const { values } = parseArgs({
     only: { type: "string" },
     verbose: { type: "boolean", default: false },
     scheme: { type: "string", default: "light" },
+    base: { type: "boolean", default: false },
   },
 });
 
@@ -66,6 +67,11 @@ const unshot = selected
   .map((s) => s.name);
 if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")}`);
 const dirs = pageDirs(resolve(values.root));
+const BASE_READY_MS = 5000;
+const readyMs = values.base ? BASE_READY_MS : 30000;
+const absent = new Set<string>();
+const notOnBase = (scene: Scene) =>
+  `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
 
 function startSampler(page: Page, warnings: string[]): Sampler {
   const frames: Frame[] = [];
@@ -115,6 +121,7 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
+  if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
   const context = await browser.newContext({
     viewport: { width, height: HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
@@ -133,12 +140,29 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   let sampler: Sampler | undefined;
   try {
     await page.goto(new URL(scene.route, base).toString(), { waitUntil: "load" });
-    await page.locator(scene.ready).first().waitFor({ timeout: 30000 });
+    const ready = await page
+      .locator(scene.ready)
+      .first()
+      .waitFor({ timeout: readyMs })
+      .then(
+        () => true,
+        (err: unknown) => {
+          if (!values.base) throw err;
+          return false;
+        },
+      );
+    if (!ready) {
+      absent.add(scene.name);
+      await context.close();
+      return { ...result, warnings: [notOnBase(scene)] };
+    }
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
     const mismatch = await titleMismatch(page);
     if (mismatch) throw new Error(mismatch);
-    const elsewhere = [...landed].filter((path) => landsElsewhere(dirs, scene, path));
+    const elsewhere = values.base
+      ? []
+      : [...landed].filter((path) => landsElsewhere(dirs, scene, path));
     if (elsewhere.length)
       throw new Error(
         `reached ${elsewhere.join(", ")}, which isn't the scene's route, a follow or history step, or in its visits`,
@@ -160,7 +184,10 @@ async function warmUp(browser: Browser, base: string): Promise<string[]> {
     const ready = selected.find((s) => s.route === route)?.ready ?? "body";
     try {
       await page.goto(new URL(route, base).toString(), { waitUntil: "load", timeout: 120000 });
-      await page.locator(ready).first().waitFor({ timeout: 120000 });
+      await page
+        .locator(ready)
+        .first()
+        .waitFor({ timeout: values.base ? readyMs : 120000 });
     } catch (err) {
       warnings.push(`warm-up ${route}: ${messageOf(err)}`);
     }

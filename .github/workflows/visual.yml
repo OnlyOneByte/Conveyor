@@ -117,7 +117,7 @@ jobs:
           ONLY: ${{ steps.pick.outputs.only }}
         run: |
           if [ "$ONLY" = all ]; then set --; else set -- "--only=$ONLY"; fi
-          bun head/tools/visual/capture.ts --root base --out "$OUT/before" "$@"
+          bun head/tools/visual/capture.ts --root base --out "$OUT/before" --base "$@"
 
       - name: Capture merge commit
         id: after
@@ -137,7 +137,7 @@ jobs:
           ONLY: ${{ steps.pick.outputs.only }}
         run: |
           set -euo pipefail
-          if [ "$ONLY" = all ]; then scope="every scene"; else scope="scenes this change reaches: ${ONLY:-none (no page is affected)}"; fi
+          if [ "$ONLY" = all ]; then scope="every scene"; elif [ -z "$ONLY" ]; then scope="no UI files changed"; else scope="scenes this change reaches: $ONLY"; fi
           raw="https://raw.githubusercontent.com/$REPO/__ASSETS_SHA__/pr-$PR"
           footer="base \`${BASE_SHA::7}\` (capture: $BEFORE_OUTCOME) → merge \`${MERGE_SHA::7}\` (capture: $AFTER_OUTCOME) · $scope · stub mode · [run]($RUN_URL)"
           bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \
