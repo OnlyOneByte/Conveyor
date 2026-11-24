@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
+import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
@@ -70,17 +71,6 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
       route.fulfill({ status: step.status, json: step.json }),
     );
   else await page.waitForTimeout(step.wait);
-}
-
-async function follow(page: Page, href: string): Promise<void> {
-  await page.evaluate((target) => {
-    const link = document.createElement("a");
-    link.href = target;
-    document.body.append(link);
-    link.click();
-    link.remove();
-  }, href);
-  await page.waitForURL((url) => `${url.pathname}${url.search}` === href);
 }
 
 async function waitForStep(
