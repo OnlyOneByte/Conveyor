@@ -136,7 +136,7 @@ export const beltScenes: Scene[] = [
     widths: [1440],
     fullPage: false,
     record: true,
-    steps: [...moves, { waitFor: "#belt .chips .gone", timeout: 8000 }, { wait: 1500 }],
+    steps: [...moves, { waitFor: "#belt .chips .gone a.chip", timeout: 8000 }, { wait: 1500 }],
   },
   {
     name: "belt-motion-reduced",

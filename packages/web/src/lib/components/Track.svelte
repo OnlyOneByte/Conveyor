@@ -20,7 +20,7 @@
   const groupWidths: Record<string, number> = {};
   const lefts = new Map<string, number>();
   let leaving: Departure[] = [];
-  let hidden = false;
+  let hidden = document.hidden;
 
   $: moving = jobs.filter((j) => onRail(j.state));
   $: waiting = jobs.filter((j) => j.state === "queued").length;
@@ -75,7 +75,7 @@
         <Chip jobs={members(group)} left={Math.round(group.x - group.width / 2)} index={i} tabindex={i === active ? 0 : -1} end={group.x > railPx / 2} {onAction} />
       {/each}
       {#each leaving as { job, left } (job.id)}
-        <div class="gone {job.state}" style="--left: {left}px; --dx: {hopDistance(left, railPx)}px" aria-hidden="true" inert on:animationend={(event) => event.target === event.currentTarget && landed(job)}><Chip jobs={[job]} left={0} /></div>
+        <div class="gone" data-end={job.state} style="--left: {left}px; --dx: {hopDistance(left, railPx)}px" aria-hidden="true" inert on:animationend={(event) => event.target === event.currentTarget && landed(job)}><Chip jobs={[job]} left={0} /></div>
       {/each}
     </div>
     {#if moving.length === 0 && waiting === 0}<span class="label idle">{idle}</span>{/if}
@@ -109,8 +109,8 @@
   .treads.run { animation: tread 1.3s linear infinite; will-change: transform; }
   @keyframes tread { to { transform: translateX(26px); } }
   .gone { position: absolute; inset: 0 auto auto 0; transform: translateX(var(--left)); animation: hop var(--t-hop) var(--ease-move) forwards; pointer-events: none; }
-  .gone.failed { animation-name: drop; }
-  .gone.canceled { animation: fade var(--t-fast) linear forwards; }
+  .gone[data-end="failed"] { animation-name: drop; }
+  .gone[data-end="canceled"] { animation: fade var(--t-fast) linear forwards; }
   @keyframes hop { 60% { opacity: 1; } to { transform: translateX(calc(var(--left) + var(--dx))); opacity: 0; } }
   @keyframes drop { 60% { opacity: 1; } to { transform: translate(calc(var(--left) + var(--dx)), 44px); opacity: 0; } }
   @keyframes fade { to { opacity: 0; } }
