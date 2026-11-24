@@ -51,7 +51,7 @@
       </div>
     {/each}
   </div>
-  {#if results.length === 0}<p class="none" role="status">No matches</p>{/if}
+  {#if open && results.length === 0}<p class="none" role="status">No matches</p>{/if}
   <p class="keys" aria-hidden="true"><kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>↵</kbd> open · <kbd>esc</kbd> close</p>
 </dialog>
 

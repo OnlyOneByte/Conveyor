@@ -41,6 +41,7 @@
   let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [];
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const toasted = new Set<string>();
   const ends = createEnds({ ...http, entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
     show: (finished, failures) => ((finishedToday = finished), (needs = failures)),
     toast: (text, action) => toasts.show(text, action),
@@ -49,9 +50,9 @@
       stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId, retryOf });
       location.assign("/?rerun=1");
     },
-  });
+  }, { toasted });
   const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
-  const desk = createNewsDesk(announce);
+  const desk = createNewsDesk(announce, undefined, toasted);
   const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended) => ((beltJobs = jobs), (beltEnded = ended)), (news) => (desk(news), news.length && refreshEnds()));
   let polling = false;
   function tick() {
@@ -64,14 +65,13 @@
     refreshEnds();
     const timers = [setInterval(tick, POLL_MS), setInterval(refreshEnds, ENDS_MS)];
     document.addEventListener("visibilitychange", tick);
+    const unsent = onJobSent(() => (tick(), refreshEnds()));
     return () => {
       for (const timer of timers) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
-      belt.stop();
+      for (const stop of [belt.stop, unsent]) stop();
     };
   });
-
-  onMount(() => onJobSent(() => (tick(), refreshEnds())));
   async function signOut() {
     await logout();
     await invalidateAll();

@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { announce } from "../announce";
 
 let ids = 0;
 export const uid = (prefix: string) => `${prefix}-${++ids}`;
@@ -41,7 +42,7 @@ type Timer = { after: (run: () => void, ms: number) => () => void; now: () => nu
 
 const realTimer: Timer = { after: (run, ms) => { const handle = setTimeout(run, ms); return () => clearTimeout(handle); }, now: () => Date.now() };
 
-export function createToasts({ after, now }: Timer = realTimer) {
+export function createToasts({ after, now }: Timer = realTimer, say: (text: string) => unknown = () => {}) {
   const { subscribe, update } = writable<Toast[]>([]);
   const live = new Map<number, { left: number; since: number; holds: Set<Hold>; stop: () => void }>();
   let last = 0;
@@ -55,6 +56,7 @@ export function createToasts({ after, now }: Timer = realTimer) {
     const id = ++last;
     update((all) => [...all, { id, text, action }]);
     live.set(id, { left: TOAST_MS, holds: new Set(), ...run(id, TOAST_MS) });
+    say(text);
     return id;
   };
   const hold = (id: number, why: Hold) => {
@@ -71,4 +73,4 @@ export function createToasts({ after, now }: Timer = realTimer) {
   return { subscribe, show, dismiss, hold, release };
 }
 
-export const toasts = createToasts();
+export const toasts = createToasts(realTimer, announce);

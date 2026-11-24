@@ -16,7 +16,7 @@ async function stageErrorOf(run: Promise<unknown>) {
 }
 
 describe("runEngine", () => {
-  test("resolves with the stderr tail when the engine exits 0", async () => {
+  test("resolves with the whole stderr when the engine exits 0", async () => {
     const ctx = testCtx();
     try {
       await expect(runEngine("slicer", "sh", ["-c", "exit 0"], ctx)).resolves.toEqual({
@@ -25,7 +25,7 @@ describe("runEngine", () => {
       const script = `printf '%0600d' 0 >&2; echo 'All objects are outside of the print volume.' >&2`;
       const { stderr } = await runEngine("slicer", "sh", ["-c", script], ctx);
       expect(stderr).toEndWith("All objects are outside of the print volume.\n");
-      expect(stderr.length).toBe(500);
+      expect(stderr.length).toBe(600 + "All objects are outside of the print volume.\n".length);
     } finally {
       ctx.cleanup();
     }
@@ -105,6 +105,19 @@ describe("requireOutput", () => {
         stage: "generator",
         reason: "no STL",
       });
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  test("quotes only the last 500 characters of stderr, however long it is", async () => {
+    const ctx = testCtx();
+    try {
+      const said = `${"x".repeat(5000)}All objects are outside of the print volume.`;
+      const missing = join(ctx.workDir, "none.gcode");
+      const { reason } = await stageErrorOf(requireOutput("slicer", missing, "no G-code", said));
+      expect(reason).toBe(`no G-code: ${said.slice(-500)}`);
+      expect(reason).toEndWith("All objects are outside of the print volume.");
     } finally {
       ctx.cleanup();
     }

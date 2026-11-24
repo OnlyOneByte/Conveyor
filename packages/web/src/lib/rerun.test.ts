@@ -35,10 +35,10 @@ describe("whether a job can run again", () => {
     const replying = (status: number, body: object) => Object.assign(async (_: string | URL | Request, init?: RequestInit) => (sent.push(String(init?.body)), Response.json(body, { status })), { preconnect: fetch.preconnect });
     expect(await sendJob(request, "f1", replying(202, { jobId: "j2" }))).toEqual({ jobId: "j2" });
     expect(sent).toEqual([JSON.stringify({ ...request, retryOf: "f1" })]);
-    await expect(sendJob(request, "f1", replying(409, { error: "retryOf: job f1 is already being retried" }))).rejects.toThrow(ALREADY_RETRIED);
+    await expect(sendJob(request, "f1", replying(409, { error: "retryOf: job f1 was already retried" }))).rejects.toThrow(ALREADY_RETRIED);
     await expect(sendJob(request, "f1", replying(400, { error: "unknown printer voron" }))).rejects.toThrow("unknown printer voron");
     expect(ALREADY_RETRIED).toBe("This job was already retried.");
-    const taken = { error: "retryOf: job f1 is already being retried", retriedBy: "r1" };
+    const taken = { error: "retryOf: job f1 was already retried", retriedBy: "r1" };
     const refused = await sendJob(request, "f1", replying(409, taken)).catch((e: unknown) => e);
     expect(refused).toBeInstanceOf(AlreadyRetried);
     expect(refused).toMatchObject({ message: ALREADY_RETRIED, retriedBy: "r1" });
