@@ -16,7 +16,7 @@ describe("printer form", () => {
     expect(draftErrors(blankDraft(), [], true)).toEqual({
       name: "Give the printer a name.",
       id: "Give the printer an ID.",
-      transportId: "Choose how Conveyor talks to the printer.",
+      transportId: "Choose the printer's software.",
       address: "Enter the printer's address.",
     });
   });

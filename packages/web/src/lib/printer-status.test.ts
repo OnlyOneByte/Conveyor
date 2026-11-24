@@ -35,7 +35,7 @@ describe("printerCard", () => {
       job("early", "queued", { createdAt: 10, generator: undefined }),
     ];
     const card = printerCard(voron, { reachable: true, latencyMs: 12, host: "", port: 0 }, active, catalog, NOW);
-    expect(card).toMatchObject({ tone: "ready", status: "Ready", detail: "Answered in 12 ms." });
+    expect(card).toMatchObject({ tone: "ready", status: "Ready", detail: "Connected, answered in 12 ms." });
     expect(card.waiting).toEqual([
       { id: "early", name: "Job" },
       { id: "late", name: "Gridfinity Bin" },
@@ -55,12 +55,12 @@ describe("printerCard", () => {
       detail: "Didn't answer within 2 seconds. Last answered 3h ago.",
     });
     expect(printerCard(voron, { ...down, reason: "ECONNREFUSED" }, [], null, NOW).detail).toBe(
-      "Refused the connection. Is Moonraker or ElegooLink running? It hasn't answered since it was added.",
+      "Refused the connection. Is the printer's software running? It hasn't answered since it was added.",
     );
   });
 
-  test("a reachable printer without a latency answered just now", () => {
-    expect(printerCard(voron, { reachable: true, host: "", port: 0 }, [], null, NOW).detail).toBe("Answered just now.");
+  test("a reachable printer without a latency is connected", () => {
+    expect(printerCard(voron, { reachable: true, host: "", port: 0 }, [], null, NOW).detail).toBe("Connected.");
   });
 });
 

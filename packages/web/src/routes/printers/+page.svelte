@@ -33,7 +33,8 @@
   $: catalog = { printers, generators };
   $: cards = printers.map((printer) => ({ printer, card: printerCard(printer, reach[printer.id], active, catalog, now) }));
   $: transportName = (id: string) => transports.find((t) => t.id === id)?.name ?? id;
-  $: editingJobs = editing ? (cards.find((c) => c.printer.id === editing?.id)?.card.waiting.length ?? 0) : 0;
+  $: editingCard = editing ? cards.find((c) => c.printer.id === editing?.id)?.card : undefined;
+  $: editingJobs = editingCard ? editingCard.waiting.length + (editingCard.job ? 1 : 0) : 0;
 
   async function load() {
     try {

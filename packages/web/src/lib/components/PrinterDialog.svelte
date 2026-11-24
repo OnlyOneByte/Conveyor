@@ -6,6 +6,7 @@
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
+  import GeneratorLimits from "./GeneratorLimits.svelte";
   import { toasts, uid } from "#lib/ui/behaviour.js";
 
   export let open = false;
@@ -19,12 +20,7 @@
   let draft = blankDraft();
   let errors: DraftErrors = {};
   let problem = "";
-  let busy = false;
-  let idEdited = false;
-  let confirming = false;
-  let tried = false;
-  let secretsSaved = false;
-  let cleared = false;
+  let [busy, idEdited, confirming, tried, secretsSaved, cleared] = [false, false, false, false, false, false];
   let form: HTMLFormElement;
   const formId = uid("printer-form");
 
@@ -37,6 +33,8 @@
   $: secret = secretFieldFor(draft.transportId);
   $: options = transports.map((t) => ({ value: t.id, label: t.name }));
   $: title = confirming ? `Delete ${printer?.name}?` : adding ? "Add printer" : `Edit ${printer?.name}`;
+  $: [them, waiting] = jobs === 1 ? ["it", "It has a job on the belt"] : ["them", `It has ${jobs} jobs on the belt`];
+  const focus = (el: HTMLElement) => el.focus();
   $: secretHint = secretsSaved ? "Leave blank to keep the saved one." : secret.hint;
   $: if (!open) shown = undefined;
 
@@ -45,27 +43,30 @@
     if (shown === next) return;
     shown = next;
     draft = next ? draftOf(next) : blankDraft(transports[0]?.id ?? "");
-    errors = {};
-    tried = false;
-    problem = "";
-    idEdited = false;
-    confirming = false;
+    [errors, problem] = [{}, ""];
+    [tried, idEdited, confirming, cleared] = [false, false, false, false];
     secretsSaved = next?.hasSecrets ?? false;
-    cleared = false;
   }
 
   function autoId(name: string) {
     if (adding && !idEdited) draft.id = slugOf(name);
   }
 
-  function toggle(id: string, on: boolean) {
-    draft.allowed = on ? [...draft.allowed, id] : draft.allowed.filter((g) => g !== id);
-  }
-
   const close = () => (open = false);
 
-  async function save() {
+  async function attempt(work: () => Promise<void>, explain = message) {
     problem = "";
+    busy = true;
+    try {
+      await work();
+    } catch (e) {
+      problem = explain(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function save() {
     tried = true;
     errors = draftErrors(draft, taken, adding);
     if (Object.keys(errors).length) {
@@ -73,58 +74,37 @@
       form.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
       return;
     }
-    busy = true;
-    try {
+    await attempt(async () => {
       await savePrinter(printerPayload(draft));
-      toasts.show(adding ? `Added ${draft.name.trim()}` : `Saved ${draft.name.trim()}`);
+      toasts.show(`${adding ? "Added" : "Saved"} ${draft.name.trim()}`);
       close();
       changed();
-    } catch (e) {
-      problem = message(e);
-    } finally {
-      busy = false;
-    }
+    });
   }
 
-  async function clearSecrets() {
-    if (!printer) return;
-    problem = "";
-    busy = true;
-    try {
-      await savePrinter(clearSecretsPayload(printer));
-      secretsSaved = false;
-      cleared = true;
+  const clearSecrets = (saved: CatalogPrinter) =>
+    attempt(async () => {
+      await savePrinter(clearSecretsPayload(saved));
+      [secretsSaved, cleared] = [false, true];
       changed();
-    } catch (e) {
-      problem = message(e);
-    } finally {
-      busy = false;
-    }
-  }
+    });
 
-  async function remove() {
-    if (!printer) return;
-    problem = "";
-    busy = true;
-    try {
-      await deletePrinter(printer.id);
-      toasts.show(`Deleted ${printer.name}`);
-      close();
-      changed();
-    } catch (e) {
-      const text = message(e);
-      problem = text.includes("queued or running") ? `${printer.name} still has jobs waiting or running, so it can't be deleted yet.` : text;
-    } finally {
-      busy = false;
-    }
-  }
+  const remove = (saved: CatalogPrinter) =>
+    attempt(
+      async () => {
+        await deletePrinter(saved.id);
+        toasts.show(`Deleted ${saved.name}`);
+        close();
+        changed();
+      },
+      (e) => (message(e).includes("queued or running") ? `${saved.name} still has jobs on the belt, so it can't be deleted yet.` : message(e)),
+    );
 </script>
 
 <Dialog {title} bind:open>
   {#if confirming}
     <p>
-      {#if jobs}{jobs === 1 ? "Its waiting job has" : `Its ${jobs} waiting jobs have`} to finish or be canceled first.{/if}
-      Jobs it already printed keep their history.
+      {jobs ? `${waiting}. Cancel ${them} or let ${them} finish, then delete it.` : "Jobs it already printed keep their history."}
     </p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {:else}
@@ -133,36 +113,25 @@
       {#if adding}
         <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in links and the API. It can't change later." error={errors.id ?? ""} />
       {/if}
-      <Select label="Connection" bind:value={draft.transportId} {options} error={errors.transportId ?? ""} />
-      <Field label="Address" bind:value={draft.address} hint="IP address or host name. Add :port if it isn't the usual one." error={errors.address ?? ""} />
+      <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
+      <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />
       <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretHint} />
       {#if secretsSaved}
         <div class="saved">
-          <span>Secrets are saved for this printer.</span>
-          <button class="btn" type="button" disabled={busy} on:click={clearSecrets}>Clear saved secrets</button>
+          <span>A key is saved for this printer. It stays until you clear it.</span>
+          <button class="btn" type="button" disabled={busy} on:click={() => printer && clearSecrets(printer)}>Clear saved secrets</button>
         </div>
       {:else if cleared}
         <p class="saved" role="status">Saved secrets cleared.</p>
       {/if}
-      <fieldset>
-        <legend class="sr">Generators</legend>
-        <label class="check"><input type="checkbox" bind:checked={draft.restrict} />Only some generators can print here</label>
-        {#if draft.restrict}
-          <div class="gens">
-            {#each generators as g (g.id)}
-              <label class="check"><input type="checkbox" checked={draft.allowed.includes(g.id)} on:change={(e) => toggle(g.id, e.currentTarget.checked)} />{g.name}</label>
-            {/each}
-          </div>
-          {#if !draft.allowed.length}<p class="hint">Tick at least one, or this printer takes no jobs.</p>{/if}
-        {/if}
-      </fieldset>
+      <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     </form>
   {/if}
   <svelte:fragment slot="actions">
     {#if confirming}
-      <button class="btn ghost" type="button" on:click={() => ((confirming = false), (problem = ""))}>Keep it</button>
-      <button class="btn danger" type="button" disabled={busy} on:click={remove}>Delete printer</button>
+      <button class="btn ghost" type="button" use:focus on:click={() => ((confirming = false), (problem = ""))}>Keep it</button>
+      <button class="btn danger" type="button" disabled={busy || jobs > 0} on:click={() => printer && remove(printer)}>Delete printer</button>
     {:else}
       {#if !adding}<button class="btn danger del" type="button" on:click={() => ((confirming = true), (problem = ""))}>Delete printer</button>{/if}
       <button class="btn ghost" type="button" on:click={close}>Cancel</button>
@@ -174,15 +143,8 @@
 <style>
   .form { display: flex; flex-direction: column; gap: var(--s4); }
   p { margin: 0; }
-  fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: var(--s1); }
-  .check { display: flex; align-items: center; gap: var(--s2); min-height: 30px; }
-  .check input { flex: none; margin: 0; }
-  .gens { display: flex; flex-direction: column; margin-left: 26px; }
-  .hint { font-size: var(--fs-chip); color: var(--muted); }
   .saved { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); padding: var(--s3); border-radius: var(--r-control); background: var(--sunk); color: var(--muted); }
   .saved span { flex: 1; min-width: 12rem; }
   .problem { color: var(--err); font-weight: 600; }
   .del { margin-right: auto; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  @media (pointer: coarse) { .check { min-height: var(--tap); } }
 </style>

@@ -32,7 +32,7 @@ const STATUS: Record<PrinterTone, string> = {
 
 const REASONS: [RegExp, string][] = [
   [/^timeout$/, "Didn't answer within 2 seconds."],
-  [/^ECONNREFUSED$/, "Refused the connection. Is Moonraker or ElegooLink running?"],
+  [/^ECONNREFUSED$/, "Refused the connection. Is the printer's software running?"],
   [/^E(HOST|NET)UNREACH$/, "Isn't on the network."],
   [/^(ENOTFOUND|EAI_AGAIN)$/, "Its address doesn't resolve to a device."],
   [/^unparseable address/, "Its address isn't valid. Edit it to fix."],
@@ -78,7 +78,7 @@ export function printerCard(
   } else if (tone === "checking") {
     card.detail = "Checking whether it answers…";
   } else if (reach?.reachable) {
-    card.detail = reach.latencyMs === undefined ? "Answered just now." : `Answered in ${reach.latencyMs} ms.`;
+    card.detail = reach.latencyMs === undefined ? "Connected." : `Connected, answered in ${reach.latencyMs} ms.`;
   } else {
     card.detail = `${unreachableText(reach?.reason)} ${lastSeen(printer, now)}`;
   }

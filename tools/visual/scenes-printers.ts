@@ -78,7 +78,7 @@ const fleetPage = (name: string, extra: Step[] = [], record = false): Scene => (
   steps: [
     ...stubbed,
     { follow: "/printers" },
-    { waitFor: "text=Answered in 12 ms." },
+    { waitFor: "text=Connected, answered in 12 ms." },
     { waitFor: "#belt >> text=3 waiting >> visible=true" },
     { wait: 600 },
     ...extra,
@@ -113,14 +113,14 @@ export const printersScenes: Scene[] = [
       reachable("mk4", { reachable: true, latencyMs: 5, host: "10.0.0.9", port: 80 }),
       ...press("Enter"),
       { waitFor: "text=Added MK4" },
-      { waitFor: "text=Answered in 5 ms." },
+      { waitFor: "text=Connected, answered in 5 ms." },
       { wait: 600 },
     ],
     true,
   ),
   fleetPage("printers-add-invalid", [
     { click: "button:has-text('Add printer')" },
-    { waitFor: `${dialog} >> text=Connection` },
+    { waitFor: `${dialog} >> text=Printer software` },
     { click: `${dialog} button[type=submit]` },
     { waitFor: "text=Give the printer a name." },
     { wait: 400 },
@@ -129,7 +129,7 @@ export const printersScenes: Scene[] = [
     "printers-add",
     [
       { click: "button:has-text('Add printer')" },
-      { waitFor: `${dialog} >> text=Connection` },
+      { waitFor: `${dialog} >> text=Printer software` },
       { click: `${dialog} button[type=submit]` },
       { waitFor: "text=Enter the printer's address." },
       { wait: 600 },
@@ -155,7 +155,7 @@ export const printersScenes: Scene[] = [
       reachable("prusa-mk4", { reachable: true, latencyMs: 7, host: "192.168.1.72", port: 80 }),
       { click: `${dialog} button[type=submit]` },
       { waitFor: "text=Added Prusa MK4" },
-      { waitFor: "text=Answered in 7 ms." },
+      { waitFor: "text=Connected, answered in 7 ms." },
       { wait: 800 },
     ],
     true,
@@ -164,7 +164,7 @@ export const printersScenes: Scene[] = [
     "printers-clear-secrets",
     [
       { click: "button[aria-label='Edit Garage Klipper']" },
-      { waitFor: `${dialog} >> text=Secrets are saved for this printer.` },
+      { waitFor: `${dialog} >> text=A key is saved for this printer.` },
       { wait: 600 },
       { fulfill: "**/api/catalog/printers", method: "PUT", status: 200, json: { ok: true } },
       {
@@ -185,7 +185,8 @@ export const printersScenes: Scene[] = [
     { click: "button[aria-label='Edit Elegoo Neptune']" },
     { waitFor: `${dialog} >> text=Mainboard ID` },
     { click: `${dialog} button:has-text('Delete printer')` },
-    { waitFor: `${dialog} >> text=to finish or be canceled first` },
+    { waitFor: `${dialog} >> text=Cancel them or let them finish` },
+    { waitFor: `${dialog} button:has-text('Keep it'):focus` },
     { wait: 400 },
   ]),
   ...[

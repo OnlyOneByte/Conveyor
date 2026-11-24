@@ -43,7 +43,7 @@
     {/if}
   </div>
   <div class="foot">
-    <span>{printer.hasSecrets ? `${limits} · secrets saved` : limits}</span>
+    <span>{printer.hasSecrets ? `${limits} · key saved` : limits}</span>
     <button class="btn" type="button" aria-label="Edit {printer.name}" on:click={edit}>Edit</button>
   </div>
 </li>

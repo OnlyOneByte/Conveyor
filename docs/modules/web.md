@@ -43,7 +43,7 @@ card:
 | State | When | Shows |
 |---|---|---|
 | Busy | a job on `/jobs/active` names this printer and isn't `queued` | that job, its stage and percent, the time left when the printer reports `print.secondsLeft`, and a bar while printing |
-| Ready | the last probe connected | its latency |
+| Ready | the last probe connected | "Connected" and its latency |
 | Offline | the last probe failed | why in plain words (`unreachableText` maps `timeout`, `ECONNREFUSED` and the rest), and `lastSeenAt` as "Last answered 3h ago" |
 | Checking | no probe has answered yet | nothing else |
 
@@ -52,11 +52,12 @@ its waiting jobs (queued ones naming it, oldest first) with links; on an offline
 and says they can't start until it's back.
 
 Add and Edit open `PrinterDialog.svelte`, a `Dialog` with `Field`s and a real `Select` for the transport.
-`printer-form.ts` holds the rules: `draftErrors` checks the fields on save and then on every change, and
-focus moves to the first field with an error. A new printer's ID follows its name (`slugOf`) until you edit
-the ID. The secret field is write-only: blank keeps what is saved. **Clear saved secrets** resends the saved
-printer, not the form, with `secrets: null`. **Delete printer** asks first in the same dialog; the API refuses
-with `409` while jobs are queued or running for it, and the dialog says so in plain words.
+`printer-form.ts` holds the rules: `draftErrors` checks the fields on save and then on every change, and focus
+moves to the first field with an error. A new printer's ID follows its name (`slugOf`) until you edit the ID.
+The secret field is write-only: blank keeps what is saved. **Clear saved secrets** resends the saved printer,
+not the form, with `secrets: null`. **Delete printer** asks first in the same dialog, and stays disabled while
+the printer has jobs on the belt, because the API refuses that delete with `409`; a `409` from a race is shown
+in plain words.
 
 Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
 page's **More** menu links there. `/monitor` keeps its active-jobs list only.

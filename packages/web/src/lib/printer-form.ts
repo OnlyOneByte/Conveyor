@@ -13,8 +13,6 @@ export interface PrinterDraft {
 
 export type DraftErrors = Partial<Record<"id" | "name" | "transportId" | "address", string>>;
 
-export const FIELD_ORDER = ["name", "id", "transportId", "address"] as const;
-
 export const blankDraft = (transportId = ""): PrinterDraft => ({
   id: "",
   name: "",
@@ -52,7 +50,7 @@ export function draftErrors(draft: PrinterDraft, taken: string[], adding: boolea
   if (adding && !id) errors.id = "Give the printer an ID.";
   else if (adding && /\s|\//.test(id)) errors.id = "Use letters, numbers and dashes, with no spaces or slashes.";
   else if (adding && taken.includes(id)) errors.id = `Another printer already uses ${id}.`;
-  if (!draft.transportId) errors.transportId = "Choose how Conveyor talks to the printer.";
+  if (!draft.transportId) errors.transportId = "Choose the printer's software.";
   if (!draft.address.trim()) errors.address = "Enter the printer's address.";
   else if (/\s/.test(draft.address.trim())) errors.address = "An address can't contain spaces.";
   return errors;
