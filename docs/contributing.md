@@ -46,11 +46,15 @@ fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
-tested, so rerunning the job gives the same order, and the log and job summary print it with the full command.
-`--seed` alone shuffles the order, and the order also depends on the list of files bun starts from, which
-differs between machines. CI therefore passes the test files explicitly, sorted
-(`git ls-files '*.test.ts' ':!:tools/visual/**' | sort`). Run the printed command to get the same order
-locally. A test that only fails there depends on what ran before it: make it set up its own state.
+tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
+command to check that commit out, and the command that reruns the order. On a pull request the commit is
+GitHub's merge of the PR into its base, not the PR head, so check out the printed commit
+(`git fetch origin <sha> && git checkout <sha>`) rather than your branch. `--seed` alone shuffles the order,
+and the order also depends on the list of files bun starts from, which differs between machines. CI therefore
+passes the test files explicitly, sorted byte-wise so every locale gives the same list
+(`git ls-files '*.test.ts' ':!:tools/visual/**' | LC_ALL=C sort`). On the printed commit, run the printed
+command to get the same order locally. A test that only fails there depends on what ran before it: make it
+set up its own state.
 
 How the comments baseline works, and what each `check:comments` message means, is in
 [AGENTS.md §2](../AGENTS.md#2-no-comments). It is one file per area,
