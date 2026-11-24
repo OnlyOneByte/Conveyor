@@ -14,6 +14,7 @@
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
+  import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -38,8 +39,6 @@
     }
   });
 
-  // Only generators with a config form / preview belong in the "Generate" dropdown.
-  // The passthrough generator is driven by the "Upload STL" tab, not picked here.
   $: pickableGenerators = generators.filter((g) => g.id !== "passthrough");
 
   // Source: generate from a generator, or upload an STL (passthrough generator).
@@ -121,7 +120,7 @@
   }
 
   let submitting = false;
-  let jobId: string | null = data.initialJobId ?? null;
+  $: jobId = data.initialJobId ?? null;
   let error: string | null = null;
   let retried: string | null = null;
 
@@ -145,6 +144,7 @@
           : { id: selectedGen!.id, params };
       const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       jobId = res.jobId;
+      replaceState(`/?job=${encodeURIComponent(res.jobId)}`, {});
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,
@@ -388,12 +388,12 @@
       {/if}
     </div>
 
-    {#if jobId}
+    {#if jobId}{#key jobId}
       <div class="card">
         <h3>Job</h3>
         <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
       </div>
-    {/if}
+    {/key}{/if}
 
     {#if generators.length === 0}
       <div class="card muted">

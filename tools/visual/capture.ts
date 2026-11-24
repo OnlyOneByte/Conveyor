@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
+import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
@@ -64,6 +65,11 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
+  else if ("follow" in step) await follow(page, step.follow);
+  else if ("fulfill" in step)
+    await page.route(step.fulfill, (route) =>
+      route.fulfill({ status: step.status, json: step.json }),
+    );
   else await page.waitForTimeout(step.wait);
 }
 

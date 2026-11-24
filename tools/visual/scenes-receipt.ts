@@ -37,4 +37,54 @@ export const receiptScenes: Scene[] = [
     ready: "text=We can't find that job",
     steps: [{ wait: 1200 }],
   },
+  {
+    name: "retry-link",
+    route: "/jobs/seed-failed",
+    ready: "text=didn't finish",
+    steps: [
+      {
+        fulfill: "**/api/jobs",
+        status: 409,
+        json: {
+          error: "retryOf: job seed-failed is already being retried",
+          retriedBy: "seed-printed",
+        },
+      },
+      { click: "text=Retry" },
+      { waitFor: "text=Configure" },
+      { wait: 800 },
+      { click: "button.desktop-print:visible, .mobile-cta button:visible" },
+      { click: "text=See the retry" },
+      { waitFor: "text=Model (STL)" },
+      { wait: 1200 },
+    ],
+  },
+  {
+    name: "job-switch",
+    route: "/",
+    ready: "text=Configure",
+    steps: [
+      {
+        fulfill: "**/api/jobs/scene-a",
+        status: 200,
+        json: { jobId: "scene-a", state: "printing", stage: "transport", progress: 0.42, at: 1 },
+      },
+      {
+        fulfill: "**/api/jobs/scene-b",
+        status: 200,
+        json: {
+          jobId: "scene-b",
+          state: "failed",
+          error: { stage: "transport", reason: "printer went offline" },
+          at: 2,
+        },
+      },
+      { follow: "/?job=scene-a" },
+      { waitFor: "text=42%" },
+      { follow: "/?job=scene-b" },
+      { waitFor: "text=printer went offline" },
+      { scroll: "text=printer went offline" },
+      { wait: 800 },
+    ],
+  },
 ];
