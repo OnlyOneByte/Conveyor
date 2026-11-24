@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## Notes
 
-- **State is the contract.** Every transition (`queued → generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /jobs/{id}` on reconnect).
+- **State is the contract.** Every transition (`queued → generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /api/jobs/{id}` on reconnect).
 - **Artifacts live on the shared `/data` volume.** Stages pass `Artifact{path,format}` handles, not bytes, so nothing large crosses a process boundary.
 - **Secrets never reach the client.** Printer API keys live in `PrinterTarget.secrets`, resolved server-side from the printer row; the PWA only ever knows a `printerId`, and reads of the catalog strip secrets to a `hasSecrets` flag.
 - **Capability check is pre-flight.** `validateJob()` runs in the API before enqueue, so an incompatible generator/slicer/transport combo fails fast with a 4xx instead of dying mid-pipeline.
