@@ -70,6 +70,34 @@ for (const mode of modes) {
         expect(one.status).toBe(200);
         expect(await one.json()).toMatchObject({ id: bad, state: "done", unreadable: ["params"] });
       });
+
+      test('JSON of the wrong shape is left out and marked too: params 7, error "boom", timings {}', async () => {
+        const bad = `shape-${randomUUID()}`;
+        settle(bad);
+        db()
+          .query(
+            "UPDATE jobs SET params_json = '7', error_json = '\"boom\"', timings_json = '{}' WHERE id = ?",
+          )
+          .run(bad);
+
+        const res = await fetch(`${base()}/jobs-history`);
+        expect(res.status).toBe(200);
+        const jobs = listed.parse(await res.json());
+        expect(jobs.find((job) => job.id === bad)?.unreadable).toEqual([
+          "params",
+          "error",
+          "timings",
+        ]);
+
+        const one = await fetch(`${base()}/jobs-history/${bad}`);
+        expect(one.status).toBe(200);
+        const body = await one.json();
+        expect(body).toMatchObject({ id: bad, unreadable: ["params", "error", "timings"] });
+        expect(body).not.toHaveProperty("error");
+        expect(body).not.toHaveProperty("timings");
+        expect(body).toMatchObject({ request: { generator: { id: "gridfinity" } } });
+        expect(JSON.stringify(body)).not.toContain('"params":');
+      });
     },
   );
 }

@@ -36,33 +36,55 @@ function filamentOf(json: string | null): FilamentUse | undefined {
   }
 }
 
+const stageSchema = z.enum(["generator", "slicer", "transport"]);
+
+const paramsSchema = z.record(z.string(), z.unknown());
+const errorSchema = z.object({ stage: stageSchema, reason: z.string() });
+const timingsSchema = z.array(
+  z.object({ stage: stageSchema, enteredAt: z.number(), durationMs: z.number().optional() }),
+);
+
 const warnedUnreadable = new Set<string>();
 
-function readColumn(
+function parseJson(json: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(json) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function readColumn<T>(
   r: JobRow,
   column: UnreadableColumn,
   json: string | null,
+  schema: z.ZodType<T>,
   unreadable: UnreadableColumn[],
-): unknown {
+): T | undefined {
   if (!json) return undefined;
-  try {
-    return JSON.parse(json);
-  } catch {
-    unreadable.push(column);
-    const key = `${r.id}:${column}`;
-    if (!warnedUnreadable.has(key)) {
-      warnedUnreadable.add(key);
-      console.warn(`[jobs] job ${r.id} has an unreadable ${column} column; listing it without it`);
-    }
-    return undefined;
+  const parsed = parseJson(json);
+  const checked = parsed.ok ? schema.safeParse(parsed.value) : undefined;
+  if (checked?.success) return checked.data;
+  unreadable.push(column);
+  const key = `${r.id}:${column}`;
+  if (!warnedUnreadable.has(key)) {
+    warnedUnreadable.add(key);
+    console.warn(`[jobs] job ${r.id} has an unreadable ${column} column; listing it without it`);
   }
+  return undefined;
 }
 
 export function rowToJob(r: JobRow): Job {
   const unreadable: UnreadableColumn[] = [];
-  const params = readColumn(r, "params", r.params_json, unreadable);
-  const error = readColumn(r, "error", r.error_json, unreadable) as Job["error"];
-  const timings = readColumn(r, "timings", r.timings_json, unreadable) as StageTiming[] | undefined;
+  const params = readColumn(r, "params", r.params_json, paramsSchema, unreadable);
+  const error = readColumn(r, "error", r.error_json, errorSchema, unreadable);
+  const timings: StageTiming[] | undefined = readColumn(
+    r,
+    "timings",
+    r.timings_json,
+    timingsSchema,
+    unreadable,
+  );
   return {
     id: r.id,
     request: {

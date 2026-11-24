@@ -64,6 +64,35 @@ describe("history rows with an unreadable JSON column", () => {
     }
   });
 
+  test('JSON of the wrong shape is unreadable too: params 7, error "boom", timings {}', () => {
+    const db = withJobs();
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      db.query(
+        `UPDATE jobs SET id = 'bad-shape', params_json = '7', error_json = '"boom"', timings_json = '{}'
+          WHERE id = 'bad'`,
+      ).run();
+      const bad = dbGetJob(db, "bad-shape");
+      expect(bad?.unreadable).toEqual(["params", "error", "timings"]);
+      expect(bad?.request.generator.params).toBeUndefined();
+      expect(bad?.error).toBeUndefined();
+      expect(bad?.timings).toBeUndefined();
+      db.query(
+        `UPDATE jobs SET error_json = '{"stage":"printing","reason":"x"}',
+          timings_json = '[{"stage":"slicer"}]', params_json = '[1]' WHERE id = 'bad-shape'`,
+      ).run();
+      expect(dbGetJob(db, "bad-shape")?.unreadable).toEqual(["params", "error", "timings"]);
+      expect(dbGetJob(db, "good-1")).not.toHaveProperty("unreadable");
+      expect(warn.mock.calls.map(([line]) => line)).toEqual([
+        "[jobs] job bad-shape has an unreadable params column; listing it without it",
+        "[jobs] job bad-shape has an unreadable error column; listing it without it",
+        "[jobs] job bad-shape has an unreadable timings column; listing it without it",
+      ]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   test("each unreadable column of a job is logged once, naming the job and the column", () => {
     const db = withJobs();
     db.query("UPDATE jobs SET id = 'bad-logged', params_json = '{' WHERE id = 'bad'").run();

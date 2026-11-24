@@ -351,8 +351,10 @@ instead of enqueueing a job that cannot run.
 been deleted has a null printer and profile; `rowToJob` surfaces them as empty strings rather than invent
 values.
 
-`rowToJob` parses `params_json`, `error_json` and `timings_json` one at a time. A column that doesn't parse is
-left out of the job and named in `unreadable` (`["params"]`, for example), so one corrupt row can't fail
+`rowToJob` parses `params_json`, `error_json` and `timings_json` one at a time, each checked with a zod schema:
+params an object, error `{ stage, reason }`, timings an array of `{ stage, enteredAt, durationMs? }`. A column
+that isn't JSON, or is JSON of the wrong shape (`7`, `"boom"`, `{}`), is left out of the job and named in
+`unreadable` (`["params"]`, for example), so one corrupt row can't fail
 `dbListJobs`, `dbGetJob` or `dbListNeedsYou` for every other job (#400). It logs
 `[jobs] job <id> has an unreadable <column> column` once per job and column for the life of the process. The
 row is still listed and counted, so a page and `dbCountJobs` keep agreeing, and the history cursor still moves
