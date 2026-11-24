@@ -102,7 +102,10 @@ describe("retrying a failed job on the SQLite queue", () => {
     for (const _ of [1, 2]) inTurn.push(await submit({ ...request, retryOf: one }));
     const atOnce = await Promise.all([1, 2, 3].map(() => submit({ ...request, retryOf: two })));
     expect(inTurn.map((a) => a.status)).toEqual([202, 409]);
-    expect(inTurn[1]?.body).toEqual({ error: `retryOf: job ${one} is already being retried` });
+    expect(inTurn[1]?.body).toEqual({
+      error: `retryOf: job ${one} is already being retried`,
+      retriedBy: inTurn[0]?.body.jobId,
+    });
     expect(atOnce.map((a) => a.status).sort()).toEqual([202, 409, 409]);
     expect(count()).toBe(before + 2);
   });

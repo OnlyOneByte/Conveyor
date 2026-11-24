@@ -224,6 +224,13 @@ export function dbClaimRetry(db: Database, id: string, by: string): boolean {
   );
 }
 
+export function dbRetriedBy(db: Database, id: string): string | null {
+  const row = db
+    .query<{ retried_by: string | null }, [string]>("SELECT retried_by FROM jobs WHERE id = ?")
+    .get(id);
+  return row?.retried_by ?? null;
+}
+
 export function dbReleaseRetry(db: Database, id: string, by: string): void {
   db.query("UPDATE jobs SET retried_by = NULL WHERE id = ? AND retried_by = ?").run(id, by);
 }
