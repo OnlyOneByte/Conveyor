@@ -22,7 +22,7 @@
     type OrcaProfileContent,
     type PrusaProfileContent,
   } from "#lib/api.js";
-  import { slicerFormat } from "@conveyor/shared";
+  import { slicerFormat } from "@conveyor/shared/profile";
   import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
   import { secretFieldFor, secretsPatch } from "#lib/printer-secrets.js";
   import ThemePicker from "#lib/components/ThemePicker.svelte";
