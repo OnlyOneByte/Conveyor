@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:42829",
+  "url": "http://127.0.0.1:34231",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 494827,
+      "gifBytes": 538904,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 273626,
+      "gifBytes": 298285,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -85,6 +85,12 @@
       "png": "retry-link-1440.png"
     },
     {
+      "scene": "job-switch",
+      "width": 1440,
+      "warnings": [],
+      "png": "job-switch-1440.png"
+    },
+    {
       "scene": "monitor",
       "width": 1440,
       "warnings": [],
@@ -119,7 +125,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 815419,
+      "gifBytes": 931831,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -181,7 +187,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 326836,
+      "gifBytes": 350101,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -219,7 +225,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 807476,
+      "gifBytes": 898869,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -245,7 +251,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 598661,
+      "gifBytes": 593673,
       "gif": "new-job-390.gif"
     },
     {
@@ -253,7 +259,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357026,
+      "gifBytes": 331908,
       "gif": "job-progress-390.gif"
     },
     {
@@ -305,6 +311,12 @@
       "png": "retry-link-390.png"
     },
     {
+      "scene": "job-switch",
+      "width": 390,
+      "warnings": [],
+      "png": "job-switch-390.png"
+    },
+    {
       "scene": "monitor",
       "width": 390,
       "warnings": [],
@@ -339,7 +351,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1065847,
+      "gifBytes": 1068290,
       "gif": "keyboard-390.gif"
     },
     {
@@ -401,7 +413,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 431965,
+      "gifBytes": 430873,
       "gif": "track-keys-390.gif"
     },
     {
@@ -439,7 +451,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1011100,
+      "gifBytes": 1011033,
       "gif": "primitives-keys-390.gif"
     }
   ]

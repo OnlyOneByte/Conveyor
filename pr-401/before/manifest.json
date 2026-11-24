@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35931",
+  "url": "http://127.0.0.1:39173",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 494639,
+      "gifBytes": 540266,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 273626,
+      "gifBytes": 298285,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -85,6 +85,13 @@
       "png": "retry-link-1440.png"
     },
     {
+      "scene": "job-switch",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "job-switch-1440.png"
+    },
+    {
       "scene": "monitor",
       "width": 1440,
       "warnings": [],
@@ -119,7 +126,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 839154,
+      "gifBytes": 907440,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -181,7 +188,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 325773,
+      "gifBytes": 348734,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -219,7 +226,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 808479,
+      "gifBytes": 874786,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -245,7 +252,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 593944,
+      "gifBytes": 588709,
       "gif": "new-job-390.gif"
     },
     {
@@ -253,7 +260,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357331,
+      "gifBytes": 331730,
       "gif": "job-progress-390.gif"
     },
     {
@@ -305,6 +312,13 @@
       "png": "retry-link-390.png"
     },
     {
+      "scene": "job-switch",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "job-switch-390.png"
+    },
+    {
       "scene": "monitor",
       "width": 390,
       "warnings": [],
@@ -339,7 +353,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1073682,
+      "gifBytes": 1073805,
       "gif": "keyboard-390.gif"
     },
     {
@@ -401,7 +415,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 432031,
+      "gifBytes": 432009,
       "gif": "track-keys-390.gif"
     },
     {
@@ -439,7 +453,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1011456,
+      "gifBytes": 1011337,
       "gif": "primitives-keys-390.gif"
     }
   ]
