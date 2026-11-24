@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45393",
+  "url": "http://127.0.0.1:37977",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 539679,
+      "gifBytes": 493705,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 294913,
+      "gifBytes": 298285,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -97,6 +97,36 @@
       "png": "print-forward-1440.png"
     },
     {
+      "scene": "receipt-queued",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-queued-1440.png"
+    },
+    {
+      "scene": "receipt-modelling",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-modelling-1440.png"
+    },
+    {
+      "scene": "receipt-slicing",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-slicing-1440.png"
+    },
+    {
+      "scene": "receipt-sending",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-sending-1440.png"
+    },
+    {
+      "scene": "receipt-printing",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-printing-1440.png"
+    },
+    {
       "scene": "monitor",
       "width": 1440,
       "warnings": [],
@@ -115,6 +145,18 @@
       "png": "command-menu-1440.png"
     },
     {
+      "scene": "command-menu-done",
+      "width": 1440,
+      "warnings": [],
+      "png": "command-menu-done-1440.png"
+    },
+    {
+      "scene": "command-menu-2x3",
+      "width": 1440,
+      "warnings": [],
+      "png": "command-menu-2x3-1440.png"
+    },
+    {
       "scene": "shortcut-sheet",
       "width": 1440,
       "warnings": [],
@@ -131,7 +173,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 907590,
+      "gifBytes": 839468,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -214,7 +256,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 348827,
+      "gifBytes": 348395,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -252,7 +294,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 898281,
+      "gifBytes": 860163,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -278,7 +320,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 593737,
+      "gifBytes": 593673,
       "gif": "new-job-390.gif"
     },
     {
@@ -286,7 +328,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 331730,
+      "gifBytes": 357577,
       "gif": "job-progress-390.gif"
     },
     {
@@ -350,6 +392,36 @@
       "png": "print-forward-390.png"
     },
     {
+      "scene": "receipt-queued",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-queued-390.png"
+    },
+    {
+      "scene": "receipt-modelling",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-modelling-390.png"
+    },
+    {
+      "scene": "receipt-slicing",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-slicing-390.png"
+    },
+    {
+      "scene": "receipt-sending",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-sending-390.png"
+    },
+    {
+      "scene": "receipt-printing",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-printing-390.png"
+    },
+    {
       "scene": "monitor",
       "width": 390,
       "warnings": [],
@@ -368,6 +440,18 @@
       "png": "command-menu-390.png"
     },
     {
+      "scene": "command-menu-done",
+      "width": 390,
+      "warnings": [],
+      "png": "command-menu-done-390.png"
+    },
+    {
+      "scene": "command-menu-2x3",
+      "width": 390,
+      "warnings": [],
+      "png": "command-menu-2x3-390.png"
+    },
+    {
       "scene": "shortcut-sheet",
       "width": 390,
       "warnings": [],
@@ -384,7 +468,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1058551,
+      "gifBytes": 1068679,
       "gif": "keyboard-390.gif"
     },
     {
@@ -446,7 +530,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 430873,
+      "gifBytes": 431824,
       "gif": "track-keys-390.gif"
     },
     {
@@ -484,7 +568,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 990899,
+      "gifBytes": 1011373,
       "gif": "primitives-keys-390.gif"
     }
   ]
