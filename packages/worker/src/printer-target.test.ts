@@ -1,8 +1,16 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { dbGetPrinter, dbUpsertPrinter, openDb } from "@conveyor/shared/db";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target";
 
-const db = openDb(":memory:");
+const dir = mkdtempSync(join(tmpdir(), "conveyor-printer-target-"));
+const db = openDb(join(dir, "conveyor.db"));
+afterAll(() => {
+  db.close();
+  rmSync(dir, { recursive: true, force: true });
+});
 const printer = { id: "p-secret", transportId: "moonraker", name: "P", address: "10.0.0.9" };
 
 test("the transport target carries the decrypted secrets", () => {
