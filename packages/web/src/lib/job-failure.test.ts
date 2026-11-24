@@ -13,6 +13,12 @@ describe("failureText", () => {
     );
   });
 
+  test("reads a printer that never answered as unreachable", () => {
+    expect(failureText("transport", "printer 192.0.2.50 did not answer within 10 s").detail).toBe(
+      "Conveyor couldn't reach the printer. Check that it's on and connected, then retry.",
+    );
+  });
+
   test("never repeats the raw reason, even for an unknown one", () => {
     const reason = "spawn openscad ENOENT 3f2c9a7e-0b1d-4c55-9e61-2f6a1d0c8b41";
     const text = failureText("generator", reason);

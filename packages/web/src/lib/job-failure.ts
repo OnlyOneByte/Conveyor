@@ -15,7 +15,7 @@ const KNOWN: [RegExp, string][] = [
     "The model is bigger than the printer's bed. Make it smaller, or pick a bigger printer.",
   ],
   [
-    /ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENOTFOUND|not reachable|timed out/i,
+    /ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENOTFOUND|not reachable|timed out|did not answer/i,
     "Conveyor couldn't reach the printer. Check that it's on and connected, then retry.",
   ],
   [/upload not found/i, "The uploaded file is gone. Upload it again to print it."],
