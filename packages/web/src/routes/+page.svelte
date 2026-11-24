@@ -184,11 +184,6 @@
           <p class="note">No printer can print this yet. Add one in Settings.</p>
         {/if}
       </section>
-      {#if error}
-        <p class="err" role="alert">
-          {error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}
-        </p>
-      {/if}
       {#if jobId}{#key jobId}
         <section class="job">
           <h3>Job</h3>
@@ -196,7 +191,7 @@
         </section>
       {/key}{/if}
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
   </form>
 </section>
 
@@ -213,7 +208,6 @@
   h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }
   .questions { display: flex; flex-direction: column; gap: var(--s5); }
   .note { margin: 0; color: var(--muted); }
-  .err { margin: 0; color: var(--err); font-weight: 600; }
   .job {
     padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card);
     background: var(--paper);

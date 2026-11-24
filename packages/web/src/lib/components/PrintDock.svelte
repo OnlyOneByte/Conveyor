@@ -5,10 +5,17 @@
   export let busy: boolean;
   export let sent: boolean;
   export let last: { id: string; printer: string } | null;
+  export let error: string | null = null;
+  export let retried: string | null = null;
 </script>
 
 <div class="dock">
-  {#if last}
+  {#if error}
+    <p class="last err" role="alert">
+      {error}
+      {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
+    </p>
+  {:else if last}
     <p class="last" role="status">
       Sent to {last.printer} · <a href="/jobs/{encodeURIComponent(last.id)}">See the job</a>
     </p>
@@ -43,6 +50,7 @@
   .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .change { flex: none; }
   .last { margin: 0 0 var(--s2); font-weight: 600; }
+  .err { color: var(--err); }
   .last a, .change { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .print {
     min-height: 54px; padding: 0 26px; border: 0; border-radius: 17px;
