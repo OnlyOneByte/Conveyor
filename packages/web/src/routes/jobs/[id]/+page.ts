@@ -1,20 +1,12 @@
-import type { JobView } from "@conveyor/shared";
 import {
-  API,
   fetchCatalogPrinters,
   fetchCatalogProfiles,
   fetchGenerators,
   fetchJobHistoryEntry,
   signedIn,
 } from "#lib/api.js";
+import { liveView, SETTLED } from "#lib/job-live.js";
 import type { PageLoad } from "./$types";
-
-const SETTLED = ["done", "failed", "canceled"];
-
-async function liveView(id: string, fetchFn: typeof fetch): Promise<JobView | null> {
-  const r = await fetchFn(`${API}/jobs/${encodeURIComponent(id)}`).catch(() => null);
-  return r?.ok ? r.json() : null;
-}
 
 export const load: PageLoad = async ({ params, fetch, parent }) => {
   const empty = { job: null, view: null, generator: null, printer: "", profile: "" };

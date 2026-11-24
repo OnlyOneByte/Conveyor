@@ -36,16 +36,11 @@ function live(name: string, ready: string, view: object): Scene {
 
 export const liveScenes: Scene[] = [
   live("queued", "text=Waiting", { state: "queued", timings: [] }),
-  live("modelling", "text=Modelling", { state: "generating", stage: "generator" }),
-  live("slicing", "text=Slicing · 35%", { state: "slicing", stage: "slicer", progress: 0.35 }),
-  live("sending", "text=Sending · 72%", {
-    state: "transferring",
-    stage: "transport",
-    progress: 0.72,
-  }),
+  live("modelling", "text=Modelling", { state: "generating" }),
+  live("slicing", "text=Slicing · 35%", { state: "slicing", progress: 0.35 }),
+  live("sending", "text=Sending · 72%", { state: "transferring", progress: 0.72 }),
   live("printing", "text=38 min left", {
     state: "printing",
-    stage: "transport",
     progress: 0.64,
     print: { layer: 112, layers: 175, secondsLeft: 2280 },
   }),

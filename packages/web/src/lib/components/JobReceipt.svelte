@@ -91,7 +91,7 @@
     border: 1px solid var(--line); border-top: 2px dashed var(--field-line);
     border-radius: var(--r-card); background: var(--paper);
   }
-  h2 {
+  .receipt :global(h2) {
     margin: 0 0 var(--s2); font: 500 var(--fs-label) var(--mono);
     letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
   }

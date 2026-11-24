@@ -1,5 +1,5 @@
 import type { JobState, JobView, PrintProgress } from "@conveyor/shared";
-import { openJobSocket } from "./api";
+import { API, openJobSocket } from "./api";
 import { duration } from "./job-settings";
 
 export const STEPS: readonly (readonly [JobState, string])[] = [
@@ -19,8 +19,6 @@ const WORD: Record<JobState, string> = {
   failed: "Failed",
   canceled: "Canceled",
 };
-
-export const stepIndex = (state: JobState) => STEPS.findIndex(([step]) => step === state);
 
 type Moving = Pick<JobView, "state" | "progress">;
 
@@ -48,16 +46,51 @@ export function printLine(
     .join(" · ");
 }
 
+export async function liveView(id: string, fetchFn: typeof fetch): Promise<JobView | null> {
+  const r = await fetchFn(`${API}/jobs/${encodeURIComponent(id)}`).catch(() => null);
+  return r?.ok ? r.json() : null;
+}
+
+export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
+
+export const SETTLED: JobState[] = ["done", "failed", "canceled"];
+
+type Socket = Pick<WebSocket, "close" | "onmessage" | "onclose">;
+
 export function followJob(
   id: string,
   update: (view: JobView) => void,
   end: () => void,
+  connect: (id: string) => Socket = openJobSocket,
+  snapshot = (job: string) => liveView(job, fetch),
 ): () => void {
-  const socket = openJobSocket(id);
-  socket.onmessage = (message) => {
-    const view: JobView = JSON.parse(message.data);
+  let socket: Socket | null = null;
+  let stopped = false;
+  let tries = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const seen = (view: JobView) => {
     update(view);
-    if (view.state === "done" || view.state === "failed" || view.state === "canceled") end();
+    if (SETTLED.includes(view.state)) (stopped = true), end();
   };
-  return () => socket.close();
+  const open = () => {
+    const next = connect(id);
+    socket = next;
+    next.onmessage = (message) => ((tries = 0), seen(JSON.parse(message.data)));
+    next.onclose = ({ code }) => {
+      if (stopped || socket !== next) return;
+      if (code === 1000 || code === 4404) return void ((stopped = true), end());
+      timer = setTimeout(retry, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
+    };
+  };
+  const retry = async () => {
+    const view = await snapshot(id).catch(() => null);
+    if (view && !stopped) seen(view);
+    if (!stopped) open();
+  };
+  open();
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    socket?.close();
+  };
 }

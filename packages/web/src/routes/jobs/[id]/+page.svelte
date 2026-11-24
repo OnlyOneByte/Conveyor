@@ -4,8 +4,6 @@
   import { onDestroy } from "svelte";
   import { goto, invalidateAll } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
-  import { announce } from "#lib/announce.js";
-  import { cancelJob } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
@@ -13,14 +11,13 @@
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
-  import { followJob, pillText } from "#lib/job-live.js";
+  import { followJob, pillText, SETTLED } from "#lib/job-live.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
   const WHEN = { done: "Finished", failed: "Stopped", canceled: "Canceled" } as const;
-  const SETTLED = ["done", "failed", "canceled"];
   const DATE = { dateStyle: "medium", timeStyle: "short" } as const;
 
   let latest: JobView | null = null;
@@ -68,11 +65,6 @@
   function settle() {
     if (data.view && !SETTLED.includes(data.view.state)) setTimeout(invalidateAll, 300);
   }
-
-  async function cancel() {
-    const failed = () => announce("Couldn't cancel. Try again.", "assertive");
-    if (live) await cancelJob(live.jobId).catch(failed);
-  }
 </script>
 
 <svelte:head><title>{title} · Conveyor</title></svelte:head>
@@ -91,10 +83,6 @@
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
-      </button>
-    {:else if live}
-      <button class="btn danger" type="button" on:click={cancel}>
-        {live.state === "printing" ? "Cancel print" : "Cancel"}
       </button>
     {/if}
   </JobHead>
@@ -125,7 +113,7 @@
     text-decoration: none; border-color: var(--field-line);
   }
   .btn.primary { border-color: var(--accent); }
-  .btn.danger { color: var(--err); border-color: var(--err); }
+  .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .why {
     margin-bottom: var(--s5); padding: var(--s4); border: 1.5px solid var(--err);
     border-radius: var(--r-card); background: color-mix(in oklch, var(--err) 10%, transparent);

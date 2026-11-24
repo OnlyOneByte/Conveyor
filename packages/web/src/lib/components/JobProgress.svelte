@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { JobView } from "@conveyor/shared";
-  import { measured, percent, printLine, STEPS, stepIndex } from "#lib/job-live.js";
+  import { measured, percent, printLine, STEPS } from "#lib/job-live.js";
 
   export let view: JobView;
 
-  const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { timeStyle: "short" });
+  const clock = (ms: number) =>
+    new Date(ms).toLocaleTimeString([], { timeStyle: "short" }).replace(/\s/g, "\u00a0");
 
-  $: now = stepIndex(view.state);
+  $: now = STEPS.findIndex(([step]) => step === view.state);
   $: pct = percent(view);
   $: detail = view.state === "printing" ? printLine(view.print, view.at, clock) : "";
 </script>
@@ -31,10 +32,6 @@
 
 <style>
   .live { display: flex; flex-direction: column; gap: var(--s5); }
-  h2 {
-    margin: 0; font: 500 var(--fs-label) var(--mono);
-    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
-  }
   .big { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin: 0; }
   .big b { font-size: 34px; line-height: 1; letter-spacing: -0.03em; }
   .big span { color: var(--muted); }
