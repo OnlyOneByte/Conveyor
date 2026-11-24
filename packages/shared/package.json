@@ -6,6 +6,7 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./address": "./src/address.ts",
     "./db": "./src/db/index.ts",
     "./queue": "./src/queue/index.ts",
     "./uploads": "./src/upload-settings.ts",

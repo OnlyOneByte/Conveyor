@@ -4,11 +4,17 @@ import { type CancelableJob, type CancelDeps, cancelJob } from "./cancel";
 
 const data: JobRequest = { generator: { id: "gen" }, printerId: "p1", profileId: "prof" };
 
-function setup(opts: { state?: string; snapshot?: JobState; removeThrows?: boolean }) {
+function setup(opts: {
+  state?: string;
+  snapshot?: JobState;
+  finalOnReread?: JobState;
+  removeThrows?: boolean;
+}) {
   const calls = { requested: 0, removed: 0, settled: 0 };
   let snapshot: JobStatusEvent | undefined = opts.snapshot
     ? { jobId: "j", state: opts.snapshot, at: 1 }
     : undefined;
+  let reads = 0;
   const state = opts.state;
   const job: CancelableJob | undefined = state
     ? {
@@ -22,7 +28,12 @@ function setup(opts: { state?: string; snapshot?: JobState; removeThrows?: boole
     : undefined;
   const deps: CancelDeps = {
     getJob: async () => job,
-    readSnapshot: async () => snapshot,
+    readSnapshot: async () => {
+      reads++;
+      if (opts.finalOnReread && reads > 1)
+        snapshot = { jobId: "j", state: opts.finalOnReread, at: 3 };
+      return snapshot;
+    },
     requestCancel: async () => {
       calls.requested++;
     },
@@ -80,6 +91,24 @@ describe("cancelJob", () => {
     expect(again.code).toBe(200);
     expect(again.body.state).toBe("canceled");
     expect(calls.settled).toBe(1);
+  });
+
+  test("a job gone from the queue but still printing gets the durable flag", async () => {
+    const { calls, deps } = setup({ snapshot: "printing" });
+    const res = await cancelJob("j", deps);
+    expect(res).toEqual({ code: 202, body: { ok: true, jobId: "j", state: "canceling" } });
+    expect(calls).toEqual({ requested: 1, removed: 0, settled: 0 });
+  });
+
+  test("a queue job that completes while being canceled answers with its final state", async () => {
+    const { calls, deps } = setup({
+      state: "completed",
+      snapshot: "transferring",
+      finalOnReread: "done",
+    });
+    const res = await cancelJob("j", deps);
+    expect(res).toEqual({ code: 200, body: { ok: true, jobId: "j", state: "done" } });
+    expect(calls).toEqual({ requested: 1, removed: 0, settled: 0 });
   });
 
   test("an unknown id is a 404", async () => {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type PrintProgress, type PrintStatus, StageError } from "@conveyor/shared";
+import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
 import { AckFrame, decodeFrame } from "./frames.js";
 import {
   buildCommand,
@@ -27,8 +28,15 @@ interface SdcpCommand {
   data: Record<string, unknown>;
 }
 
+export function printerEndpoint(address: string): string {
+  const parsed = parseHostPort(address, WS_PORT);
+  if (parsed.kind === "invalid")
+    throw new StageError("transport", `elegoo printer address ${parsed.reason}`);
+  return formatHostPort(parsed.host, parsed.port);
+}
+
 function socketUrl(address: string): string {
-  return `ws://${address}:${WS_PORT}/websocket`;
+  return `ws://${printerEndpoint(address)}/websocket`;
 }
 
 function nowMs(): number {
@@ -88,7 +96,7 @@ export function sendCommand(
       }
     };
     ws.onerror = () =>
-      done(new StageError("transport", `elegoo WS error to ${address}:${WS_PORT}`));
+      done(new StageError("transport", `elegoo WS error to ${printerEndpoint(address)}`));
     ws.onclose = () =>
       done(
         requireAck

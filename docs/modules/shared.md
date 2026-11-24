@@ -4,6 +4,52 @@ Domain types, plugin contracts, profile validation and SQLite access shared by `
 the plugins. Code in this package carries no comments; the reasons behind it live here, one section per
 module.
 
+## address.ts
+
+Printer address parsing, imported as `@conveyor/shared/address`. It uses `node:net`, so it's a subpath of its
+own and stays out of the root export that `web` bundles. The api probe and the transport plugins all use
+it.
+
+- `parseHostPort(address, defaultPort, shown?)` never throws. It returns `{ kind: "parsed", host, port }` or
+  `{ kind: "invalid", reason }`.
+- `shown` is the full address `address` was cut from, when a caller parses only part of it (Moonraker parses
+  the host before a path). Reasons quote `shown`, redacted, instead of the part, so a password that sits
+  outside the part can't leak.
+- Accepted forms:
+  - a URL, `http(s)://host:port/path`, including `http://[fe80::1]:7125/`;
+  - an IPv4 address or hostname, with or without `:port`;
+  - a bracketed IPv6 address, with or without `:port` (`[fe80::1]:3030`, `[fe80::1]`);
+  - a bare IPv6 address (`fe80::1`).
+- A bare IPv6 address never carries a port: `fe80::1:3030` is the IPv6 address `fe80::1:3030`, so a port
+  needs brackets.
+- Hostnames:
+  - labels may use `_` (`voron_2.local`, `_printer`), as mDNS and some routers' DHCP names do;
+  - one trailing dot is allowed and kept (`printer.local.`), since an absolute DNS name resolves the same.
+- Ports: every form, URLs included, takes only 1–65535. Without a port, an `https` URL uses 443 and anything
+  else uses `defaultPort`. IPv6 hosts come back without brackets.
+- `invalid` covers:
+  - an empty address;
+  - more than one colon without brackets that isn't a valid IPv6 address (`fe80::1::2`, `10.0.0.5:3030:1`);
+  - brackets that don't hold an IPv6 address (`[10.0.0.5]:3030`);
+  - an IPv6 zone ID, bare or bracketed (`fe80::1%eth0`, `[fe80::1%eth0]:7125`), because no WHATWG URL can
+    hold one, so every transport URL built from it would fail;
+  - a port outside 1–65535, or one that isn't a number;
+  - a dotted number that isn't IPv4 (`10.0.0.256`);
+  - a host with characters a hostname can't have;
+  - a URL that doesn't parse.
+- An address, or `shown`, with a control character or line break (Unicode `Cc`) inside it is rejected
+  with "the address contains a control character or line break". Both are trimmed first, so a trailing
+  newline or a leading tab is accepted, as it was before.
+- The reason quotes the address and says what to change. Everything before the last
+  `@`, across line breaks too, becomes `***`, keeping only a leading `scheme://` or `//`:
+  - `http://admin:s3cret@[bad/` is quoted as `http://***@[bad/`;
+  - `admin:s3cret@printer` is quoted as `***@printer`.
+
+  So a `user:password@` never reaches a reason, with or without a scheme. The URL parser's own message isn't
+  quoted, because it can contain the raw text.
+- `formatHostPort(host, port)` brackets a host that contains `:`, so `fe80::1` and 3030 give
+  `[fe80::1]:3030`. Transports build every URL from it.
+
 ## artifacts.ts
 
 An `Artifact` is a file on the shared `/data` volume that one stage hands to the next.
