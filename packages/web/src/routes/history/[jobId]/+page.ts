@@ -1,13 +1,10 @@
-import { fetchJobHistoryEntry } from "#lib/api.js";
+import { fetchJobHistoryEntry, signedIn } from "#lib/api.js";
 import type { PageLoad } from "./$types";
 
-// Client-rendered like the rest of the app (cookies + fetch run in the browser).
 export const ssr = false;
 
-export const load: PageLoad = async ({ params, fetch }) => {
-  // fetchJobHistoryEntry returns null for 404 specifically and throws on anything
-  // else, so a missing job renders the not-found state while a real server failure
-  // still surfaces as an error instead of masquerading as "no such job".
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+  if (!signedIn((await parent()).auth)) return { jobId: params.jobId, job: null };
   const job = await fetchJobHistoryEntry(params.jobId, fetch);
   return { jobId: params.jobId, job };
 };

@@ -410,10 +410,10 @@
   }
 </script>
 
+<svelte:head><title>Settings · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Settings</h1>
-    <a href="/" class="navlink">← Back to app</a>
   </div>
 
   {#if error}<div class="card err">{error}</div>{/if}
@@ -683,7 +683,6 @@
   .head { display: flex; align-items: baseline; justify-content: space-between; }
   h1 { margin: 0; }
   h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
-  .navlink { color: var(--live); text-decoration: none; }
   /* Tables carry mono ids/addresses plus an actions column, so they can exceed a
      narrow card. Without this wrapper the table overflowed the .card outright and
      the Edit/Delete buttons rendered off-screen, unreachable. */

@@ -3,10 +3,10 @@
     "packages/web/src/lib/api.ts": 296,
     "packages/web/src/lib/components/SchemaGroup.svelte": 177,
     "packages/web/src/lib/previews/gridfinity.ts": 452,
-    "packages/web/src/routes/+page.svelte": 517,
+    "packages/web/src/routes/+page.svelte": 502,
     "packages/web/src/routes/history/[jobId]/+page.svelte": 190,
-    "packages/web/src/routes/history/+page.svelte": 195,
-    "packages/web/src/routes/monitor/+page.svelte": 280,
-    "packages/web/src/routes/settings/+page.svelte": 751
+    "packages/web/src/routes/history/+page.svelte": 194,
+    "packages/web/src/routes/monitor/+page.svelte": 279,
+    "packages/web/src/routes/settings/+page.svelte": 750
   }
 }
