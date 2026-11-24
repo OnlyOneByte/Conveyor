@@ -54,5 +54,4 @@
   .wrap { flex-wrap: wrap; }
   .grid { display: grid; gap: var(--s4); max-width: 420px; }
   .stack { display: grid; gap: var(--s1); margin-top: var(--s3); }
-  textarea { font: inherit; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem; }
 </style>

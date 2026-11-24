@@ -59,3 +59,31 @@ describe("--field-line", () => {
     });
   }
 });
+
+const THEMES = ['[data-theme="light"]', '[data-theme="dark"]'];
+const ratio = (block: string, a: string, b: string) => contrast(luminance(token(block, a)), luminance(token(block, b)));
+
+describe("control boundaries and state indicators", () => {
+  for (const selector of THEMES) {
+    test(`--field-line, --live and --focus reach 3:1 on --bg, --paper and --sunk in ${selector}`, () => {
+      const block = themeBlock(selector);
+      for (const edge of ["--field-line", "--live", "--focus"])
+        for (const surface of ["--bg", "--paper", "--sunk"]) expect(ratio(block, edge, surface)).toBeGreaterThanOrEqual(3);
+    });
+
+    test(`the ring on an inverted surface reaches 3:1 in ${selector}`, () => {
+      const block = themeBlock(selector);
+      expect(ratio(block, "--bg", "--ink")).toBeGreaterThanOrEqual(3);
+      expect(ratio(block, "--belt-ink", "--belt")).toBeGreaterThanOrEqual(3);
+    });
+  }
+
+  test("fields, checkboxes, ranges and toasts use those tokens", () => {
+    const app = readFileSync(join(import.meta.dir, "styles/app.css"), "utf8");
+    const toast = readFileSync(join(import.meta.dir, "ui/Toasts.svelte"), "utf8");
+    expect(app).toMatch(/input, select, textarea \{[^}]*border: 1\.5px solid var\(--field-line\);/);
+    expect(app).toContain('input[type="range"] { padding: 0; min-height: 0; accent-color: var(--live); }');
+    expect(app).toMatch(/input\[type="checkbox"\] \{[^}]*accent-color: var\(--live\); \}/);
+    expect(toast).toMatch(/\.toast \{[^}]*background: var\(--ink\);[^}]*--focus: var\(--bg\);/);
+  });
+});
