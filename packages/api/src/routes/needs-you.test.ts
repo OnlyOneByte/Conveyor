@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,6 +54,10 @@ afterAll(async () => {
 });
 
 describe("the Needs-you list and dismissing a failure", () => {
+  beforeEach(() => {
+    openDb().query("UPDATE jobs SET dismissed_at = NULL").run();
+  });
+
   test("lists failed jobs only, newest first", async () => {
     expect(idsOf((await call("GET", "/jobs/needs-you")).body)).toEqual([
       "new-failure",
