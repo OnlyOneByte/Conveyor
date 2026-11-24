@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFERRED_3D, isChecked, rawColours, scan } from "./colours";
@@ -36,7 +36,7 @@ describe("the raw colour check", () => {
       hits([
         "color: var(--ink); background: color-mix(in oklch, var(--accent) 8%, transparent);",
         "color-scheme: dark; border: none; fill: currentColor; color: inherit;",
-        "<p>Red bins are white on the belt</p> new THREE.Color(1, 0, 0); tokenColor(name);",
+        '<p>Red bins are white on the belt</p> tokenColor(name); g.setAttribute("position", attr);',
         '{#each a as b}{/each}{#await p}{/await} import x from "#lib/api.js"; <a href="#main">',
       ]),
     ).toEqual([]);
@@ -96,13 +96,65 @@ describe("the raw colour check", () => {
     ]);
   });
 
-  test("fails when git ls-files fails instead of passing on an empty list", () => {
-    const outside = mkdtempSync(join(tmpdir(), "colours-"));
+  test("finds SVG colour attributes, DOM and canvas writes, and three.js colours", () => {
+    expect(
+      hits([
+        '<stop offset="0" stop-color="white" /><path fill="red" stroke="black" />',
+        'el.style.color = "red"; el.style.setProperty("--x", "navy"); el.setAttribute("fill", "teal");',
+        'ctx.fillStyle = "orange"; ctx.strokeStyle = "#0e1116";',
+        "const c = new THREE.Color(1, 0, 0); m.color.setRGB(1, 0, 0); m.emissive.setHex(0x2dd4bf);",
+        'new Color("red"); c.setHSL(0.1, 1, 0.5); c.setStyle(value);',
+      ]),
+    ).toEqual([
+      "1: white",
+      "1: red",
+      "1: black",
+      "2: red",
+      "2: navy",
+      "2: teal",
+      "3: #0e1116",
+      "3: orange",
+      "4: 0x2dd4bf",
+      "4: new THREE.Color(",
+      "4: .setRGB(",
+      "4: .setHex(",
+      "5: new Color(",
+      "5: .setHSL(",
+      "5: .setStyle(",
+    ]);
+    const [file] = [...DEFERRED_3D];
+    expect(hits(["const c = new THREE.Color(0x2dd4bf); c.setHex(0x0e1116);"], file)).toEqual([]);
+  });
+
+  test("checks .svg files under web/src", () => {
+    expect(isChecked("packages/web/src/lib/icons/belt.svg")).toBe(true);
+    expect(hits(['<svg><rect fill="red" /></svg>'], "packages/web/src/lib/icons/belt.svg")).toEqual(
+      ["1: red"],
+    );
+  });
+
+  const inTempDir = (setup: (dir: string) => void, run: (dir: string) => void) => {
+    const dir = mkdtempSync(join(tmpdir(), "colours-"));
     try {
-      expect(() => scan(outside)).toThrow("git ls-files failed");
+      setup(dir);
+      run(dir);
     } finally {
-      rmSync(outside, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
     }
+  };
+
+  test("fails when git ls-files fails", () => {
+    inTempDir(
+      (dir) => writeFileSync(join(dir, ".git"), "gitdir: ./missing\n"),
+      (dir) => expect(() => scan(dir)).toThrow("git ls-files failed"),
+    );
+  });
+
+  test("fails when git ls-files lists no web sources", () => {
+    inTempDir(
+      (dir) => Bun.spawnSync(["git", "init", "-q"], { cwd: dir }),
+      (dir) => expect(() => scan(dir)).toThrow("git ls-files listed no web sources"),
+    );
   });
 
   test("checks web sources only, and never the token file", () => {
