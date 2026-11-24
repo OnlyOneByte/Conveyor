@@ -123,10 +123,7 @@ export const scenes: Scene[] = [
     steps: [
       { press: "Control+k" },
       { type: "dialog[open] input", text },
-      {
-        waitFor:
-          "role=option[name=/^Gridfinity Bin 2×3 · 6u , Elegoo Neptune · Printed · \\d+m ago$/]",
-      },
+      { waitFor: "role=option[name=/^Gridfinity Bin 2×3 · 6u , Elegoo Neptune · Printed · /]" },
       { wait: 300 },
     ],
   })),
