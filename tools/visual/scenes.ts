@@ -2,6 +2,7 @@ export type Step =
   | { click: string }
   | { type: string; text: string }
   | { press: string }
+  | { hover: string }
   | { scroll: string }
   | { waitFor: string; timeout?: number; warn?: string }
   | { wait: number };
@@ -14,6 +15,9 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
 }
+
+const keys = (...presses: string[]): Step[] =>
+  presses.flatMap((press) => [{ press }, { wait: 400 }]);
 
 export const WIDTHS = [1440, 390] as const;
 
@@ -92,5 +96,26 @@ export const scenes: Scene[] = [
     route: "/settings",
     ready: "h1",
     steps: [{ wait: 800 }],
+  },
+  {
+    name: "primitives",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      { click: "button:has-text('Show a toast')" },
+      { hover: "button:has-text('Secondary')" },
+      ...keys("Tab", "Tab", "Tab", "Tab", "Tab"),
+      { wait: 6500 },
+    ],
+  },
+  {
+    name: "primitives-keys",
+    route: "/primitives",
+    ready: "text=Primitives",
+    record: true,
+    steps: keys(
+      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
+      ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
+    ),
   },
 ];

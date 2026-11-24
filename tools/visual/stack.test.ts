@@ -17,6 +17,7 @@ describe("stackEnv", () => {
     expect(env.CONVEYOR_AUTH).toBe("disabled");
     expect(env.CONVEYOR_HOST).toBe("127.0.0.1");
     expect(env.CONVEYOR_API_TARGET).toBe("http://127.0.0.1:4321");
+    expect(env.VITE_CONVEYOR_PRIMITIVES).toBe("1");
   });
 
   test("overrides auth and host inherited from the runner", () => {

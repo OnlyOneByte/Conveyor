@@ -146,6 +146,7 @@ export function stackEnv(
     CONVEYOR_PROFILES_ROOT: join(opts.root, "profiles"),
     PORT: String(opts.apiPort),
     CONVEYOR_API_TARGET: `http://127.0.0.1:${opts.apiPort}`,
+    VITE_CONVEYOR_PRIMITIVES: "1",
   };
 }
 

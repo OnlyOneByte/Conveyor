@@ -74,7 +74,7 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--accent` | `oklch(.68 .19 45)` | `oklch(.74 .17 50)` | The one primary action |
 | `--focus` | `oklch(.52 .17 42)` | `oklch(.74 .17 50)` | Focus ring: at least 4.8:1 on `--bg`, `--paper` and `--sunk` in both themes (WCAG 1.4.11 needs 3:1) |
 | `--accent-ink` | `oklch(.2 .03 45)` | `oklch(.18 .02 50)` | Text on `--accent` |
-| `--live` | `oklch(.54 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
+| `--live` | `oklch(.52 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
 | `--ok` | `oklch(.48 .13 150)` | `oklch(.78 .14 150)` | Printed |
 | `--err` | `oklch(.5 .2 28)` | `oklch(.74 .16 28)` | Failed, Needs you |
 | `--off` | `oklch(.5 .01 60)` | `oklch(.68 .01 60)` | Offline, canceled |

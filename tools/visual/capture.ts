@@ -57,6 +57,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   if ("click" in step) await page.locator(step.click).first().click();
   else if ("type" in step) await page.locator(step.type).first().fill(step.text);
   else if ("press" in step) await page.keyboard.press(step.press);
+  else if ("hover" in step) await page.locator(step.hover).first().hover();
   else if ("scroll" in step)
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
