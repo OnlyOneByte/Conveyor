@@ -20,7 +20,7 @@
   const groupWidths: Record<string, number> = {};
   const lefts = new Map<string, number>();
   let leaving: Departure[] = [];
-  let hidden = document.hidden;
+  let hidden = typeof document !== "undefined" && document.hidden;
 
   $: moving = jobs.filter((j) => onRail(j.state));
   $: waiting = jobs.filter((j) => j.state === "queued").length;
