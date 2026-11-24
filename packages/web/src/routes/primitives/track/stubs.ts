@@ -1,6 +1,6 @@
 import type { TrackJob } from "#lib/track.js";
 
-const NAMES = ["Gridfinity bin 2x3 · 6u", "Gridfinity bin 1x1 · 3u", "cable-clip.stl", "Gridfinity bin 4x2 · 4u", "Gridfinity baseplate 5x4"];
+const NAMES = ["Gridfinity bin 2×3 · 6u", "Gridfinity bin 1×1 · 3u", "cable-clip.stl", "Gridfinity bin 4×2 · 4u", "Gridfinity baseplate 5×4"];
 const PRINTERS = ["Ender 3 V3", "Voron 2.4", "Centauri Carbon"];
 let next = 0;
 const job = (state: TrackJob["state"], progress?: number): TrackJob => {

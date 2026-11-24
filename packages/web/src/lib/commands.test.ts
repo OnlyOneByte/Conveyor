@@ -54,7 +54,7 @@ describe("the command menu's jobs and printers", () => {
     const opened: string[] = [];
     const commands = jobCommands(jobs, catalog, (id) => opened.push(id));
     expect(commands.map((c) => [c.label, c.hint])).toEqual([
-      ["Gridfinity Bin 2x3", "Voron 2.4 · Printed"],
+      ["Gridfinity Bin 2×3", "Voron 2.4 · Printed"],
       ["bracket.stl", "Voron 2.4 · Failed"],
     ]);
     commands[1]?.run();

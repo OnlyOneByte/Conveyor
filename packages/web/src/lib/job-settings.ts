@@ -63,7 +63,7 @@ export function jobName(
   const sizes = ui.groups.flatMap(({ fields }) => {
     const values = fields.map((field) => params[field]);
     if (!values.length || !values.every((value) => typeof value === "number")) return [];
-    if (fields.length > 1) return [values.join("x")];
+    if (fields.length > 1) return [values.join("×")];
     const [only] = fields;
     return only !== undefined && ui.unitMm?.[only] !== undefined ? [`${values[0]}u`] : [];
   });

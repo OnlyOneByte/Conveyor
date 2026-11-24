@@ -59,7 +59,7 @@ describe("the belt's live feed", () => {
     state.active = [view("a", "printing", { progress: 0.4 }), view("b", "queued", { generator: undefined })];
     await belt.poll();
     expect(shown.at(-1)).toEqual([
-      { id: "a", name: "Gridfinity Bin 2x3 · 6u", state: "printing", progress: 0.4, printer: "Voron 2.4" },
+      { id: "a", name: "Gridfinity Bin 2×3 · 6u", state: "printing", progress: 0.4, printer: "Voron 2.4" },
       { id: "b", name: "Job", state: "queued", printer: "Voron 2.4" },
     ]);
     expect(told).toEqual([]);
@@ -75,9 +75,9 @@ describe("the belt's live feed", () => {
     state.final.set("c", new Error("offline"));
     await belt.poll();
     expect(told).toEqual([
-      { level: "polite", text: "Bin 2x3 · 6u finished on Voron 2.4" },
-      { level: "assertive", text: "Bin 2x3 · 6u failed: no profile" },
-      { level: "polite", text: "Bin 2x3 · 6u left the belt; its job page has how it ended" },
+      { level: "polite", text: "Bin 2×3 · 6u finished on Voron 2.4" },
+      { level: "assertive", text: "Bin 2×3 · 6u failed: no profile" },
+      { level: "polite", text: "Bin 2×3 · 6u left the belt; its job page has how it ended" },
     ]);
     expect(shown.at(-1)).toEqual([]);
     await belt.poll();
@@ -91,7 +91,7 @@ describe("the belt's live feed", () => {
     expect([sockets.size, sockets.has("q")]).toEqual([MAX_SOCKETS, false]);
     send({ jobId: "r1", state: "done", at: 3 }, "r0");
     send({ jobId: "r0", state: "transferring", progress: 0.5, at: 3 });
-    expect(told).toEqual([{ level: "polite", text: "Bin 2x3 · 6u moved to Send on Voron 2.4" }]);
+    expect(told).toEqual([{ level: "polite", text: "Bin 2×3 · 6u moved to Send on Voron 2.4" }]);
     send({ jobId: "r1", state: "queued", at: 3 });
     expect([sockets.get("r1")?.closed, told.length]).toEqual([true, 1]);
     state.active = state.active.map((job) => (job.jobId === "r1" ? view("r1", "queued") : job));
@@ -99,7 +99,7 @@ describe("the belt's live feed", () => {
     await belt.poll();
     expect(shown.at(-1)?.find((job) => job.id === "r0")).toMatchObject({ state: "transferring", progress: 0.5, printer: "Voron Trident" });
     send({ jobId: "r0", state: "done", at: 4 });
-    expect([told.at(-1)?.text, sockets.get("r0")?.closed, shown.at(-1)?.some((job) => job.id === "r0")]).toEqual(["Bin 2x3 · 6u finished on Voron Trident", true, false]);
+    expect([told.at(-1)?.text, sockets.get("r0")?.closed, shown.at(-1)?.some((job) => job.id === "r0")]).toEqual(["Bin 2×3 · 6u finished on Voron Trident", true, false]);
     state.active = state.active.filter((job) => job.jobId !== "r0");
     await belt.poll();
     expect([told.length, sockets.get("r0")?.closed, sockets.has("r10")]).toEqual([2, true, true]);
@@ -112,7 +112,7 @@ describe("the belt's live feed", () => {
     sockets.get("a")?.onclose?.(new CloseEvent("close"));
     state.active = [view("a", "transferring")];
     await belt.poll();
-    expect(told).toEqual([{ level: "polite", text: "Bin 2x3 · 6u moved to Send on Voron 2.4" }]);
+    expect(told).toEqual([{ level: "polite", text: "Bin 2×3 · 6u moved to Send on Voron 2.4" }]);
   });
 
   test("a job with no final state is dropped silently, and stop closes every socket", async () => {
@@ -129,7 +129,7 @@ describe("the belt's live feed", () => {
   });
 
   test("a status event keeps the name and printer it had", () => {
-    const was: TrackJob = { id: "a", name: "Gridfinity Bin 2x3", state: "slicing", printer: "Voron 2.4" };
+    const was: TrackJob = { id: "a", name: "Gridfinity Bin 2×3", state: "slicing", printer: "Voron 2.4" };
     expect(trackJob({ jobId: "a", state: "failed", error: { reason: "x" } }, was)).toEqual({ ...was, state: "failed", reason: "x" });
   });
 
@@ -142,12 +142,12 @@ describe("the belt's live feed", () => {
     ];
     await belt.poll();
     const jobs = shown.at(-1) ?? [];
-    expect(jobs.map((job) => [job.name, job.printer])).toEqual([["Gridfinity Bin 2x3 · 6u", "Voron 2.4"], ["Gridfinity Bin 1x1", "Voron 2.4"], ["cable-clip.stl", undefined]]);
+    expect(jobs.map((job) => [job.name, job.printer])).toEqual([["Gridfinity Bin 2×3 · 6u", "Voron 2.4"], ["Gridfinity Bin 1×1", "Voron 2.4"], ["cable-clip.stl", undefined]]);
     state.active = [];
     for (const [jobId, end] of [["a", "failed"], ["b", "failed"], ["c", "done"]] as const) state.final.set(jobId, { jobId, state: end, at: 2 });
     await belt.poll();
     const spoken = [...jobs.map(chipName), groupName(jobs), ...told.map((news) => news.text)].join(" | ");
-    expect(told.map((news) => news.text)).toEqual(["Bin 2x3 · 6u failed", "Bin 1x1 failed", "cable-clip.stl finished"]);
+    expect(told.map((news) => news.text)).toEqual(["Bin 2×3 · 6u failed", "Bin 1×1 failed", "cable-clip.stl finished"]);
     for (const id of ["voron", "garage-1", "gridfinity", "passthrough"]) expect(spoken).not.toContain(id);
     state.catalog = null;
     state.active = [view("d", "slicing")];

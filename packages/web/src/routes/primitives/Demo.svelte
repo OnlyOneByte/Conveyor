@@ -8,7 +8,7 @@
 
   let open = false;
   const items = ["Open job", "Print again", "Cancel"].map((label) => ({ label, run: () => toasts.show(label) }));
-  const toast = () => toasts.show("Canceled Bin 2x1", { label: "Print again", run: () => toasts.show("Printing") });
+  const toast = () => toasts.show("Canceled Bin 2×1", { label: "Print again", run: () => toasts.show("Printing") });
 </script>
 
 <h1>Primitives</h1>
@@ -32,14 +32,14 @@
 </section>
 <section class="card grid">
   <h2>Fields</h2>
-  <Field label="Name" value="Bin 2x3" hint="Shown on the belt and in Jobs." />
+  <Field label="Name" value="Bin 2×3" hint="Shown on the belt and in Jobs." />
   <Field label="Height" value="42" numeric unit="mm" />
   <Field label="Width" value="0" numeric unit="u" error="Width must be at least 1." />
   <Switch label="Spin the preview" checked />
   <Switch label="Single-key shortcuts" />
 </section>
 
-<Dialog title="Cancel Bin 2x1?" bind:open>
+<Dialog title="Cancel Bin 2×1?" bind:open>
   <p>The printer stops and the job moves to Canceled.</p>
   <label class="stack">Reason <select><option>Wrong filament</option><option>Failed first layer</option></select></label>
   <label class="stack">Note <textarea rows="2"></textarea></label>

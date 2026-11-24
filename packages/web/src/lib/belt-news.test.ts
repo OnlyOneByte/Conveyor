@@ -5,7 +5,7 @@ import type { TrackJob } from "./track";
 
 const job = (id: string, state: TrackJob["state"], extra: Partial<TrackJob> = {}): TrackJob => ({
   id,
-  name: "Gridfinity bin 1x1 · 3u",
+  name: "Gridfinity bin 1×1 · 3u",
   state,
   printer: "Voron 2.4",
   ...extra,
@@ -17,20 +17,20 @@ describe("what the belt announces", () => {
     const before = was(job("a", "slicing"), job("b", "transferring"), job("c", "printing"), job("d", "queued"), job("e", "generating"));
     const after = [job("a", "transferring"), job("b", "printing"), job("c", "done"), job("d", "canceled"), job("e", "slicing")];
     expect(changes(before, after, "14:05")).toEqual([
-      { level: "polite", text: "Bin 1x1 · 3u moved to Send on Voron 2.4" },
-      { level: "polite", text: "Bin 1x1 · 3u started printing on Voron 2.4 at 14:05" },
-      { level: "polite", text: "Bin 1x1 · 3u finished on Voron 2.4" },
-      { level: "polite", text: "Bin 1x1 · 3u was canceled" },
-      { level: "polite", text: "Bin 1x1 · 3u moved to Slice on Voron 2.4" },
+      { level: "polite", text: "Bin 1×1 · 3u moved to Send on Voron 2.4" },
+      { level: "polite", text: "Bin 1×1 · 3u started printing on Voron 2.4 at 14:05" },
+      { level: "polite", text: "Bin 1×1 · 3u finished on Voron 2.4" },
+      { level: "polite", text: "Bin 1×1 · 3u was canceled" },
+      { level: "polite", text: "Bin 1×1 · 3u moved to Slice on Voron 2.4" },
     ]);
   });
 
   test("a failure is assertive and gives its reason", () => {
     const after = [job("a", "failed", { reason: "the printer didn't answer" }), job("b", "failed", { printer: undefined }), job("c", "failed", { reason: "no answer within 10 s." })];
     expect(changes(was(job("a", "printing"), job("b", "slicing"), job("c", "printing")), after, "14:05")).toEqual([
-      { level: "assertive", text: "Bin 1x1 · 3u failed: the printer didn't answer" },
-      { level: "assertive", text: "Bin 1x1 · 3u failed" },
-      { level: "assertive", text: "Bin 1x1 · 3u failed: no answer within 10 s" },
+      { level: "assertive", text: "Bin 1×1 · 3u failed: the printer didn't answer" },
+      { level: "assertive", text: "Bin 1×1 · 3u failed" },
+      { level: "assertive", text: "Bin 1×1 · 3u failed: no answer within 10 s" },
     ]);
   });
 
