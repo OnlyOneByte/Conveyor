@@ -25,5 +25,6 @@
 
 <style>
   .toasts { position: fixed; bottom: calc(var(--tabbar, 0px) + var(--s5)); inset-inline: var(--s4); display: grid; justify-items: center; gap: var(--s2); z-index: 40; pointer-events: none; }
+  @media (max-width: 820px) { :global(:root:has(.mobile-cta)) .toasts { bottom: calc(var(--tabbar, 0px) + 4.5rem + var(--s5)); } }
   .toast { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-radius: var(--r-chip); background: var(--ink); color: var(--bg); box-shadow: var(--lift-hi); font-weight: 650; pointer-events: auto; }
 </style>
