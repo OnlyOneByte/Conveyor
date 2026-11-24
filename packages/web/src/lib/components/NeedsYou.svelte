@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { shortName, type TrackJob } from "#lib/track.js";
+  import { BINS, shortName, type TrackJob } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
 
   export let jobs: TrackJob[];
@@ -30,7 +30,7 @@
 
 <svelte:window on:keydown={dismiss} on:pointerdown={dismiss} />
 <div class="wrap" bind:this={wrap}>
-  <button type="button" class="needs" aria-expanded={open} aria-controls={tray} bind:this={button} on:click={() => (open = !open)}>Needs you<span class="n">{jobs.length}</span></button>
+  <button type="button" class="needs" aria-expanded={open} aria-controls={tray} bind:this={button} on:click={() => (open = !open)}>{BINS.needs}<span class="n">{jobs.length}</span></button>
   {#if open}
     <ul class="tray" id={tray}>
       {#each jobs as job, at (job.id)}

@@ -32,7 +32,11 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     if (refuse.includes(name)) throw new Error("409");
   };
   const feed: EndsFeed = {
-    finished: async (since) => (calls.push(`finished ${since}`), 4),
+    finished: async (since) => {
+      calls.push(`finished ${since}`);
+      if (refuse.includes("finished")) throw new Error("503");
+      return 4;
+    },
     needsYou: async () => [entry("f1", "failed", at(9), { error: { stage: "transport", reason: "the printer didn't answer" } })],
     entry: async (id) => records.get(id) ?? null,
     submit: call("submit"),
@@ -51,6 +55,13 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
 }
 
 describe("the belt's end states", () => {
+  test("a refresh that can't read the counts keeps the last ones shown and says it didn't refresh", async () => {
+    const up = rig();
+    expect(await up.ends.refresh()).toBe(true);
+    const down = rig(["finished"]);
+    expect([await down.ends.refresh(), down.shown]).toEqual([false, []]);
+  });
+
   test("counts finishes since local midnight, and lists failures by name with their reason", async () => {
     const { calls, shown, ends } = rig();
     await ends.refresh();

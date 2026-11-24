@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { activeJobs } from "#lib/active-jobs.js";
+  import { POLL_MS } from "#lib/belt.js";
+  import { OFFLINE } from "#lib/track.js";
   import {
-    fetchActiveJobs,
     fetchCatalogPrinters,
     fetchPrinterReachable,
     cancelJob,
@@ -10,21 +12,16 @@
     type PrinterReachable,
   } from "#lib/api.js";
 
-  // Live monitoring: two independent polls. Active jobs churn fast (2s); printer
-  // reachability is a network probe, so it runs slower (15s) to avoid hammering the
-  // fleet. A `now` ticker (1s) drives the "elapsed in current stage" counters without
-  // re-fetching. All three are cleared on destroy.
-  const ACTIVE_MS = 2000;
   const REACH_MS = 15000;
 
-  let jobs: JobStatusEvent[] = [];
   let printers: CatalogPrinter[] = [];
   let reach: Record<string, PrinterReachable | "checking"> = {};
-  let jobsError: string | null = null;
-  let loaded = false;
   let now = Date.now();
+  $: jobs = $activeJobs?.jobs ?? [];
+  let cancelError: string | null = null;
+  $: jobsError = $activeJobs?.ok === false ? OFFLINE : cancelError;
+  $: loaded = $activeJobs !== null;
 
-  let activeTimer: ReturnType<typeof setInterval> | undefined;
   let reachTimer: ReturnType<typeof setInterval> | undefined;
   let clockTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -33,17 +30,6 @@
     slicer: "Slicing",
     transport: "Transferring",
   };
-
-  async function pollJobs() {
-    try {
-      jobs = await fetchActiveJobs();
-      jobsError = null;
-    } catch (e) {
-      jobsError = (e as Error).message;
-    } finally {
-      loaded = true;
-    }
-  }
 
   async function pollReach() {
     // Refresh the printer list too, so a printer added in Settings shows up here.
@@ -66,14 +52,11 @@
   }
 
   onMount(() => {
-    void pollJobs();
     void pollReach();
-    activeTimer = setInterval(pollJobs, ACTIVE_MS);
     reachTimer = setInterval(pollReach, REACH_MS);
     clockTimer = setInterval(() => (now = Date.now()), 1000);
   });
   onDestroy(() => {
-    clearInterval(activeTimer);
     clearInterval(reachTimer);
     clearInterval(clockTimer);
   });
@@ -109,9 +92,9 @@
     cancelling = { ...cancelling, [jobId]: true };
     try {
       await cancelJob(jobId);
-      await pollJobs();
+      cancelError = null;
     } catch (e) {
-      jobsError = (e as Error).message;
+      cancelError = (e as Error).message;
     } finally {
       cancelling = { ...cancelling, [jobId]: false };
     }
@@ -131,7 +114,7 @@
       <span class="live" title="Auto-refreshing">● live</span>
     </div>
     <p class="muted">
-      Jobs in flight right now — anyone's, not just this browser's. Updates every {ACTIVE_MS / 1000}s.
+      Jobs in flight right now — anyone's, not just this browser's. Updates every {POLL_MS / 1000}s.
     </p>
 
     {#if jobsError}<p class="err">{jobsError}</p>{/if}

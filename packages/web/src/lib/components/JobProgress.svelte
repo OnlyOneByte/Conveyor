@@ -1,14 +1,11 @@
 <script lang="ts">
   import type { JobView } from "@conveyor/shared";
-  import { onMount } from "svelte";
-  import { fetchActiveJobs } from "#lib/api.js";
+  import { activeJobs } from "#lib/active-jobs.js";
   import { measured, ordinal, percent, placeInLine, printLine, STEPS } from "#lib/job-live.js";
 
   export let view: JobView;
-  export let place: number | null;
   export let printer: string;
 
-  const REFRESH_MS = 2000;
   const clock = (ms: number) =>
     new Date(ms).toLocaleTimeString([], { timeStyle: "short" }).replace(/\s/g, "\u00a0");
 
@@ -16,14 +13,7 @@
   $: pct = percent(view);
   $: detail = view.state === "printing" ? printLine(view.print, view.at, clock) : "";
 
-  onMount(() => {
-    const timer = setInterval(async () => {
-      if (view.state !== "queued") return;
-      const active = await fetchActiveJobs().catch(() => null);
-      if (active) place = placeInLine(view.jobId, active);
-    }, REFRESH_MS);
-    return () => clearInterval(timer);
-  });
+  $: place = view.state === "queued" && $activeJobs ? placeInLine(view.jobId, $activeJobs.jobs) : null;
 </script>
 
 <section class="live">

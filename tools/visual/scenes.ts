@@ -1,6 +1,7 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
+import { beltStateScenes } from "./scenes-belt-states.ts";
 import { liveScenes } from "./scenes-live.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { settingsScenes } from "./scenes-settings.ts";
@@ -164,6 +165,7 @@ export const scenes: Scene[] = [
   })),
   ...signedOutScenes,
   ...beltScenes,
+  ...beltStateScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",

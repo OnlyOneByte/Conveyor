@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { JobStatusEvent, JobView } from "@conveyor/shared";
-import { createBelt, FAILS_TO_CLEAR, type Feed, MAX_SOCKETS, POLL_MS, type Socket, trackJob } from "./belt";
+import { COVERED_MS, createBelt, createTicker, FAILS_TO_CLEAR, type Feed, MAX_SOCKETS, POLL_MS, type Socket, trackJob } from "./belt";
 import type { News } from "./belt-news";
 import type { Catalog } from "./catalog";
-import { chipName, groupName, type TrackJob } from "./track";
+import { chipName, groupName, OFFLINE, type TrackJob } from "./track";
 
 const catalog: Catalog = {
   printers: [{ id: "voron", name: "Voron 2.4", transportId: "klipper", address: "192.0.2.9", hasSecrets: false }],
@@ -48,9 +48,10 @@ function rig() {
     clock: () => "14:05",
   };
   const ended: TrackJob[][] = [];
-  const belt = createBelt(feed, (jobs, gone) => (shown.push(jobs), ended.push(gone)), (news) => told.push(...news));
+  const offline: boolean[] = [];
+  const belt = createBelt(feed, (jobs, gone, down) => (shown.push(jobs), ended.push(gone), offline.push(down)), (news) => told.push(...news));
   const send = (event: JobStatusEvent, to = event.jobId) => sockets.get(to)?.onmessage?.(new MessageEvent("message", { data: JSON.stringify(event) }));
-  return { state, sockets, shown, ended, told, belt, send };
+  return { state, sockets, shown, ended, offline, told, belt, send };
 }
 
 describe("the belt's live feed", () => {
@@ -169,21 +170,70 @@ describe("the belt's live feed", () => {
     expect(shown.at(-1)?.[0]?.printer).toBeUndefined();
   });
 
-  test("a failing poll clears the belt and says so once; a single failure keeps it", async () => {
-    const { state, shown, told, sockets, belt } = rig();
+  test("ok, fail, fail goes offline with the last jobs kept and says so once; the next good poll recovers", async () => {
+    const { state, shown, offline, told, sockets, belt } = rig();
     state.active = [view("a", "slicing")];
     await belt.poll();
     state.active = null;
     await belt.poll();
-    expect([FAILS_TO_CLEAR, shown.at(-1)?.length, told]).toEqual([2, 1, []]);
+    expect([FAILS_TO_CLEAR, offline.at(-1), told]).toEqual([2, false, []]);
     await belt.poll();
-    expect([shown.at(-1), sockets.get("a")?.closed]).toEqual([[], true]);
-    expect(told).toEqual([{ level: "polite", text: "The belt can't reach the server, so its jobs are hidden until it can" }]);
-    state.active = [view("a", "slicing")];
+    expect([shown.at(-1)?.map((job) => job.id), offline.at(-1), sockets.get("a")?.closed]).toEqual([["a"], true, true]);
+    expect(told).toEqual([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw.` }]);
     await belt.poll();
+    expect(told).toHaveLength(1);
+    state.active = [view("a", "printing")];
+    await belt.poll();
+    expect([shown.at(-1)?.map((job) => job.state), offline.at(-1)]).toEqual([["printing"], false]);
+    expect(told.slice(1).map((news) => news.text)).toEqual(["Conveyor is back.", "Bin 2×3 · 6u started printing on Voron 2.4 at 14:05"]);
     state.active = null;
     await belt.poll();
-    expect([shown.at(-1)?.length, told.length]).toEqual([1, 1]);
+    expect([offline.at(-1), told.length]).toEqual([false, 3]);
+  });
+
+  test("the belt is covered only while every job it knows is on the rail with a socket", async () => {
+    const { state, sockets, belt } = rig();
+    expect(belt.covered()).toBe(false);
+    state.active = [view("a", "slicing"), view("b", "printing")];
+    await belt.poll();
+    expect(belt.covered()).toBe(true);
+    sockets.get("b")?.onclose?.(new CloseEvent("close"));
+    expect(belt.covered()).toBe(false);
+    await belt.poll();
+    expect(belt.covered()).toBe(true);
+    state.active = [view("a", "slicing"), view("q", "queued")];
+    await belt.poll();
+    expect(belt.covered()).toBe(false);
+  });
+
+  test("the ticker polls every tick, backs off to 10 s while covered, and never overlaps or runs hidden", async () => {
+    let at = 0;
+    let covered = false;
+    let ready = true;
+    const polls: number[] = [];
+    let finish = () => {};
+    const tick = createTicker({ poll: () => new Promise<void>((done) => (polls.push(at), (finish = done))), covered: () => covered }, () => ready, () => at);
+    tick();
+    tick();
+    expect(polls).toEqual([0]);
+    finish();
+    await Promise.resolve();
+    at = POLL_MS;
+    covered = true;
+    tick();
+    expect([COVERED_MS, polls]).toEqual([10_000, [0]]);
+    at = COVERED_MS;
+    tick();
+    expect(polls).toEqual([0, COVERED_MS]);
+    finish();
+    await Promise.resolve();
+    covered = false;
+    at += POLL_MS;
+    ready = false;
+    tick();
+    ready = true;
+    tick();
+    expect(polls).toEqual([0, COVERED_MS, COVERED_MS + POLL_MS]);
   });
 
 });

@@ -61,7 +61,7 @@
       "suppressions": 0
     },
     "packages/web/src/routes/monitor/+page.svelte": {
-      "comments": 12,
+      "comments": 8,
       "suppressions": 0
     },
     "packages/web/src/routes/monitor/+page.ts": {
