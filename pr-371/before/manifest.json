@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:44163",
+  "url": "http://127.0.0.1:43179",
   "warnings": [
     "warm-up /no-such-page: waitFor: Timeout 120000ms exceeded."
   ],
@@ -27,7 +27,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 470680,
+      "gifBytes": 470689,
       "gif": "new-job-1440.gif"
     },
     {
@@ -118,7 +118,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 652293,
+      "gifBytes": 652288,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -144,7 +144,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 588648,
+      "gifBytes": 589043,
       "gif": "new-job-390.gif"
     },
     {
@@ -152,7 +152,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 329043,
+      "gifBytes": 354507,
       "gif": "job-progress-390.gif"
     },
     {
@@ -235,7 +235,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 943609,
+      "gifBytes": 939940,
       "gif": "primitives-keys-390.gif"
     }
   ]
