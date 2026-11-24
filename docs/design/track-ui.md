@@ -108,7 +108,7 @@ Under `prefers-reduced-motion: reduce`, durations become 0 and the treads stop. 
 
 Only `transform` and `opacity` animate, so motion never triggers layout. The treads drift right, one 26 px tread every
 1.3 s, while a job is on the rail, and stand still otherwise. They, and a chip mid-hop, pause while the tab is hidden.
-The collapsed bar's dots jump to their new place without a tween.
+The dots on the collapsed bar and on the mobile chip jump to their new place without a tween.
 
 ## Information architecture
 
