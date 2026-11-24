@@ -104,6 +104,14 @@ branch and the default calls `exhaustive(value)`, so a new member is a type erro
 it. A value outside the union that still reaches it at runtime (a plugin yielding an unknown state) throws
 `unhandled value: <value>`.
 
+## job-view.ts
+
+`GET /jobs/active` and `GET /jobs/:id` answer a `JobView`: the status snapshot plus `printerId`, `profileId`,
+`generator` and `createdAt` (#342). `jobFieldsSchema` checks those four, reusing `jobRequestSchema`'s generator
+shape. `jobView(snapshot, fields)` merges them only when all four pass, and reports `complete: false`
+otherwise, so both queue modes leave out a bad request the same way instead of serving a partial one. The
+schema strips unknown keys, so request data can never overwrite the snapshot's own `jobId` or `state`.
+
 ## job.ts
 
 `JobRequest` is what the PWA submits: a generator (with optional params, since a generator may take none),
@@ -566,6 +574,9 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
 - `readSnapshot` returns the row as a `JobStatusEvent` together with the job's highest event `seq`, read in
   one statement. One statement sees one committed state, so a live tail that starts after that cursor
   neither misses nor repeats an event.
+- `readJobFields` returns the job's printer, profile, generator and `created_at` as an unchecked candidate.
+  The caller checks it with `jobFieldsSchema` (see [job-view.ts](#job-viewts)), so a legacy row with a null
+  printer reads as incomplete rather than throwing. A `params_json` that does not parse throws.
 - `tailEvents(jobId, afterSeq)` returns later events in `seq` order, 100 at a time. A stored event that
   does not parse as a `JobStatusEvent` throws rather than being skipped.
 - `pruneEvents` deletes the events of jobs settled more than `EVENT_RETENTION_MS` (7 days) ago. The `jobs`

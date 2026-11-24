@@ -1,6 +1,13 @@
 import { exhaustive, type JobRequest, jobRequestSchema } from "@conveyor/shared";
-import { dbDismissJob, dbListNeedsYou, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import {
+  dbDismissJob,
+  dbListNeedsYou,
+  dbResolveJobTarget,
+  dbRetryProblem,
+  openDb,
+} from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
   ArtifactError,
   type ArtifactKind,
@@ -9,11 +16,20 @@ import {
 } from "../artifact-download.js";
 import { describeIssues, parseGeneratorParams, validateJobRequest } from "../validate.js";
 
-type Submission = { ok: true; request: JobRequest } | { ok: false; code: 400 | 404; error: string };
+type Submission =
+  | { ok: true; request: JobRequest; retryOf?: string }
+  | { ok: false; code: 400 | 404; error: string };
+
+const retrySchema = z.object({ retryOf: z.string().min(1).max(200).optional() });
 
 export function parseSubmission(body: unknown): Submission {
   const parsed = jobRequestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, code: 400, error: describeIssues(parsed.error.issues) };
+  const retry = retrySchema.safeParse(body);
+  if (!retry.success) return { ok: false, code: 400, error: describeIssues(retry.error.issues) };
+  const retryOf = retry.data.retryOf;
+  const problem = retryOf === undefined ? null : dbRetryProblem(openDb(), retryOf);
+  if (problem) return { ok: false, code: 400, error: problem };
   const target = dbResolveJobTarget(openDb(), parsed.data.printerId, parsed.data.profileId);
   if (!target) {
     return {
@@ -32,6 +48,7 @@ export function parseSubmission(body: unknown): Submission {
   return {
     ok: true,
     request: { ...parsed.data, generator: { ...parsed.data.generator, params: params.params } },
+    retryOf,
   };
 }
 

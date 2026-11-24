@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { API } from "#lib/api.js";
   import { stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
@@ -11,7 +12,6 @@
     return new Date(ms).toLocaleString();
   }
 
-  /** Pretty-print the generator params. They are arbitrary per-generator JSON. */
   function fmtParams(params: unknown): string {
     if (params === undefined || params === null) return "(none)";
     return JSON.stringify(params, null, 2);
@@ -46,7 +46,6 @@
     await goto("/?rerun=1");
   }
 
-  // Human duration for a persisted per-stage timing.
   function fmtDuration(ms: number): string {
     const s = Math.round(ms / 1000);
     if (s < 60) return `${s}s`;
@@ -61,6 +60,7 @@
   };
 </script>
 
+<svelte:head><title>Job · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Job</h1>
@@ -130,12 +130,12 @@
       {#if job.artifacts?.model || job.artifacts?.gcode}
         <div class="downloads">
           {#if job.artifacts.model}
-            <a class="dl" href={`/jobs/${encodeURIComponent(data.jobId)}/artifact/model`} download>
+            <a class="dl" href={`${API}/jobs/${encodeURIComponent(data.jobId)}/artifact/model`} download>
               ↓ Model (STL)
             </a>
           {/if}
           {#if job.artifacts.gcode}
-            <a class="dl" href={`/jobs/${encodeURIComponent(data.jobId)}/artifact/gcode`} download>
+            <a class="dl" href={`${API}/jobs/${encodeURIComponent(data.jobId)}/artifact/gcode`} download>
               ↓ G-code
             </a>
           {/if}

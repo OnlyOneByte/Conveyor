@@ -153,10 +153,10 @@ describe("openDb legacy station migration", () => {
     );
   });
 
-  test("adds notes and dismissed_at to the migrated jobs table", () => {
+  test("adds notes, dismissed_at and retried_by to the migrated jobs table", () => {
     const db = openLegacyDb();
     expect(namesOf(db, "PRAGMA table_info(jobs)")).toEqual(
-      expect.arrayContaining(["notes", "dismissed_at"]),
+      expect.arrayContaining(["notes", "dismissed_at", "retried_by"]),
     );
   });
 

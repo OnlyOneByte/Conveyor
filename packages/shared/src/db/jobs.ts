@@ -40,6 +40,7 @@ interface JobRow {
   filament_json: string | null;
   notes: string | null;
   dismissed_at: number | null;
+  retried_by: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -205,10 +206,32 @@ export function dbDismissJob(db: Database, id: string, at: number): DismissResul
   return found ? { kind: "not-failed", state: found.state } : { kind: "unknown" };
 }
 
+export function dbRetryProblem(db: Database, id: string): string | null {
+  const row = db
+    .query<{ state: JobState }, [string]>("SELECT state FROM jobs WHERE id = ?")
+    .get(id);
+  if (!row) return `retryOf: unknown job ${id}`;
+  return row.state === "failed" ? null : `retryOf: job ${id} is ${row.state}, not failed`;
+}
+
+export function dbClaimRetry(db: Database, id: string, by: string): boolean {
+  return (
+    db
+      .query(
+        "UPDATE jobs SET retried_by = ? WHERE id = ? AND state = 'failed' AND retried_by IS NULL",
+      )
+      .run(by, id).changes === 1
+  );
+}
+
+export function dbReleaseRetry(db: Database, id: string, by: string): void {
+  db.query("UPDATE jobs SET retried_by = NULL WHERE id = ? AND retried_by = ?").run(id, by);
+}
+
 export function dbListNeedsYou(db: Database, limit = 50): Job[] {
   return db
     .query<JobRow, [number]>(
-      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL
+      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL AND retried_by IS NULL
         ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(limit)

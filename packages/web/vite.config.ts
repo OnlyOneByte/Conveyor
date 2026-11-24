@@ -35,12 +35,7 @@ export default defineConfig({
   server: {
     ...(ALLOWED_HOSTS.length > 0 ? { allowedHosts: ALLOWED_HOSTS } : {}),
     proxy: {
-      "/jobs": { target: API, ws: true },
-      "/generators": { target: API },
-      "/uploads": { target: API },
-      "/auth": { target: API },
-      "/jobs-history": { target: API },
-      "/catalog": { target: API },
+      "^/api/": { target: API, ws: true, rewrite: (path) => path.replace(/^\/api/, "") },
     },
   },
 });

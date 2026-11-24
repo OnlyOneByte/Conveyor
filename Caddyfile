@@ -14,25 +14,7 @@ localhost {
 	@public_host not host localhost
 	header @public_host Strict-Transport-Security "max-age=31536000"
 
-	handle /health {
-		reverse_proxy api:3000
-	}
-	handle /jobs* {
-		reverse_proxy api:3000
-	}
-	handle /generators* {
-		reverse_proxy api:3000
-	}
-	handle /uploads* {
-		reverse_proxy api:3000
-	}
-	handle /auth* {
-		reverse_proxy api:3000
-	}
-	handle /jobs-history* {
-		reverse_proxy api:3000
-	}
-	handle /catalog* {
+	handle_path /api/* {
 		reverse_proxy api:3000
 	}
 

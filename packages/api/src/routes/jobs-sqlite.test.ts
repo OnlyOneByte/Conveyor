@@ -102,6 +102,38 @@ describe("job routes on the sqlite queue", () => {
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
   });
 
+  test("GET /jobs/:id and /jobs/active add the job's printer, profile, generator and creation time", async () => {
+    const id = queued();
+    const { created_at } = db.query("SELECT created_at FROM jobs WHERE id = ?").get(id) as {
+      created_at: number;
+    };
+    const fields = { ...request, createdAt: created_at };
+    expect((await inject("GET", `/jobs/${id}`)).json<unknown>()).toEqual({
+      jobId: id,
+      state: "queued",
+      stage: null,
+      at: created_at,
+      ...fields,
+    });
+    const active = (await inject("GET", "/jobs/active")).json<{ jobId: string }[]>();
+    expect(active.find((j) => j.jobId === id)).toMatchObject(fields);
+  });
+
+  test("a job whose request does not parse is still listed, without its request fields", async () => {
+    const broken = queued();
+    const blank = queued();
+    db.query("UPDATE jobs SET params_json = '{' WHERE id = ?").run(broken);
+    db.query("UPDATE jobs SET printer_id = NULL WHERE id = ?").run(blank);
+    for (const id of [broken, blank]) {
+      const one = (await inject("GET", `/jobs/${id}`)).json<unknown>();
+      expect(one).toMatchObject({ jobId: id, state: "queued" });
+      expect(one).not.toHaveProperty("profileId");
+    }
+    const active = (await inject("GET", "/jobs/active")).json<{ jobId: string }[]>();
+    expect(active.map((j) => j.jobId)).toEqual(expect.arrayContaining([broken, blank]));
+    expect(active.find((j) => j.jobId === broken)).not.toHaveProperty("printerId");
+  });
+
   test("GET /jobs/active adds typical durations, and a print start behind the print's time left unless the printer is held", async () => {
     db.query("DELETE FROM jobs").run();
     const timings = JSON.stringify(

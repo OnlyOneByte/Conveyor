@@ -4,6 +4,9 @@ The REST and WebSocket front door. It validates requests, serves the catalog and
 It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only in the worker
 ([ADR 0001](../adr/0001-plugin-isolation.md)).
 
+The routes on this page are the api's own paths. Browsers and scripts reach them through Caddy under `/api`, which
+Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from outside.
+
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
@@ -83,6 +86,13 @@ ordering, and `/jobs/:id` answers `404` for any id that is not a UUID.
 `GET /jobs/:id` returns the job's current snapshot. The PWA reads it when it opens a job's status, next to
 the WebSocket. The client does not reconnect a closed socket yet (#193).
 
+Both routes add what the job is to each snapshot: `printerId`, `profileId`, `generator` (`id` and `params`;
+an upload's `params` carry its `filename`) and `createdAt`, in epoch milliseconds. They come from the BullMQ
+job's data and `timestamp`, and are checked by `jobFieldsSchema` in `@conveyor/shared`. A job BullMQ no longer
+holds, a request that fails the schema, or a failed BullMQ read leaves those four fields out, logs, and still
+answers the snapshot, so the UI can label the job by its stage (#342). The four fields do not depend on
+estimates: `GET /jobs/active` adds them whether or not its estimates were left out.
+
 ## The Needs-you list (`registerNeedsYouRoutes` in `routes/job-common.ts`)
 
 Both queue modes register these, behind the same session check as every other job route. Both read the SQLite
@@ -90,20 +100,26 @@ Both queue modes register these, behind the same session check as every other jo
 
 | Route | Answer |
 | --- | --- |
-| `GET /jobs/needs-you` | failed jobs that are not dismissed, newest update first, at most 50, each as a history `Job` |
+| `GET /jobs/needs-you` | failed jobs that are neither dismissed nor retried, newest update first, at most 50, each as a history `Job` |
 | `POST /jobs/:id/dismiss` | `200 { ok, jobId, dismissedAt }` for a failed job; `409` naming the state for any other; `404` for an unknown id |
 
 Dismissing is idempotent: a second call answers with the first `dismissedAt`. A dismissed job stays `failed`
-and stays in `GET /jobs-history`, which returns its `dismissedAt`. A retried job is not linked to the failure
-it retries, so a retry does not take the failure off the list.
+and stays in `GET /jobs-history`, which returns its `dismissedAt`.
+
+A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
+queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
+`retryOf:`, and nothing is queued. `submitJob` (`routes/submit.ts`) then claims the failure in one `UPDATE`
+that sets `retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`); a lost claim answers `409
+{ error }` naming `retryOf` and queues nothing, so a double-clicked Retry prints once. A queueing error clears
+the claim (`dbReleaseRetry`). A claimed failure leaves `GET /jobs/needs-you` at once, without a dismissal.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
 | --- | --- |
 | `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }`. `parseSubmission` (shared with the Redis route) answers `400 { error }` naming the field, e.g. `generator.params.gridX: ...`, for params the generator's schema or `validateRequest` rejects |
-| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot |
-| `GET /jobs/:id` | `readSnapshot`; 404 for an unknown id |
+| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot plus `printerId`, `profileId`, `generator` and `createdAt` from the `jobs` row (`readJobFields`) |
+| `GET /jobs/:id` | `readSnapshot` plus the same four fields; 404 for an unknown id. A row whose fields fail `jobFieldsSchema`, or whose `params_json` does not parse, answers the snapshot alone and logs |
 | `POST /jobs/:id/cancel` | `requestCancel`: `200` with the state of a finished job, `200 canceled` for a queued one, `202 canceling` for one in flight, `404` for an unknown id |
 | `GET /jobs/:id/ws` | the snapshot as the first frame, then the event-log tail from the snapshot's cursor |
 
@@ -285,8 +301,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
 prepared for a held printer until someone checks the printer and releases it.
 
-- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
-  namespace to the api.
+- It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
+  every API route.
 - The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold
