@@ -27,7 +27,9 @@
     ? job.state
     : null;
   $: failure = job?.error ? failureText(job.error.stage, job.error.reason) : null;
-  $: rerun = job ? rerunRequest(job) : null;
+  $: retryOf = job?.state === "failed" && job.request.generator.id !== "passthrough"
+    && job.request.printerId && job.request.profileId ? job.id : undefined;
+  $: rerun = job ? (rerunRequest(job) ?? (retryOf ? job.request : null)) : null;
   $: when = job
     ? new Date(job.updatedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
     : "";
@@ -35,7 +37,8 @@
   async function again() {
     if (!rerun) return;
     const { generator, printerId, profileId } = rerun;
-    stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId });
+    const { id: generatorId, params: stashed } = generator;
+    stashRerun({ generatorId, params: stashed, printerId, profileId, retryOf });
     await goto("/?rerun=1");
   }
 </script>
@@ -70,7 +73,7 @@
     {#if rerun}
       <div class="acts">
         <button class="btn primary" type="button" on:click={again}>
-          Print again
+          {retryOf ? "Retry" : "Print again"}
         </button>
       </div>
     {/if}
