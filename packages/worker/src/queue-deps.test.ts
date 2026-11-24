@@ -51,6 +51,43 @@ describe("a job run on the sqlite queue", () => {
     expect(h.submits).toBe(1);
   });
 
+  test("keeps the printer's layer and time left on the printing event, and only there", async () => {
+    const print = { layer: 12, layers: 240, secondsLeft: 2460 };
+    const h = queued({
+      status: async function* () {
+        yield { state: "printing", progress: 0.05, print };
+        yield { state: "done", print };
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(events().map((e) => [e.state, e.print])).toEqual([
+      ...states()
+        .slice(0, -2)
+        .map((state) => [state, undefined]),
+      ["printing", print],
+      ["done", undefined],
+    ]);
+  });
+
+  test("puts the upload's bytes sent and total, and their fraction, on a transferring event", async () => {
+    const h = queued({
+      submit: async (ctx) => {
+        ctx.reportUpload?.(512, 2048);
+        await Bun.sleep(80);
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(events().filter((e) => e.bytesTotal !== undefined)).toEqual([
+      expect.objectContaining({
+        state: "transferring",
+        stage: "transport",
+        progress: 0.25,
+        bytesSent: 512,
+        bytesTotal: 2048,
+      }),
+    ]);
+  });
+
   test("writes at most one progress update per flush interval", async () => {
     const h = queued({
       slice: async (ctx) => {

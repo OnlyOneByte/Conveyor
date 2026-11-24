@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS printers (
   created_at               INTEGER NOT NULL,
   hold_job_id              TEXT,
   hold_reason              TEXT,
-  hold_at                  INTEGER
+  hold_at                  INTEGER,
+  last_seen_at             INTEGER,
+  last_checked_at          INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
@@ -37,7 +39,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   model_path    TEXT,
   gcode_path    TEXT,
   timings_json  TEXT,
+  filament_json TEXT,
   notes         TEXT,
+  dismissed_at  INTEGER,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   progress            REAL,

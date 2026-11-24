@@ -102,6 +102,58 @@ describe("job routes on the sqlite queue", () => {
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
   });
 
+  test("GET /jobs/active adds typical durations, and a print start behind the print's time left unless the printer is held", async () => {
+    db.query("DELETE FROM jobs").run();
+    const timings = JSON.stringify(
+      ["generator", "slicer", "transport"].map((stage, i) => ({
+        stage,
+        enteredAt: i,
+        durationMs: 1_000,
+      })),
+    );
+    for (let i = 0; i < 3; i++)
+      db.query("UPDATE jobs SET state = 'done', timings_json = ? WHERE id = ?").run(
+        timings,
+        queued(),
+      );
+    const running = queued();
+    const at = Date.now();
+    db.query(
+      "UPDATE jobs SET state = 'printing', stage = 'transport', updated_at = ? WHERE id = ?",
+    ).run(at, running);
+    const print = JSON.stringify({
+      jobId: running,
+      state: "printing",
+      at,
+      print: { secondsLeft: 600 },
+    });
+    db.query("INSERT INTO job_events (job_id, event, at) VALUES (?, ?, ?)").run(running, print, at);
+    const waiting = queued();
+    const estimates = async () =>
+      Object.fromEntries(
+        (await inject("GET", "/jobs/active"))
+          .json<{ jobId: string; estimate?: unknown }[]>()
+          .map((j) => [j.jobId, j.estimate]),
+      );
+    const typicalMs = { generator: 1_000, slicer: 1_000, transport: 1_000 };
+    expect(await estimates()).toEqual({
+      [running]: { typicalMs },
+      [waiting]: { typicalMs, startsAt: at + 600_000 },
+    });
+    db.query("UPDATE printers SET hold_job_id = ? WHERE id = 'klipper-garage'").run(running);
+    expect((await estimates())[waiting]).toEqual({ typicalMs });
+    db.query("UPDATE printers SET hold_job_id = NULL WHERE id = 'klipper-garage'").run();
+  });
+
+  test("a failed job is in the Needs-you list until it is dismissed", async () => {
+    const id = queued();
+    db.query("UPDATE jobs SET state = 'failed' WHERE id = ?").run(id);
+    const listed = () => inject("GET", "/jobs/needs-you").then((r) => r.json<{ id: string }[]>());
+    expect((await listed()).map((j) => j.id)).toContain(id);
+    expect((await inject("POST", `/jobs/${id}/dismiss`)).statusCode).toBe(200);
+    expect((await listed()).map((j) => j.id)).not.toContain(id);
+  });
+
   test("POST /jobs/:id/cancel answers 200, 202 or 404 by the job's state", async () => {
     const id = queued();
     expect((await inject("POST", `/jobs/${id}/cancel`)).json<unknown>()).toEqual({

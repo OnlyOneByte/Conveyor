@@ -30,11 +30,14 @@ mini-rail works unchanged as the 40 px collapsed belt and the mobile summary.
 ## Tokens
 
 All tokens are CSS custom properties on `:root`, switched by `data-theme="light|dark"` on `<html>`. No raw colours,
-sizes or durations appear outside the token file; the lint rule for this lands with the tokens PR.
+sizes or durations appear outside the token file; the check for raw colours lands in its own PR, right after the
+tokens.
 
-The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by
-`static/theme-init.js`, a few lines loaded synchronously in `app.html`'s `<head>`. Being an external same-origin
-file, it is allowed by the CSP's `default-src 'self'`; there is no inline script, so no nonce or hash is needed.
+The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by a few lines of
+inline script at the top of `app.html`'s `<head>`, carrying `nonce="%sveltekit.nonce%"`. SvelteKit's CSP (`mode:
+"auto"`) puts the same per-response nonce in `script-src`, so the policy itself is unchanged: no
+`'unsafe-inline'`, no hash. `lib/preferences.ts` holds the same rule as `resolveTheme`, and a test runs the
+inline script's text against it for every OS setting and saved value.
 
 ### Type
 
@@ -71,7 +74,7 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--accent` | `oklch(.68 .19 45)` | `oklch(.74 .17 50)` | The one primary action |
 | `--focus` | `oklch(.52 .17 42)` | `oklch(.74 .17 50)` | Focus ring: at least 4.8:1 on `--bg`, `--paper` and `--sunk` in both themes (WCAG 1.4.11 needs 3:1) |
 | `--accent-ink` | `oklch(.2 .03 45)` | `oklch(.18 .02 50)` | Text on `--accent` |
-| `--live` | `oklch(.54 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
+| `--live` | `oklch(.52 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
 | `--ok` | `oklch(.48 .13 150)` | `oklch(.78 .14 150)` | Printed |
 | `--err` | `oklch(.5 .2 28)` | `oklch(.74 .16 28)` | Failed, Needs you |
 | `--off` | `oklch(.5 .01 60)` | `oklch(.68 .01 60)` | Offline, canceled |

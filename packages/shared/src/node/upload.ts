@@ -28,7 +28,30 @@ export function uploadSignal(
   return AbortSignal.any([cancel, AbortSignal.timeout(uploadTimeoutMs(env))]);
 }
 
-export function multipartFileUpload(field: string, path: string, filename: string): FileUpload {
+export interface UploadPart {
+  field: string;
+  path: string;
+  filename: string;
+}
+
+export type SentListener = (bytesSent: number, bytesTotal: number) => void;
+
+export const UPLOAD_REPORT_MS = 250;
+
+function throttled(onSent: SentListener, bytesTotal: number): (bytesSent: number) => void {
+  let lastAt = Number.NEGATIVE_INFINITY;
+  return (bytesSent) => {
+    const now = Date.now();
+    if (bytesSent < bytesTotal && now - lastAt < UPLOAD_REPORT_MS) return;
+    lastAt = now;
+    onSent(bytesSent, bytesTotal);
+  };
+}
+
+export function multipartFileUpload(
+  { field, path, filename }: UploadPart,
+  onSent: SentListener = () => {},
+): FileUpload {
   const boundary = `----conveyor-${crypto.randomUUID()}`;
   const encoder = new TextEncoder();
   const safeName = filename.replace(/["\\\r\n]/g, "_");
@@ -39,6 +62,7 @@ export function multipartFileUpload(field: string, path: string, filename: strin
   const tail = encoder.encode(`\r\n--${boundary}--\r\n`);
   const file = Bun.file(path);
   const declared = file.size;
+  const report = throttled(onSent, declared);
   const open = () => file.stream().getReader();
   let reader: ReturnType<typeof open> | undefined;
   let sentHead = false;
@@ -65,6 +89,7 @@ export function multipartFileUpload(field: string, path: string, filename: strin
             return;
           }
           controller.enqueue(value);
+          report(sent);
           return;
         }
         if (sent !== declared || statSync(path).size !== declared) {

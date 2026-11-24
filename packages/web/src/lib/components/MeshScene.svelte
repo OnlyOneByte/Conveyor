@@ -1,7 +1,8 @@
 <script lang="ts">
   import { T } from "@threlte/core";
   import { OrbitControls } from "@threlte/extras";
-  import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
+  import { spinPreview, prefersReducedMotion, theme } from "#lib/preferences.js";
+  import { tokenColor } from "#lib/token-color.js";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
@@ -49,7 +50,7 @@
 
 {#if geometry}
   <T.Mesh {geometry}>
-    <T.MeshStandardMaterial color="#5eead4" metalness={0.1} roughness={0.6} />
+    <T.MeshStandardMaterial color={tokenColor("--accent", $theme)} metalness={0.1} roughness={0.6} />
   </T.Mesh>
   <T.GridHelper args={[Math.max(radius * 4, 200), 10, 0x2d333b, 0x1f262e]} position={[0, -radius, 0]} />
 {/if}

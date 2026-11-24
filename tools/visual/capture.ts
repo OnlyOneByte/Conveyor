@@ -43,8 +43,11 @@ const { values } = parseArgs({
     out: { type: "string", default: resolve(process.cwd(), "visual-out") },
     only: { type: "string" },
     verbose: { type: "boolean", default: false },
+    scheme: { type: "string", default: "light" },
   },
 });
+
+const colorScheme = values.scheme === "dark" ? "dark" : "light";
 
 const outDir = resolve(values.out);
 const only = values.only?.split(",").map((s) => s.trim());
@@ -54,6 +57,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   if ("click" in step) await page.locator(step.click).first().click();
   else if ("type" in step) await page.locator(step.type).first().fill(step.text);
   else if ("press" in step) await page.keyboard.press(step.press);
+  else if ("hover" in step) await page.locator(step.hover).first().hover();
   else if ("scroll" in step)
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
@@ -127,6 +131,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   const context = await browser.newContext({
     viewport: { width, height: HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
+    colorScheme,
   });
   await pinHistoryRoute(context);
   const page = await context.newPage();

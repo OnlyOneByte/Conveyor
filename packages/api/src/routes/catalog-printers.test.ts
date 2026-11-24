@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -124,6 +124,34 @@ describe("GET /catalog/printers/:id/reachable", () => {
       port,
       reason: "ECONNREFUSED",
     });
+  });
+
+  test("lists when a printer that went offline was last seen and last checked", async () => {
+    const clock = spyOn(Date, "now").mockReturnValue(1_000);
+    try {
+      const { port, close } = await listeningPort();
+      dbUpsertPrinter(openDb(), printer({ id: "fading", address: `127.0.0.1:${port}` }));
+      const fading = (times: Record<string, number>) => ({
+        id: "fading",
+        transportId: "moonraker",
+        name: "Catalog Printer",
+        address: `127.0.0.1:${port}`,
+        hasSecrets: false,
+        ...times,
+      });
+      const listed = async () => (await get("/catalog/printers")).json();
+      expect(await listed()).toContainEqual(fading({}));
+      await get("/catalog/printers/fading/reachable");
+      await close();
+      expect(await listed()).toContainEqual(fading({ lastSeenAt: 1_000, lastCheckedAt: 1_000 }));
+      clock.mockReturnValue(61_000);
+      expect(await (await get("/catalog/printers/fading/reachable")).json()).toMatchObject({
+        reachable: false,
+      });
+      expect(await listed()).toContainEqual(fading({ lastSeenAt: 1_000, lastCheckedAt: 61_000 }));
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test("an unknown printer is a 404", async () => {

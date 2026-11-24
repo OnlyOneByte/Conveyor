@@ -93,7 +93,9 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
 
 async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
   const filename = basename(path);
-  const upload = multipartFileUpload("File", path, filename);
+  const upload = multipartFileUpload({ field: "File", path, filename }, (sent, total) =>
+    ctx.reportUpload?.(sent, total),
+  );
   const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
   const signal = uploadSignal(ctx.signal);
   const init = { method: "POST", body: upload.body, headers: upload.headers, signal };

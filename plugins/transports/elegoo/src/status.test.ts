@@ -114,6 +114,36 @@ describe("elegoo status stream", () => {
     ]);
   });
 
+  test("reports the layer, layer count and time left from the ticks, which FDM firmware sends in seconds", async () => {
+    const layered = (info: Record<string, unknown>) =>
+      JSON.stringify({
+        Topic: "sdcp/status/mb",
+        Data: { Status: { CurrentStatus: [1], PrintInfo: { Status: 13, Progress: 5, ...info } } },
+      });
+    usePushes(
+      [
+        layered({ CurrentTicks: 4160.40348639997, TotalTicks: 9193 }),
+        layered({ CurrentLayer: 100, TotalLayer: 1000, CurrentTicks: 3600, TotalTicks: 36000 }),
+        layered({ CurrentLayer: 0, TotalLayer: 0, CurrentTicks: 0, TotalTicks: 0 }),
+        layered({ CurrentLayer: 2.5, CurrentTicks: 5_000, TotalTicks: 4_000 }),
+        layered({ CurrentTicks: -5, TotalTicks: 100 }),
+      ],
+      true,
+    );
+    const seen = await drainStatus();
+    expect(seen.slice(1)).toStrictEqual([
+      { state: "printing", progress: 0.05, print: { secondsLeft: 5033 } },
+      {
+        state: "printing",
+        progress: 0.05,
+        print: { layer: 100, layers: 1000, secondsLeft: 32_400 },
+      },
+      { state: "printing", progress: 0.05, print: { layer: 0 } },
+      { state: "printing", progress: 0.05, print: undefined },
+      { state: "printing", progress: 0.05, print: undefined },
+    ]);
+  });
+
   test("a spec-shaped frame with Status at the top level completes the print", async () => {
     const done = JSON.stringify({
       Topic: "sdcp/status/mb",

@@ -5,6 +5,7 @@ import {
   jobControlChannel,
   jobSeqKey,
   PUBLISH_STATUS_SCRIPT,
+  parseStatusEvent,
   publishStatus,
   type StatusScriptClient,
 } from "./status";
@@ -61,4 +62,51 @@ describe("cancel keys", () => {
     expect(jobControlChannel("j1")).toBe("job:j1:control");
     expect(jobSeqKey("j1")).toBe("job:j1:seq");
   });
+});
+
+describe("a status event's print fields", () => {
+  const event = (print?: unknown) =>
+    JSON.stringify({ jobId: "j1", state: "printing", at: 5, progress: 0.5, print });
+
+  test("are kept when valid, and an event without them still parses", () => {
+    const print = { layer: 12, layers: 240, secondsLeft: 2460 };
+    expect(parseStatusEvent(event(print))?.print).toEqual(print);
+    expect(parseStatusEvent(event({ layer: 0 }))?.print).toEqual({ layer: 0 });
+    expect(parseStatusEvent(event())).toEqual({
+      jobId: "j1",
+      state: "printing",
+      at: 5,
+      progress: 0.5,
+    });
+  });
+
+  test.each([
+    { layer: -1 },
+    { layer: 1.5 },
+    { layers: 0 },
+    { secondsLeft: -1 },
+    { secondsLeft: "soon" },
+  ])("refuse the whole event when one is out of range: %j", (print) => {
+    expect(parseStatusEvent(event(print))).toBeUndefined();
+  });
+});
+
+describe("a status event's upload bytes", () => {
+  const event = (bytes: Record<string, unknown>) =>
+    JSON.stringify({ jobId: "j1", state: "transferring", at: 5, ...bytes });
+
+  test("are kept when whole and not negative, and an event without them still parses", () => {
+    expect(parseStatusEvent(event({ bytesSent: 0, bytesTotal: 7_500_000 }))).toMatchObject({
+      bytesSent: 0,
+      bytesTotal: 7_500_000,
+    });
+    expect(parseStatusEvent(event({}))).toEqual({ jobId: "j1", state: "transferring", at: 5 });
+  });
+
+  test.each([{ bytesSent: -1 }, { bytesSent: 1.5 }, { bytesTotal: "7.5 MB" }])(
+    "refuse the event when they are out of range: %j",
+    (bytes) => {
+      expect(parseStatusEvent(event(bytes))).toBeUndefined();
+    },
+  );
 });

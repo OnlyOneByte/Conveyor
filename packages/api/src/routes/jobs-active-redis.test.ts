@@ -1,13 +1,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ACTIVE_JOBS_KEY,
+  JOB_QUEUE,
+  type JobRequest,
   type JobStatusEvent,
   jobSnapshotKey,
   publishStatus,
 } from "@conveyor/shared";
+import { dbRecordJob, openDb } from "@conveyor/shared/db";
+import { Queue } from "bullmq";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
+import { z } from "zod";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -17,6 +25,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
   let redis: Redis;
   let base = "";
   let closeQueue = async () => {};
+  let jobs: Queue<JobRequest>;
   const app = Fastify();
   const ids = { old: randomUUID(), fresh: randomUUID(), done: randomUUID(), gone: randomUUID() };
   const mine = new Set<string>(Object.values(ids));
@@ -32,7 +41,10 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       queue.connection.disconnect();
     };
     await app.register((await import("@fastify/websocket")).default);
-    await registerJobRoutes(app);
+    jobs = new Queue<JobRequest>(JOB_QUEUE, {
+      connection: new Redis(url ?? "", { maxRetriesPerRequest: null }),
+    });
+    await registerJobRoutes(app, jobs);
     base = await app.listen({ host: "127.0.0.1", port: 0 });
   });
 
@@ -41,6 +53,8 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     await redis.del(...[...mine].map(jobSnapshotKey));
     await app.close();
     await closeQueue();
+    await jobs.close();
+    await jobs.disconnect();
     redis.disconnect();
   });
 
@@ -61,5 +75,40 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     expect(
       await Promise.all(Object.values(ids).map((id) => redis.sismember(ACTIVE_JOBS_KEY, id))),
     ).toEqual([1, 1, 0, 0]);
+  });
+
+  test("adds typical durations from history to a live job, using its queued request", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "conveyor-redis-estimates-"));
+    const previous = process.env.DB_PATH;
+    process.env.DB_PATH = join(dir, "conveyor.db");
+    const jobId = randomUUID();
+    const settled = { generatorId: "gridfinity", printerId: "estimate-printer", profileId: "prof" };
+    const timings = [{ stage: "slicer" as const, enteredAt: 0, durationMs: 4_000 }];
+    try {
+      for (const i of [1, 2, 3])
+        dbRecordJob(openDb(), { ...settled, id: `${jobId}-${i}`, state: "done", timings });
+      const request = { ...settled, generator: { id: "gridfinity", params: {} } };
+      await jobs.add("job", request, { jobId });
+      await publishStatus(redis, { jobId, state: "queued", at: 40 });
+      const listed = z
+        .array(z.object({ jobId: z.string(), estimate: z.unknown().optional() }))
+        .parse(await (await fetch(`${base}/jobs/active`)).json());
+      expect(listed.find((evt) => evt.jobId === jobId)?.estimate).toEqual({
+        typicalMs: { slicer: 4_000 },
+      });
+    } finally {
+      await (await jobs.getJob(jobId))?.remove();
+      await redis.srem(ACTIVE_JOBS_KEY, jobId);
+      await redis.del(jobSnapshotKey(jobId));
+      openDb().close();
+      if (previous === undefined) delete process.env.DB_PATH;
+      else process.env.DB_PATH = previous;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("serves the Needs-you list and dismiss routes", () => {
+    expect(app.hasRoute({ method: "GET", url: "/jobs/needs-you" })).toBe(true);
+    expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);
   });
 });

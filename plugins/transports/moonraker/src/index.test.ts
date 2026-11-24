@@ -93,45 +93,52 @@ describe("moonraker IPv6 printers", () => {
   });
 });
 
+async function gcodeCtx() {
+  const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+  const path = join(dir, "bin 1.gcode");
+  await writeFile(path, "G28\n");
+  const ctx: StageCtx = {
+    jobId: "j",
+    workDir: dir,
+    signal: new AbortController().signal,
+    report: () => {},
+    log: () => {},
+  };
+  return { path, ctx };
+}
+const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+
 describe("moonraker submit", () => {
   test("a cancel during the upload never starts the print", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
-    const path = join(dir, "a.gcode");
-    await writeFile(path, "G28\n");
+    const { path, ctx } = await gcodeCtx();
     const controller = new AbortController();
     const calls = fakeFetch(async () => {
       controller.abort();
       return new Response("{}", { status: 201 });
     });
-    const ctx: StageCtx = {
-      jobId: "j",
-      workDir: dir,
+    const submit = moonraker.submit({ path, format: "gcode" }, target, {
+      ...ctx,
       signal: controller.signal,
-      report: () => {},
-      log: () => {},
-    };
-    const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
-    const submit = moonraker.submit({ path, format: "gcode" }, target, ctx);
+    });
     await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
     expect(calls.map((c) => c.url)).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
   });
 });
 
 describe("moonraker submit, the printer answers", () => {
-  async function gcodeCtx() {
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
-    const path = join(dir, "bin 1.gcode");
-    await writeFile(path, "G28\n");
-    const ctx: StageCtx = {
-      jobId: "j",
-      workDir: dir,
-      signal: new AbortController().signal,
-      report: () => {},
-      log: () => {},
-    };
-    return { path, ctx };
-  }
-  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+  test("reports the g-code bytes sent of the total as the printer reads the upload", async () => {
+    const { path, ctx } = await gcodeCtx();
+    const sent: number[][] = [];
+    fakeFetch(async (url, init) => {
+      if (url.endsWith("/server/files/upload")) await new Response(init?.body).arrayBuffer();
+      return new Response("{}", { status: 201 });
+    });
+    await moonraker.submit({ path, format: "gcode" }, target, {
+      ...ctx,
+      reportUpload: (bytesSent, bytesTotal) => void sent.push([bytesSent, bytesTotal]),
+    });
+    expect(sent).toEqual([[4, 4]]);
+  });
 
   test("uploads the file, starts it and returns a handle naming it", async () => {
     const { path, ctx } = await gcodeCtx();
