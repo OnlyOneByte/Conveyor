@@ -3,7 +3,7 @@
   import { API, type JobHistoryEntry } from "#lib/api.js";
   import { duration, type SettingRow } from "#lib/job-settings.js";
 
-  export let job: JobHistoryEntry;
+  export let job: Pick<JobHistoryEntry, "id" | "state"> & Partial<JobHistoryEntry>;
   export let rows: SettingRow[];
 
   const STEP: Record<string, string> = {
@@ -34,6 +34,7 @@
 </script>
 
 <div class="receipt">
+  <slot />
   {#if rows.length}
     <section>
       <h2>Settings</h2>

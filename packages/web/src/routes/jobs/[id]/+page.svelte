@@ -1,32 +1,46 @@
 <script lang="ts">
   import { Canvas } from "@threlte/core";
   import { ACESFilmicToneMapping } from "three";
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
+  import { onDestroy } from "svelte";
+  import { goto, invalidateAll } from "$app/navigation";
+  import type { JobView } from "@conveyor/shared";
+  import { announce } from "#lib/announce.js";
+  import { cancelJob } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
   import JobHead from "#lib/components/JobHead.svelte";
+  import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
+  import { followJob, pillText } from "#lib/job-live.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
-  const PILL = { done: "Printed", failed: "Failed", canceled: "Canceled" } as const;
   const WHEN = { done: "Finished", failed: "Stopped", canceled: "Canceled" } as const;
+  const SETTLED = ["done", "failed", "canceled"];
   const DATE = { dateStyle: "medium", timeStyle: "short" } as const;
 
+  let latest: JobView | null = null;
+  let stop = () => {};
   $: job = data.job;
-  $: watch = `/?job=${encodeURIComponent(page.params.id ?? "")}`;
+  $: live = data.view && { ...data.view, ...latest };
+  $: {
+    stop();
+    latest = null;
+    stop = data.view ? followJob(data.view.jobId, (v) => (latest = v), settle) : () => {};
+  }
+  onDestroy(() => stop());
   $: gen = data.generator;
-  $: params = job?.request.generator.params;
+  $: params = job?.request.generator.params ?? live?.generator?.params;
   $: schema = gen?.paramSchema ?? null;
-  $: rows = job ? settingRows(params, schema, gen?.ui ?? null) : [];
-  $: fallback = job ? titled(job.request.generator.id) : "";
-  $: name = job ? jobName(gen?.name ?? fallback, params, schema, gen?.ui ?? null) : "";
-  $: title = name || (data.live ? "This job is still running" : "We can't find that job");
+  $: rows = settingRows(params, schema, gen?.ui ?? null);
+  $: generatorId = job?.request.generator.id ?? live?.generator?.id;
+  $: fallback = generatorId ? titled(generatorId) : "";
+  $: name = fallback ? jobName(gen?.name ?? fallback, params, schema, gen?.ui ?? null) : "";
+  $: title = name || (live ? "Job on the belt" : "We can't find that job");
   $: state = job?.state === "done" || job?.state === "failed" || job?.state === "canceled"
     ? job.state
     : null;
@@ -34,8 +48,13 @@
   $: retryOf = job?.state === "failed" && job.request.generator.id !== "passthrough"
     && job.request.printerId && job.request.profileId ? job.id : undefined;
   $: rerun = job ? (rerunRequest(job) ?? (retryOf ? job.request : null)) : null;
-  $: stamp = job ? new Date(job.updatedAt).toLocaleString([], DATE) : "";
-  $: when = state ? `${WHEN[state]} ${stamp}` : "";
+  $: started = live?.timings?.[0]?.enteredAt ?? live?.createdAt;
+  $: at = job ? job.updatedAt : live?.state === "queued" ? live.createdAt : started;
+  $: since = state ? WHEN[state] : live?.state === "queued" ? "Added" : "Started";
+  $: stamp = at === undefined ? "" : new Date(at).toLocaleString([], DATE);
+  $: when = stamp && `${since} ${stamp}`;
+  $: tone = state ?? (live?.state === "queued" ? "queued" : "live");
+  $: pill = pillText(job ?? live ?? { state: "queued" });
   $: meta = [data.printer, data.profile].filter(Boolean).join(" · ");
 
   async function again() {
@@ -45,31 +64,37 @@
     stashRerun({ generatorId, params: stashed, printerId, profileId, retryOf });
     await goto("/?rerun=1");
   }
+
+  function settle() {
+    if (data.view && !SETTLED.includes(data.view.state)) setTimeout(invalidateAll, 300);
+  }
+
+  async function cancel() {
+    const failed = () => announce("Couldn't cancel. Try again.", "assertive");
+    if (live) await cancelJob(live.jobId).catch(failed);
+  }
 </script>
 
 <svelte:head><title>{title} · Conveyor</title></svelte:head>
 
-{#if !job}
+{#if !job && !live}
   <section class="nf" aria-labelledby="job-title">
     <h1 id="job-title">{title}</h1>
-    {#if data.live}
-      <p>Watch it live on Make until it finishes.</p>
-      <div class="acts">
-        <a class="btn primary" href={watch}>Watch it live</a>
-      </div>
-    {:else}
-      <p>It may have been removed, or the link is mistyped.</p>
-      <div class="acts">
-        <a class="btn primary" href="/history">See your jobs</a>
-        <a class="btn" href="/">Go to Make</a>
-      </div>
-    {/if}
+    <p>It may have been removed, or the link is mistyped.</p>
+    <div class="acts">
+      <a class="btn primary" href="/history">See your jobs</a>
+      <a class="btn" href="/">Go to Make</a>
+    </div>
   </section>
 {:else}
-  <JobHead {title} tone={state ?? ""} pill={state ? PILL[state] : ""} {meta} {when}>
+  <JobHead {title} {tone} {pill} {meta} {when}>
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
+      </button>
+    {:else if live}
+      <button class="btn danger" type="button" on:click={cancel}>
+        {live.state === "printing" ? "Cancel print" : "Cancel"}
       </button>
     {/if}
   </JobHead>
@@ -86,19 +111,21 @@
         <span class="tag">{title}</span>
       {/if}
     </div>
-    <JobReceipt {job} {rows} />
+    <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
+      {#if live}<JobProgress view={live} />{/if}
+    </JobReceipt>
   </div>
 {/if}
 
 <style>
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1.05; letter-spacing: -0.04em; }
   p { margin: 0; }
-  .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .btn {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
     text-decoration: none; border-color: var(--field-line);
   }
   .btn.primary { border-color: var(--accent); }
+  .btn.danger { color: var(--err); border-color: var(--err); }
   .why {
     margin-bottom: var(--s5); padding: var(--s4); border: 1.5px solid var(--err);
     border-radius: var(--r-card); background: color-mix(in oklch, var(--err) 10%, transparent);
