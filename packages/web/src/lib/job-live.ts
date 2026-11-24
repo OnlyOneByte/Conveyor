@@ -66,10 +66,6 @@ export async function liveView(id: string, fetchFn: typeof fetch): Promise<JobVi
   return r?.ok ? r.json() : null;
 }
 
-const reloaded = new Set<string>();
-
-export const firstEnd = (id: string) => !reloaded.has(id) && Boolean(reloaded.add(id));
-
 export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
 
 export const SETTLED: JobState[] = ["done", "failed", "canceled"];
@@ -79,7 +75,7 @@ type Socket = Pick<WebSocket, "close" | "onmessage" | "onclose">;
 export function followJob(
   id: string,
   update: (view: JobView) => void,
-  end: () => void,
+  reload: () => void,
   connect: (id: string) => Socket = openJobSocket,
   snapshot = (job: string) => liveView(job, fetch),
 ): () => void {
@@ -87,24 +83,38 @@ export function followJob(
   let stopped = false;
   let tries = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    stopped = true;
+    reload();
+  };
   const seen = (view: JobView) => {
     update(view);
-    if (SETTLED.includes(view.state)) (stopped = true), end();
+    if (SETTLED.includes(view.state)) finish();
+  };
+  const later = (run: () => void) => {
+    timer = setTimeout(run, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
+  };
+  const check = async (reopen: boolean) => {
+    const view = await snapshot(id).catch(() => null);
+    if (stopped) return;
+    if (!view && !reopen) return finish();
+    if (view) seen(view);
+    if (stopped) return;
+    if (reopen) open();
+    else later(() => check(false));
   };
   const open = () => {
     const next = connect(id);
     socket = next;
-    next.onmessage = (message) => ((tries = 0), seen(JSON.parse(message.data)));
+    next.onmessage = (message) => {
+      tries = 0;
+      seen(JSON.parse(message.data));
+    };
     next.onclose = ({ code }) => {
       if (stopped || socket !== next) return;
-      if (code === 1000 || code === 4404) return void ((stopped = true), end());
-      timer = setTimeout(retry, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
+      if (code === 1000 || code === 4404) void check(false);
+      else later(() => check(true));
     };
-  };
-  const retry = async () => {
-    const view = await snapshot(id).catch(() => null);
-    if (view && !stopped) seen(view);
-    if (!stopped) open();
   };
   open();
   return () => {

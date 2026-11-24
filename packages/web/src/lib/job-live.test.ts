@@ -58,43 +58,60 @@ class FakeSocket {
   }
 }
 
-function watch(snapshot: JobView | null = null) {
+function watch(...snapshots: (JobView | null)[]) {
   const sockets: FakeSocket[] = [];
   const seen: string[] = [];
-  const result = { sockets, seen, ended: 0, stop: () => {} };
+  const result = { sockets, seen, ended: 0, reads: 0, stop: () => {} };
   const connect = () => sockets[sockets.push(new FakeSocket()) - 1] ?? new FakeSocket();
   const view = (v: JobView) => seen.push(v.state);
-  result.stop = followJob("j", view, () => result.ended++, connect, async () => snapshot);
+  const read = async () => snapshots[Math.min(result.reads++, snapshots.length - 1)] ?? null;
+  result.stop = followJob("j", view, () => result.ended++, connect, read);
   return result;
 }
+
+const snap = (state: JobView["state"]): JobView => ({ jobId: "j", state, at: 2 });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, (RETRY_MS[0] ?? 0) + 100));
 
 describe("followJob", () => {
-  test("passes events on, and ends once the job settles or the stream closes for good", () => {
+  test("passes events on, and reloads once the job settles", () => {
     const live = watch();
     live.sockets[0]?.send("printing");
     live.sockets[0]?.send("done");
     expect([live.seen, live.ended]).toEqual([["printing", "done"], 1]);
-    for (const code of [1000, 4404]) {
-      const closed = watch();
+  });
+
+  test("reloads when the stream closes for good and the job is gone or settled", async () => {
+    for (const [code, last] of [[1000, snap("done")], [4404, null]] as const) {
+      const closed = watch(last);
       closed.sockets[0]?.drop(code);
+      await settle();
       expect([closed.sockets.length, closed.ended]).toEqual([1, 1]);
     }
   });
 
+  test("polls the snapshot while a refused stream's job still reads running", async () => {
+    const refused = watch(snap("printing"), snap("printing"), snap("done"));
+    refused.sockets[0]?.drop(4404);
+    await settle();
+    expect(refused.ended).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, (RETRY_MS[0] ?? 0) + (RETRY_MS[1] ?? 0) + 200));
+    expect([refused.seen, refused.sockets.length, refused.ended]).toEqual([
+      ["printing", "printing", "done"],
+      1,
+      1,
+    ]);
+  });
+
   test("reads the snapshot and reconnects after a dropped stream", async () => {
-    const dropped = watch({ jobId: "j", state: "printing", at: 2 });
+    const dropped = watch(snap("printing"));
     dropped.sockets[0]?.drop(1011);
     await settle();
     expect([dropped.seen, dropped.sockets.length, dropped.ended]).toEqual([["printing"], 2, 0]);
-    const finished = watch({ jobId: "j", state: "canceled", at: 2 });
+    const finished = watch(snap("canceled"));
     finished.sockets[0]?.drop(1013);
     await settle();
     expect([finished.sockets.length, finished.ended]).toEqual([1, 1]);
-  });
-
-  test("stops reconnecting once the page lets go", async () => {
     const left = watch();
     left.stop();
     left.sockets[0]?.drop(1011);
