@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sign in and error pages mockup · Conveyor</title>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(https://cdn.jsdelivr.net/fontsource/fonts/bricolage-grotesque:vf@5.3.0/latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"DM Mono";src:url(https://cdn.jsdelivr.net/fontsource/fonts/dm-mono@5.3.0/latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+:root{--display:"Bricolage Grotesque",system-ui,sans-serif;--mono:"DM Mono",ui-monospace,monospace;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--r-control:13px;--r-card:18px}
+:root[data-theme=light]{--bg:oklch(.952 .016 85);--paper:oklch(.992 .006 85);--sunk:oklch(.93 .016 85);--ink:oklch(.22 .02 55);--muted:oklch(.45 .02 60);--faint:oklch(.5 .02 65);--line:oklch(.22 .02 55/.13);--line-2:oklch(.22 .02 55/.24);--accent:oklch(.68 .19 45);--accent-ink:oklch(.2 .03 45);--focus:oklch(.52 .17 42);--err:oklch(.5 .2 28);--err-soft:oklch(.5 .2 28/.1);--lift:0 1px 2px oklch(.22 .02 55/.12)}
+:root[data-theme=dark]{--bg:oklch(.19 .01 60);--paper:oklch(.25 .012 60);--sunk:oklch(.215 .011 60);--ink:oklch(.95 .012 85);--muted:oklch(.78 .015 80);--faint:oklch(.7 .015 75);--line:oklch(.95 .01 85/.1);--line-2:oklch(.95 .01 85/.2);--accent:oklch(.74 .17 50);--accent-ink:oklch(.18 .02 50);--focus:oklch(.74 .17 50);--err:oklch(.74 .16 28);--err-soft:oklch(.74 .16 28/.12);--lift:0 1px 2px oklch(0 0 0/.4)}
+*{box-sizing:border-box;margin:0}
+body{font:15px/1.45 var(--display);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+:focus-visible,.focus{outline:3px solid var(--focus);outline-offset:2px}
+.top{display:flex;align-items:center;gap:var(--s5);min-height:60px;padding:0 var(--s6)}
+.word{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.word i{display:flex;gap:3px}.word i b{width:7px;height:18px;border-radius:3px;background:var(--accent);transform:skewX(-14deg)}.word i b:nth-child(2){opacity:.6}.word i b:nth-child(3){opacity:.3}
+.sp{flex:1}
+.icon{width:40px;height:40px;display:grid;place-items:center;border-radius:var(--r-control);border:0;background:transparent;color:var(--ink)}
+.icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75}
+main{display:grid;place-items:start center;padding:12vh var(--s4) var(--s6)}
+.card{width:min(380px,100%);padding:var(--s6) var(--s5);border-radius:var(--r-card);background:var(--paper);border:1px solid var(--line);box-shadow:var(--lift);display:flex;flex-direction:column;gap:var(--s4)}
+h1{font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.04em}
+p{color:var(--muted)}
+label{font-weight:600}
+.field{display:flex;align-items:center;min-height:44px;border:1.5px solid var(--line-2);border-radius:var(--r-control);background:var(--bg)}
+.field.bad{border-color:var(--err)}
+.field input{flex:1;min-width:0;border:0;background:none;outline:none;padding:0 var(--s3);font:500 15px var(--mono);color:var(--ink)}
+.field:has(input:focus-visible),.field.focus{outline:3px solid var(--focus);outline-offset:2px}
+.reveal{min-height:36px;margin-right:4px;padding:0 var(--s3);border:0;border-radius:10px;background:var(--sunk);color:var(--ink);font:600 13px var(--display)}
+.err{display:flex;gap:var(--s2);align-items:flex-start;padding:var(--s3);border-radius:var(--r-control);background:var(--err-soft);color:var(--err);font-weight:600}
+.err svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+.primary{min-height:48px;border:0;border-radius:var(--r-control);background:var(--accent);color:var(--accent-ink);font:800 16px var(--display)}
+.hint{font-size:13px;color:var(--faint)}
+.nf{width:min(520px,100%);display:flex;flex-direction:column;gap:var(--s4)}
+.code{font:500 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.nf h1{font-size:40px}
+.nf code{font:500 14px var(--mono);color:var(--ink);background:var(--sunk);padding:2px 6px;border-radius:6px}
+.acts{display:flex;gap:var(--s2);flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 var(--s4);border-radius:var(--r-control);border:1.5px solid var(--line-2);background:var(--paper);color:var(--ink);font-weight:700;text-decoration:none}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:15px;background:var(--sunk);border:1px solid var(--line)}
+.tabs a{display:flex;align-items:center;min-height:38px;padding:0 var(--s4);border-radius:11px;font-weight:600;color:var(--muted);text-decoration:none}
+@media (max-width:759px){.top{padding:0 var(--s4);min-height:54px}.word{font-size:20px}main{padding-top:6vh}.tabs{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);border-radius:0;background:var(--paper)}.tabs a{justify-content:center;min-height:56px}.nf h1{font-size:32px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="word" href="#signin"><i aria-hidden="true"><b></b><b></b><b></b></i>conveyor</a>
+  <nav class="tabs" aria-label="Main" id="tabs" hidden><a href="#signin">Make</a><a href="#signin">Jobs</a><a href="#signin">Printers</a></nav>
+  <span class="sp"></span>
+  <button class="icon" type="button" aria-label="Switch theme" id="theme"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg></button>
+</header>
+<main id="main"></main>
+<script>
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get("theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+document.getElementById("theme").onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light"; };
+const alert = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17v.5"/></svg>';
+const signIn = (wrong) => `<form class="card" onsubmit="return false" aria-labelledby="h1">
+  <h1 id="h1">Sign in to Conveyor</h1>
+  <p>Enter the password for this Conveyor.</p>
+  <label for="pw">Password</label>
+  <div class="field ${wrong ? "bad focus" : ""}"><input id="pw" type="password" autocomplete="current-password" ${wrong ? 'aria-invalid="true" aria-describedby="pw-err"' : ""} value=""><button class="reveal" type="button" aria-pressed="false" aria-controls="pw">Show</button></div>
+  ${wrong ? `<p class="err" id="pw-err">${alert}That password didn't work. Try again.</p>` : ""}
+  <button class="primary" type="submit">Sign in</button>
+  <p class="hint">Forgot it? Whoever set up this Conveyor can change it.</p>
+</form>`;
+const notFound = () => `<section class="nf" aria-labelledby="h1"><span class="code">404</span><h1 id="h1">Page not found</h1><p>There's nothing at <code>/jobs/old-link</code>. It may have moved, or the link is mistyped.</p><div class="acts"><a class="btn pri" href="#signin">Go to Make</a><a class="btn" href="#signin">See your jobs</a></div></section>`;
+const failed = () => `<section class="nf" aria-labelledby="h1"><span class="code">Error 500</span><h1 id="h1">Something went wrong</h1><p>Conveyor couldn't load this page. Try again; if it keeps happening, check that Conveyor is running.</p><div class="acts"><a class="btn pri" href="#error">Try again</a><a class="btn" href="#signin">Go to Make</a></div></section>`;
+const SCREENS = { signin: [() => signIn(false), "Sign in to Conveyor", false], wrong: [() => signIn(true), "Sign in to Conveyor", false], notfound: [notFound, "Page not found", true], error: [failed, "Something went wrong", true] };
+function route() {
+  const [html, title, nav] = SCREENS[location.hash.slice(1)] || SCREENS.signin;
+  document.getElementById("main").innerHTML = html();
+  document.getElementById("tabs").hidden = !nav;
+  document.title = `${title} · Conveyor`;
+}
+addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
