@@ -253,7 +253,9 @@ Status parsing for both queue modes, and the Redis write path.
 - `status-lite.ts`, exported as `@conveyor/shared/status-lite`, has a `parseStatusEvent` with the same contract
   and no Zod, written as plain type guards. The PWA parses WebSocket frames with it, because anything the layout
   imports loads on every page and Zod is about 31 KB gzip. `status-lite.test.ts` feeds both parsers the same
-  valid and invalid events and requires the same result, so they can't drift. The job states it checks come from
+  valid and invalid events and requires the same result. Its "every field" event must set every key of the
+  exported `statusEventSchema`, and of its `print`, `error` and `timings` shapes. So a field added to the schema
+  fails that test until it gets a fixture, and the fixture then fails if the lite parser doesn't handle it. The job states it checks come from
   `job-states.ts`, which `job.ts` re-exports. Settings imports `slicerFormat` through `@conveyor/shared/profile`
   for the same reason.
 - `publishStatus(client, event)` runs `PUBLISH_STATUS_SCRIPT`, one Lua script, so the snapshot, the

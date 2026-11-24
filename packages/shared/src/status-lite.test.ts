@@ -1,26 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { parseStatusEvent as full } from "./status";
+import { parseStatusEvent as full, statusEventSchema } from "./status";
 import { parseStatusEvent as lite } from "./status-lite";
 
 const base = { jobId: "j1", state: "printing", at: 1 };
 
+const timing = { stage: "generator", enteredAt: 1, durationMs: 2 };
+
+const everyField = {
+  ...base,
+  seq: 4,
+  stage: "transport",
+  progress: 0.42,
+  message: "printing",
+  error: { stage: "slicer", reason: "boom" },
+  timings: [timing, { stage: "slicer", enteredAt: 3 }],
+  print: { layer: 0, layers: 120, secondsLeft: 61.5 },
+  bytesSent: 0,
+  bytesTotal: 1024,
+};
+
 const valid: Record<string, unknown> = {
   "the minimum": base,
-  "every field": {
-    ...base,
-    seq: 4,
-    stage: "transport",
-    progress: 0.42,
-    message: "printing",
-    error: { stage: "slicer", reason: "boom" },
-    timings: [
-      { stage: "generator", enteredAt: 1, durationMs: 2 },
-      { stage: "slicer", enteredAt: 3 },
-    ],
-    print: { layer: 0, layers: 120, secondsLeft: 61.5 },
-    bytesSent: 0,
-    bytesTotal: 1024,
-  },
+  "every field": everyField,
   "a null stage": { ...base, stage: null },
   "an empty print": { ...base, print: {} },
   "empty timings": { ...base, timings: [] },
@@ -55,7 +56,17 @@ const invalid: Record<string, unknown> = {
   null: null,
 };
 
+const keys = (value: object) => Object.keys(value).sort();
+
 describe("the Zod-free status parser agrees with the Zod one", () => {
+  test("the every-field case sets every field the Zod schema has, so a new one fails here first", () => {
+    const shape = statusEventSchema.shape;
+    expect(keys(everyField)).toEqual(keys(shape));
+    expect(keys(everyField.print)).toEqual(keys(shape.print.unwrap().shape));
+    expect(keys(everyField.error)).toEqual(keys(shape.error.unwrap().shape));
+    expect(keys(timing)).toEqual(keys(shape.timings.unwrap().element.shape));
+  });
+
   test.each(Object.entries(valid))("accepts %s the same way", (_name, event) => {
     const raw = JSON.stringify(event);
     expect(full(raw)).toBeDefined();
