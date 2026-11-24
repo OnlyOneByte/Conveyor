@@ -3,18 +3,12 @@ import type { JobView } from "@conveyor/shared";
 import { followJob, pillText, printLine, RETRY_MS } from "./job-live.js";
 
 describe("pillText", () => {
-  test("names a waiting or modelling job without a percentage", () => {
+  test("adds a percentage only while slicing, sending or printing", () => {
     expect(pillText({ state: "queued" })).toBe("Waiting");
     expect(pillText({ state: "generating", progress: 0.5 })).toBe("Modelling");
-  });
-
-  test("adds the percentage while slicing, sending or printing", () => {
     expect(pillText({ state: "slicing", progress: 0.351 })).toBe("Slicing · 35%");
     expect(pillText({ state: "transferring", progress: 0.72 })).toBe("Sending · 72%");
     expect(pillText({ state: "printing" })).toBe("Printing · 0%");
-  });
-
-  test("uses the receipt's words once the job settles", () => {
     expect(pillText({ state: "done" })).toBe("Printed");
     expect(pillText({ state: "canceled" })).toBe("Canceled");
   });
@@ -23,12 +17,9 @@ describe("pillText", () => {
 describe("printLine", () => {
   const clock = (ms: number) => `t+${ms / 60000}m`;
 
-  test("gives the layer, the time left and the finish time", () => {
+  test("gives the layer, the time left and the finish time, as far as the printer reports", () => {
     const print = { layer: 112, layers: 175, secondsLeft: 2280 };
     expect(printLine(print, 0, clock)).toBe("Layer 112 of 175 · 38 min left · done at t+38m");
-  });
-
-  test("leaves out whatever the printer doesn't report", () => {
     expect(printLine({ secondsLeft: 600 }, 0, clock)).toBe("10 min left · done at t+10m");
     expect(printLine({ layer: 3 }, 0, clock)).toBe("");
     expect(printLine(undefined, 0, clock)).toBe("");
@@ -75,7 +66,7 @@ describe("followJob", () => {
     }
   });
 
-  test("reads the snapshot and reconnects after a dropped stream", async () => {
+  test("reads the snapshot and reconnects after a drop, until the page lets go", async () => {
     const dropped = watch({ jobId: "j", state: "printing", at: 2 });
     dropped.sockets[0]?.drop(1011);
     await settle();
@@ -84,9 +75,6 @@ describe("followJob", () => {
     finished.sockets[0]?.drop(1013);
     await settle();
     expect([finished.sockets.length, finished.ended]).toEqual([1, 1]);
-  });
-
-  test("stops reconnecting once the page lets go", async () => {
     const left = watch();
     left.stop();
     left.sockets[0]?.drop(1011);

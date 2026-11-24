@@ -31,12 +31,10 @@ export const pillText = (view: Moving) =>
   measured(view) ? `${WORD[view.state]} · ${percent(view)}%` : WORD[view.state];
 
 export function printLine(
-  print: PrintProgress | undefined,
+  { layer, layers, secondsLeft }: PrintProgress = {},
   at: number,
   clock: (ms: number) => string,
 ): string {
-  if (!print) return "";
-  const { layer, layers, secondsLeft } = print;
   return [
     layer !== undefined && layers !== undefined ? `Layer ${layer} of ${layers}` : "",
     secondsLeft === undefined ? "" : `${duration(secondsLeft * 1000)} left`,

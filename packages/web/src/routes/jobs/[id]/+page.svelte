@@ -4,6 +4,8 @@
   import { onDestroy } from "svelte";
   import { goto, invalidateAll } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
+  import { announce } from "#lib/announce.js";
+  import { cancelJob } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
@@ -21,6 +23,7 @@
   const DATE = { dateStyle: "medium", timeStyle: "short" } as const;
 
   let latest: JobView | null = null;
+  let sent: string | null = null;
   let stop = () => {};
   $: job = data.job;
   $: live = data.view && { ...data.view, ...latest };
@@ -48,8 +51,7 @@
   $: started = live?.timings?.[0]?.enteredAt ?? live?.createdAt;
   $: at = job ? job.updatedAt : live?.state === "queued" ? live.createdAt : started;
   $: since = state ? WHEN[state] : live?.state === "queued" ? "Added" : "Started";
-  $: stamp = at === undefined ? "" : new Date(at).toLocaleString([], DATE);
-  $: when = stamp && `${since} ${stamp}`;
+  $: when = at === undefined ? "" : `${since} ${new Date(at).toLocaleString([], DATE)}`;
   $: tone = state ?? (live?.state === "queued" ? "queued" : "live");
   $: pill = pillText(job ?? live ?? { state: "queued" });
   $: meta = [data.printer, data.profile].filter(Boolean).join(" · ");
@@ -60,6 +62,12 @@
     const { id: generatorId, params: stashed } = generator;
     stashRerun({ generatorId, params: stashed, printerId, profileId, retryOf });
     await goto("/?rerun=1");
+  }
+
+  async function cancel() {
+    sent = data.view?.jobId ?? null;
+    const failed = () => ((sent = null), announce("Couldn't cancel. Try again.", "assertive"));
+    await cancelJob(sent ?? "").catch(failed);
   }
 
   function settle() {
@@ -83,6 +91,10 @@
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
+      </button>
+    {:else if live}
+      <button class="btn danger" type="button" disabled={sent === live.jobId} on:click={cancel}>
+        {sent === live.jobId ? "Canceling…" : live.state === "printing" ? "Cancel print" : "Cancel"}
       </button>
     {/if}
   </JobHead>
@@ -113,6 +125,7 @@
     text-decoration: none; border-color: var(--field-line);
   }
   .btn.primary { border-color: var(--accent); }
+  .btn.danger { color: var(--err); border-color: var(--err); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .why {
     margin-bottom: var(--s5); padding: var(--s4); border: 1.5px solid var(--err);
