@@ -22,7 +22,7 @@ const view = (jobId: string, state: JobView["state"], extra: Partial<JobView> = 
 });
 
 function rig() {
-  const state = { active: [] as JobView[] | null, final: new Map<string, JobStatusEvent | Error>(), catalog: catalog as Catalog | null };
+  const state = { active: [] as JobView[] | null, final: new Map<string, JobView | Error>(), catalog: catalog as Catalog | null };
   const sockets = new Map<string, Socket & { closed: boolean }>();
   const shown: TrackJob[][] = [];
   const told: News[] = [];
@@ -70,7 +70,7 @@ describe("the belt's live feed", () => {
     state.active = [view("a", "printing"), view("b", "slicing"), view("c", "printing")];
     await belt.poll();
     state.active = [];
-    state.final.set("a", { jobId: "a", state: "done", at: 2 });
+    state.final.set("a", { jobId: "a", state: "done", at: 2, generator: { id: "gridfinity", params: {} } });
     state.final.set("b", { jobId: "b", state: "failed", at: 2, error: { stage: "slicer", reason: "no profile." } });
     state.final.set("c", new Error("offline"));
     await belt.poll();
@@ -95,10 +95,11 @@ describe("the belt's live feed", () => {
     send({ jobId: "r1", state: "queued", at: 3 });
     expect([sockets.get("r1")?.closed, told.length]).toEqual([true, 1]);
     state.active = state.active.map((job) => (job.jobId === "r1" ? view("r1", "queued") : job));
+    state.catalog = { ...catalog, printers: [{ id: "voron", name: "Voron Trident", transportId: "klipper", address: "192.0.2.9", hasSecrets: false }] };
     await belt.poll();
-    expect(shown.at(-1)?.find((job) => job.id === "r0")).toMatchObject({ state: "transferring", progress: 0.5 });
+    expect(shown.at(-1)?.find((job) => job.id === "r0")).toMatchObject({ state: "transferring", progress: 0.5, printer: "Voron Trident" });
     send({ jobId: "r0", state: "done", at: 4 });
-    expect([told.at(-1)?.text, sockets.get("r0")?.closed, shown.at(-1)?.some((job) => job.id === "r0")]).toEqual(["Bin 2 × 3 finished on Voron 2.4", true, false]);
+    expect([told.at(-1)?.text, sockets.get("r0")?.closed, shown.at(-1)?.some((job) => job.id === "r0")]).toEqual(["Bin 2 × 3 finished on Voron Trident", true, false]);
     state.active = state.active.filter((job) => job.jobId !== "r0");
     await belt.poll();
     expect([told.length, sockets.get("r0")?.closed, sockets.has("r10")]).toEqual([2, true, true]);

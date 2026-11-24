@@ -40,7 +40,7 @@ function named(generator: NonNullable<Status["generator"]>, catalog: Catalog | n
 }
 
 export function trackJob(view: Status, was?: TrackJob, catalog: Catalog | null = null): TrackJob {
-  const job: TrackJob = { id: view.jobId, name: view.generator ? named(view.generator, catalog) : (was?.name ?? "Job"), state: view.state };
+  const job: TrackJob = { id: view.jobId, name: view.generator && (catalog || !was) ? named(view.generator, catalog) : (was?.name ?? "Job"), state: view.state };
   if (view.progress !== undefined) job.progress = view.progress;
   const printer = catalog?.printers.find((p) => p.id === view.printerId)?.name ?? was?.printer;
   if (printer) job.printer = printer;
@@ -104,8 +104,11 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[]) => void, tell: (
       });
       return event ? [trackJob(event, job)] : [];
     }));
-    const kept = (view: Status) => (sockets.has(view.jobId) ? known.get(view.jobId) : undefined);
-    settle([...live.map((view) => kept(view) ?? trackJob(view, known.get(view.jobId), catalog)), ...ends.flat()], lost);
+    const fresh = (view: Status, was?: TrackJob) => {
+      const job = trackJob(view, was, catalog);
+      return was && sockets.has(view.jobId) ? { ...was, name: job.name, ...(job.printer ? { printer: job.printer } : {}) } : job;
+    };
+    settle([...live.map((view) => fresh(view, known.get(view.jobId))), ...ends.flat()], lost);
   }
 
   function stop() {
