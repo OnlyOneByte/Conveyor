@@ -13,6 +13,8 @@ import {
   tearDownOnExit,
 } from "./teardown.ts";
 
+export const WORKER_ENTRY = "src/main.ts";
+
 export interface Stack {
   url: string;
   stop: () => Promise<void>;
@@ -200,7 +202,7 @@ export async function bootStack(
     };
     const api = launch("api", ["bun", "src/index.ts"], join(root, "packages/api"));
     await waitHttp(`http://127.0.0.1:${apiPort}/health`, 30000, api);
-    launch("worker", ["bun", "src/index.ts"], join(root, "packages/worker"));
+    launch("worker", ["bun", WORKER_ENTRY], join(root, "packages/worker"));
     const webDir = join(root, "packages/web");
     const buildExit = await launch("build", ["bun", "x", "vite", "build"], webDir).exited;
     if (buildExit !== 0) throw new Error(`vite build exited with ${buildExit}`);

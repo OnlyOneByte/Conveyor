@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
-import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } from "./stack.ts";
+import {
+  bootStack,
+  redisContainer,
+  type StackChild,
+  type StackDeps,
+  stackEnv,
+  WORKER_ENTRY,
+} from "./stack.ts";
 import { EXIT_TRIGGERS } from "./teardown.ts";
 
 const opts = {
@@ -29,6 +36,11 @@ describe("stackEnv", () => {
   test("points REDIS_URL at the stack's own Redis even when the runner sets one", () => {
     const env = stackEnv({ REDIS_URL: "redis://prod.example:6379" }, opts);
     expect(env.REDIS_URL).toBe("redis://127.0.0.1:6379");
+  });
+
+  test("starts the worker from the file its package starts", async () => {
+    const pkg = await Bun.file(new URL("../../packages/worker/package.json", import.meta.url)).json();
+    expect(pkg.scripts.start).toBe(`bun ${WORKER_ENTRY}`);
   });
 
   test("pins the engines to stub mode", () => {
