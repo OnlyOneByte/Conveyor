@@ -9,6 +9,7 @@ import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
 import { assertHolds } from "./holds.ts";
+import { readyWaiter } from "./ready.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 import { assertStill } from "./still.ts";
@@ -152,16 +153,7 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
   }
 }
 
-const missed = new Set<string>();
-
-async function waitReady(page: Page, { route, ready }: Scene): Promise<void> {
-  const key = `${route} ${ready}`;
-  const found = page.locator(ready).first();
-  await found.waitFor({ timeout: missed.has(key) ? 2000 : 30000 }).catch((err) => {
-    missed.add(key);
-    throw err;
-  });
-}
+const waitReady = readyWaiter();
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };

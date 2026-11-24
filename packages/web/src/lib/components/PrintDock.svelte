@@ -15,7 +15,10 @@
   {/if}
   <div class="bar">
     <p class="sum">
-      <b>{summary}</b><span>{detail} · <a href="#make-where" class="change">Change</a></span>
+      <b>{summary}</b>
+      <span class="line">
+        <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
+      </span>
     </p>
     <button type="submit" class="print" disabled={!ready} aria-disabled={busy}>
       {sent ? "Sent ✓" : busy ? "Sending…" : "Print"}
@@ -29,14 +32,16 @@
   }
   .bar {
     display: flex; align-items: center; gap: var(--s4); padding: 14px 14px 14px 22px;
-    border-radius: 22px; background: var(--ink); color: var(--bg);
+    border-radius: 22px; background: var(--ink); color: var(--bg); --focus: var(--bg);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
   b { display: block; font-size: 17px; }
-  span {
-    display: block; font: 500 12.5px var(--mono); opacity: 0.85;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .line {
+    display: flex; gap: 0.6ch; min-width: 0; font: 500 12.5px var(--mono);
+    color: color-mix(in oklch, var(--bg) 85%, var(--ink));
   }
+  .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .change { flex: none; }
   .last { margin: 0 0 var(--s2); font-weight: 600; }
   .last a, .change { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .print {
@@ -53,7 +58,8 @@
     }
     .bar { padding: 10px 10px 10px 16px; }
     b { font-size: 15px; }
-    span { white-space: normal; }
+    .line { flex-wrap: wrap; }
+    .detail { white-space: normal; }
     .print { min-height: 50px; padding: 0 20px; }
   }
 </style>

@@ -13,7 +13,7 @@
   import SourceTabs from "#lib/components/SourceTabs.svelte";
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
-  import { dockLine, measurements } from "#lib/make.js";
+  import { dockLine, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import {
@@ -75,27 +75,26 @@
   let uploading = false;
   let uploadError = "";
 
+  const uploads = latestOnly(uploadStl);
+
   async function choose(event: CustomEvent<File>) {
     const chosen = event.detail;
-    uploadError = "";
-    uploadId = null;
+    clear();
     if (!chosen.name.toLowerCase().endsWith(".stl")) {
-      file = null;
       uploadError = `${chosen.name} isn't an STL file. Choose a file whose name ends in .stl.`;
       return;
     }
-    file = chosen;
-    uploading = true;
-    uploadId = await uploadStl(chosen).then(
-      (res) => res.uploadId,
-      (e: unknown) => ((uploadError = `Couldn't upload ${chosen.name}: ${upFailed(e)}`), null),
-    );
+    [file, uploading] = [chosen, true];
+    const done = await uploads.run(chosen);
+    if (!done) return;
     uploading = false;
+    if (done.ok) uploadId = done.value.uploadId;
+    else uploadError = `Couldn't upload ${chosen.name}: ${upFailed(done.error)}`;
   }
 
   function clear() {
-    file = null;
-    uploadId = null;
+    uploads.drop();
+    [file, uploadId, uploading, uploadError] = [null, null, false, ""];
   }
 
   $: jobId = data.initialJobId ?? null;

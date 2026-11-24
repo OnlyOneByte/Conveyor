@@ -18,6 +18,7 @@
   }
 </script>
 
+<div class="up">
 <label
   class="drop" class:over class:bad={error} class:ready
   on:dragover|preventDefault={() => (over = true)} on:dragleave={() => (over = false)}
@@ -42,6 +43,7 @@
     Remove file
   </button>
 {/if}
+</div>
 
 <style>
   .drop {
@@ -56,6 +58,8 @@
   b { font-size: 17px; overflow-wrap: anywhere; }
   span { color: var(--muted); }
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .up { display: flex; flex-direction: column; align-items: stretch; }
   .error { margin: var(--s2) 0 0; color: var(--err); font-weight: 600; }
-  .clear { margin-top: var(--s2); }
+  @media (max-width: 759px) { .error { order: -1; margin: 0 0 var(--s2); } }
+  .clear { align-self: flex-start; margin-top: var(--s2); }
 </style>

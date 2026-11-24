@@ -10,14 +10,14 @@
   export let printerId: string;
   export let profileId: string;
 
-  let busy = new Set<string>();
+  let busy: Set<string> | null = null;
   let unreachable = new Set<string>();
   let answered = new Set<string>();
   const asked = new Set<string>();
 
   fetchActiveJobs().then(
     (active) => (busy = new Set(active.flatMap((job) => (job.printerId ? [job.printerId] : [])))),
-    () => {},
+    () => (busy = null),
   );
 
   async function probe(id: string) {

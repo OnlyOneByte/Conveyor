@@ -50,10 +50,16 @@ async function pinOne<R extends Fetched>(route: PinnableRoute<R>, pin: (body: un
   await route.fulfill({ response, json: pin(await response.json()) });
 }
 
+const CLOSED = /has been disposed|has been closed|Target closed/i;
+
+export const closedPage = (error: unknown) => error instanceof Error && CLOSED.test(error.message);
+
 const fulfillWith =
   (pin: (body: unknown) => unknown) =>
   <R extends Fetched>(route: PinnableRoute<R>) =>
-    pinOne(route, pin).catch(() => undefined);
+    pinOne(route, pin).catch((error: unknown) => {
+      if (!closedPage(error)) throw error;
+    });
 
 export const fulfillPinned = fulfillWith(pinHistory);
 

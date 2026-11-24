@@ -91,6 +91,24 @@ describe("the /api/jobs-history route", () => {
     await expect(fulfillPinned(gone)).resolves.toBeUndefined();
     expect(fulfilled).toEqual([]);
   });
+
+  test("fails on any other error, so a broken api can't pass as a loading shot", async () => {
+    const { route, fulfilled } = fakeRoute(true, []);
+    const broken = {
+      ...route,
+      fetch: async () => ({
+        ok: () => true,
+        json: async () => Promise.reject(new SyntaxError("Unexpected token < in JSON")),
+      }),
+    };
+    await expect(fulfillPinned(broken)).rejects.toThrow("Unexpected token");
+    const refused = {
+      ...route,
+      fetch: async () => Promise.reject(new Error("connect ECONNREFUSED")),
+    };
+    await expect(fulfillPinned(refused)).rejects.toThrow("ECONNREFUSED");
+    expect(fulfilled).toEqual([]);
+  });
 });
 
 describe("one job's detail, /api/jobs-history/<id>", () => {

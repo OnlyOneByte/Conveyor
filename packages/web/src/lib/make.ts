@@ -2,11 +2,12 @@ import type { FormUiHints } from "@conveyor/shared";
 
 export function printerStatus(
   id: string,
-  busy: Set<string>,
+  busy: Set<string> | null,
   unreachable: Set<string>,
   answered: Set<string>,
 ): string {
   if (unreachable.has(id)) return "Not reachable";
+  if (!busy) return "";
   if (busy.has(id)) return "Busy";
   return answered.has(id) ? "Ready" : "";
 }
@@ -31,3 +32,20 @@ export function fileSize(bytes: number): string {
 }
 
 export const dockLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" · ");
+
+export type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
+
+export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
+  let turn = 0;
+  return {
+    drop: () => void ++turn,
+    async run(arg: A): Promise<Outcome<R> | null> {
+      const mine = ++turn;
+      const outcome = await run(arg).then(
+        (value): Outcome<R> => ({ ok: true, value }),
+        (error: unknown): Outcome<R> => ({ ok: false, error }),
+      );
+      return mine === turn ? outcome : null;
+    },
+  };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FormUiHints } from "@conveyor/shared";
-import { dockLine, fileSize, measurements, printerStatus } from "./make.js";
+import { dockLine, fileSize, latestOnly, measurements, printerStatus } from "./make.js";
 
 const ui: FormUiHints = {
   groups: [
@@ -33,6 +33,12 @@ describe("printerStatus", () => {
     expect(status("prusa", new Set())).toBe("");
     expect(status("voron", new Set())).toBe("Busy");
   });
+
+  test("says nothing but Not reachable while the busy list is unknown", () => {
+    const heard = new Set(["voron", "ender"]);
+    const unknown = (id: string) => printerStatus(id, null, new Set(["ender"]), heard);
+    expect(["voron", "ender"].map(unknown)).toEqual(["", "Not reachable"]);
+  });
 });
 
 describe("fileSize", () => {
@@ -52,5 +58,28 @@ describe("dockLine", () => {
   test("joins only the parts that are there", () => {
     expect(dockLine("84 × 126 mm", undefined, "PLA 0.2mm")).toBe("84 × 126 mm · PLA 0.2mm");
     expect(dockLine("", undefined)).toBe("");
+  });
+});
+
+describe("latestOnly", () => {
+  test("keeps only the latest run's answer, even when an earlier one finishes last", async () => {
+    const answers = new Map<string, (id: string) => void>();
+    const pending = (name: string) => new Promise<string>((done) => answers.set(name, done));
+    const uploads = latestOnly(pending);
+    const wrong = uploads.run("wrong-part.stl");
+    const right = uploads.run("right-part.stl");
+    answers.get("right-part.stl")?.("upload-B");
+    answers.get("wrong-part.stl")?.("upload-A");
+    expect(await right).toEqual({ ok: true, value: "upload-B" });
+    expect(await wrong).toBeNull();
+  });
+
+  test("drops a pending run, and reports a failure of the latest", async () => {
+    const send = (fail: boolean) => (fail ? Promise.reject(new TypeError("x")) : Promise.resolve(1));
+    const uploads = latestOnly(send);
+    const dropped = uploads.run(false);
+    uploads.drop();
+    expect(await dropped).toBeNull();
+    expect((await uploads.run(true))?.ok).toBe(false);
   });
 });

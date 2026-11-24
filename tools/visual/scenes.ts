@@ -96,7 +96,7 @@ export const scenes: Scene[] = [
   {
     name: "history",
     route: "/history",
-    ready: "h1",
+    ready: "tbody tr a.jobid",
     steps: [{ wait: 800 }],
   },
   ...receiptScenes,
