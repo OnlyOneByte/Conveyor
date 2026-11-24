@@ -1,7 +1,7 @@
 {
-  "url": "http://127.0.0.1:35395",
+  "url": "http://127.0.0.1:44193",
   "warnings": [
-    "warm-up /jobs?day=today: waitFor: Timeout 120000ms exceeded."
+    "warm-up /jobs?day=today: waitFor: Timeout 5000ms exceeded."
   ],
   "results": [
     {
@@ -27,7 +27,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 474911,
+      "gifBytes": 460486,
       "gif": "new-job-1440.gif"
     },
     {
@@ -35,15 +35,15 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 280608,
+      "gifBytes": 267010,
       "gif": "job-progress-1440.gif"
     },
     {
       "scene": "jobs-today",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-today-1440.png"
+      "warnings": [
+        "not on the base: \"text=Today only\" didn't appear within 5 s, so jobs-today is new on this PR"
+      ]
     },
     {
       "scene": "jobs-down-belt",
@@ -55,23 +55,23 @@
     {
       "scene": "jobs-stale",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-stale-1440.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs-stale is new on this PR"
+      ]
     },
     {
       "scene": "jobs",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-1440.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs is new on this PR"
+      ]
     },
     {
       "scene": "jobs-failed",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-failed-1440.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs-failed is new on this PR"
+      ]
     },
     {
       "scene": "jobs-empty",
@@ -90,9 +90,9 @@
     {
       "scene": "jobs-keys",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-keys-1440.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs-keys is new on this PR"
+      ]
     },
     {
       "scene": "job-detail",
@@ -196,18 +196,6 @@
       "width": 1440,
       "warnings": [],
       "png": "settings-1440.png"
-    },
-    {
-      "scene": "printer-form-elegoo",
-      "width": 1440,
-      "warnings": [],
-      "png": "printer-form-elegoo-1440.png"
-    },
-    {
-      "scene": "printer-form-moonraker",
-      "width": 1440,
-      "warnings": [],
-      "png": "printer-form-moonraker-1440.png"
     },
     {
       "scene": "command-menu",
@@ -317,7 +305,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 269650,
+      "gifBytes": 281900,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -325,7 +313,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1330746,
+      "gifBytes": 900888,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -333,7 +321,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1158390,
+      "gifBytes": 1126378,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -341,7 +329,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 277644,
+      "gifBytes": 300101,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -379,8 +367,62 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 782597,
+      "gifBytes": 393168,
       "gif": "primitives-keys-1440.gif"
+    },
+    {
+      "scene": "printers",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-1440.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-keys-1440.png",
+      "gifBytes": 957645,
+      "gif": "printers-keys-1440.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-invalid-1440.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-1440.png",
+      "gifBytes": 764458,
+      "gif": "printers-add-1440.gif"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-1440.png",
+      "gifBytes": 623440,
+      "gif": "printers-clear-secrets-1440.gif"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-delete-1440.png"
+    },
+    {
+      "scene": "printer-form-elegoo",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-elegoo-1440.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-moonraker-1440.png"
     },
     {
       "scene": "home",
@@ -405,7 +447,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 622330,
+      "gifBytes": 567481,
       "gif": "new-job-390.gif"
     },
     {
@@ -413,15 +455,15 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 373671,
+      "gifBytes": 338867,
       "gif": "job-progress-390.gif"
     },
     {
       "scene": "jobs-today",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-today-390.png"
+      "warnings": [
+        "not on the base: \"text=Today only\" didn't appear within 5 s, so jobs-today is new on this PR"
+      ]
     },
     {
       "scene": "jobs-down-belt",
@@ -433,16 +475,16 @@
     {
       "scene": "jobs",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-390.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs is new on this PR"
+      ]
     },
     {
       "scene": "jobs-failed",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-failed-390.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs-failed is new on this PR"
+      ]
     },
     {
       "scene": "jobs-empty",
@@ -461,9 +503,9 @@
     {
       "scene": "jobs-keys",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "jobs-keys-390.png"
+      "warnings": [
+        "not on the base: \"[data-id]\" didn't appear within 5 s, so jobs-keys is new on this PR"
+      ]
     },
     {
       "scene": "job-detail",
@@ -569,18 +611,6 @@
       "png": "settings-390.png"
     },
     {
-      "scene": "printer-form-elegoo",
-      "width": 390,
-      "warnings": [],
-      "png": "printer-form-elegoo-390.png"
-    },
-    {
-      "scene": "printer-form-moonraker",
-      "width": 390,
-      "warnings": [],
-      "png": "printer-form-moonraker-390.png"
-    },
-    {
       "scene": "command-menu",
       "width": 390,
       "warnings": [],
@@ -682,7 +712,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506842,
+      "gifBytes": 501924,
       "gif": "track-keys-390.gif"
     },
     {
@@ -720,8 +750,62 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030500,
+      "gifBytes": 617421,
       "gif": "primitives-keys-390.gif"
+    },
+    {
+      "scene": "printers",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-390.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-keys-390.png",
+      "gifBytes": 1339461,
+      "gif": "printers-keys-390.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-invalid-390.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-390.png",
+      "gifBytes": 1092599,
+      "gif": "printers-add-390.gif"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-390.png",
+      "gifBytes": 976560,
+      "gif": "printers-clear-secrets-390.gif"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-delete-390.png"
+    },
+    {
+      "scene": "printer-form-elegoo",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-elegoo-390.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-moonraker-390.png"
     }
   ]
 }
