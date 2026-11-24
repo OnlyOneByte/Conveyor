@@ -35,7 +35,7 @@ Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER
 ## main.ts and mode.ts
 
 `main.ts` is the image's entry point. It picks the queue with `queueMode` from `@conveyor/shared`, which reads
-`CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
+`CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and starts `startRedisWorker` (`index.ts`, BullMQ) or `startSqliteWorker`. That work is `startWorker(env)`, which tests call in process; only the image's run of the file exits on an error and installs the signal handlers. Anything else exits with
 code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
 with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
 `SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
@@ -54,13 +54,50 @@ printers from that database, as the BullMQ worker does from its own connection.
 
 ## index.ts
 
-The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
+The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`. `startRedisWorker(env, deps)` reads `REDIS_URL`,
+`DATA_DIR`, `DB_PATH` and `WORKER_CONCURRENCY` from `env`; `deps` supplies the Redis clients, the work-dir
+`mkdir` and the queue name, so tests run it on real Redis with their own queue. `stop()` closes the worker and
+its two connections.
 
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
   parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
+- Every step before the pipeline settles the same way when it throws: parsing the payload, creating the work
+  dir and subscribing to the job's control channel. The job is recorded `failed` in SQLite at the `generator`
+  stage, with the error as its reason, so it shows in history and Needs you; then `failed` is published. A
+  payload that does not parse is recorded with whatever generator, printer and profile ids it does carry,
+  and `unknown` for the rest. The per-job control connection is closed whatever happens.
 - `recordTerminal` writes the settled job to SQLite. Notes go to `notes` in every state. Only a failed job
   has an `error`, and its reason is the stage's own failure reason with no notes mixed in.
+- It starts the reaper below: one sweep at start, then every `REAPER_INTERVAL_MS` (one minute).
+
+## redis-reaper.ts
+
+On Redis a job only gets its SQLite row when it settles, so a job whose worker dies without recording an end
+state would otherwise appear nowhere: not in history and not in Needs-you (#383). Each sweep does two things.
+
+- **Jobs that died.** For each id in `ACTIVE_JOBS_KEY` with no SQLite row, the reaper asks BullMQ. A job still
+  `waiting`, `active`, `delayed`, `prioritized` or `waiting-children` is left alone, and so is one whose snapshot
+  is already terminal. Anything else is a job BullMQ gave up on (a stalled job is `failed`; see `WORKER_OPTIONS` below)
+  or no longer has. It is recorded `failed` at its last stage with `ORPHAN_REASON`:
+  "the worker stopped before recording how this job ended; check the printer before you retry". Its request
+  comes from the BullMQ job when there is one; without one the generator is `unknown` and the printer and
+  profile are empty. The same failure is published as a status, so the snapshot, the active set and any open
+  WebSocket settle too.
+- **A retry that died.** When the job just recorded was a retry, its original's `retried_by` claim is released,
+  so the original failure, with its real error, returns to Needs-you. The dead retry is dismissed, so Needs-you
+  shows the job once. Its history row stays.
+- **Claims whose retry was never queued.** `dbListUnrecordedRetryClaims` lists claims whose retry has no row.
+  A claim whose retry BullMQ also lacks is released on the second sweep in a row that finds it missing, so a
+  claim made just before its `add` isn't cut short.
+
+The production `Worker` is created with `WORKER_OPTIONS` (`maxStalledCount: 0`). BullMQ's default of 1
+would move a job whose worker died back to `waiting` and run it again from the start, which re-sends a print
+that may already be on the bed. With 0, BullMQ marks the job `failed` on the first stall, and the reaper
+records it with `ORPHAN_REASON`, so a person checks the printer before retrying.
+
+Several workers may each run the reaper. Recording is an upsert, a second terminal publish is refused, and
+releasing a claim is conditional on its holder, so overlapping sweeps agree.
 
 ## pipeline.ts
 
@@ -172,6 +209,6 @@ The worker is the only process that runs the adapters; the api builds the same r
 
 ## status.ts
 
-`StatusBus.publish` sends a job status event to the Redis bus and writes the durable snapshot, so a
+`StatusBus` takes the Redis client it writes with. `StatusBus.publish` sends a job status event to the Redis bus and writes the durable snapshot, so a
 reconnecting PWA can `GET /jobs/:id`. State is the contract: every transition is exactly one of these
 messages, forwarded verbatim to the WebSocket.

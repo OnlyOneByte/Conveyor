@@ -728,7 +728,7 @@
     font-family: ui-monospace, monospace; font-size: 0.78rem; }
   .tab.active { color: var(--live); border-bottom-color: var(--accent); }
   .json-editor { box-sizing: border-box; width: 100%; min-height: 28rem; margin-top: 0.65rem;
-    resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem;
+    resize: vertical; border: 1.5px solid var(--field-line); border-radius: 6px; padding: 0.7rem;
     background: var(--bg); color: var(--text); font-family: ui-monospace, monospace;
     font-size: 0.78rem; line-height: 1.45; tab-size: 2; white-space: pre; }
   .json-editor:focus { outline: 1px solid var(--focus); border-color: var(--focus); }
