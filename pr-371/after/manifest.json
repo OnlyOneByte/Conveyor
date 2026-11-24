@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:38713",
+  "url": "http://127.0.0.1:34957",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 469598,
+      "gifBytes": 510776,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 267181,
+      "gifBytes": 295996,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -65,6 +65,32 @@
       "width": 1440,
       "warnings": [],
       "png": "settings-1440.png"
+    },
+    {
+      "scene": "command-menu",
+      "width": 1440,
+      "warnings": [],
+      "png": "command-menu-1440.png"
+    },
+    {
+      "scene": "shortcut-sheet",
+      "width": 1440,
+      "warnings": [],
+      "png": "shortcut-sheet-1440.png"
+    },
+    {
+      "scene": "jobs-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-keys-1440.png"
+    },
+    {
+      "scene": "keyboard",
+      "width": 1440,
+      "warnings": [],
+      "png": "keyboard-1440.png",
+      "gifBytes": 836084,
+      "gif": "keyboard-1440.gif"
     },
     {
       "scene": "sign-in",
@@ -113,7 +139,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 654644,
+      "gifBytes": 688808,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -139,7 +165,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 589249,
+      "gifBytes": 593737,
       "gif": "new-job-390.gif"
     },
     {
@@ -147,7 +173,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 355318,
+      "gifBytes": 331730,
       "gif": "job-progress-390.gif"
     },
     {
@@ -179,6 +205,32 @@
       "width": 390,
       "warnings": [],
       "png": "settings-390.png"
+    },
+    {
+      "scene": "command-menu",
+      "width": 390,
+      "warnings": [],
+      "png": "command-menu-390.png"
+    },
+    {
+      "scene": "shortcut-sheet",
+      "width": 390,
+      "warnings": [],
+      "png": "shortcut-sheet-390.png"
+    },
+    {
+      "scene": "jobs-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-keys-390.png"
+    },
+    {
+      "scene": "keyboard",
+      "width": 390,
+      "warnings": [],
+      "png": "keyboard-390.png",
+      "gifBytes": 1061831,
+      "gif": "keyboard-390.gif"
     },
     {
       "scene": "sign-in",
@@ -227,7 +279,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 942269,
+      "gifBytes": 1011420,
       "gif": "primitives-keys-390.gif"
     }
   ]
