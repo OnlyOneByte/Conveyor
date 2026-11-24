@@ -107,12 +107,12 @@ export interface PrinterReachable {
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
   getJson<PrinterReachable>(`/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
-// ─── Auth ───────────────────────────────────────────────────────────────────
-// One tier: holding the password grants the whole app. No roles.
 export interface AuthStatus {
   authEnabled: boolean;
   authenticated: boolean;
 }
+
+export const signedIn = (status: AuthStatus): boolean => !status.authEnabled || status.authenticated;
 
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
   const r = await fetchFn("/auth/status");

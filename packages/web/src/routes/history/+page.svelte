@@ -66,10 +66,10 @@
   }
 </script>
 
+<svelte:head><title>Job history · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Job history</h1>
-    <a href="/" class="navlink">← Back to app</a>
   </div>
 
   {#if error}<div class="card err">{error}</div>{/if}
@@ -177,7 +177,6 @@
   .search:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   .resultnote { margin: 0.4rem 0 0; font-size: 0.82rem; }
   .strip { margin-top: 0.75rem; }
-  .navlink { color: var(--live); text-decoration: none; }
   .tablewrap { margin-top: 0.75rem; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }

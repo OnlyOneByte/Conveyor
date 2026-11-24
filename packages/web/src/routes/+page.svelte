@@ -9,10 +9,6 @@
   import {
     submitJob,
     uploadStl,
-    fetchGenerators,
-    fetchCatalogPrinters,
-    fetchCatalogProfiles,
-    fetchCatalogTransports,
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
@@ -24,28 +20,12 @@
 
   export let data: PageData;
 
-  // Seed from the loader, but refetch on mount: the +page.ts load runs before the
-  // layout's auth gate clears, so it can 401 to []. Refetching here (the page is
-  // only rendered post-auth) guarantees a populated catalog.
   let generators = data.generators ?? [];
   let printers: CatalogPrinter[] = data.printers ?? [];
   let profiles: CatalogProfile[] = data.profiles ?? [];
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    if (!(generators.length && printers.length && profiles.length)) {
-      const [g, pr, pf, tr] = await Promise.all([
-        fetchGenerators().catch(() => generators),
-        fetchCatalogPrinters().catch(() => printers),
-        fetchCatalogProfiles().catch(() => profiles),
-        fetchCatalogTransports().catch(() => transports),
-      ]);
-      generators = g;
-      printers = pr;
-      profiles = pf;
-      transports = tr;
-    }
-
     // "Run again" handoff: the job-detail page stashed a prior job's request and sent
     // us here with ?rerun=1. Apply it AFTER the catalog is loaded so these selections
     // win over the reactive defaults (which only fill empty selections). The referenced
@@ -237,6 +217,10 @@
     }
   }
 </script>
+
+<svelte:head><title>What are we making? · Conveyor</title></svelte:head>
+
+<h1 class="title">What are we making?</h1>
 
 <div class="layout">
   <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
@@ -434,6 +418,7 @@
 </div>
 
 <style>
+  .title { margin: 0 0 var(--s4); }
   .layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.25rem; align-items: start; }
   /* Config panel on the left, viewport on the right (DOM order keeps viewport
      first so it stays on top when the layout collapses to one column). */
@@ -509,7 +494,7 @@
     .panel { order: 1; }
     .desktop-print { display: none; }
     .mobile-cta {
-      display: block; position: fixed; left: 0; right: 0; bottom: 0; padding: 0.7rem 1rem;
+      display: block; position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 0.7rem 1rem;
       background: linear-gradient(transparent, var(--bg) 35%); z-index: 30;
     }
     .mobile-cta button { width: 100%; font-size: 1.05rem; }
