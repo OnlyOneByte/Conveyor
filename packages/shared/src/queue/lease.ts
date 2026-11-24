@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { type JsonRead, readJson } from "../db/json.js";
 import type { JobRequest, JobState } from "../job.js";
 import { appendEvent } from "./event-log.js";
 
@@ -33,6 +34,9 @@ export interface ClaimedJob {
 }
 
 export const CLEAR_PROGRESS = "stage = NULL, progress = NULL, message = NULL";
+
+export const RELEASED_LEASE =
+  "lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
 
 export type ReleaseOutcome = "requeued" | "canceled" | "orphaned" | "submitting" | "lost";
 
@@ -92,6 +96,21 @@ const CLAIM_SQL = `UPDATE jobs SET
      LIMIT 1)
   RETURNING id, generator_id, params_json, printer_id, profile_id, state, attempts, lease_token, submitted_at`;
 
+export const UNREADABLE_PARAMS_REASON =
+  "the job's stored parameters can't be read, so it can't be made; submit it again";
+
+function readParams(json: string | null): JsonRead {
+  return json === null ? { ok: true, value: undefined } : readJson(json);
+}
+
+function failUnreadable(db: Database, jobId: string, at: number): void {
+  const error = { stage: "generator", reason: UNREADABLE_PARAMS_REASON } as const;
+  db.query(
+    `UPDATE jobs SET state = 'failed', stage = 'generator', error_json = ?, ${RELEASED_LEASE}, updated_at = ? WHERE id = ?`,
+  ).run(JSON.stringify(error), at, jobId);
+  appendEvent(db, { jobId, state: "failed", stage: error.stage, error, at });
+}
+
 export function claimJob(
   db: Database,
   owner: string,
@@ -99,16 +118,20 @@ export function claimJob(
 ): ClaimedJob | null {
   return inImmediate(db, timing.now, (at) => {
     const until = at + timing.leaseMs;
-    const row = db
-      .query<ClaimRow, Record<string, string | number>>(CLAIM_SQL)
-      .get({ $owner: owner, $until: until, $now: at });
+    const claim = db.query<ClaimRow, Record<string, string | number>>(CLAIM_SQL);
+    const next = () => claim.get({ $owner: owner, $until: until, $now: at });
+    let row = next();
+    while (row && row.submitted_at === null && !readParams(row.params_json).ok) {
+      failUnreadable(db, row.id, at);
+      row = next();
+    }
     if (!row) return null;
     if (row.submitted_at === null) appendEvent(db, { jobId: row.id, state: "generating", at });
-    const params: unknown = row.params_json === null ? undefined : JSON.parse(row.params_json);
+    const params = readParams(row.params_json);
     return {
       lease: { jobId: row.id, owner, token: row.lease_token, until },
       request: {
-        generator: { id: row.generator_id, params },
+        generator: { id: row.generator_id, params: params.ok ? params.value : undefined },
         printerId: row.printer_id ?? "",
         profileId: row.profile_id ?? "",
       },

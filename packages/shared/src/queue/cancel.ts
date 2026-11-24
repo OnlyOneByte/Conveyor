@@ -10,6 +10,7 @@ import {
   inImmediate,
   type Lease,
   type QueueTiming,
+  RELEASED_LEASE,
 } from "./lease.js";
 
 export type CancelOutcome =
@@ -20,8 +21,6 @@ export type CancelOutcome =
 
 export const STOP_UNCONFIRMED_REASON =
   "cancel requested but the printer did not confirm the stop; check the printer before releasing it";
-
-const SETTLE_LEASE = "lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
 
 function jobStateOf(raw: string): JobState {
   const state = JOB_STATES.find((known) => known === raw);
@@ -87,14 +86,14 @@ export function settleCancel(
     if (!row) return null;
     if (stopConfirmed || row.submit_started_at === null) {
       db.query(
-        `UPDATE jobs SET state = 'canceled', ${SETTLE_LEASE}, updated_at = $now WHERE ${FENCE}`,
+        `UPDATE jobs SET state = 'canceled', ${RELEASED_LEASE}, updated_at = $now WHERE ${FENCE}`,
       ).run(fence);
       appendEvent(db, { jobId: lease.jobId, state: "canceled", at });
       return "canceled";
     }
     const error = { stage: "transport", reason: STOP_UNCONFIRMED_REASON } as const;
     db.query(
-      `UPDATE jobs SET state = 'failed', error_json = $error, ${SETTLE_LEASE}, updated_at = $now WHERE ${FENCE}`,
+      `UPDATE jobs SET state = 'failed', error_json = $error, ${RELEASED_LEASE}, updated_at = $now WHERE ${FENCE}`,
     ).run({ ...fence, $error: JSON.stringify(error) });
     appendEvent(db, { jobId: lease.jobId, state: "failed", stage: error.stage, error, at });
     holdPrinter(db, {

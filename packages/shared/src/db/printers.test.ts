@@ -5,7 +5,9 @@ import { join } from "node:path";
 import {
   dbGetPrinter,
   dbListPrinters,
+  dbListProfiles,
   dbRecordPrinterCheck,
+  dbResolveJobTarget,
   dbUpsertPrinter,
   openDb,
 } from "./index";
@@ -64,5 +66,37 @@ describe("printer checks", () => {
     dbRecordPrinterCheck(db, "ghost", { at: 1_000, reachable: true });
     expect(seen()).toEqual({ lastSeenAt: undefined, lastCheckedAt: undefined });
     expect(dbGetPrinter(db, "ghost")).toBeUndefined();
+  });
+});
+
+describe("a printer whose stored generator list doesn't parse", () => {
+  test("is listed taking no generators, marked unreadable, beside the others whole", () => {
+    const { db } = withPrinter();
+    dbUpsertPrinter(db, {
+      id: "p2",
+      transportId: "moonraker",
+      name: "P2",
+      address: "10.0.0.10",
+      allowedGenerators: ["gridfinity"],
+    });
+    for (const json of ['["gridfinity"', '{"gridfinity":true}']) {
+      db.query("UPDATE printers SET allowed_generators_json = ? WHERE id = 'p1'").run(json);
+      const byId = new Map(dbListPrinters(db).map((p) => [p.id, p]));
+      expect(byId.get("p1")).toMatchObject({
+        allowedGenerators: [],
+        unreadable: ["allowedGenerators"],
+      });
+      expect(byId.get("p2")?.allowedGenerators).toEqual(["gridfinity"]);
+      expect(byId.get("p2")?.unreadable).toBeUndefined();
+    }
+  });
+
+  test("doesn't stop a job target resolving on another printer", () => {
+    const { db } = withPrinter();
+    dbUpsertPrinter(db, { id: "p2", transportId: "moonraker", name: "P2", address: "10.0.0.10" });
+    db.query("UPDATE printers SET allowed_generators_json = 'nope' WHERE id = 'p1'").run();
+    const profileId = dbListProfiles(db)[0]?.id ?? "";
+    expect(dbResolveJobTarget(db, "p2", profileId)).toMatchObject({ printerId: "p2", profileId });
+    expect(dbResolveJobTarget(db, "p1", profileId)?.allowedGenerators).toEqual([]);
   });
 });
