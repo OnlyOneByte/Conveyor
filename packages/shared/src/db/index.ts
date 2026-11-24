@@ -19,13 +19,21 @@ export * from "./sessions.js";
 export * from "./typical.js";
 
 let singleton: Database | null = null;
+
+function isOpen(db: Database): boolean {
+  try {
+    return db.inTransaction !== undefined;
+  } catch {
+    return false;
+  }
+}
 let singletonPath: string | null = null;
 
 export function openDb(
   path = process.env.DB_PATH ?? "/data/conveyor.db",
   env: Record<string, string | undefined> = process.env,
 ): Database {
-  if (singleton && singletonPath === path) return singleton;
+  if (singleton && singletonPath === path && isOpen(singleton)) return singleton;
   const key = resolveSecretsKey(path, env);
   const db = new Database(path, { create: true });
   bindSecretsKey(db, key);
