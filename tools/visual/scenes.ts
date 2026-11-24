@@ -17,6 +17,7 @@ export interface Scene {
   steps?: Step[];
   record?: boolean;
   fullPage?: boolean;
+  signedOut?: boolean;
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -150,6 +151,28 @@ export const scenes: Scene[] = [
       { waitFor: "a.jobid" },
       ...keys("j", "j", "j", "k", "?"),
     ],
+  },
+  {
+    name: "sign-in",
+    route: "/",
+    ready: "text=Sign in to Conveyor",
+    signedOut: true,
+  },
+  {
+    name: "sign-in-wrong",
+    route: "/",
+    ready: "text=Sign in to Conveyor",
+    signedOut: true,
+    steps: [
+      { type: "#password", text: "not the password" },
+      { click: "button:has-text('Sign in')" },
+      { waitFor: "text=That password didn't work" },
+    ],
+  },
+  {
+    name: "not-found",
+    route: "/no-such-page",
+    ready: "text=Page not found",
   },
   {
     name: "primitives",

@@ -37,6 +37,8 @@ Output, per scene and width (1440 and 390):
 
 Scenes live in `scenes.ts`. Each has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `scroll`, `waitFor`, `wait`) and an optional `record`. When you add a page, add a scene for it, and keep selectors on stable text or roles.
 
+The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/auth/status` answers signed out, and `/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it; no other request is stubbed.
+
 A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. No scene uses it today: `job-progress` waits for the final stage strictly, since the status stream no longer loses events (#52).
 
 ## CI

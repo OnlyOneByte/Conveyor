@@ -8,10 +8,6 @@
       "comments": 3,
       "suppressions": 0
     },
-    "packages/web/src/lib/components/Login.svelte": {
-      "comments": 1,
-      "suppressions": 1
-    },
     "packages/web/src/lib/components/MeshScene.svelte": {
       "comments": 9,
       "suppressions": 0

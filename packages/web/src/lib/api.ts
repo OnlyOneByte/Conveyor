@@ -128,7 +128,7 @@ export async function login(password: string): Promise<void> {
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `login failed (${r.status})`);
+    throw Object.assign(new Error((err as { error?: string }).error ?? `login failed (${r.status})`), { status: r.status });
   }
 }
 
