@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { gzipSync } from "node:zlib";
+import { z } from "zod";
 import { precached } from "../../../packages/web/src/service-worker/precache";
 
 export interface Chunk {
@@ -17,44 +18,27 @@ export interface Sizes {
 
 export const THREE_MODULE = /[\\/]node_modules[\\/]three[\\/]/;
 
-const isStrings = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
+const chunkSchema = z.object({
+  file: z.string(),
+  isEntry: z.boolean().optional(),
+  imports: z.array(z.string()).optional(),
+  dynamicImports: z.array(z.string()).optional(),
+});
 
-function isChunk(value: unknown): value is Chunk {
-  if (typeof value !== "object" || value === null) return false;
-  const chunk: Record<string, unknown> = { ...value };
-  return (
-    typeof chunk.file === "string" &&
-    (chunk.isEntry === undefined || typeof chunk.isEntry === "boolean") &&
-    (chunk.imports === undefined || isStrings(chunk.imports)) &&
-    (chunk.dynamicImports === undefined || isStrings(chunk.dynamicImports))
-  );
+const manifestSchema = z.record(z.string(), chunkSchema);
+const chunkModulesSchema = z.record(z.string(), z.array(z.string()));
+
+function parseWith<T>(schema: z.ZodType<T>, name: string, text: string): T {
+  const parsed = schema.safeParse(JSON.parse(text));
+  if (!parsed.success) throw new Error(`${name} isn't valid: ${z.prettifyError(parsed.error)}`);
+  return parsed.data;
 }
 
-export function parseManifest(text: string): Record<string, Chunk> {
-  const value: unknown = JSON.parse(text);
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("the Vite client manifest isn't an object");
-  const manifest: Record<string, Chunk> = {};
-  for (const [key, chunk] of Object.entries(value)) {
-    if (!isChunk(chunk)) throw new Error(`the Vite client manifest's entry ${key} isn't a chunk`);
-    manifest[key] = chunk;
-  }
-  return manifest;
-}
+export const parseManifest = (text: string): Record<string, Chunk> =>
+  parseWith(manifestSchema, "the Vite client manifest", text);
 
-export function parseChunkModules(text: string): Record<string, string[]> {
-  const value: unknown = JSON.parse(text);
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("chunk-modules.json isn't an object");
-  const modules: Record<string, string[]> = {};
-  for (const [file, ids] of Object.entries(value)) {
-    if (!isStrings(ids))
-      throw new Error(`chunk-modules.json's entry ${file} isn't a list of module ids`);
-    modules[file] = ids;
-  }
-  return modules;
-}
+export const parseChunkModules = (text: string): Record<string, string[]> =>
+  parseWith(chunkModulesSchema, "chunk-modules.json", text);
 
 export const bundlesThree = (files: Iterable<string>, modules: Record<string, string[]>): boolean =>
   [...files].some((file) => (modules[file] ?? []).some((id) => THREE_MODULE.test(id)));

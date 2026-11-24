@@ -67,20 +67,22 @@ describe("reading the budget and the manifest", () => {
   test("a budget with a missing or non-numeric size is refused, so the gate can't pass by NaN", () => {
     const good = { initialJsGzip: { "/": 115000 }, precache: { raw: 1, gzip: 1 } };
     expect(parseBudget(JSON.stringify(good))).toEqual(good);
-    expect(
+    expect(() =>
       parseBudget(JSON.stringify({ ...good, precache: { raw: "1291227", gzip: 1 } })),
-    ).toBeNull();
-    expect(parseBudget(JSON.stringify({ ...good, initialJsGzip: { "/": -1 } }))).toBeNull();
-    expect(parseBudget(JSON.stringify({ initialJsGzip: {} }))).toBeNull();
-    expect(parseBudget("not json")).toBeNull();
+    ).toThrow("precache.raw");
+    expect(() => parseBudget(JSON.stringify({ ...good, initialJsGzip: { "/": -1 } }))).toThrow(
+      "isn't a valid budget",
+    );
+    expect(() => parseBudget(JSON.stringify({ initialJsGzip: {} }))).toThrow("precache");
+    expect(() => parseBudget("not json")).toThrow();
   });
 
   test("a manifest entry that isn't a chunk is an error", () => {
     expect(parseManifest(JSON.stringify({ a: { file: "a.js", imports: ["b"] } }))).toEqual({
       a: { file: "a.js", imports: ["b"] },
     });
-    expect(() => parseManifest(JSON.stringify({ a: { imports: ["b"] } }))).toThrow("isn't a chunk");
-    expect(() => parseManifest("[]")).toThrow("isn't an object");
+    expect(() => parseManifest(JSON.stringify({ a: { imports: ["b"] } }))).toThrow("isn't valid");
+    expect(() => parseManifest("[]")).toThrow("isn't valid");
   });
 
   test("every route with a page is listed, and server-only routes are skipped", () => {
@@ -108,6 +110,6 @@ describe("finding three.js in a route's chunks", () => {
     expect(bundlesThree(["a.js", "b.js"], modules)).toBe(true);
     expect(bundlesThree(["c.js"], modules)).toBe(true);
     expect(bundlesThree(["d.js", "missing.js"], modules)).toBe(false);
-    expect(() => parseChunkModules(JSON.stringify({ "a.js": "x" }))).toThrow("isn't a list");
+    expect(() => parseChunkModules(JSON.stringify({ "a.js": "x" }))).toThrow("isn't valid");
   });
 });

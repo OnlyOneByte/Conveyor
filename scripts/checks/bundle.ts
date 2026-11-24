@@ -28,12 +28,6 @@ function main(argv: string[]): number {
     options: { update: { type: "boolean", default: false } },
   });
   const budget = parseBudget(readFileSync(join(ROOT, BUDGET_PATH), "utf8"));
-  if (!budget) {
-    console.error(
-      `${BUDGET_PATH} isn't a valid budget: initialJsGzip and precache need positive numbers`,
-    );
-    return 1;
-  }
   const now = measured();
   if (values.update) {
     const refusal = updateRefusal(process.env);

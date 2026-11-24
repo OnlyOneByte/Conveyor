@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Sizes } from "./measure";
 
 export const BUDGET_PATH = "scripts/checks/bundle/budget.json";
@@ -13,30 +14,18 @@ export interface Measured {
   precache: Sizes & { missing: string[] };
 }
 
-const isSize = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value > 0;
+const size = z.number().positive().finite();
 
-const recordOf = (value: unknown): Record<string, unknown> | null =>
-  typeof value === "object" && value !== null && !Array.isArray(value) ? { ...value } : null;
+const budgetSchema = z.object({
+  initialJsGzip: z.record(z.string(), size),
+  precache: z.object({ raw: size, gzip: size }),
+});
 
-export function parseBudget(text: string): Budget | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  const budget = recordOf(value);
-  const limits = recordOf(budget?.initialJsGzip);
-  const precache = recordOf(budget?.precache);
-  if (!limits || !precache) return null;
-  const initialJsGzip: Record<string, number> = {};
-  for (const [route, limit] of Object.entries(limits)) {
-    if (!isSize(limit)) return null;
-    initialJsGzip[route] = limit;
-  }
-  const { raw, gzip } = precache;
-  return isSize(raw) && isSize(gzip) ? { initialJsGzip, precache: { raw, gzip } } : null;
+export function parseBudget(text: string): Budget {
+  const parsed = budgetSchema.safeParse(JSON.parse(text));
+  if (!parsed.success)
+    throw new Error(`${BUDGET_PATH} isn't a valid budget: ${z.prettifyError(parsed.error)}`);
+  return parsed.data;
 }
 
 const SIZE_KEYS: (keyof Sizes)[] = ["raw", "gzip"];
