@@ -355,7 +355,7 @@ props, so the same component renders stub data in the visual-capture scenes.
 
 ## Implementation plan
 
-Twelve UI PRs of at most 400 changed lines each, in dependency order, tracked in
+Twelve UI PRs, in dependency order, tracked in
 [#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334), plus the eight backend issues in
 [Data](#data) (#335 to #342). Each UI issue carries its acceptance criteria, the audit issues it closes, the
 visuals it must attach, and the backend issues it waits on with their fallbacks.

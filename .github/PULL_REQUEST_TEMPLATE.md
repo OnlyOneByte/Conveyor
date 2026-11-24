@@ -8,7 +8,7 @@
 
 Closes #
 
-<!-- Use "Part of #N" when the issue stays open after this PR. -->
+<!-- One line per issue. Use "Part of #N" when the issue stays open after this PR. -->
 
 ## How verified
 
