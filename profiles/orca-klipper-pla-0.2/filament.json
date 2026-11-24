@@ -5,6 +5,7 @@
   "from": "system",
   "setting_id": "c5ArCv3qjuKjBwEQ",
   "instantiation": "true",
+  "filament_density": ["1.24"],
   "filament_max_volumetric_speed": ["18"],
   "slow_down_min_speed": ["20"],
   "cool_plate_temp": ["55"],

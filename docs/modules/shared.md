@@ -247,15 +247,16 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.
 - `readFilamentUse(path)` returns the slicer's filament estimate as `FilamentUse` (`{ grams?, metres? }`), or
   `undefined`. `parseFilamentUse(text)` does the parsing:
-  - PrusaSlicer and OrcaSlicer both write `; filament used [mm] = …` and `; filament used [g] = …` (one value
-    per extruder, comma-separated, summed) near the end, and `; total filament used [g] = …`, which wins for
-    grams. OrcaSlicer's header block has `; total filament length [mm] : …` and
-    `; total filament weight [g] : …`, used when the footer lines are missing. Fixtures are in
-    `packages/shared/test/fixtures/gcode/`.
-  - A total of 0 is unknown, not zero: a slicer writes `0.00` g when the filament has no density set. A
+  - PrusaSlicer 2.9.2 and OrcaSlicer 2.4.1 (the version `install-orca.sh` pins) both write a footer before
+    their config block with `; filament used [mm] = …`, `; filament used [g] = …` (one value per extruder,
+    comma-separated, summed) and `; total filament used [g] = …`, which wins for grams. OrcaSlicer's header
+    block carries no filament totals. The fixtures in `packages/shared/test/fixtures/gcode/` are captured from
+    the repo's worker image slicing a 20 × 20 × 10 mm cube with the bundled profiles.
+  - A total of 0 is unknown, not zero: a slicer writes `0.00` g when the filament has no density set. The bundled PLA
+    profiles (`profiles/*-pla-0.2`) set `filament_density` to 1.24 g/cm³, so default jobs report grams. A
     negative, empty or unreadable value leaves that field out.
-  - A file up to 576 KiB is read whole. A larger one is read only in its first 64 KiB (the header block) and
-    last 512 KiB (the footer, before PrusaSlicer's config block), and the tail wins.
+  - Only the last 512 KiB is read: the footer sits about 10 KiB (PrusaSlicer) to 20 KiB (OrcaSlicer) from
+    the end.
 
 ## db/index.ts
 

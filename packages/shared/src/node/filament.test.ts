@@ -7,18 +7,21 @@ import { parseFilamentUse, readFilamentUse } from "./filament.ts";
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dir, "../../test/fixtures/gcode", name), "utf8");
 const prusa = fixture("prusaslicer-footer.gcode");
-const orca = fixture("orcaslicer-header.gcode");
+const orca = fixture("orcaslicer-footer.gcode");
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-filament-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("filament use from slicer output", () => {
-  test("reads PrusaSlicer's footer in grams and metres", () => {
-    expect(parseFilamentUse(prusa)).toEqual({ grams: 3.08, metres: 1.032 });
+  test("reads the footer PrusaSlicer 2.9.2 and OrcaSlicer 2.4.1 write, in grams and metres", () => {
+    expect(parseFilamentUse(prusa)).toEqual({ grams: 2.05, metres: 0.687 });
+    expect(parseFilamentUse(orca)).toEqual({ grams: 2.14, metres: 0.718 });
   });
 
-  test("reads OrcaSlicer's header block", () => {
-    expect(parseFilamentUse(orca)).toEqual({ grams: 6.59, metres: 2.21 });
+  test("ignores the wipe tower total and a header block without filament totals", () => {
+    const header = "; HEADER_BLOCK_START\n; filament_density: 1.24\n; HEADER_BLOCK_END\n";
+    expect(parseFilamentUse(header)).toBeUndefined();
+    expect(parseFilamentUse("; total filament used for wipe tower [g] = 4.00\n")).toBeUndefined();
   });
 
   test("adds up every extruder and prefers the total weight line", () => {
@@ -43,22 +46,19 @@ describe("filament use from slicer output", () => {
     expect(parseFilamentUse(text)).toBeUndefined();
   });
 
-  test("reads the head and tail of a large file without the middle", async () => {
+  test("reads only the last 512 KiB of a large file", async () => {
     const path = join(dir, "large.gcode");
     const middle = "G1 X1 Y1 E0.1\n".repeat(60_000);
-    writeFileSync(path, `${orca}${middle}; filament used [g] = 1.25\n; filament used [mm] = 400\n`);
-    expect(await readFilamentUse(path)).toEqual({ grams: 1.25, metres: 0.4 });
-    const headOnly = join(dir, "head-only.gcode");
-    writeFileSync(headOnly, `${orca}${middle}`);
-    expect(await readFilamentUse(headOnly)).toEqual({ grams: 6.59, metres: 2.21 });
+    writeFileSync(path, `${middle}${orca}`);
+    expect(await readFilamentUse(path)).toEqual({ grams: 2.14, metres: 0.718 });
     const buried = join(dir, "buried.gcode");
-    writeFileSync(buried, `${middle}; filament used [g] = 9\n${middle}`);
+    writeFileSync(buried, `${orca}${middle}`);
     expect(await readFilamentUse(buried)).toBeUndefined();
   });
 
   test("reads a small file whole", async () => {
     const path = join(dir, "small.gcode");
     writeFileSync(path, prusa);
-    expect(await readFilamentUse(path)).toEqual({ grams: 3.08, metres: 1.032 });
+    expect(await readFilamentUse(path)).toEqual({ grams: 2.05, metres: 0.687 });
   });
 });
