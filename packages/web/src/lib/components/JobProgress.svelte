@@ -1,19 +1,39 @@
 <script lang="ts">
   import type { JobView } from "@conveyor/shared";
-  import { measured, percent, printLine, STEPS } from "#lib/job-live.js";
+  import { onMount } from "svelte";
+  import { fetchActiveJobs } from "#lib/api.js";
+  import { measured, ordinal, percent, placeInLine, printLine, STEPS } from "#lib/job-live.js";
 
   export let view: JobView;
+  export let place: number | null;
+  export let printer: string;
 
+  const REFRESH_MS = 2000;
   const clock = (ms: number) =>
     new Date(ms).toLocaleTimeString([], { timeStyle: "short" }).replace(/\s/g, "\u00a0");
 
   $: now = STEPS.findIndex(([step]) => step === view.state);
   $: pct = percent(view);
   $: detail = view.state === "printing" ? printLine(view.print, view.at, clock) : "";
+
+  onMount(() => {
+    const timer = setInterval(async () => {
+      if (view.state !== "queued") return;
+      place = placeInLine(view.jobId, await fetchActiveJobs().catch(() => []));
+    }, REFRESH_MS);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <section class="live">
   <h2>Progress</h2>
+  {#if view.state === "queued"}
+    {#if place}
+      <p class="big"><b>{ordinal(place)}</b><span>in line for the {printer}</span></p>
+    {:else}
+      <p class="big"><b>Waiting</b><span>for the {printer}</span></p>
+    {/if}
+  {/if}
   <ol class="steps">
     {#each STEPS as [state, label], i (state)}
       <li class:past={i < now} class:now={i === now} aria-current={i === now ? "step" : undefined}>

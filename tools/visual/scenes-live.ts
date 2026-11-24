@@ -1,4 +1,4 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene, Step } from "./scenes.ts";
 
 const ADDED = Date.UTC(2026, 0, 1, 12, 31);
 
@@ -9,7 +9,7 @@ const request = {
   createdAt: ADDED,
 };
 
-function live(name: string, ready: string, view: object): Scene {
+function live(name: string, ready: string, view: object, extra: Step[] = []): Scene {
   const jobId = `scene-${name}`;
   return {
     name: `receipt-${name}`,
@@ -27,6 +27,7 @@ function live(name: string, ready: string, view: object): Scene {
           ...view,
         },
       },
+      ...extra,
       { follow: `/jobs/${jobId}` },
       { waitFor: ready },
       { wait: 1200 },
@@ -34,8 +35,22 @@ function live(name: string, ready: string, view: object): Scene {
   };
 }
 
+const ahead = (jobId: string, createdAt: number) => ({
+  jobId,
+  state: "queued",
+  at: createdAt,
+  ...request,
+  createdAt,
+});
+
 export const liveScenes: Scene[] = [
-  live("queued", "text=Waiting", { state: "queued", timings: [] }),
+  live("queued", "text=2nd", { state: "queued", timings: [] }, [
+    {
+      fulfill: "**/api/jobs/active",
+      status: 200,
+      json: [ahead("scene-ahead", ADDED - 60_000), ahead("scene-queued", ADDED)],
+    },
+  ]),
   live("modelling", "text=Modelling", { state: "generating" }),
   live("slicing", "text=Slicing · 35%", { state: "slicing", progress: 0.35 }),
   live("sending", "text=Sending · 72%", { state: "transferring", progress: 0.72 }),

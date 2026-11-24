@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { JobView } from "@conveyor/shared";
-import { followJob, pillText, printLine, RETRY_MS } from "./job-live.js";
+import { followJob, ordinal, pillText, placeInLine, printLine, RETRY_MS } from "./job-live.js";
+
+const job = (jobId: string, extra: Partial<JobView>): JobView => ({
+  jobId,
+  state: "queued",
+  at: 0,
+  printerId: "voron",
+  ...extra,
+});
 
 describe("pillText", () => {
   test("names a waiting or modelling job without a percentage", () => {
@@ -92,5 +100,38 @@ describe("followJob", () => {
     left.sockets[0]?.drop(1011);
     await settle();
     expect([left.sockets.length, left.sockets[0]?.closed]).toEqual([1, true]);
+  });
+});
+
+describe("placeInLine", () => {
+  const active = [
+    job("printing", { state: "printing", createdAt: 1 }),
+    job("late", { createdAt: 30 }),
+    job("early", { createdAt: 10 }),
+    job("other-printer", { createdAt: 5, printerId: "ender" }),
+    job("tie-b", { createdAt: 20 }),
+    job("tie-a", { createdAt: 20 }),
+  ];
+
+  test("counts only waiting jobs for the same printer, oldest first", () => {
+    expect(placeInLine("early", active)).toBe(1);
+    expect(placeInLine("tie-a", active)).toBe(2);
+    expect(placeInLine("tie-b", active)).toBe(3);
+    expect(placeInLine("late", active)).toBe(4);
+    expect(placeInLine("other-printer", active)).toBe(1);
+  });
+
+  test("has no place for a running, missing or printerless job", () => {
+    expect(placeInLine("printing", active)).toBeNull();
+    expect(placeInLine("gone", active)).toBeNull();
+    expect(placeInLine("loose", [job("loose", { printerId: undefined })])).toBeNull();
+  });
+});
+
+describe("ordinal", () => {
+  test("writes English ordinals, teens included", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual([
+      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th",
+    ]);
   });
 });

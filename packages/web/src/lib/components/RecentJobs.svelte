@@ -31,7 +31,7 @@
   }
 
   const isSettled = (state: RecentJob["state"]) => TERMINAL.has(state);
-  const hrefFor = (j: RecentJob) => (isSettled(j.state) ? `/jobs/${j.jobId}` : `/?job=${j.jobId}`);
+  const hrefFor = (j: RecentJob) => `/jobs/${j.jobId}`;
 </script>
 
 {#if $recentJobs.length}

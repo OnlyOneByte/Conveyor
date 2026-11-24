@@ -26,6 +26,8 @@
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
+    const arrived = page.url.searchParams.get("job");
+    if (arrived) return goto(`/jobs/${encodeURIComponent(arrived)}`, { replaceState: true });
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
@@ -52,8 +54,6 @@
   let params: Record<string, unknown> = {};
   $: retryOf = linkedRetry(handoff, source, selectedGenId);
 
-  // Default the pickers once the catalog arrives (load resolves after first paint
-  // because ssr=false). Only fill empty selections so user choices stick.
   $: if (!selectedGenId && pickableGenerators.length) selectedGenId = pickableGenerators[0].id;
   // The generator actually being submitted — the Upload STL tab submits `passthrough`,
   // so an allowlist can restrict uploads too.

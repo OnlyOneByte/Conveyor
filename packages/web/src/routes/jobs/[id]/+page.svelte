@@ -5,6 +5,7 @@
   import { goto, invalidateAll } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
   import { titled } from "#lib/belt.js";
+  import CancelJob from "#lib/components/CancelJob.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
@@ -84,6 +85,8 @@
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
       </button>
+    {:else if live}
+      {#key live.jobId}<CancelJob id={live.jobId} printing={live.state === "printing"} />{/key}
     {/if}
   </JobHead>
   {#if failure}
@@ -100,7 +103,7 @@
       {/if}
     </div>
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} />{/if}
+      {#if live}<JobProgress view={live} place={data.place} printer={data.printer} />{/if}
     </JobReceipt>
   </div>
 {/if}

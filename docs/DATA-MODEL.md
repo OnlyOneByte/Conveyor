@@ -324,8 +324,10 @@ empty one as `—`, instead of hiding the row.
 Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those are the only rows; in
 SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
 `/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
-localStorage strip on `/history` alongside the durable table, and why a running job links to the
-home page's live panel (`/?job=<id>`) instead of its job page, `/jobs/<id>`. The old `/history/<id>`
+localStorage strip on `/history` alongside the durable table. `/jobs/<id>` reads that 404 as "not
+settled yet" and shows the live job from `/jobs/:id` and its socket instead, with place in line from
+`/jobs/active` while it waits. A `/?job=<id>` link that opens Make goes on to `/jobs/<id>`; only a
+`?job=` change from inside Make, such as Print, keeps the job's panel on Make. The old `/history/<id>`
 answers 308 with a Location of `/jobs/<id>`. It is the one route the web server renders, so scripts
 and crawlers get the redirect too, not just the browser.
 
