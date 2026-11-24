@@ -9,8 +9,8 @@
 @font-face{font-family:"Bricolage Grotesque";src:url(https://cdn.jsdelivr.net/fontsource/fonts/bricolage-grotesque:vf@5.3.0/latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
 @font-face{font-family:"DM Mono";src:url(https://cdn.jsdelivr.net/fontsource/fonts/dm-mono@5.3.0/latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
 :root{--display:"Bricolage Grotesque",system-ui,sans-serif;--mono:"DM Mono",ui-monospace,monospace;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--r-control:13px;--r-card:18px}
-:root[data-theme=light]{--bg:oklch(.952 .016 85);--paper:oklch(.992 .006 85);--sunk:oklch(.93 .016 85);--ink:oklch(.22 .02 55);--muted:oklch(.45 .02 60);--faint:oklch(.5 .02 65);--line:oklch(.22 .02 55/.13);--line-2:oklch(.22 .02 55/.24);--accent:oklch(.68 .19 45);--accent-ink:oklch(.2 .03 45);--focus:oklch(.52 .17 42);--err:oklch(.5 .2 28);--err-soft:oklch(.5 .2 28/.1);--lift:0 1px 2px oklch(.22 .02 55/.12)}
-:root[data-theme=dark]{--bg:oklch(.19 .01 60);--paper:oklch(.25 .012 60);--sunk:oklch(.215 .011 60);--ink:oklch(.95 .012 85);--muted:oklch(.78 .015 80);--faint:oklch(.7 .015 75);--line:oklch(.95 .01 85/.1);--line-2:oklch(.95 .01 85/.2);--accent:oklch(.74 .17 50);--accent-ink:oklch(.18 .02 50);--focus:oklch(.74 .17 50);--err:oklch(.74 .16 28);--err-soft:oklch(.74 .16 28/.12);--lift:0 1px 2px oklch(0 0 0/.4)}
+:root[data-theme=light]{--bg:oklch(.952 .016 85);--paper:oklch(.992 .006 85);--sunk:oklch(.93 .016 85);--ink:oklch(.22 .02 55);--muted:oklch(.45 .02 60);--faint:oklch(.5 .02 65);--line:oklch(.22 .02 55/.13);--line-2:oklch(.22 .02 55/.24);--field-line:oklch(.58 .02 60);--accent:oklch(.68 .19 45);--accent-ink:oklch(.2 .03 45);--focus:oklch(.52 .17 42);--err:oklch(.5 .2 28);--err-soft:oklch(.5 .2 28/.1);--lift:0 1px 2px oklch(.22 .02 55/.12)}
+:root[data-theme=dark]{--bg:oklch(.19 .01 60);--paper:oklch(.25 .012 60);--sunk:oklch(.215 .011 60);--ink:oklch(.95 .012 85);--muted:oklch(.78 .015 80);--faint:oklch(.7 .015 75);--line:oklch(.95 .01 85/.1);--line-2:oklch(.95 .01 85/.2);--field-line:oklch(.6 .015 75);--accent:oklch(.74 .17 50);--accent-ink:oklch(.18 .02 50);--focus:oklch(.74 .17 50);--err:oklch(.74 .16 28);--err-soft:oklch(.74 .16 28/.12);--lift:0 1px 2px oklch(0 0 0/.4)}
 *{box-sizing:border-box;margin:0}
 body{font:15px/1.45 var(--display);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 [hidden]{display:none!important}
@@ -26,7 +26,7 @@ main{display:grid;place-items:start center;padding:12vh var(--s4) var(--s6)}
 h1{font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.04em}
 p{color:var(--muted)}
 label{font-weight:600}
-.field{display:flex;align-items:center;min-height:44px;border:1.5px solid var(--line-2);border-radius:var(--r-control);background:var(--bg)}
+.field{display:flex;align-items:center;min-height:44px;border:1.5px solid var(--field-line);border-radius:var(--r-control);background:var(--bg)}
 .field.bad{border-color:var(--err)}
 .field input{flex:1;min-width:0;border:0;background:none;outline:none;padding:0 var(--s3);font:500 15px var(--mono);color:var(--ink)}
 .field:has(input:focus-visible),.field.focus{outline:3px solid var(--focus);outline-offset:2px}
@@ -64,7 +64,7 @@ const signIn = (wrong) => `<form class="card" onsubmit="return false" aria-label
   <h1 id="h1">Sign in to Conveyor</h1>
   <p>Enter the password for this Conveyor.</p>
   <label for="pw">Password</label>
-  <div class="field ${wrong ? "bad focus" : ""}"><input id="pw" type="password" autocomplete="current-password" ${wrong ? 'aria-invalid="true" aria-describedby="pw-err"' : ""} value=""><button class="reveal" type="button" aria-pressed="false" aria-controls="pw">Show</button></div>
+  <div class="field ${wrong ? "bad focus" : ""}"><input id="pw" type="password" autocomplete="current-password" ${wrong ? 'aria-invalid="true" aria-describedby="pw-err"' : ""} value=""><button class="reveal" type="button" aria-controls="pw">Show</button></div>
   ${wrong ? `<p class="err" id="pw-err">${alert}That password didn't work. Try again.</p>` : ""}
   <button class="primary" type="submit">Sign in</button>
   <p class="hint">Forgot it? Whoever set up this Conveyor can change it.</p>

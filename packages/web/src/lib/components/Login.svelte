@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
-  import { login } from "#lib/api.js";
+  import { LoginError, login } from "#lib/api.js";
 
   const dispatch = createEventDispatcher<{ authed: Record<string, never> }>();
 
@@ -25,7 +25,7 @@
       await login(password);
       dispatch("authed", {});
     } catch (e) {
-      const status = (e as { status?: number }).status;
+      const status = e instanceof LoginError ? e.status : undefined;
       error =
         status === undefined
           ? "Can't reach Conveyor. Check that it's running, then try again."
@@ -57,7 +57,7 @@
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? "password-error" : undefined}
       />
-      <button class="reveal" type="button" aria-pressed={shown} aria-controls="password" on:click={() => (shown = !shown)}>
+      <button class="reveal" type="button" aria-controls="password" on:click={() => (shown = !shown)}>
         {shown ? "Hide" : "Show"}<span class="sr"> password</span>
       </button>
     </div>
@@ -73,7 +73,7 @@
   h1 { margin: 0; font-size: 30px; }
   p { margin: 0; }
   label { font-weight: 600; }
-  .field { display: flex; align-items: center; min-height: var(--tap); border: 1.5px solid var(--line-2); border-radius: var(--r-control); background: var(--bg); }
+  .field { display: flex; align-items: center; min-height: var(--tap); border: 1.5px solid var(--field-line); border-radius: var(--r-control); background: var(--bg); }
   .field.bad { border-color: var(--err); }
   .field:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: 500 var(--fs-body) var(--mono); }

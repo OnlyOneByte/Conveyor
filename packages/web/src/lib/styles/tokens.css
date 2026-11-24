@@ -19,6 +19,7 @@
   --faint: oklch(0.5 0.02 65);
   --line: color-mix(in oklch, var(--ink) 13%, transparent);
   --line-2: color-mix(in oklch, var(--ink) 24%, transparent);
+  --field-line: oklch(0.58 0.02 60);
   --accent: oklch(0.68 0.19 45);
   --focus: oklch(0.52 0.17 42);
   --accent-ink: oklch(0.2 0.03 45);
@@ -43,6 +44,7 @@
   --faint: oklch(0.7 0.015 75);
   --line: color-mix(in oklch, var(--ink) 10%, transparent);
   --line-2: color-mix(in oklch, var(--ink) 20%, transparent);
+  --field-line: oklch(0.6 0.015 75);
   --accent: oklch(0.74 0.17 50);
   --focus: oklch(0.74 0.17 50);
   --accent-ink: oklch(0.18 0.02 50);
