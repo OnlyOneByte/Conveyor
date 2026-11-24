@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   gcode_path    TEXT,
   timings_json  TEXT,
   notes         TEXT,
+  dismissed_at  INTEGER,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   progress            REAL,

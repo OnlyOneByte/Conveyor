@@ -158,6 +158,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
 | `timings_json` | text null | when each stage was entered and how long it took (`StageTiming[]`) |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
+| `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |
