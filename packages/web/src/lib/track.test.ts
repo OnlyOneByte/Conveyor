@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import {
+  ACTIONS,
   centre,
   chipName,
   groupName,
@@ -13,6 +14,7 @@ import {
   type RailState,
   SPANS,
   shortName,
+  status,
   type TrackJob,
   value,
 } from "./track";
@@ -139,6 +141,12 @@ describe("chip text", () => {
   test("names start with the visible text, then the full name, printer and status", () => {
     expect(chipName(job("printing", 0.64))).toBe("Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing");
     expect(chipName({ id: "u", name: "tray.stl", state: "generating" })).toBe("tray.stl …, tray.stl, modelling");
+  });
+
+  test("the focus card says what's happening and offers each state's one action", () => {
+    expect([status(job("printing", 0.64)), status({ id: "u", name: "tray.stl", state: "queued" })]).toEqual(["printing on Ender 3 V3", "queued"]);
+    const states: JobState[] = ["queued", "generating", "slicing", "transferring", "printing", "done", "failed", "canceled"];
+    expect(states.map((s) => ACTIONS[s])).toEqual(["Cancel", "Cancel", "Cancel", "Cancel", "Cancel", undefined, "Retry", "Print again"]);
   });
 
   test("a group's name lists every member and its status after its visible text", () => {

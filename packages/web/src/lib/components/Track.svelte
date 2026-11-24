@@ -1,9 +1,13 @@
 <script lang="ts">
   import { centre, type Group, MIN_CHIP_PX, merge, onRail, type RailState, SPANS, STAGE_LABELS, type TrackJob } from "#lib/track.js";
+  import { step } from "#lib/shortcuts.js";
   import Chip from "./Chip.svelte";
 
   export let jobs: TrackJob[];
   export let idle = "Nothing on the rail";
+  export let onAction: (job: TrackJob, action: string) => void = () => {};
+  let rail: HTMLDivElement;
+  let active = 0;
   let railPx = 0;
   let groups: Group[] = [];
   const widths: Record<string, number> = {};
@@ -23,6 +27,19 @@
     groups = merge(placed, px, groups, (m) => grouped[m.map((p) => p.id).join(" ")] || Math.max(...m.map((p) => p.width)));
   }
   const members = (g: Group) => g.ids.flatMap((id) => byId.get(id) ?? []);
+  $: if (active >= groups.length) active = 0;
+
+  function walk(event: KeyboardEvent) {
+    const by = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (!by) return;
+    const stops = [...rail.querySelectorAll<HTMLElement>("[data-stop]")];
+    const at = stops.findIndex((el) => el === document.activeElement);
+    if (at < 0) return;
+    const to = stops[step(at, by, stops.length)];
+    if (to?.dataset.stop) active = Number(to.dataset.stop);
+    to?.focus();
+    event.preventDefault();
+  }
 </script>
 
 <section class="belt" aria-label="On the belt">
@@ -36,9 +53,9 @@
       <span class="stage" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
     {/each}
     <div class="rail"></div>
-    <div class="chips" bind:clientWidth={railPx}>
-      {#each groups as group (group.ids.join(" "))}
-        <Chip jobs={members(group)} left={Math.round(group.x - group.width / 2)} />
+    <div class="chips" role="presentation" bind:this={rail} bind:clientWidth={railPx} on:keydown={walk}>
+      {#each groups as group, i (group.ids.join(" "))}
+        <Chip jobs={members(group)} left={Math.round(group.x - group.width / 2)} index={i} tabindex={i === active ? 0 : -1} end={group.x > railPx / 2} {onAction} />
       {/each}
     </div>
     {#if moving.length === 0 && waiting === 0}<span class="label idle">{idle}</span>{/if}
