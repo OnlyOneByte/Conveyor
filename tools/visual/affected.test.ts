@@ -50,8 +50,12 @@ test("a scene lands only on its own pages", () => {
 test("one page's change captures only the scenes that reach it", () => {
   expect(named("packages/web/src/routes/settings/+page.svelte")).toEqual([
     "settings",
-    "printer-form-elegoo",
-    "printer-form-moonraker",
+    "printers",
+    "printers-keys",
+    "printers-add-invalid",
+    "printers-add",
+    "printers-clear-secrets",
+    "printers-delete",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");

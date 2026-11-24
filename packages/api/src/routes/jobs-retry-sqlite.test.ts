@@ -9,7 +9,7 @@ import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerJobRoutes } from "./jobs-sqlite.js";
-import { submitJob } from "./submit.js";
+import { submitJobInTransaction } from "./submit.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-retry-"));
 const previousDbPath = process.env.DB_PATH;
@@ -103,17 +103,23 @@ describe("retrying a failed job on the SQLite queue", () => {
     const atOnce = await Promise.all([1, 2, 3].map(() => submit({ ...request, retryOf: two })));
     expect(inTurn.map((a) => a.status)).toEqual([202, 409]);
     expect(inTurn[1]?.body).toEqual({
-      error: `retryOf: job ${one} is already being retried`,
+      error: `retryOf: job ${one} was already retried`,
       retriedBy: inTurn[0]?.body.jobId,
     });
     expect(atOnce.map((a) => a.status).sort()).toEqual([202, 409, 409]);
     expect(count()).toBe(before + 2);
   });
 
-  test("a retry whose queueing fails leaves the failure on the list to try again", async () => {
+  test("a retry whose queueing fails rolls its claim back in the same transaction", async () => {
     const failed = job("failed");
-    const down = () => Promise.reject(new Error("queue down"));
-    await expect(submitJob(db, { request, retryOf: failed }, down)).rejects.toThrow("queue down");
+    const before = count();
+    const down = () => {
+      throw new Error("queue down");
+    };
+    expect(() => submitJobInTransaction(db, { request, retryOf: failed }, down)).toThrow(
+      "queue down",
+    );
+    expect(count()).toBe(before);
     expect(await needsYou()).toContain(failed);
     expect((await submit({ ...request, retryOf: failed })).status).toBe(202);
   });

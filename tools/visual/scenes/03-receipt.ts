@@ -55,7 +55,7 @@ export const scenes: Scene[] = [
         },
       },
       { follow: "/jobs/seed-failed" },
-      { waitFor: "text=Slicing didn't finish" },
+      { waitFor: "text=doesn't fit the printer's bed" },
       { wait: 1200 },
     ],
   },

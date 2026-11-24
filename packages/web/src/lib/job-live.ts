@@ -66,45 +66,64 @@ export async function liveView(id: string, fetchFn: typeof fetch): Promise<JobVi
   return r?.ok ? r.json() : null;
 }
 
-const reloaded = new Set<string>();
-
-export const firstEnd = (id: string) => !reloaded.has(id) && Boolean(reloaded.add(id));
-
 export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
 
 export const SETTLED: JobState[] = ["done", "failed", "canceled"];
+
+const LIVED_MS = 30_000;
 
 type Socket = Pick<WebSocket, "close" | "onmessage" | "onclose">;
 
 export function followJob(
   id: string,
   update: (view: JobView) => void,
-  end: () => void,
+  reload: () => void,
   connect: (id: string) => Socket = openJobSocket,
   snapshot = (job: string) => liveView(job, fetch),
 ): () => void {
   let socket: Socket | null = null;
   let stopped = false;
+  let ended = false;
   let tries = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const seen = (view: JobView) => {
-    update(view);
-    if (SETTLED.includes(view.state)) (stopped = true), end();
+  const finish = () => {
+    stopped = true;
+    reload();
+  };
+  const later = (run: () => void) => {
+    timer = setTimeout(run, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
+  };
+  const check = async (reopen: boolean) => {
+    const view = await snapshot(id).catch(() => null);
+    if (stopped) return;
+    if (!view && !reopen) return finish();
+    if (view && SETTLED.includes(view.state)) {
+      update(view);
+      return finish();
+    }
+    if (view && !ended) update(view);
+    if (reopen && !ended) open();
+    else later(() => check(false));
   };
   const open = () => {
     const next = connect(id);
+    const opened = Date.now();
     socket = next;
-    next.onmessage = (message) => ((tries = 0), seen(JSON.parse(message.data)));
+    next.onmessage = (message) => {
+      const view: JobView = JSON.parse(message.data);
+      update(view);
+      if (!SETTLED.includes(view.state) || ended) return;
+      ended = true;
+      socket = null;
+      next.close();
+      void check(false);
+    };
     next.onclose = ({ code }) => {
       if (stopped || socket !== next) return;
-      if (code === 1000 || code === 4404) return void ((stopped = true), end());
-      timer = setTimeout(retry, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
+      if (Date.now() - opened >= LIVED_MS) tries = 0;
+      if (code === 1000 || code === 4404) void check(false);
+      else later(() => check(true));
     };
-  };
-  const retry = async () => {
-    const view = await snapshot(id).catch(() => null);
-    if (view && !stopped) seen(view);
-    if (!stopped) open();
   };
   open();
   return () => {

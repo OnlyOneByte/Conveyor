@@ -46,7 +46,9 @@ describe("openDb migration lock", () => {
     openDb(join(dir, "other.db"));
     const holder = await holdWriteLock(path, "ALTER TABLE jobs ADD COLUMN progress REAL");
     expect(namesOf(openDb(path), "PRAGMA table_info(jobs)")).toContain("progress");
+    const openedAt = Date.now();
     expect(await holder.exited).toBe(0);
+    expect(openedAt).toBeGreaterThanOrEqual(await holder.releasedAt);
   });
 });
 

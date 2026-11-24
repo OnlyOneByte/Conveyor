@@ -3,28 +3,39 @@ import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { workerConcurrency } from "./mode.js";
 
-let mode: string;
-let concurrency = 0;
-try {
-  mode = queueMode(process.env);
-  openDb(process.env.DB_PATH);
-  uploadSettings(process.env);
-  if (mode === "sqlite") concurrency = workerConcurrency(process.env);
-} catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
+export interface StartedWorker {
+  mode: string;
+  stop: () => Promise<void>;
 }
-console.log(`conveyor worker queue: ${mode}`);
-if (mode === "sqlite") {
-  const { startSqliteWorker } = await import("./sqlite.js");
-  const worker = startSqliteWorker(process.env, concurrency);
-  console.log("conveyor worker ready");
-  for (const signal of ["SIGTERM", "SIGINT"] as const) {
-    process.once(signal, () => {
-      console.log(`${signal}: releasing running jobs`);
-      void worker.stop().then(() => process.exit(0));
-    });
+
+export async function startWorker(env: Record<string, string | undefined>): Promise<StartedWorker> {
+  const mode = queueMode(env);
+  openDb(env.DB_PATH);
+  uploadSettings(env);
+  const concurrency = mode === "sqlite" ? workerConcurrency(env) : 0;
+  console.log(`conveyor worker queue: ${mode}`);
+  if (mode === "sqlite") {
+    const { startSqliteWorker } = await import("./sqlite.js");
+    const worker = startSqliteWorker(env, concurrency);
+    console.log("conveyor worker ready");
+    return { mode, stop: () => worker.stop() };
   }
-} else {
-  await import("./index.js");
+  const { startRedisWorker } = await import("./index.js");
+  const worker = startRedisWorker(env);
+  return { mode, stop: () => worker.stop() };
+}
+
+if (import.meta.main) {
+  const started = await startWorker(process.env).catch((err: unknown) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+  if (started.mode === "sqlite") {
+    for (const signal of ["SIGTERM", "SIGINT"] as const) {
+      process.once(signal, () => {
+        console.log(`${signal}: releasing running jobs`);
+        void started.stop().then(() => process.exit(0));
+      });
+    }
+  }
 }

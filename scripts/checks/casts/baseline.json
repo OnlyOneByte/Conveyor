@@ -32,7 +32,7 @@
     "packages/web/src/routes/+page.svelte": 3,
     "packages/web/src/routes/history/+page.svelte": 1,
     "packages/web/src/routes/monitor/+page.svelte": 2,
-    "packages/web/src/routes/settings/+page.svelte": 15,
+    "packages/web/src/routes/settings/+page.svelte": 13,
     "packages/web/src/service-worker/index.ts": 5,
     "plugins/generators/gridfinity/src/index.test.ts": 5,
     "plugins/generators/passthrough/src/index.test.ts": 4,
