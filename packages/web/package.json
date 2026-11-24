@@ -18,6 +18,8 @@
     "@conveyor/shared": "workspace:*"
   },
   "devDependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/dm-mono": "^5.3.0",
     "@sveltejs/adapter-node": "^6.0.5",
     "@sveltejs/kit": "^3.4.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

@@ -25,7 +25,7 @@ describe("the sqlite queue worker", () => {
     start({ generate: () => Bun.sleep(1200) }, { timing: { ...DEFAULT_TIMING, leaseMs: 1000 } });
     await until(() => row("a").state === "done", 10_000);
     expect(row("a").attempts).toBe(1);
-  });
+  }, 15_000);
 
   test("retries a renewal that meets SQLITE_BUSY until the lock is released", async () => {
     setup();
@@ -36,17 +36,17 @@ describe("the sqlite queue worker", () => {
       {
         generate: async () => {
           holder.exec("BEGIN IMMEDIATE");
-          await Bun.sleep(150);
+          await Bun.sleep(1700);
           holder.exec("COMMIT");
-          await Bun.sleep(100);
+          await Bun.sleep(700);
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 1000 } },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 2000 }, renewEvery: 100 },
     );
     await until(() => row("a").state === "done", 10_000);
     holder.close();
     expect(row("a").attempts).toBe(1);
-  });
+  }, 15_000);
 
   test("gives up a renewal still busy close to the lease's end", async () => {
     setup();

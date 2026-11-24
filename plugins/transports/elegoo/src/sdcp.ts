@@ -43,6 +43,8 @@ export interface SdcpStatusFrame {
   progress: number;
   currentLayer: number | null;
   totalLayer: number | null;
+  currentTicks: number | null;
+  totalTicks: number | null;
 }
 
 export type SdcpPush =
@@ -66,6 +68,8 @@ function readStatus(data: unknown, buf: string): SdcpRead<SdcpPush> {
     progress: Math.max(0, Math.min(1, progressOf(pi))),
     currentLayer: pi.CurrentLayer ?? null,
     totalLayer: pi.TotalLayer ?? null,
+    currentTicks: pi.CurrentTicks ?? null,
+    totalTicks: pi.TotalTicks ?? null,
   };
   return { kind: "frame", frame: { kind: "status", status } };
 }

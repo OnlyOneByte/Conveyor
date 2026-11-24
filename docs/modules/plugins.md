@@ -90,8 +90,13 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 Neither transport has been run against real hardware yet (written 2026-06-29). Confirm with the runbooks in
 [../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
 
-Both upload the g-code through `multipartFileUpload` (`@conveyor/shared/node`), which streams the file from
-disk as one multipart part with a fixed `Content-Length`. Two guards apply to every upload:
+Both upload the g-code through `multipartFileUpload({ field, path, filename }, onSent)` (`@conveyor/shared/node`),
+which streams the file from disk as one multipart part with a fixed `Content-Length`. `onSent(bytesSent,
+bytesTotal)` counts the file's bytes only, not the multipart framing, against its size. It fires as the
+printer reads the body, at most once per `UPLOAD_REPORT_MS` (250 ms, so 4 a second), and always for the last
+chunk. Both transports pass it to `ctx.reportUpload`. On the SQLite queue the worker's progress flush (one
+write a second per step) coalesces these further, and a report still pending when the stage moves on is
+dropped. Two guards apply to every upload:
 
 - **Size.** The length is the file's size when the upload starts. If the file grows or shrinks before the last
   byte is sent, the stream fails, and the job fails at the transport stage. It is never sent truncated, and
@@ -116,6 +121,19 @@ disk as one multipart part with a fixed `Content-Length`. Two guards apply to ev
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
   `standby` after `printing` with progress at ~1 counts as done.
+- Print progress (`PrintStatus.print`, on `printing` and `paused` polls): `layer` is
+  `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper
+  fills `info` only when the slicer emits `SET_PRINT_STATS_INFO`, so either can be absent. `secondsLeft` is
+  `print_duration × (1 − p) / p`, rounded, where `p` is `virtual_sdcard.progress` (file position, not
+  `display_status`), and is left out when `print_duration` is under 1 s (Klipper's float error lands just either side of zero),
+  or when `p` is under 1% or at the end.
+  `p` counts file bytes, header and thumbnails included, so the estimate runs low early in a print (about 38%
+  low at 5% real progress with a 3% header) and converges as the print goes on; correcting it needs the file's
+  `gcode_start_byte` and `gcode_end_byte` metadata, which `status()` does not fetch.
+- The reply is parsed with zod (`query.ts`). An unreadable `state` or progress fails the stage. A print-only
+  field it cannot use (`print_duration`, `info`) reads as absent instead, so a cosmetic value never fails a
+  running print: Klipper can report `print_duration` a hair below zero (`-1.2e-14`) after a pause before the
+  first extrusion.
 - Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
@@ -175,6 +193,21 @@ numeric string (`"40"`); any other string (`"40%"`) makes the frame malformed.
   "printing" sub-state FDM lines report. Idle and other states emit nothing, so the UI keeps its prior state.
 - `PrintInfo.Progress` is a 0..100 percentage on most firmware and is normalised to 0..1; without it, progress
   comes from `CurrentLayer / TotalLayer`.
+- Print progress (`PrintStatus.print`): `layer` from `PrintInfo.CurrentLayer` and `layers` from
+  `PrintInfo.TotalLayer` when it is above 0, each only when it is a whole number. `secondsLeft` is
+  `TotalTicks − CurrentTicks`, rounded, read as seconds. The SDCP V3.0.0 spec says milliseconds ("Current Print
+  Time (ms)"), but FDM firmware sends seconds, and Conveyor only sends sliced G-code, so every Elegoo target is
+  FDM:
+  - a Centauri Carbon capture in
+    [elegoo-homeassistant#35](https://github.com/danielcherubini/elegoo-homeassistant/issues/35) has
+    `"CurrentTicks": 4160.40348639997, "TotalTicks": 9193` for a print its owner reports as 2 h 33 min;
+  - that integration multiplies both by 1000 for FDM printers only
+    (`custom_components/elegoo_printer/sdcp/models/status.py`, lines 188-192);
+  - OpenCentauri's API doc (`docs/software/api.md`) shows `CurrentTicks: 3600, TotalTicks: 36000` at layer 100
+    of 1000, which is 1 h into a 10 h print.
+
+  `CurrentTicks` can be fractional, so any finite value of 0 or more is read. `secondsLeft` is left out when
+  either is missing or negative, when `TotalTicks` is 0, or when the print has run past the estimate.
 
 To verify on hardware:
 

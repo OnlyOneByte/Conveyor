@@ -27,10 +27,12 @@ const QUEUE_COLUMNS = [
   ["print_handle_json", "TEXT"],
 ] as const;
 
-const HOLD_COLUMNS = [
+const PRINTER_COLUMNS = [
   ["hold_job_id", "TEXT"],
   ["hold_reason", "TEXT"],
   ["hold_at", "INTEGER"],
+  ["last_seen_at", "INTEGER"],
+  ["last_checked_at", "INTEGER"],
 ] as const;
 
 function indexesAndTriggersOf(db: Database, table: string): SchemaObject[] {
@@ -116,6 +118,14 @@ export function migrate(db: Database): void {
     db.exec("ALTER TABLE sessions ADD COLUMN password_version TEXT NOT NULL DEFAULT ''");
   }
 
+  if (!columnsOf(db, "jobs").includes("filament_json")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN filament_json TEXT");
+  }
+
+  if (!columnsOf(db, "jobs").includes("dismissed_at")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN dismissed_at INTEGER");
+  }
+
   if (!columnsOf(db, "jobs").includes("notes")) {
     db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
   }
@@ -126,11 +136,13 @@ export function migrate(db: Database): void {
   }
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs (state, run_after, created_at)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_lease ON jobs (state, lease_until)");
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_history ON jobs (updated_at DESC, id DESC)
+    WHERE state IN ('done', 'failed', 'canceled')`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_printer_live ON jobs (printer_id, state)
     WHERE state IN ('generating', 'slicing', 'transferring', 'printing')`);
 
   const printerColumns = new Set(columnsOf(db, "printers"));
-  for (const [column, type] of HOLD_COLUMNS) {
+  for (const [column, type] of PRINTER_COLUMNS) {
     if (!printerColumns.has(column)) db.exec(`ALTER TABLE printers ADD COLUMN ${column} ${type}`);
   }
 

@@ -3,22 +3,26 @@ import {
   ACTIVE_JOBS_KEY,
   CANCEL_TTL_SECONDS,
   isTerminal,
+  type JobRequest,
   type JobStatusEvent,
   type JobView,
   jobCancelKey,
   jobControlChannel,
+  jobRequestSchema,
   jobSnapshotKey,
   jobView,
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbRecordJob, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
+import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
-import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
@@ -26,7 +30,23 @@ const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-chi
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
 
-export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
+export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
+
+async function activeJob(jobs: JobLookup, event: JobStatusEvent): Promise<ActiveJob> {
+  const job = await jobs.getJob(event.jobId);
+  const request = jobRequestSchema.safeParse(job?.data);
+  return {
+    event,
+    printerId: request.success ? request.data.printerId : "",
+    generatorId: request.success ? request.data.generator.id : "",
+    createdAt: job?.timestamp ?? event.at,
+  };
+}
+
+export async function registerJobRoutes(
+  app: FastifyInstance,
+  jobs: JobLookup = jobQueue,
+): Promise<void> {
   const statusHub = createStatusHub(
     () => redis.duplicate({ enableReadyCheck: false }),
     (err) => app.log.error({ err }, "job status subscriber error"),
@@ -66,7 +86,16 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
       else active.push(evt);
     }
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
-    return Promise.all(active.sort((a, b) => b.at - a.at).map(withFields));
+    active.sort((a, b) => b.at - a.at);
+    let listed: JobStatusEvent[] = active;
+    try {
+      const live = await Promise.all(active.map((event) => activeJob(jobs, event)));
+      const typical = (job: ActiveJob) => dbTypicalStageMs(openDb(), job);
+      listed = withEstimates(live, { typical, isHeld: () => false }, Date.now());
+    } catch (err) {
+      app.log.warn({ err }, "job estimates left out of /jobs/active");
+    }
+    return Promise.all(listed.map(withFields));
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
@@ -77,6 +106,7 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   });
 
   registerArtifactRoute(app);
+  registerNeedsYouRoutes(app);
 
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const jobId = req.params.id;

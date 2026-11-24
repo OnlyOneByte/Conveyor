@@ -1,5 +1,6 @@
 import {
   computeStageTimings,
+  type FilamentUse,
   type JobRequest,
   type JobState,
   type JobStatusEvent,
@@ -22,6 +23,7 @@ export interface TerminalRecord {
   state: TerminalState;
   modelPath?: string;
   gcodePath?: string;
+  filament?: FilamentUse;
   stage?: Stage;
   reason?: string;
   notes?: string;
@@ -34,6 +36,9 @@ export interface PublishExtra {
   message?: string;
   error?: JobStatusEvent["error"];
   timings?: StageTiming[];
+  print?: JobStatusEvent["print"];
+  bytesSent?: number;
+  bytesTotal?: number;
 }
 
 export type SlotResult = "taken" | "canceled";
@@ -52,6 +57,8 @@ export interface PipelineDeps {
   record(jobId: string, req: JobRequest, outcome: TerminalRecord): void;
   resolveJobTarget(req: JobRequest): JobTarget | null;
   resolvePrinter(printerId: string): Promise<PrinterTarget>;
+  printerSeen(printerId: string): void;
+  readFilament(gcodePath: string): Promise<FilamentUse | undefined>;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;
@@ -101,6 +108,7 @@ export interface Run {
   enters: { stage: Stage; at: number }[];
   modelPath?: string;
   gcodePath?: string;
+  filament?: FilamentUse;
   print?: PrintAttempt;
   notes: string[];
 }
@@ -134,6 +142,13 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
       signal,
       report: (progress, message) =>
         void deps.publish(opts.jobId, run.state, { stage: run.stage, progress, message }),
+      reportUpload: (bytesSent, bytesTotal) =>
+        void deps.publish(opts.jobId, run.state, {
+          stage: run.stage,
+          progress: bytesTotal === 0 ? 1 : bytesSent / bytesTotal,
+          bytesSent,
+          bytesTotal,
+        }),
       log: deps.log,
     },
   };

@@ -146,14 +146,18 @@ describe("openDb legacy station migration", () => {
     });
   }
 
-  test("adds timings_json to the migrated jobs table", () => {
+  test("adds timings_json and filament_json to the migrated jobs table", () => {
     const db = openLegacyDb();
-    expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("timings_json");
+    expect(namesOf(db, "PRAGMA table_info(jobs)")).toEqual(
+      expect.arrayContaining(["timings_json", "filament_json"]),
+    );
   });
 
-  test("adds notes to the migrated jobs table", () => {
+  test("adds notes and dismissed_at to the migrated jobs table", () => {
     const db = openLegacyDb();
-    expect(namesOf(db, "PRAGMA table_info(jobs)")).toContain("notes");
+    expect(namesOf(db, "PRAGMA table_info(jobs)")).toEqual(
+      expect.arrayContaining(["notes", "dismissed_at"]),
+    );
   });
 
   test("adds the queue columns and indexes, and runs at synchronous NORMAL", () => {

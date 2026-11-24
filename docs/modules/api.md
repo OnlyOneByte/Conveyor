@@ -55,6 +55,22 @@ created with `enableReadyCheck: false`: with the check on, two viewers arriving 
 subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with
 `1011`.
 
+## Estimates on `GET /jobs/active` (`estimates.ts`)
+
+In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; with neither, there is no `estimate`.
+
+- `typicalMs`: the median `durationMs` of each stage over the last 20 `done` jobs with the same generator and
+  printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is left out. `transport` covers the upload and
+  the print together.
+- `startsAt` (epoch ms), for a `queued` job: when it should start printing, that is, take the printer. Each
+  printer's queue is walked in `createdAt` order. The printer is free when its printing job's `print.secondsLeft`
+  runs out (from the event's `at`), or after a running job's remaining model, slicing and typical `transport`.
+  A queued job's model and slicing run meanwhile, but only once the job ahead of it has taken the
+  printer, so it starts at the later of the printer being free and its own preparation being done. Each job ahead then holds the printer for its typical
+  `transport`. Once a step is unknown, the jobs behind it get no `startsAt`, and a held printer
+  (`printers.hold_job_id`, SQLite queue) gives none to its whole queue.
+- On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
+
 ## Job routes on the Redis queue (`routes/jobs.ts`)
 
 `GET /jobs/active` reads the `jobs:active` set and returns each member's snapshot, newest event first. The
@@ -72,6 +88,20 @@ an upload's `params` carry its `filename`) and `createdAt`, in epoch millisecond
 job's data and `timestamp`, and are checked by `jobFieldsSchema` in `@conveyor/shared`. A job BullMQ no longer
 holds, a request that fails the schema, or a failed BullMQ read leaves those four fields out, logs, and still
 answers the snapshot, so the UI can label the job by its stage (#342).
+
+## The Needs-you list (`registerNeedsYouRoutes` in `routes/job-common.ts`)
+
+Both queue modes register these, behind the same session check as every other job route. Both read the SQLite
+`jobs` table, which holds every settled job in either mode.
+
+| Route | Answer |
+| --- | --- |
+| `GET /jobs/needs-you` | failed jobs that are not dismissed, newest update first, at most 50, each as a history `Job` |
+| `POST /jobs/:id/dismiss` | `200 { ok, jobId, dismissedAt }` for a failed job; `409` naming the state for any other; `404` for an unknown id |
+
+Dismissing is idempotent: a second call answers with the first `dismissedAt`. A dismissed job stays `failed`
+and stays in `GET /jobs-history`, which returns its `dismissedAt`. A retried job is not linked to the failure
+it retries, so a retry does not take the failure off the list.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
@@ -162,8 +192,25 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
+- `GET /jobs-history` lists newest-finished first (`updatedAt`, then `id`, both descending). Its query is
+  parsed with zod (`history-query.ts`), and a bad value is a 400 naming the field:
+  - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
+    200, as before.
+  - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
+    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
+    page.
+  - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
+    (`since` inclusive, `until` exclusive).
+- `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
+  for the filter pills. Both modes share these routes, since both keep finished jobs in the SQLite `jobs` table.
+  The static `counts` path wins over `/jobs-history/:id`; job ids are UUIDs, so none is called `counts`.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
-  `reachable: false` is a successful probe of an offline printer, not an error.
+  `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
+  `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
+  printer that was seen and then failed a probe shows how long it has been offline. Probing stays on demand:
+  nothing probes on a timer.
+- A busy printer's time left is not a printer field. It is `print.secondsLeft` on the printer's active job's
+  latest `printing` event.
 - `GET /catalog/transports` feeds the Settings printer form's transport picker.
 - Profile content (`/catalog/profiles/:id/content`) dispatches on the slicer format: Orca serves three JSON
   documents, Prusa one `config.ini`, and a slicer with no editable format answers 409.

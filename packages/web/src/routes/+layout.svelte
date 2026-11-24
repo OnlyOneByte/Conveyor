@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { fetchAuthStatus, logout, type AuthStatus } from "#lib/api.js";
   import Login from "#lib/components/Login.svelte";
+  import Toasts from "#lib/ui/Toasts.svelte";
 
   let status: AuthStatus | null = null;
   let loaded = false;
@@ -89,6 +90,7 @@
       <Login on:authed={onAuthed} />
     {/if}
   </main>
+  <Toasts />
 </div>
 
 <style>
@@ -98,7 +100,7 @@
     padding: 0.5rem 0 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
   }
   .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.2rem; color: var(--text); text-decoration: none; }
-  .logo { color: var(--accent); }
+  .logo { color: var(--live); }
   .tag { font-size: 0.85rem; }
   .spacer { flex: 1; }
   /* Icon-only nav control. Sized to the 44px tap target even though the glyph is 20px,
@@ -109,8 +111,8 @@
     color: var(--muted); border-radius: var(--radius); text-decoration: none;
     transition: color 0.15s, background 0.15s;
   }
-  .iconlink:hover { color: var(--accent); background: var(--surface-2); }
-  .iconlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .iconlink:hover { color: var(--live); background: var(--surface-2); }
+  .iconlink:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .ghost { background: transparent; align-self: center; }
   @media (max-width: 540px) { .tag { display: none; } }
 </style>

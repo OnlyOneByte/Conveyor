@@ -74,6 +74,8 @@ describe("the global auth guard on a booted api", () => {
     ["POST", "/catalog/printers/p1/release"],
     ["POST", "/jobs"],
     ["POST", "/jobs/j1/cancel"],
+    ["POST", "/jobs/j1/dismiss"],
+    ["GET", "/jobs/needs-you"],
     ["POST", "/uploads"],
     ["PUT", "/catalog/printers"],
     ["DELETE", "/catalog/printers/p1"],
