@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:41671",
+  "url": "http://127.0.0.1:35395",
   "warnings": [
     "warm-up /jobs?day=today: waitFor: Timeout 120000ms exceeded."
   ],
@@ -27,15 +27,16 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 543375,
+      "gifBytes": 474911,
       "gif": "new-job-1440.gif"
     },
     {
       "scene": "job-progress",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 12000ms exceeded.",
-      "png": "job-progress-1440.png"
+      "png": "job-progress-1440.png",
+      "gifBytes": 280608,
+      "gif": "job-progress-1440.gif"
     },
     {
       "scene": "jobs-today",
@@ -316,7 +317,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 279860,
+      "gifBytes": 269650,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -324,7 +325,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 960889,
+      "gifBytes": 1330746,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -332,7 +333,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1284130,
+      "gifBytes": 1158390,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -340,7 +341,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 325139,
+      "gifBytes": 277644,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -378,7 +379,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 847026,
+      "gifBytes": 782597,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -404,15 +405,16 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 621847,
+      "gifBytes": 622330,
       "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
       "warnings": [],
-      "error": "waitFor: Timeout 12000ms exceeded.",
-      "png": "job-progress-390.png"
+      "png": "job-progress-390.png",
+      "gifBytes": 373671,
+      "gif": "job-progress-390.gif"
     },
     {
       "scene": "jobs-today",
@@ -680,7 +682,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506543,
+      "gifBytes": 506842,
       "gif": "track-keys-390.gif"
     },
     {
@@ -718,7 +720,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1031010,
+      "gifBytes": 1030500,
       "gif": "primitives-keys-390.gif"
     }
   ]
