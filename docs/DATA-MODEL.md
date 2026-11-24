@@ -104,7 +104,7 @@ A physical device addressable by a transport. **Secrets live here and never leav
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
-> keeping the stored `secrets_json` when `secrets` is omitted. Omitting it on write means "no restriction"; COALESCE
+> merging `secrets` into the stored `secrets_json`. Omitting it on write means "no restriction"; COALESCE
 > would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
 > load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
 > presence-not-truthiness when checking it, and an explicit toggle in the Settings form
@@ -295,9 +295,8 @@ Full catalog + history surface (2026-09-02):
 
 One integrity rule is enforced in the API rather than the database:
 
-- **A printer upsert that omits `secrets` keeps the stored value** (`dbUpsertPrinter`). Reads strip secrets, so a client editing a printer cannot round-trip them;
-  assigning the incoming value directly used to wipe the credential on any address-only edit.
-  Pass `secrets: {}` to clear deliberately.
+- **A printer upsert merges `secrets` per key into the stored ones** (`dbUpsertPrinter`, in one transaction). Reads strip secrets, so a client editing a printer cannot round-trip them; replacing the stored set used to wipe every credential the write did not repeat (#412).
+  A string sets a key, `null` removes it, and keys left out (or `secrets` omitted) are kept. Removing the last key sets `secrets_json` to `NULL`.
 
 Deleting a printer or profile is refused only while it is still needed:
 
