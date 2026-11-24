@@ -4,13 +4,22 @@ Conveyor runs as a Docker Compose stack: Caddy (TLS and routing), `web` (the PWA
 
 ## First run
 
-1. Copy the example environment file:
+1. Clone the repository with its submodule. `./scad` holds the gridfinity library the worker renders bins with:
+
+   ```sh
+   git clone --recurse-submodules https://github.com/OnlyOneByte/Conveyor.git
+   cd Conveyor
+   ```
+
+   In a clone made without `--recurse-submodules`, run `git submodule update --init` once. Without it every gridfinity job fails at the generator stage with `the gridfinity library is missing at …`.
+
+2. Copy the example environment file:
 
    ```sh
    cp .env.example .env
    ```
 
-2. Set a password and a signing secret in `.env`:
+3. Set a password and a signing secret in `.env`:
 
    ```sh
    CONVEYOR_PASSWORD='choose-a-long-passphrase'
@@ -23,13 +32,15 @@ Conveyor runs as a Docker Compose stack: Caddy (TLS and routing), `web` (the PWA
    - `CONVEYOR_AUTH_SECRET` must be at least 32 characters, not counting leading or trailing whitespace. Keep it the same across restarts: it signs session cookies, so changing it logs everyone out. Changing `CONVEYOR_PASSWORD` logs everyone out too, and **Log out** ends that session on the server, not just in the browser.
    - Wrap each value in single quotes. Compose interpolates `$` in unquoted and double-quoted `.env` values, so `pa$$w$ord` would reach the API as `pa$w`: `$$` becomes `$` and `$ord` becomes an empty variable. Inside single quotes every character is literal. A value that itself contains a single quote cannot be single-quoted; pick another value.
 
-3. Start the stack:
+4. Start the stack and wait until every service is healthy:
 
    ```sh
-   docker compose up -d --build
+   docker compose up -d --build --wait
    ```
 
-4. Open <https://localhost> on the host machine and sign in with `CONVEYOR_PASSWORD`. Caddy serves `localhost` with its internal CA, so the browser asks you to trust the certificate once.
+   `--wait` returns once the api and web pass their health checks. If it fails, `docker compose ps` shows which service is not healthy and `docker compose logs <service>` says why: an api missing `CONVEYOR_PASSWORD` stays `unhealthy` and names the variable.
+
+5. Open <https://localhost> on the host machine and sign in with `CONVEYOR_PASSWORD`. Caddy serves `localhost` with its internal CA, so the browser asks you to trust the certificate once.
 
 Keep `.env` out of version control. It is already in `.gitignore`.
 
@@ -61,7 +72,7 @@ The API tells clients apart by the address that connected to it, and trusts an `
 
 Compose gives Caddy the fixed address `172.31.250.2` on a fixed network, `172.31.250.0/24`, and sets `CONVEYOR_TRUSTED_PROXIES=172.31.250.2` for the API, so each client behind Caddy gets its own count. The network's `ip_range`, `172.31.250.128/25`, keeps the addresses Docker hands the other containers above `.128`, so none of them can take Caddy's. If that network collides with one of yours, change the subnet, the `ip_range`, Caddy's `ipv4_address` and `CONVEYOR_TRUSTED_PROXIES` together in `docker-compose.yml`, keeping Caddy's address inside the subnet but outside the range.
 
-An existing install must run `docker compose down` once before `docker compose up -d` after upgrading to this version: Docker cannot change the subnet of a network that already exists, so `up` alone fails on the old network. `down` keeps your data, because named volumes and `./data` stay; do not add `-v`, which deletes the volumes.
+An install from v0.1.4 or earlier must run `docker compose down` once before `docker compose up -d`, because those releases had no fixed network and Docker cannot change the subnet of a network that already exists, so `up` alone fails on the old network. `down` keeps your data, because named volumes and `./data` stay; do not add `-v`, which deletes the volumes. [Upgrading from v0.1.x](#upgrading-from-v01x) has this step in order.
 
 On some hosts Docker's userland proxy hands Caddy the Docker gateway's address instead of the client's. Every client then shares one count again, so a stranger's wrong guesses can lock you out for up to a minute. Check `docker compose logs caddy`: if every request shows the same remote address, turn the userland proxy off (`"userland-proxy": false` in Docker's `daemon.json`).
 
@@ -89,8 +100,46 @@ docker compose up -d caddy
 Before you expose Conveyor beyond the host:
 
 - Keep authentication on and use a strong `CONVEYOR_PASSWORD`.
-- Replace `localhost` in the `Caddyfile` with the hostname clients use, so Caddy issues a certificate for it. For a public domain, Caddy can obtain a Let's Encrypt certificate automatically once ports 80 and 443 are reachable. Once the hostname is not `localhost`, Caddy also sends `Strict-Transport-Security: max-age=31536000`; on `localhost` it doesn't, so a browser never pins HTTPS for every other local app. On every response it sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
+- Set `CONVEYOR_DOMAIN` to the name clients use (see [The name Caddy serves](#the-name-caddy-serves)). The `Caddyfile` reads it, so you never edit that tracked file.
 - Do not forward ports to the internet unless you need remote access. A VPN such as WireGuard or Tailscale is a safer way to reach a home install.
+
+`CONVEYOR_BIND` decides who can connect; `CONVEYOR_DOMAIN` only decides which name and certificate Caddy answers with. Changing the domain never publishes anything.
+
+### The name Caddy serves
+
+`CONVEYOR_DOMAIN` in `.env` is the site address in the `Caddyfile`. Compose passes it to Caddy, and unset or empty means `localhost`. After changing it, run `docker compose up -d caddy`.
+
+Which certificate Caddy uses depends on the name:
+
+| `CONVEYOR_DOMAIN` | Certificate |
+| --- | --- |
+| `localhost` (default) | Caddy's local CA |
+| A LAN IP address, such as `192.168.1.20` | Caddy's local CA |
+| A name under `home.arpa` or `internal`, such as `conveyor.home.arpa` | Caddy's local CA |
+| A public domain you own, such as `conveyor.example.com` | Let's Encrypt, once ports 80 and 443 are reachable from the internet |
+
+Do not use a made-up suffix such as `.lan` or `.home`: Caddy treats it as public, asks Let's Encrypt for it and fails. A `home.arpa` name needs a DNS record on your router or DNS server pointing at the host.
+
+Once the name is not `localhost`, Caddy also sends `Strict-Transport-Security: max-age=31536000`; on `localhost` it doesn't, so a browser never pins HTTPS for every other local app. On every response it sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`.
+
+### HTTPS on the LAN: trusting Caddy's local CA
+
+Phones and other computers on the LAN don't trust Caddy's local CA until you install its root certificate on them. The PWA needs a trusted certificate to install and to work offline.
+
+1. Set `CONVEYOR_BIND` to the host's LAN address and `CONVEYOR_DOMAIN` to that address or a `home.arpa` name, then run `docker compose up -d caddy`.
+2. Copy the root certificate out of the `caddy_data` volume:
+
+   ```sh
+   docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./conveyor-root.crt
+   ```
+
+3. Install it on each device:
+   - **iOS / iPadOS:** send the file to the device (AirDrop or mail), open it, install the profile in **Settings → General → VPN & Device Management**, then turn it on in **Settings → General → About → Certificate Trust Settings**.
+   - **Android:** **Settings → Security → More security settings → Encryption & credentials → Install a certificate → CA certificate**, and pick the file. The menu names vary by maker.
+   - **macOS:** open it in Keychain Access, add it to the **System** keychain and set it to **Always Trust**.
+   - **Windows:** open it, **Install Certificate → Local Machine → Trusted Root Certification Authorities**.
+
+The root certificate is valid for 10 years and stays the same as long as the `caddy_data` volume is kept, so back that volume up too ([Backup and restore](#backup-and-restore)). A device that trusts it accepts any certificate this CA signs, for any name, so keep the volume and its backups private.
 
 ## Environment reference
 
@@ -101,6 +150,7 @@ Before you expose Conveyor beyond the host:
 | `CONVEYOR_SECRETS_KEY` | unset: generated into `./data/secrets.key` | Key that encrypts printer secrets, 32 bytes in base64 (`openssl rand -base64 32`). |
 | `CONVEYOR_AUTH` | `enabled` | Set to `disabled` to run without a login. |
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
+| `CONVEYOR_DOMAIN` | `localhost` | Name Caddy serves and gets a certificate for ([The name Caddy serves](#the-name-caddy-serves)). Unset or empty means `localhost`. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
 | `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. |
@@ -108,6 +158,14 @@ Before you expose Conveyor beyond the host:
 | `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
+
+## Health checks, logs and stopping
+
+Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds from inside each container. `docker compose ps` shows them `healthy` or `unhealthy`, and `docker compose up -d --wait` waits for both. `web` starts once the api is healthy, and Caddy once both are, so Caddy never answers `502` while the stack boots. An api that can't start, such as one missing `CONVEYOR_PASSWORD`, never turns healthy, and `docker compose logs api` names the problem.
+
+Every service logs through Docker's `json-file` driver capped at 3 files of 10 MB, so logs can't fill a small SD card. `docker compose logs <service>` reads them.
+
+`docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second.
 
 ## Printer secrets and backups
 
@@ -131,6 +189,73 @@ To move an install that already generated a key, paste the contents of `./data/s
 Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
 
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
+
+## Backup and restore
+
+What holds state, and what a backup needs:
+
+| What | Where | Matters because |
+| --- | --- | --- |
+| The database | `./data/conveyor.db` (with `-wal` and `-shm` beside it while running) | Printers, profiles, job history and logins. Lose it and you set Conveyor up again. |
+| The secrets key | `./data/secrets.key`, or `CONVEYOR_SECRETS_KEY` in `.env` | Decrypts printer credentials in the database. Keep it apart from database backups ([Printer secrets](#printer-secrets-and-backups)). |
+| `.env` | the checkout | The password, the signing secret and every setting. |
+| Uploads and job files | `./data/uploads`, `./data/<job id>/` | Uploaded STLs and each job's model and G-code. A job can be run again without them. |
+| The queue | the `conveyor_redis_data` volume | Jobs waiting or running right now. Finished jobs are in the database. |
+| Caddy's state | the `conveyor_caddy_data` volume | Its local CA, certificates and Let's Encrypt account. Lose it and every device has to trust a new CA ([HTTPS on the LAN](#https-on-the-lan-trusting-caddys-local-ca)). |
+
+Never copy `conveyor.db` while the stack runs: the database is in WAL mode, so recent writes sit in `conveyor.db-wal` and a plain copy of the main file can be inconsistent.
+
+### Back up the database while it runs
+
+SQLite's `VACUUM INTO` writes a consistent copy of a live database. Run it in the api container, which has `bun` and the database, as the container's own user, then copy the result out:
+
+```sh
+mkdir -p backups
+docker compose exec -T --user 10001:10001 api rm -f /data/backup.db
+docker compose exec -T --user 10001:10001 api bun -e 'const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'
+docker compose cp api:/data/backup.db "backups/conveyor-$(date +%F).db"
+docker compose exec -T --user 10001:10001 api rm /data/backup.db
+```
+
+Back up `.env` and `./data/secrets.key` (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not: `docker compose cp api:/data/secrets.key backups-private/secrets.key`.
+
+### Restore the database
+
+```sh
+docker compose stop api worker
+docker compose run --rm --no-deps --user 10001:10001 -v "$PWD/backups:/backups:ro" --entrypoint sh api \
+  -c 'rm -f /data/conveyor.db-wal /data/conveyor.db-shm && cp /backups/conveyor-2026-11-24.db /data/conveyor.db'
+docker compose up -d --wait
+```
+
+Use the name of the backup you want. The old `-wal` and `-shm` files must go with the old database: SQLite would apply them to the restored one. The secrets key in use must be the one the backup was encrypted with, or the api and worker refuse to start with `[secrets] refusing to start`.
+
+### Back up and restore everything
+
+A full backup stops the stack for a few seconds and takes `./data` and both volumes at once:
+
+```sh
+mkdir -p backups
+docker compose stop
+docker run --rm -v conveyor_redis_data:/v/redis_data:ro -v conveyor_caddy_data:/v/caddy_data:ro \
+  -v "$PWD/data:/v/data:ro" -v "$PWD/backups:/backups" alpine \
+  tar -C /v --numeric-owner -czf "/backups/conveyor-full-$(date +%F).tgz" .
+docker compose start
+cp .env backups/
+```
+
+To restore it, on the same host or a new one with the same checkout and `.env`:
+
+```sh
+docker compose down
+docker compose up --no-start
+docker run --rm -v conveyor_redis_data:/v/redis_data -v conveyor_caddy_data:/v/caddy_data \
+  -v "$PWD/data:/v/data" -v "$PWD/backups:/backups:ro" alpine \
+  sh -c 'find /v/redis_data /v/caddy_data /v/data -mindepth 1 -delete && tar -C /v --numeric-owner -xzpf /backups/conveyor-full-2026-11-24.tgz'
+docker compose up -d --wait
+```
+
+`up --no-start` creates the volumes as Compose's own, so a new host doesn't warn about them. `--numeric-owner` keeps every file's owner (`10001` for `./data`, `999:1000` for Redis, `10002` for Caddy), so nothing needs a `chown` afterwards. The tarball holds the secrets key with the database; keep it as private as the key.
 
 ## Containers run as uid 10001
 
@@ -182,11 +307,28 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 
 `CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
 
-## Upgrading to the BullMQ 6 release
+## Upgrading from v0.1.x
+
+v0.1.4 is the last tagged release. Upgrading from it to the current release crosses every change below at once, so do them in this order:
+
+1. **Resume a paused queue.** Run `docker compose exec redis redis-cli HGET bull:conveyor-jobs:meta paused`. If it prints `1`, resume the queue first ([Upgrading from BullMQ 5](#upgrading-from-bullmq-5-v014-and-earlier)).
+2. **Take a full backup** while the stack is still on Redis 7 ([Back up and restore everything](#back-up-and-restore-everything)). It is the only way back: Redis 8 rewrites the queue volume in a form Redis 7 can't read.
+3. **Update `.env`.** v0.1.4 had no login, and the api now refuses to start without one. Add `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET` ([First run](#first-run), step 3), and copy any new lines from `.env.example`.
+4. **Keep LAN access if you had it.** v0.1.4 published ports 80 and 443 on every interface; now Caddy listens on `127.0.0.1` only. To reach Conveyor from other devices again, set `CONVEYOR_BIND` ([Network exposure](#network-exposure)).
+5. **Move a custom hostname out of the `Caddyfile`.** If you replaced `localhost` in it, put that name in `CONVEYOR_DOMAIN` and run `git checkout Caddyfile`, or the next step stops on a conflict.
+6. **Get the new code:** `git pull && git submodule update --init`.
+7. **Recreate the network:** `docker compose down`. Never add `-v`, which deletes the volumes. The fixed network for Caddy's address can't be applied to the old one ([Failed logins](#failed-logins-and-the-client-address)).
+8. **Start:** `docker compose up -d --build --wait`.
+9. **Check the one-time steps in the logs:** `docker compose logs api worker caddy-init` should show `conveyor: /data is not owned by 10001:10001, changing its owner once`, `caddy-init: <n> paths handed to 10002:10002`, and `[secrets] generated a new key` if you didn't set `CONVEYOR_SECRETS_KEY`. Back that new `./data/secrets.key` up.
+10. **Sign in** at your Conveyor address with `CONVEYOR_PASSWORD`, and check the printers and history are there.
+
+**To roll back**, stop the stack, check out `v0.1.4`, restore the full backup from step 2, then `docker compose up -d --build`. The sections below say why each step exists: [encrypted printer secrets](#upgrading-and-rolling-back), [Redis 8](#upgrading-from-redis-7-v014-and-earlier), [uid 10001](#containers-run-as-uid-10001).
+
+## Upgrading from BullMQ 5 (v0.1.4 and earlier)
 
 This applies only to the default Redis queue, and only if the job queue was paused. Conveyor never pauses it itself, so a pause comes from someone running `pause()` or a BullMQ admin tool by hand.
 
-Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/api/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
+Resume a paused queue before upgrading from v0.1.4 or earlier: the next release moves from BullMQ 5 to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/api/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
 
 Check before upgrading. This prints `1` when the queue is paused and nothing when it isn't:
 
@@ -202,9 +344,9 @@ docker compose exec -w /app/packages/api api bun -e 'const { Queue } = await imp
 
 It prints `paused: false` when it's done.
 
-## Upgrading to Redis 8
+## Upgrading from Redis 7 (v0.1.4 and earlier)
 
-This release moves the compose `redis` service from `redis:7-alpine` to `redis:8-alpine`. The upgrade is one-way. Redis 8 reads the volume Redis 7 left, but once Redis 8 rewrites its append-only file, which it does on its own as the file grows, Redis 7 refuses the volume (`Can't handle RDB format version 15`) and the stack stays down. **You can't roll back to Redis 7 without a backup of `redis_data` taken before the upgrade.**
+The release after v0.1.4 moves the compose `redis` service from `redis:7-alpine` to `redis:8-alpine`. The upgrade is one-way. Redis 8 reads the volume Redis 7 left, but once Redis 8 rewrites its append-only file, which it does on its own as the file grows, Redis 7 refuses the volume (`Can't handle RDB format version 15`) and the stack stays down. **You can't roll back to Redis 7 without a backup of `redis_data` taken before the upgrade.**
 
 Back up the volume first, while the stack is still on Redis 7:
 
@@ -243,16 +385,16 @@ in first; the session cookie goes in a private temporary file:
 jar=$(mktemp)
 read -rs CONVEYOR_PW
 printf '{"password":"%s"}' "$CONVEYOR_PW" |
-  curl -fsS -c "$jar" -H 'content-type: application/json' --data-binary @- https://localhost/auth/login
+  curl -fsS -c "$jar" -H 'content-type: application/json' --data-binary @- https://localhost/api/auth/login
 curl -fsS -b "$jar" -H 'content-type: application/json' -d '{"confirm":true}' \
-  https://localhost/catalog/printers/<printer-id>/release
+  https://localhost/api/catalog/printers/<printer-id>/release
 rm -f "$jar"; unset CONVEYOR_PW
 ```
 
 `read -rs` keeps the password out of the shell history and the process list. A password containing `"` or
 `\` must be JSON-escaped in the first command. With `CONVEYOR_AUTH=disabled`, only the second `curl` is
-needed, without `-b "$jar"`. Replace `localhost` with your domain if you changed the Caddyfile; for its local
-certificate, add `-k` or trust Caddy's root.
+needed, without `-b "$jar"`. Replace `localhost` with your `CONVEYOR_DOMAIN` if you set one; for Caddy's local
+certificate, add `-k` or trust its root ([HTTPS on the LAN](#https-on-the-lan-trusting-caddys-local-ca)).
 
 ## Local development without Docker
 
@@ -268,13 +410,7 @@ The worker talks to printers over your network from the Compose bridge network. 
 
 ## Routing in the Caddyfile
 
-Caddy sends everything under `/api/` to `api` and strips the prefix (`handle_path`), so `/api/jobs/active` reaches the API's own `/jobs/active`. Everything else goes to `web`, so pages such as `/jobs` and `/jobs/<id>` load directly. `https://localhost/api/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. Anything that calls the API through Caddy, such as a script or a health probe, adds `/api` in front of the path: `curl https://localhost/api/health`. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
-
-```
-{
-	email you@example.com
-}
-```
+Caddy sends everything under `/api/` to `api` and strips the prefix (`handle_path`), so `/api/jobs/active` reaches the API's own `/jobs/active`. Everything else goes to `web`, so pages such as `/jobs` and `/jobs/<id>` load directly. `https://localhost/api/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. Anything that calls the API through Caddy, such as a script or a health probe, adds `/api` in front of the path: `curl https://localhost/api/health`. The site address is `{$CONVEYOR_DOMAIN:localhost}`; set the name in `.env`, not here ([The name Caddy serves](#the-name-caddy-serves)). Let's Encrypt needs no email address.
 
 ## Slicer and CAD engines in the worker image
 

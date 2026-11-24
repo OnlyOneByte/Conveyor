@@ -2,7 +2,7 @@
 	skip_install_trust
 }
 
-localhost {
+{$CONVEYOR_DOMAIN:localhost} {
 	encode gzip zstd
 
 	header {

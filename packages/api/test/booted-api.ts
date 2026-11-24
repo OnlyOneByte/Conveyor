@@ -28,6 +28,7 @@ export function jobRows(dir: string): number {
 export interface BootedApi {
   base: string;
   stop(): Promise<void>;
+  signal(signal: "SIGTERM" | "SIGINT"): Promise<number>;
 }
 
 export async function bootApi(dir: string, env: Record<string, string>): Promise<BootedApi> {
@@ -62,6 +63,10 @@ export async function bootApi(dir: string, env: Record<string, string>): Promise
         stop: async () => {
           api.kill();
           await api.exited;
+        },
+        signal: (signal) => {
+          api.kill(signal);
+          return api.exited;
         },
       };
     }

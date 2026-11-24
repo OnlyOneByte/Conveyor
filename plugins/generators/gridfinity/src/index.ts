@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type GeneratorPlugin,
@@ -13,6 +13,9 @@ import { type GridfinityParams, gridfinityParams } from "./params.js";
 const scadFile = () =>
   process.env.GRIDFINITY_SCAD ?? "/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad";
 const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
+
+export const missingLibrary = (path: string) =>
+  `the gridfinity library is missing at ${path}; run git submodule update --init in the Conveyor checkout, then restart the worker`;
 
 function toScadDefines(p: GridfinityParams): string[] {
   const d: Record<string, number | boolean> = {
@@ -75,7 +78,15 @@ export const gridfinity: GeneratorPlugin<GridfinityParams> = {
       return { path: out, format: "stl", meta: { params: parsed.data, stub: true } };
     }
 
-    const args = ["-o", out, ...toScadDefines(parsed.data), scadFile()];
+    const scad = scadFile();
+    if (
+      await access(scad).then(
+        () => false,
+        () => true,
+      )
+    )
+      throw new StageError("generator", missingLibrary(scad));
+    const args = ["-o", out, ...toScadDefines(parsed.data), scad];
     const bin = process.env.OPENSCAD_BIN ?? "openscad";
     ctx.log(`${bin} ${args.join(" ")}`);
 

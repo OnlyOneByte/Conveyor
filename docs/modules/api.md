@@ -24,6 +24,17 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 `routes/jobs-sqlite.ts` (SQLite). Both register the same paths. The import is dynamic, so in `sqlite` mode
 `queue.ts` is never loaded and the api opens no Redis connection.
 
+### Stopping (`shutdown.ts`)
+
+`closeOnSignals` handles SIGTERM and SIGINT: it calls `app.close()` and exits `0` once that finishes, or `1`
+if it fails or is still running after `CLOSE_DEADLINE_MS` (3 s). A second signal while closing exits `1` at once.
+The api runs as PID 1 in its container, and PID 1 gets no default signal handling, so without this handler
+`docker compose stop` waited its full 10 s and then killed it. Closing runs `closeSocketsRestarting`, the
+WebSocket plugin's `preClose`: every open job socket closes with `1012` (`JOB_STREAM_CLOSE.restarting`), and
+it waits at most `SOCKET_CLOSE_WAIT_MS` (1 s) for them. It uses `1012`, not `1001`, because Bun sends a
+server's `1001` as `1000`, which a client would read as `job finished`. `shutdown-boot.test.ts` boots
+`index.ts`, opens a job socket and checks SIGTERM gives `1012` and exit `0` within 2 s.
+
 ## Job status stream (both queues)
 
 `GET /jobs/:id/ws` behaves the same on both queues: the job's current snapshot is the first frame, every
@@ -36,6 +47,7 @@ later event follows once and in order, and the server closes the socket with a c
 | `4404` | `unknown job` | no such job; no frame is sent |
 | `1011` | `job stream failed` | the snapshot, the event tail or the Redis subscribe failed |
 | `1013` | `too many job streams` | SQLite only: the polling cap below |
+| `1012` | `server restarting` | the api got SIGTERM or SIGINT and is shutting down; reconnect later |
 
 Both queues ping every job socket every 30 s (`DEFAULT_HEARTBEAT` in `heartbeat.ts`). A socket that has
 not answered the last 2 pings is terminated without a close frame, which runs the same release as any

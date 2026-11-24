@@ -84,8 +84,9 @@ optional per-profile edited JSON overriding the bundled files.
 > hands the slicer that path, cleaning it up in a `finally`. An edited Prusa profile is
 > materialized the same way from `prusa_ini`. A pristine profile keeps its bundled `path` unchanged.
 >
-> **Backup.** Edits live in SQLite, so they are captured by a DB file backup; the
-> `/profiles` mount is immutable and needs no separate backup beyond its version control.
+> **Backup.** Edits live in SQLite, so a database backup captures them; take it with `VACUUM INTO`, never a
+> file copy of the live WAL database ([self-hosting.md § Backup and restore](self-hosting.md#backup-and-restore)).
+> The `/profiles` mount is immutable and needs no separate backup beyond its version control.
 
 ### printer
 A physical device addressable by a transport. **Secrets live here and never leave the server.**

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StageError } from "@conveyor/shared";
@@ -10,7 +10,7 @@ import {
   type TestCtx,
   testCtx,
 } from "../../../../packages/shared/test/helpers/index.ts";
-import { gridfinity } from "./index.ts";
+import { gridfinity, missingLibrary } from "./index.ts";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -22,11 +22,13 @@ async function load(env: Record<string, string | undefined>) {
   return gridfinity;
 }
 
-function setup(): { ctx: TestCtx; bin: string } {
+function setup(): { ctx: TestCtx; bin: string; scad: string } {
   const ctx = testCtx();
   const bin = mkdtempSync(join(tmpdir(), "conveyor-openscad-"));
   cleanups.push(ctx.cleanup, () => rmSync(bin, { recursive: true, force: true }));
-  return { ctx, bin };
+  const scad = join(bin, "bins.scad");
+  writeFileSync(scad, "cube(1);\n");
+  return { ctx, bin, scad };
 }
 
 const params = {
@@ -60,18 +62,18 @@ describe("the gridfinity generator", () => {
   });
 
   test("runs OpenSCAD with the params as defines and the scad file last", async () => {
-    const { ctx, bin } = setup();
+    const { ctx, bin, scad } = setup();
     const openscad = fakeEngine(bin, "openscad", 'touch "$2"');
     const plugin = await load({
       CONVEYOR_ENGINE_STUB: undefined,
       OPENSCAD_BIN: openscad,
-      GRIDFINITY_SCAD: "/scad/bins.scad",
+      GRIDFINITY_SCAD: scad,
     });
     const model = await plugin.generate(params, ctx);
     expect(model).toMatchObject({ path: join(ctx.workDir, "model.stl"), meta: { params } });
     const args = engineArgs(bin, "openscad");
     expect(args.slice(0, 2)).toEqual(["-o", join(ctx.workDir, "model.stl")]);
-    expect(args.at(-1)).toBe("/scad/bins.scad");
+    expect(args.at(-1)).toBe(scad);
     const defines = ["gridx=2", "gridy=3", "gridz=6", "divx=1", "divy=2", "scoop=1", "style_tab=5"];
     for (const define of [...defines, "refined_holes=false"]) {
       expect(args).toContain(define);
@@ -81,21 +83,41 @@ describe("the gridfinity generator", () => {
   });
 
   test("reports a failing OpenSCAD run with the tail of its stderr", async () => {
-    const { ctx, bin } = setup();
+    const { ctx, bin, scad } = setup();
     const openscad = fakeEngine(bin, "openscad", "echo 'parse error in bins.scad' >&2; exit 3");
-    const plugin = await load({ CONVEYOR_ENGINE_STUB: undefined, OPENSCAD_BIN: openscad });
+    const plugin = await load({
+      CONVEYOR_ENGINE_STUB: undefined,
+      OPENSCAD_BIN: openscad,
+      GRIDFINITY_SCAD: scad,
+    });
     const err = await plugin.generate({ ...params, labelTab: true }, ctx).catch((e: unknown) => e);
     expect((err as StageError).reason).toMatch(/exited 3: parse error in bins\.scad/);
   });
 
   test("reports an OpenSCAD binary that cannot start", async () => {
-    const { ctx, bin } = setup();
+    const { ctx, bin, scad } = setup();
     const plugin = await load({
       CONVEYOR_ENGINE_STUB: undefined,
       OPENSCAD_BIN: join(bin, "missing"),
+      GRIDFINITY_SCAD: scad,
     });
     const err = await plugin.generate(params, ctx).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(StageError);
     expect((err as StageError).stage).toBe("generator");
+  });
+
+  test("names the missing submodule, without running OpenSCAD, when the library isn't there", async () => {
+    const { ctx, bin } = setup();
+    const openscad = fakeEngine(bin, "openscad", 'touch "$2"');
+    const scad = join(bin, "absent", "gridfinity-rebuilt-bins.scad");
+    const plugin = await load({
+      CONVEYOR_ENGINE_STUB: undefined,
+      OPENSCAD_BIN: openscad,
+      GRIDFINITY_SCAD: scad,
+    });
+    const err = await plugin.generate(params, ctx).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StageError);
+    expect(err).toMatchObject({ stage: "generator", reason: missingLibrary(scad) });
+    expect(existsSync(join(bin, "openscad.args"))).toBe(false);
   });
 });

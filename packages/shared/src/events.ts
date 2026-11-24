@@ -28,6 +28,7 @@ export const JOB_STREAM_CLOSE = {
   finished: 1000,
   failed: 1011,
   busy: 1013,
+  restarting: 1012,
   unknownJob: 4404,
 } as const;
 
