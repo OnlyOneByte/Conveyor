@@ -1,29 +1,43 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { shortName, type TrackJob } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
 
   export let jobs: TrackJob[];
-  export let onAction: (job: TrackJob, action: string) => void;
+  export let onAction: (job: TrackJob, action: string) => unknown;
   const tray = uid("tray");
   const ACTIONS = ["Retry", "Pick printer", "Dismiss"];
   let open = false;
+  let wrap: HTMLDivElement;
   let button: HTMLButtonElement;
-  function keys(event: KeyboardEvent) {
-    if (event.key !== "Escape" || !open) return;
-    open = false;
-    button.focus();
+
+  async function run(job: TrackJob, action: string, at: number) {
+    const bins = wrap.parentElement;
+    await onAction(job, action);
+    await tick();
+    const items = wrap?.isConnected ? [...wrap.querySelectorAll<HTMLElement>(".tray li")] : [];
+    const next = (items[at] ?? items[at - 1])?.querySelector("button");
+    (next ?? (wrap?.isConnected ? button : bins?.querySelector("a")))?.focus();
+  }
+  function dismiss(event: Event) {
+    if (!open) return;
+    if (event instanceof KeyboardEvent && event.key === "Escape") {
+      if (wrap.contains(document.activeElement)) button.focus();
+      open = false;
+    } else if (event.type === "pointerdown" && event.target instanceof Node && !wrap.contains(event.target)) open = false;
   }
 </script>
 
-<div class="wrap" role="presentation" on:keydown={keys}>
+<svelte:window on:keydown={dismiss} on:pointerdown={dismiss} />
+<div class="wrap" bind:this={wrap}>
   <button type="button" class="needs" aria-expanded={open} aria-controls={tray} bind:this={button} on:click={() => (open = !open)}>Needs you<span class="n">{jobs.length}</span></button>
   {#if open}
     <ul class="tray" id={tray}>
-      {#each jobs as job (job.id)}
+      {#each jobs as job, at (job.id)}
         <li>
           <a href="/history/{job.id}">{shortName(job.name)}</a> {#if job.printer}<span class="on">on {job.printer}</span>{/if}
           <p>{job.reason ?? "It stopped without giving a reason."}</p>
-          <p class="acts">{#each ACTIONS as action (action)}<button type="button" class="btn" class:ghost={action !== "Retry"} on:click={() => onAction(job, action)}>{action}</button>{/each}</p>
+          <p class="acts">{#each ACTIONS as action (action)}<button type="button" class="btn" class:ghost={action !== "Retry"} on:click={() => run(job, action, at)}>{action}</button>{/each}</p>
         </li>
       {/each}
     </ul>

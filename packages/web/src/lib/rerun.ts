@@ -5,6 +5,8 @@
  * arbitrary JSON that would be fragile and size-limited in a URL — and it is scoped
  * to the tab, so it never leaks a stale prefill into an unrelated later visit.
  */
+import type { JobState } from "@conveyor/shared";
+
 const KEY = "conveyor.rerun";
 
 interface RerunPayload {
@@ -12,6 +14,17 @@ interface RerunPayload {
   params?: unknown;
   printerId: string;
   profileId: string;
+  retryOf?: string;
+}
+
+interface Rerunnable {
+  state: JobState;
+  request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
+}
+
+export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
+  const settled = state === "done" || state === "canceled";
+  return settled && request.generator.id !== "passthrough" && request.printerId && request.profileId ? request : null;
 }
 
 /** Stash a job's request for the home page to pick up. Best-effort. */

@@ -56,7 +56,7 @@ export async function uploadStl(file: File): Promise<UploadResult> {
 }
 
 export async function submitJob(
-  body: { generator: { id: string; params: unknown }; printerId: string; profileId: string },
+  body: { generator: { id: string; params: unknown }; printerId: string; profileId: string; retryOf?: string },
 ): Promise<{ jobId: string }> {
   const r = await fetch(`${API}/jobs`, {
     method: "POST",

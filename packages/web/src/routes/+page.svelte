@@ -26,11 +26,6 @@
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    // "Run again" handoff: the job-detail page stashed a prior job's request and sent
-    // us here with ?rerun=1. Apply it AFTER the catalog is loaded so these selections
-    // win over the reactive defaults (which only fill empty selections). The referenced
-    // ids may no longer exist (a deleted printer/profile) — set them anyway; the
-    // eligibility filters below fall back to a valid default and the user just re-picks.
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
@@ -38,6 +33,7 @@
         selectedGenId = r.generatorId;
         selectedPrinterId = r.printerId;
         selectedProfileId = r.profileId;
+        retryOf = r.retryOf;
         if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
       }
     }
@@ -55,6 +51,7 @@
   let selectedPrinterId = "";
   let selectedProfileId = "";
   let params: Record<string, unknown> = {};
+  let retryOf: string | undefined;
 
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
@@ -153,7 +150,9 @@
         generator,
         printerId: selectedPrinterId,
         profileId: selectedProfileId,
+        ...(retryOf ? { retryOf } : {}),
       });
+      retryOf = undefined;
       jobId = res.jobId;
       // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
