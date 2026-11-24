@@ -19,7 +19,7 @@ export function nextIndex(key: string, current: number, count: number): number |
 
 export const closesOn = (key: string) => key === "Escape" || key === "Tab";
 
-export const TABBABLE = `a[href], ${["button", "input", "select", "textarea"].map((tag) => `${tag}:not(:disabled)`).join(", ")}, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])`;
+export const TABBABLE = `a[href], ${["button", "input", "select", "textarea"].map((tag) => `${tag}:not(:disabled)`).join(", ")}, summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])`;
 
 export function wrapTab(back: boolean, at: number, count: number): number | null {
   if (count === 0) return null;

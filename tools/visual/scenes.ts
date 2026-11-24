@@ -109,6 +109,27 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "primitives-fields",
+    route: "/primitives",
+    ready: "text=Fields",
+    steps: [{ click: "text=Name" }, { wait: 400 }],
+  },
+  {
+    name: "primitives-dialog",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      { click: "button:has-text('Open dialog')" },
+      { waitFor: "dialog select:focus", timeout: 5000 },
+      ...keys("Tab"),
+      { waitFor: "dialog textarea:focus", timeout: 5000 },
+      ...keys("Tab", "Tab", "Tab"),
+      { waitFor: "dialog select:focus", timeout: 5000 },
+      ...keys("Shift+Tab"),
+      { waitFor: "dialog button:has-text('Cancel job'):focus", timeout: 5000 },
+    ],
+  },
+  {
     name: "primitives-keys",
     route: "/primitives",
     ready: "text=Primitives",
