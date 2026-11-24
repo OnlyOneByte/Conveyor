@@ -255,7 +255,7 @@ docker run --rm -v conveyor_redis_data:/v/redis_data -v conveyor_caddy_data:/v/c
 docker compose up -d --wait
 ```
 
-`up --no-start` creates the volumes as Compose's own, so a new host doesn't warn about them. `--numeric-owner` keeps every file's owner (`10001` for `./data`, `999:1000` for Redis, `10002` for Caddy), so nothing needs a `chown` afterwards. The tarball holds the secrets key with the database; keep it as private as the key.
+`up --no-start` creates the volumes as Compose's own, so a new host doesn't warn about them. `--numeric-owner` keeps every file's owner (`10001` for `./data`, `999:1000` for Redis, `10002` for Caddy), so nothing needs a `chown` afterwards; `caddy-init` hands the volumes' top folders, which `up --no-start` made, back to Caddy on the next `up`. The tarball holds the secrets key with the database; keep it as private as the key.
 
 ## Containers run as uid 10001
 

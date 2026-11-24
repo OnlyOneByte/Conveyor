@@ -177,6 +177,17 @@ With a base, the job skips only the entries both the base's and the branch's bas
 
 When there is a base, every id the branch's baseline adds over it must appear in `bun audit --json` on that tree, or the job fails naming the id. That stops a PR from pre-seeding an id for an advisory that doesn't exist yet. If the base can't be resolved, the job fails. If either baseline or the audit output is empty or isn't a JSON object, the job fails and says which.
 
+### Image scan
+
+`bun audit` sees only npm packages. Each `Docker build (<service>)` job also scans the image it built with Trivy, pinned by digest, for vulnerabilities that already have a fix: in Debian packages, in the base images and in anything else the image holds. Fixed critical and high findings go in the job summary and the `image-scan-<service>` artifact. A fixed critical one fails the job; a high one doesn't. Usually the fix is a rebuild on a newer base image. To see the findings for an image you built locally:
+
+```sh
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c \
+  image --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH conveyor-api
+```
+
+The release workflow builds the same Dockerfiles, so a tag's images are the ones CI scanned on that commit.
+
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.
 - **Adding an entry:** a PR can't add a dependency and its entry together, because the base doesn't list the
