@@ -1,4 +1,5 @@
 import type { Viewport } from "./hits.ts";
+import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
   | { click: string }
@@ -158,28 +159,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 600 }],
   })),
-  {
-    name: "sign-in",
-    route: "/",
-    ready: "h1 >> text=Sign in",
-    signedOut: true,
-  },
-  {
-    name: "sign-in-wrong",
-    route: "/",
-    ready: "h1 >> text=Sign in",
-    signedOut: true,
-    steps: [
-      { type: "#password", text: "not the password" },
-      { click: "button:has-text('Sign in')" },
-      { waitFor: "text=That password didn't work" },
-    ],
-  },
-  {
-    name: "not-found",
-    route: "/no-such-page",
-    ready: "text=Page not found",
-  },
+  ...signedOutScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",
