@@ -7,15 +7,7 @@ import { chipName, groupName, type TrackJob } from "./track";
 
 const catalog: Catalog = {
   printers: [{ id: "voron", name: "Voron 2.4", transportId: "klipper", address: "192.0.2.9", hasSecrets: false }],
-  generators: [
-    {
-      id: "gridfinity",
-      name: "Gridfinity Bin",
-      outputs: [],
-      paramSchema: { type: "object", properties: { gridX: { type: "integer" }, gridY: { type: "integer" } } },
-      ui: { groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" }] },
-    },
-  ],
+  generators: [{ id: "gridfinity", name: "Gridfinity Bin", outputs: [], paramSchema: { properties: { gridX: { type: "integer" }, gridY: { type: "integer" } } }, ui: { groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" }] } }],
 };
 
 const view = (jobId: string, state: JobView["state"], extra: Partial<JobView> = {}): JobView => ({
