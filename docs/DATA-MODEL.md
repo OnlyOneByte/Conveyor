@@ -180,6 +180,12 @@ rows stay inert history.
 | `event` | text | a serialized `JobStatusEvent`, the frame the WebSocket sends |
 | `at` | integer | epoch ms |
 
+A `printing` event can carry `print: { layer?, layers?, secondsLeft? }` (`PrintProgress` in
+`packages/shared/src/events.ts`): the current layer, the layer count and the printer's seconds left, each
+only when the printer reports it. It lives only in the event: the `jobs` row has no column for it, so in
+SQLite mode `GET /jobs/:id` leaves it out and a client gets it from the next tailed event. In Redis mode the
+`job:<id>` snapshot is the whole last event and keeps it.
+
 ### sessions
 
 | column | type | notes |
