@@ -58,9 +58,9 @@ describe("toasts", () => {
     const clock = fakeClock();
     const toasts = createToasts(clock);
     const run = () => {};
-    const id = toasts.show("Canceled Bin 2×1", { label: "Print again", run });
+    const id = toasts.show("Canceled Bin 2x1", { label: "Print again", run });
     expect(TOAST_MS).toBe(6000);
-    expect(get(toasts)).toEqual([{ id, text: "Canceled Bin 2×1", action: { label: "Print again", run } }]);
+    expect(get(toasts)).toEqual([{ id, text: "Canceled Bin 2x1", action: { label: "Print again", run } }]);
     clock.tick(5999);
     expect(get(toasts)).toHaveLength(1);
     clock.tick(1);

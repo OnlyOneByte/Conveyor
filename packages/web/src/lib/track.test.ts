@@ -128,10 +128,10 @@ describe("collision and merge", () => {
 });
 
 describe("chip text", () => {
-  const job = (state: TrackJob["state"], progress?: number): TrackJob => ({ id: state, name: "Gridfinity bin 2×3 · 6u", state, progress, printer: "Ender 3 V3" });
+  const job = (state: TrackJob["state"], progress?: number): TrackJob => ({ id: state, name: "Gridfinity bin 2x3 · 6u", state, progress, printer: "Ender 3 V3" });
 
   test("shortens a Gridfinity name for the rail and keeps an upload's file name", () => {
-    expect([shortName("Gridfinity bin 2×3 · 6u"), shortName("tray.stl")]).toEqual(["Bin 2×3 · 6u", "tray.stl"]);
+    expect([shortName("Gridfinity bin 2x3 · 6u"), shortName("tray.stl")]).toEqual(["Bin 2x3 · 6u", "tray.stl"]);
   });
 
   test("shows each state's value", () => {
@@ -141,7 +141,7 @@ describe("chip text", () => {
   });
 
   test("names start with the visible text, then the full name, printer and status", () => {
-    expect(chipName(job("printing", 0.64))).toBe("Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing");
+    expect(chipName(job("printing", 0.64))).toBe("Bin 2x3 · 6u 64%, Gridfinity bin 2x3 · 6u on Ender 3 V3, printing");
     expect(chipName({ id: "u", name: "tray.stl", state: "generating" })).toBe("tray.stl …, tray.stl, modelling");
   });
 
@@ -152,8 +152,8 @@ describe("chip text", () => {
   });
 
   test("a group's name lists every member and its status after its visible text", () => {
-    const members = [job("slicing", 0.35), { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" }, job("slicing", 0.12)];
+    const members = [job("slicing", 0.35), { ...job("generating"), name: "Gridfinity bin 1x1 · 3u" }, job("slicing", 0.12)];
     expect(groupVisible(members)).toBe("3 jobs 35% · … · 12%");
-    expect(groupName(members)).toBe("3 jobs 35% · … · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing");
+    expect(groupName(members)).toBe("3 jobs 35% · … · 12%: Bin 2x3 · 6u, slicing; Bin 1x1 · 3u, modelling; Bin 2x3 · 6u, slicing");
   });
 });

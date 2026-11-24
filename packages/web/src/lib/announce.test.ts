@@ -4,10 +4,10 @@ import { announce, announcements } from "./announce.js";
 
 describe("announce", () => {
   test("writes the message to the region for its politeness, polite by default", async () => {
-    await announce("Bin 1×1 moved to Send on Voron 2.4.");
-    await announce("Bin 1×1 failed.", "assertive");
-    expect(get(announcements.polite)).toBe("Bin 1×1 moved to Send on Voron 2.4.");
-    expect(get(announcements.assertive)).toBe("Bin 1×1 failed.");
+    await announce("Bin 1x1 moved to Send on Voron 2.4.");
+    await announce("Bin 1x1 failed.", "assertive");
+    expect(get(announcements.polite)).toBe("Bin 1x1 moved to Send on Voron 2.4.");
+    expect(get(announcements.assertive)).toBe("Bin 1x1 failed.");
   });
 
   test("clears the region first, so the same message is announced again", async () => {
