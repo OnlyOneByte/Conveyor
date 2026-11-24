@@ -48,7 +48,19 @@ async function sliceStage(
   );
   const gcode = await race(run, sliced);
   run.gcodePath = gcode.path;
+  await noteFilament(run, gcode.path);
   return gcode;
+}
+
+export const FILAMENT_NOT_READ = "filament use not read";
+
+async function noteFilament(run: Run, gcodePath: string | undefined): Promise<void> {
+  if (!gcodePath) return;
+  try {
+    run.filament = await run.deps.readFilament(gcodePath);
+  } catch (err) {
+    run.notes.push(`${FILAMENT_NOT_READ}: ${messageOf(err)}`);
+  }
 }
 
 async function runStages(run: Run): Promise<PrintOutcome> {
@@ -87,6 +99,7 @@ export async function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promis
     if (!resumed) throw new ResumeFailedError("no stored print handle");
     run.modelPath = resumed.modelPath;
     run.gcodePath = resumed.gcodePath;
+    await noteFilament(run, resumed.gcodePath);
     run.enters = (resumed.timings ?? []).map((t) => ({ stage: t.stage, at: t.enteredAt }));
     outcome = await resumePrint(run, resumed.handle);
   } catch (err) {

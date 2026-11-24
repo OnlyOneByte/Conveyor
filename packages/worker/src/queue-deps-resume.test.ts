@@ -71,6 +71,23 @@ describe("resuming a job that was already on the printer", () => {
     expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
   });
 
+  test("reads the filament again from the stored g-code when it resumes", async () => {
+    const read: string[] = [];
+    const h = queued(
+      { resume: true },
+      {
+        readFilament: async (path) => {
+          read.push(path);
+          return { metres: 2.21 };
+        },
+      },
+    );
+    db.query("UPDATE jobs SET gcode_path = '/data/job-1/model.gcode' WHERE id = 'job-1'").run();
+    expect(await h.run()).toBe("done");
+    expect(read).toEqual(["/data/job-1/model.gcode"]);
+    expect(dbGetJob(db, "job-1")?.filament).toEqual({ metres: 2.21 });
+  });
+
   test("watches the stored handle and never submits again", async () => {
     const h = queued({
       resume: true,

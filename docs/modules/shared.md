@@ -249,6 +249,18 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
   reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
   pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.
+- `readFilamentUse(path)` returns the slicer's filament estimate as `FilamentUse` (`{ grams?, metres? }`), or
+  `undefined`. `parseFilamentUse(text)` does the parsing:
+  - PrusaSlicer 2.9.2 and OrcaSlicer 2.4.1 (the version `install-orca.sh` pins) both write a footer before
+    their config block with `; filament used [mm] = …`, `; filament used [g] = …` (one value per extruder,
+    comma-separated, summed) and `; total filament used [g] = …`, which wins for grams. OrcaSlicer's header
+    block carries no filament totals. The fixtures in `packages/shared/test/fixtures/gcode/` are captured from
+    the repo's worker image slicing a 20 × 20 × 10 mm cube with the bundled profiles.
+  - A total of 0 is unknown, not zero: a slicer writes `0.00` g when the filament has no density set. The bundled PLA
+    profiles (`profiles/*-pla-0.2`) set `filament_density` to 1.24 g/cm³, so default jobs report grams. A
+    negative, empty or unreadable value leaves that field out.
+  - Only the last 512 KiB is read: the footer sits about 10 KiB (PrusaSlicer) to 20 KiB (OrcaSlicer) from
+    the end.
 
 ## db/index.ts
 
