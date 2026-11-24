@@ -201,6 +201,18 @@ describe("printer secrets at rest", () => {
     dbUpsertPrinter(db, printer);
     expect(dbGetPrinter(db, "bad-shape")?.name).toBe("B");
     expect(storedOf(db, "bad-shape")).toBe(before ?? "missing");
+    dbUpsertPrinter(db, { ...printer, secrets: null });
+    expect(storedOf(db, "bad-shape")).toBeNull();
+    expect(dbGetPrinter(db, "bad-shape")?.hasSecrets).toBe(false);
+  });
+
+  test("an upsert with secrets: null clears every stored secret", () => {
+    const db = reopen(dbWithPlaintextRows(), KEY_A);
+    const printer = { id: "no-key", transportId: "elegoo", name: "N", address: "10.0.0.9" };
+    dbUpsertPrinter(db, { ...printer, secrets: { mainboardId: "board-1", typo: "k1" } });
+    dbUpsertPrinter(db, { ...printer, name: "Cleared", secrets: null });
+    expect(storedOf(db, "no-key")).toBeNull();
+    expect(dbGetPrinter(db, "no-key")).toMatchObject({ name: "Cleared", hasSecrets: false });
   });
 });
 

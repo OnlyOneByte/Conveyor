@@ -7,6 +7,7 @@
   export let unit = "";
   export let hint = "";
   export let error = "";
+  export let type: "text" | "password" = "text";
   const id = uid("field");
   $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
 </script>
@@ -16,11 +17,14 @@
   <div class="box" class:bad={error}>
     <input
       {id}
+      {type}
       {value}
       inputmode={numeric ? "decimal" : undefined}
       aria-invalid={error ? "true" : undefined}
       aria-describedby={described || undefined}
+      autocomplete={type === "password" ? "off" : undefined}
       on:input={(e) => (value = e.currentTarget.value)}
+      on:input
     />
     {#if unit}<span id="{id}-unit" class="unit">{unit}</span>{/if}
   </div>

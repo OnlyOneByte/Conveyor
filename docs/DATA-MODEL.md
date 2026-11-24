@@ -104,10 +104,10 @@ A physical device addressable by a transport. **Secrets live here and never leav
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
-> merging `secrets` into the stored `secrets_json`. Omitting it on write means "no restriction"; COALESCE
+> merging `secrets` into the stored `secrets_json` (`secrets: null` sets it to `NULL`). Omitting it on write means "no restriction"; COALESCE
 > would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
 > load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
-> presence-not-truthiness when checking it, and an explicit toggle in the Settings form
+> presence-not-truthiness when checking it, and an explicit toggle in the printer form
 > so a user can see which state they are in.
 
 > **Removed 2026-09-02: the `stations` table.** A Station was an operator-curated,
@@ -160,7 +160,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
-| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once, and cleared if queueing fails), so the failure leaves the Needs-you list |
+| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once), so the failure leaves the Needs-you list. On SQLite the claim and the enqueue share one transaction; on Redis the worker's reaper clears a claim whose retry was never queued, or whose retry died unrecorded |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |
@@ -258,7 +258,7 @@ both the database and the key.
 on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
 and `worker` delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
-default catalog (the old in-memory seeds) is seeded once per database, so edits made in Settings
+default catalog (the old in-memory seeds) is seeded once per database, so edits made on Printers or in Settings
 survive restarts. The flag is the row `key = 'seeded'` in a small `meta (key, value)` table that
 `migrate()` creates; `PRAGMA user_version` is left free for a future schema version. The check,
 the flag write and the inserts run in one `BEGIN IMMEDIATE` transaction, so a crash mid-seed

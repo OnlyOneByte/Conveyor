@@ -103,7 +103,7 @@
   .tick { position: absolute; bottom: 8px; width: 2px; height: 30px; background: var(--muted); }
   .stage { position: absolute; bottom: 36px; font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .stage.on { color: var(--ink); }
-  .stage.on::before { content: "● " / ""; color: var(--accent); }
+  .stage.on::before { content: "● " / ""; color: var(--live); }
   .rail { position: absolute; inset: auto 0 8px; height: 22px; overflow: hidden; border-radius: 11px; background: var(--belt); }
   .treads { position: absolute; inset: 0 0 0 -26px; background: repeating-linear-gradient(90deg, var(--tread) 0 3px, transparent 3px 26px); }
   .treads.run { animation: tread 1.3s linear infinite; will-change: transform; }

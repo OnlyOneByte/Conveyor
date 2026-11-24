@@ -21,7 +21,7 @@ import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
-import { submitJob } from "./submit.js";
+import { submitJobInTransaction } from "./submit.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
@@ -78,7 +78,7 @@ export async function registerJobRoutes(
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
-    const result = await submitJob(db, submission, (id, request) =>
+    const result = submitJobInTransaction(db, submission, (id, request) =>
       enqueueJob(db, { id, request }),
     );
     return reply.code(result.code).send(result.body);

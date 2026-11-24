@@ -19,7 +19,7 @@
     { group: "Actions", label: "New print", hint: "N", run: () => goto("/") },
     { group: "Actions", label: "Go to Make", hint: "G M", run: () => goto("/") },
     { group: "Actions", label: "Go to Jobs", hint: "G J", run: () => goto("/jobs") },
-    { group: "Actions", label: "Go to Printers", hint: "G P", run: () => goto("/settings") },
+    { group: "Actions", label: "Go to Printers", hint: "G P", run: () => goto("/printers") },
     { group: "Actions", label: "Switch theme", hint: "T", run: toggleTheme },
     { group: "Actions", label: "Keyboard shortcuts", hint: "?", run: () => (sheet = true) },
   ];
@@ -33,7 +33,7 @@
     commands = [
       ...jobCommands(recent, known, (id) => goto(`/jobs/${id}`)),
       ...actions,
-      ...printerCommands(known?.printers ?? [], () => goto("/settings")),
+      ...printerCommands(known?.printers ?? [], () => goto("/printers")),
     ];
   }
 

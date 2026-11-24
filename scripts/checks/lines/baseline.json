@@ -4,7 +4,7 @@
     "packages/web/src/lib/components/SchemaGroup.svelte": 177,
     "packages/web/src/lib/previews/gridfinity.ts": 452,
     "packages/web/src/routes/+page.svelte": 486,
-    "packages/web/src/routes/monitor/+page.svelte": 279,
-    "packages/web/src/routes/settings/+page.svelte": 747
+    "packages/web/src/routes/monitor/+page.svelte": 185,
+    "packages/web/src/routes/settings/+page.svelte": 566
   }
 }
