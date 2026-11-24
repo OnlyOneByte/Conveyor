@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { openDb } from "@conveyor/shared/db";
 import { enqueueJob } from "@conveyor/shared/queue";
+import { startWorker } from "./main";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 
 const MAIN = join(import.meta.dir, "main.ts");
@@ -43,6 +44,13 @@ async function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 }
 
 describe("the worker entry point on the sqlite queue", () => {
+  test("starts a sqlite worker in process and stops it", async () => {
+    dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
+    const started = await startWorker(workerEnv({ WORKER_CONCURRENCY: "1" }));
+    expect(started.mode).toBe("sqlite");
+    await started.stop();
+  });
+
   test("exits 1 on a WORKER_CONCURRENCY that is not a positive integer", async () => {
     dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
     for (const raw of ["two", "0"]) {

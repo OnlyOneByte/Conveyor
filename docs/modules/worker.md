@@ -35,7 +35,7 @@ Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER
 ## main.ts and mode.ts
 
 `main.ts` is the image's entry point. It picks the queue with `queueMode` from `@conveyor/shared`, which reads
-`CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and loads `index.ts` (BullMQ) or starts `startSqliteWorker`. Anything else exits with
+`CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and starts `startRedisWorker` (`index.ts`, BullMQ) or `startSqliteWorker`. That work is `startWorker(env)`, which tests call in process; only the image's run of the file exits on an error and installs the signal handlers. Anything else exits with
 code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
 with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
 `SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
@@ -54,11 +54,19 @@ printers from that database, as the BullMQ worker does from its own connection.
 
 ## index.ts
 
-The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
+The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`. `startRedisWorker(env, deps)` reads `REDIS_URL`,
+`DATA_DIR`, `DB_PATH` and `WORKER_CONCURRENCY` from `env`; `deps` supplies the Redis clients, the work-dir
+`mkdir` and the queue name, so tests run it on real Redis with their own queue. `stop()` closes the worker and
+its two connections.
 
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
   parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
+- Every step before the pipeline settles the same way when it throws: parsing the payload, creating the work
+  dir and subscribing to the job's control channel. The job is recorded `failed` in SQLite at the `generator`
+  stage, with the error as its reason, so it shows in history and Needs you; then `failed` is published. A
+  payload that does not parse is recorded with whatever generator, printer and profile ids it does carry,
+  and `unknown` for the rest. The per-job control connection is closed whatever happens.
 - `recordTerminal` writes the settled job to SQLite. Notes go to `notes` in every state. Only a failed job
   has an `error`, and its reason is the stage's own failure reason with no notes mixed in.
 - It starts the reaper below: one sweep at start, then every `REAPER_INTERVAL_MS` (one minute).
@@ -201,6 +209,6 @@ The worker is the only process that runs the adapters; the api builds the same r
 
 ## status.ts
 
-`StatusBus.publish` sends a job status event to the Redis bus and writes the durable snapshot, so a
+`StatusBus` takes the Redis client it writes with. `StatusBus.publish` sends a job status event to the Redis bus and writes the durable snapshot, so a
 reconnecting PWA can `GET /jobs/:id`. State is the contract: every transition is exactly one of these
 messages, forwarded verbatim to the WebSocket.
