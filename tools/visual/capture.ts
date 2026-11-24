@@ -8,6 +8,7 @@ import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
+import { assertHolds } from "./holds.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -77,6 +78,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
         : route.fulfill({ status: step.status, json: step.json }),
     );
   else if ("history" in step) await (step.history === "back" ? page.goBack() : page.goForward());
+  else if ("holds" in step) await assertHolds(page, step);
   else await page.waitForTimeout(step.wait);
 }
 

@@ -16,7 +16,8 @@ export type Step =
   | { fulfill: string; method?: string; status: number; json: unknown }
   | { follow: string }
   | { history: "back" | "forward" }
-  | { hits: string; viewports: readonly Viewport[] };
+  | { hits: string; viewports: readonly Viewport[] }
+  | { holds: string; ms: number; scrollTo: number; anchor: string };
 
 export interface Scene {
   name: string;
