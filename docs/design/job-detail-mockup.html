@@ -121,7 +121,7 @@ const fullTimes = times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>41 s</dd><d
 const filament = '<section><h2>Filament</h2><dl class="rows"><dt>Used</dt><dd>12.4 g · 4.1 m</dd></dl></section>';
 const files = `<section><h2>Files</h2><div class="files"><a class="btn" href="#printed" download>${ICON.down}Model (STL)</a><a class="btn" href="#printed" download>${ICON.down}G-code</a></div></section>`;
 const id = '<div class="idrow"><span>Job ID</span><button class="btn" type="button">Copy job ID</button></div>';
-const head = (pill, when, acts) => `${crumb}<div class="head"><div class="t"><h1 id="title">Gridfinity Bin 2 × 3</h1><div class="meta">${pill}${meta(when)}</div></div><div class="acts">${acts}</div></div>`;
+const head = (pill, when, acts) => `${crumb}<div class="head"><div class="t"><h1 id="title">Gridfinity Bin 2×3 · 6u</h1><div class="meta">${pill}${meta(when)}</div></div><div class="acts">${acts}</div></div>`;
 const receipt = (body) => `<div class="grid"><div class="mat">${model}<span class="tag">84 × 126 × 42 mm</span></div><div class="receipt">${body}</div></div>`;
 const S = {
   printed: () => head(`<span class="pill done">${ICON.done}Printed</span>`, "Finished today at 12:04", `<a class="btn pri" href="#printed">${ICON.again}Print again</a>`) + receipt(settings + fullTimes + filament + files + id),

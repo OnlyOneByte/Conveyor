@@ -17,7 +17,7 @@ const catalog = {
   ],
   generators: [{ id: "gridfinity", name: "Gridfinity Bin", outputs: [], paramSchema: { properties: { gridX: { type: "integer" }, gridY: { type: "integer" } } }, ui: { groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" as const }] } }],
 };
-const job: TrackJob = { id: "f1", name: "Gridfinity Bin 2 × 3", state: "failed", printer: "Voron 2.4" };
+const job: TrackJob = { id: "f1", name: "Gridfinity Bin 2×3", state: "failed", printer: "Voron 2.4" };
 
 function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }) {
   const calls: string[] = [];
@@ -56,18 +56,18 @@ describe("the belt's end states", () => {
     await ends.refresh();
     expect([ENDS_MS, calls]).toEqual([10000, [`finished ${at(0)}`]]);
     expect(midnight(new Date(2026, 10, 24, 0, 0))).toBe(at(0));
-    expect(shown).toEqual([[4, [{ id: "f1", name: "Gridfinity Bin 2 × 3", state: "failed", printer: "Voron 2.4", reason: "the printer didn't answer" }]]]);
+    expect(shown).toEqual([[4, [{ id: "f1", name: "Gridfinity Bin 2×3", state: "failed", printer: "Voron 2.4", reason: "the printer didn't answer" }]]]);
   });
 
   test("Retry hands the failed job to retryJob, says so, and refreshes the tray; a 409 says it's already being retried", async () => {
     const { calls, said, shown, ends } = rig();
     await ends.refresh();
     await ends.act(job, "Retry");
-    expect([calls.filter((c) => !c.startsWith("finished")), said, shown.length]).toEqual([['retry "f1"'], [["Retrying Bin 2 × 3.", "polite"]], 2]);
+    expect([calls.filter((c) => !c.startsWith("finished")), said, shown.length]).toEqual([['retry "f1"'], [["Retrying Bin 2×3.", "polite"]], 2]);
     const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 is already being retried" });
     await taken.ends.refresh();
     await taken.ends.act(job, "Retry");
-    expect([taken.said, taken.shown.length]).toEqual([[["Bin 2 × 3 is already being retried.", "polite"]], 2]);
+    expect([taken.said, taken.shown.length]).toEqual([[["Bin 2×3 is already being retried.", "polite"]], 2]);
   });
 
   test("a refused retry is announced; Dismiss dismisses, and Pick printer hands over the request on another printer that takes it, with retryOf", async () => {
@@ -76,7 +76,7 @@ describe("the belt's end states", () => {
     await ends.act(job, "Retry");
     await ends.act(job, "Dismiss");
     await ends.act(job, "Pick printer");
-    expect(said).toEqual([["Couldn't retry Bin 2 × 3.", "assertive"]]);
+    expect(said).toEqual([["Couldn't retry Bin 2×3.", "assertive"]]);
     expect(calls.filter((c) => !c.startsWith("finished")).slice(1)).toEqual(['dismiss "f1"']);
     expect(picked).toEqual([[{ ...request, printerId: "ender", profileId: "" }, "f1"]]);
   });
@@ -84,10 +84,10 @@ describe("the belt's end states", () => {
   test("canceling a running job, which has no record yet, offers Print again from the chip's request, without retryOf", async () => {
     const { calls, said, toasts, ends } = rig();
     await ends.act({ ...job, id: "c1", state: "printing", request }, "Cancel");
-    expect([calls, toasts.map((t) => [t.text, t.action?.label])]).toEqual([['cancel "c1"'], [["Bin 2 × 3 canceled", "Print again"]]]);
+    expect([calls, toasts.map((t) => [t.text, t.action?.label])]).toEqual([['cancel "c1"'], [["Bin 2×3 canceled", "Print again"]]]);
     toasts[0]?.action?.run();
     await Bun.sleep(0);
-    expect([calls[1], said]).toEqual([`submit ${JSON.stringify(request)}`, [["Bin 2 × 3 is queued again.", "polite"]]]);
+    expect([calls[1], said]).toEqual([`submit ${JSON.stringify(request)}`, [["Bin 2×3 is queued again.", "polite"]]]);
   });
 
   test("an upload's toast has no Print again; on click, a record that settled as failed wins over the chip's request", async () => {
@@ -98,7 +98,7 @@ describe("the belt's end states", () => {
     await ends.act({ ...job, id: "c2", state: "canceled", request }, "Print again");
     expect([toasts, said, calls.some((c) => c.startsWith("submit"))]).toEqual([
       [{ text: "clip.stl canceled" }],
-      [["Couldn't print clip.stl again.", "assertive"], ["Couldn't print Bin 2 × 3 again.", "assertive"]],
+      [["Couldn't print clip.stl again.", "assertive"], ["Couldn't print Bin 2×3 again.", "assertive"]],
       false,
     ]);
   });
@@ -119,6 +119,6 @@ describe("the belt's end states", () => {
     await refused.ends.act(job, "Cancel");
     const { said, ends } = rig();
     await ends.act({ ...job, id: "gone" }, "Print again");
-    expect([refused.said, refused.toasts, said]).toEqual([[["Couldn't cancel Bin 2 × 3.", "assertive"]], [], [["Couldn't print Bin 2 × 3 again.", "assertive"]]]);
+    expect([refused.said, refused.toasts, said]).toEqual([[["Couldn't cancel Bin 2×3.", "assertive"]], [], [["Couldn't print Bin 2×3 again.", "assertive"]]]);
   });
 });
