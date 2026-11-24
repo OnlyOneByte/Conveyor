@@ -4,12 +4,13 @@ import { buildRegistry } from "@conveyor/plugin-registry";
 import { JOB_QUEUE, type JobRequest, jobCancelKey, jobControlChannel } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
-import { Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
+import { redisReaperDeps, startRedisReaper } from "./redis-reaper.js";
 import { StatusBus } from "./status.js";
 
 const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
@@ -61,6 +62,11 @@ const worker = new Worker<unknown>(
 
 worker.on("ready", () => console.log("conveyor worker ready"));
 worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
+
+const lookup = new Queue(JOB_QUEUE, { connection });
+startRedisReaper(
+  redisReaperDeps(commands, lookup, (message) => console.log(`[reaper] ${message}`)),
+);
 
 function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
   dbRecordJob(openDb(), {

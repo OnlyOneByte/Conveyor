@@ -19,18 +19,18 @@ describe("retrying a failed job", () => {
   });
 
   test("a 409, an unreadable error and an answer without a job id come back as refusals", async () => {
-    const taken = answering(409, JSON.stringify({ error: "retryOf: job f1 is already being retried" }));
+    const taken = answering(409, JSON.stringify({ error: "retryOf: job f1 was already retried" }));
     const broken = answering(500, "<html>");
     const blank = answering(202, "{}");
     expect([await retryJob(failed, taken.fetchFn), await retryJob(failed, broken.fetchFn), await retryJob(failed, blank.fetchFn)]).toEqual([
-      { ok: false, status: 409, error: "retryOf: job f1 is already being retried" },
+      { ok: false, status: 409, error: "retryOf: job f1 was already retried" },
       { ok: false, status: 500, error: "POST /jobs 500" },
       { ok: false, status: 202, error: "POST /jobs 202" },
     ]);
   });
 
   test("a 409 for a job already retried names the retry that has it", async () => {
-    const error = "retryOf: job f1 is already being retried";
+    const error = "retryOf: job f1 was already retried";
     const taken = answering(409, JSON.stringify({ error, retriedBy: "r1" }));
     const retried = await retryJob(failed, taken.fetchFn);
     expect(retried).toEqual({ ok: false, status: 409, error, retriedBy: "r1" });

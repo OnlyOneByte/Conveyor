@@ -64,7 +64,7 @@ describe("the belt's end states", () => {
     await ends.refresh();
     await ends.act(job, "Retry");
     expect([calls.filter((c) => !c.startsWith("finished")), said, shown.length]).toEqual([['retry "f1"'], [["Retrying Bin 2×3.", "polite"]], 2]);
-    const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 is already being retried" });
+    const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 was already retried" });
     await taken.ends.refresh();
     await taken.ends.act(job, "Retry");
     expect([taken.said, taken.shown.length]).toEqual([[["Bin 2×3 is already being retried.", "polite"]], 2]);
