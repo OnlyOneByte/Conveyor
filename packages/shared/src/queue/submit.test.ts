@@ -43,10 +43,9 @@ describe("takePrinterSlot", () => {
     if (!lease) throw new Error("not claimed");
     h.set("a", "state = 'slicing'");
     const holder = await holdWriteLock(h.path);
-    const calledAt = Date.now();
     expect(takePrinterSlot(h.db, lease, realClock)).toBe("taken");
     expect(await holder.exited).toBe(0);
-    expect(Number(h.row("a").submit_started_at)).toBeGreaterThanOrEqual(calledAt + 200);
+    expect(Number(h.row("a").submit_started_at)).toBeGreaterThanOrEqual(await holder.releasedAt);
   });
 
   test("moves a sliced job onto its printer and records the submit intent at FULL", () => {

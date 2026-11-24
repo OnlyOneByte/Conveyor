@@ -74,10 +74,9 @@ describe("claimJob", () => {
     h.enqueue("a");
     const realClock = { ...DEFAULT_TIMING, now: Date.now };
     const holder = await holdWriteLock(h.path);
-    const calledAt = Date.now();
     const lease = claimJob(h.db, "w1", realClock)?.lease;
     expect(await holder.exited).toBe(0);
-    expect((lease?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(calledAt + 200);
+    expect((lease?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(await holder.releasedAt);
   });
 
   test("two connections claiming in turn never take the same job", () => {
@@ -127,10 +126,11 @@ describe("renewLease", () => {
     const lease = claimJob(h.db, "w1", realClock)?.lease;
     if (!lease) throw new Error("not claimed");
     const holder = await holdWriteLock(h.path);
-    const calledAt = Date.now();
     const renewed = renewLease(h.db, lease, realClock);
     expect(await holder.exited).toBe(0);
-    expect((renewed?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(calledAt + 200);
+    expect((renewed?.until ?? 0) - realClock.leaseMs).toBeGreaterThanOrEqual(
+      await holder.releasedAt,
+    );
   });
 });
 
