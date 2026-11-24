@@ -35,7 +35,7 @@ const ends = (jobId: string, state: string): Step => ({
   },
 });
 
-const motion: Step[] = [
+const moves: Step[] = [
   {
     fulfill: "**/api/jobs/active",
     status: 200,
@@ -57,8 +57,6 @@ const motion: Step[] = [
     status: 200,
     json: [job("m1", "slicing", 0.9, 1), job("m2", "printing", 0.5, 2)],
   },
-  { waitFor: "#belt .chips .gone", timeout: 8000 },
-  { wait: 1500 },
 ];
 
 const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
@@ -138,6 +136,16 @@ export const beltScenes: Scene[] = [
     widths: [1440],
     fullPage: false,
     record: true,
-    steps: motion,
+    steps: [...moves, { waitFor: "#belt .chips .gone", timeout: 8000 }, { wait: 1500 }],
+  },
+  {
+    name: "belt-motion-reduced",
+    route: "/",
+    ready: "text=Configure",
+    widths: [1440],
+    fullPage: false,
+    record: true,
+    reducedMotion: true,
+    steps: [...moves, { still: "#belt", ms: 3000 }],
   },
 ];

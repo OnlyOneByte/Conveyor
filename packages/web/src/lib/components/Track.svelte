@@ -115,7 +115,6 @@
   @keyframes drop { 60% { opacity: 1; } to { transform: translate(calc(var(--left) + var(--dx)), 44px); opacity: 0; } }
   @keyframes fade { to { opacity: 0; } }
   .paused .treads, .paused .gone { animation-play-state: paused; }
-  @media (prefers-reduced-motion: reduce) { .treads.run { animation: none; } .gone { display: none; } }
   :global([data-theme="dark"]) .rail { box-shadow: 0 0 0 1px var(--faint); }
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
   .idle { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); white-space: nowrap; }

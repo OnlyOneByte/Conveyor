@@ -18,7 +18,8 @@ export type Step =
   | { follow: string }
   | { history: "back" | "forward" }
   | { hits: string; viewports: readonly Viewport[] }
-  | { holds: string; ms: number; scrollTo: number; anchor: string };
+  | { holds: string; ms: number; scrollTo: number; anchor: string }
+  | { still: string; ms: number };
 
 export interface Scene {
   name: string;
@@ -28,6 +29,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
+  reducedMotion?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
 }
 
