@@ -40,8 +40,29 @@ export const parseManifest = (text: string): Record<string, Chunk> =>
 export const parseChunkModules = (text: string): Record<string, string[]> =>
   parseWith(chunkModulesSchema, "chunk-modules.json", text);
 
-export const bundlesThree = (files: Iterable<string>, modules: Record<string, string[]>): boolean =>
-  [...files].some((file) => (modules[file] ?? []).some((id) => THREE_MODULE.test(id)));
+export const THREE_SIGNATURE = "__THREE__";
+
+export const bundlesThree = (
+  files: Iterable<string>,
+  modules: Record<string, string[]>,
+  code: (file: string) => string,
+): boolean =>
+  [...files].some(
+    (file) =>
+      (modules[file] ?? []).some((id) => THREE_MODULE.test(id)) ||
+      code(file).includes(THREE_SIGNATURE),
+  );
+
+export function serviceWorkerPaths(source: string): string[] {
+  const paths = [...source.matchAll(/\{path:\s*[`"']([^`"']+)[`"']\}/g)].flatMap(([, path]) =>
+    path ? [path] : [],
+  );
+  if (paths.length === 0)
+    throw new Error(
+      "found no precache paths in service-worker.js; has SvelteKit's manifest format changed?",
+    );
+  return paths;
+}
 
 const gzipOf = (bytes: Buffer) => gzipSync(bytes, { level: 9 }).length;
 
@@ -107,7 +128,8 @@ export function initialJs(output: string, route: string): Sizes & { three: boole
   });
   const files = closure(manifest, [...entries, ...leaves]);
   const modules = parseChunkModules(readFileSync(join(output, "chunk-modules.json"), "utf8"));
-  return { ...sizeOf(client, files), three: bundlesThree(files, modules) };
+  const code = (file: string) => readFileSync(join(client, file), "utf8");
+  return { ...sizeOf(client, files), three: bundlesThree(files, modules, code) };
 }
 
 function walk(dir: string): string[] {
@@ -122,26 +144,10 @@ export const missingCode = (immutable: string[], kept: string[]): string[] => {
   return immutable.filter((path) => /\.(js|css)$/.test(path) && !list.has(path));
 };
 
-export function precache(
-  output: string,
-  staticDir: string,
-): Sizes & { files: number; missing: string[] } {
+export function precache(output: string): Sizes & { files: number; missing: string[] } {
   const client = join(output, "client");
   const immutable = walk(join(client, "_app/immutable")).map((path) => relative(client, path));
-  const assets = walk(staticDir).map((path) => relative(staticDir, path));
-  const list = precached([...immutable, ...assets]).map((path) => path.slice(1));
-  const sizes = sizeOf(
-    client,
-    list.filter((path) => path.startsWith("_app/")),
-  );
-  const statics = sizeOf(
-    staticDir,
-    list.filter((path) => !path.startsWith("_app/")),
-  );
-  return {
-    raw: sizes.raw + statics.raw,
-    gzip: sizes.gzip + statics.gzip,
-    files: list.length,
-    missing: missingCode(immutable, list),
-  };
+  const listed = serviceWorkerPaths(readFileSync(join(client, "service-worker.js"), "utf8"));
+  const list = precached(listed).map((path) => path.slice(1));
+  return { ...sizeOf(client, list), files: list.length, missing: missingCode(immutable, list) };
 }

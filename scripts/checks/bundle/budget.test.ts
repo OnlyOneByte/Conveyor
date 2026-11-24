@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { budgetErrors, parseBudget } from "./budget";
+import { budgetErrors, loosenedErrors, parseBudget } from "./budget";
 import {
   bundlesThree,
   closure,
@@ -7,6 +7,7 @@ import {
   parseChunkModules,
   parseManifest,
   routeNodes,
+  serviceWorkerPaths,
 } from "./measure";
 
 const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1_000_000, gzip: 400_000 } };
@@ -96,6 +97,8 @@ describe("reading the budget and the manifest", () => {
   });
 });
 
+const noCode = () => "";
+
 describe("finding three.js in a route's chunks", () => {
   test("goes by the module ids each chunk was built from, on POSIX and Windows paths", () => {
     const modules = parseChunkModules(
@@ -106,10 +109,77 @@ describe("finding three.js in a route's chunks", () => {
         "d.js": ["/repo/node_modules/three-mesh-bvh/index.js"],
       }),
     );
-    expect(bundlesThree(["a.js"], modules)).toBe(false);
-    expect(bundlesThree(["a.js", "b.js"], modules)).toBe(true);
-    expect(bundlesThree(["c.js"], modules)).toBe(true);
-    expect(bundlesThree(["d.js", "missing.js"], modules)).toBe(false);
+    expect(bundlesThree(["a.js"], modules, noCode)).toBe(false);
+    expect(bundlesThree(["a.js", "b.js"], modules, noCode)).toBe(true);
+    expect(bundlesThree(["c.js"], modules, noCode)).toBe(true);
+    expect(bundlesThree(["d.js", "missing.js"], modules, noCode)).toBe(false);
+    expect(
+      bundlesThree(["vendored.js"], modules, (file) =>
+        file === "vendored.js" ? "window.__THREE__=1" : "",
+      ),
+    ).toBe(true);
     expect(() => parseChunkModules(JSON.stringify({ "a.js": "x" }))).toThrow("isn't valid");
+  });
+});
+
+describe("failing closed", () => {
+  const ok = { raw: 1, gzip: 1, three: false };
+  const precache = { raw: 1, gzip: 1, missing: [] };
+  const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1, gzip: 1 } };
+
+  test("no routes found, a budgeted route the build lacks, or no budget for / is an error", () => {
+    expect(budgetErrors({ initialJs: {}, precache }, budget)).toEqual([
+      "found no page routes in the server manifest, so nothing was checked; has SvelteKit's format changed?",
+      "scripts/checks/bundle/budget.json budgets /, but the build has no such route",
+    ]);
+    expect(
+      budgetErrors(
+        { initialJs: { "/": ok }, precache },
+        { ...budget, initialJsGzip: { "/gone": 1 } },
+      ),
+    ).toEqual([
+      "scripts/checks/bundle/budget.json has no initial JS budget for /",
+      "scripts/checks/bundle/budget.json budgets /gone, but the build has no such route",
+    ]);
+  });
+
+  test("a service worker with no precache paths is an error, and its paths are read in order", () => {
+    expect(serviceWorkerPaths("t=[{path:`_app/immutable/a.js`},{path:`favicon.svg`}]")).toEqual([
+      "_app/immutable/a.js",
+      "favicon.svg",
+    ]);
+    expect(() => serviceWorkerPaths("self.addEventListener()")).toThrow("found no precache paths");
+  });
+});
+
+describe("the budget against the base branch", () => {
+  const base = {
+    initialJsGzip: { "/": 115_000, "/jobs/[id]": 115_000 },
+    precache: { raw: 1_000_000, gzip: 400_000 },
+  };
+
+  test("tightening or keeping limits passes, and growing the precache under 10% passes", () => {
+    expect(
+      loosenedErrors(
+        { ...base, initialJsGzip: { "/": 100_000, "/jobs/[id]": 115_000, "/new": 90_000 } },
+        base,
+      ),
+    ).toEqual([]);
+    expect(loosenedErrors({ ...base, precache: { raw: 1_100_000, gzip: 400_000 } }, base)).toEqual(
+      [],
+    );
+  });
+
+  test("raising or dropping a route limit, or raising the precache past 10%, is an error", () => {
+    expect(
+      loosenedErrors(
+        { initialJsGzip: { "/": 120_000 }, precache: { raw: 1_100_001, gzip: 400_000 } },
+        base,
+      ),
+    ).toEqual([
+      "scripts/checks/bundle/budget.json raises the / budget from 115.0 KB to 120.0 KB",
+      "scripts/checks/bundle/budget.json drops the /jobs/[id] budget the base has (115.0 KB)",
+      "scripts/checks/bundle/budget.json raises the precache raw from 1000.0 KB to 1100.0 KB, more than 10% in one change",
+    ]);
   });
 });
