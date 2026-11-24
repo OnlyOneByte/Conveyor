@@ -102,9 +102,15 @@ describe("job routes on the sqlite queue", () => {
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
   });
 
-  test("GET /jobs/active adds typical durations and a rough start from the print's time left", async () => {
+  test("GET /jobs/active adds typical durations, and a print start behind the print's time left unless the printer is held", async () => {
     db.query("DELETE FROM jobs").run();
-    const timings = JSON.stringify([{ stage: "slicer", enteredAt: 0, durationMs: 2_000 }]);
+    const timings = JSON.stringify(
+      ["generator", "slicer", "transport"].map((stage, i) => ({
+        stage,
+        enteredAt: i,
+        durationMs: 1_000,
+      })),
+    );
     for (let i = 0; i < 3; i++)
       db.query("UPDATE jobs SET state = 'done', timings_json = ? WHERE id = ?").run(
         timings,
@@ -123,13 +129,20 @@ describe("job routes on the sqlite queue", () => {
     });
     db.query("INSERT INTO job_events (job_id, event, at) VALUES (?, ?, ?)").run(running, print, at);
     const waiting = queued();
-    const active = (await inject("GET", "/jobs/active")).json<
-      { jobId: string; estimate?: unknown }[]
-    >();
-    expect(Object.fromEntries(active.map((j) => [j.jobId, j.estimate]))).toEqual({
-      [running]: { typicalMs: { slicer: 2_000 } },
-      [waiting]: { typicalMs: { slicer: 2_000 }, startsAt: at + 600_000 },
+    const estimates = async () =>
+      Object.fromEntries(
+        (await inject("GET", "/jobs/active"))
+          .json<{ jobId: string; estimate?: unknown }[]>()
+          .map((j) => [j.jobId, j.estimate]),
+      );
+    const typicalMs = { generator: 1_000, slicer: 1_000, transport: 1_000 };
+    expect(await estimates()).toEqual({
+      [running]: { typicalMs },
+      [waiting]: { typicalMs, startsAt: at + 600_000 },
     });
+    db.query("UPDATE printers SET hold_job_id = ? WHERE id = 'klipper-garage'").run(running);
+    expect((await estimates())[waiting]).toEqual({ typicalMs });
+    db.query("UPDATE printers SET hold_job_id = NULL WHERE id = 'klipper-garage'").run();
   });
 
   test("a failed job is in the Needs-you list until it is dismissed", async () => {

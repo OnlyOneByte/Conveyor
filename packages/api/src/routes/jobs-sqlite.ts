@@ -94,7 +94,17 @@ export async function registerJobRoutes(
           return [];
         }
       });
-    return withEstimates(jobs, (job) => dbTypicalStageMs(db, job), tail.now());
+    const held = new Set(
+      db
+        .query<{ id: string }, []>("SELECT id FROM printers WHERE hold_job_id IS NOT NULL")
+        .all()
+        .map((p) => p.id),
+    );
+    const inputs = {
+      typical: (job: ActiveJob) => dbTypicalStageMs(db, job),
+      isHeld: held.has.bind(held),
+    };
+    return withEstimates(jobs, inputs, tail.now());
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {

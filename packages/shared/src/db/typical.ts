@@ -19,6 +19,14 @@ function median(values: number[]): number {
   return sorted.length % 2 === 1 ? middle : Math.round(((sorted[mid - 1] ?? 0) + middle) / 2);
 }
 
+function parsedOrNull(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export function dbTypicalStageMs(
   db: Database,
   job: { generatorId: string; printerId: string },
@@ -33,7 +41,7 @@ export function dbTypicalStageMs(
     .all(job.generatorId, job.printerId, sample);
   const seen = new Map<Stage, number[]>();
   for (const row of rows) {
-    const timings = timingsSchema.safeParse(JSON.parse(row.timings_json));
+    const timings = timingsSchema.safeParse(parsedOrNull(row.timings_json));
     for (const { stage, durationMs } of timings.data ?? [])
       seen.set(stage, [...(seen.get(stage) ?? []), durationMs]);
   }

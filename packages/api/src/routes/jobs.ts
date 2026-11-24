@@ -3,6 +3,7 @@ import {
   ACTIVE_JOBS_KEY,
   CANCEL_TTL_SECONDS,
   isTerminal,
+  type JobRequest,
   type JobStatusEvent,
   jobCancelKey,
   jobControlChannel,
@@ -12,6 +13,7 @@ import {
   publishStatus,
 } from "@conveyor/shared";
 import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
 import { type ActiveJob, withEstimates } from "../estimates.js";
@@ -26,8 +28,10 @@ const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-chi
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
 
-async function activeJob(event: JobStatusEvent): Promise<ActiveJob> {
-  const job = await jobQueue.getJob(event.jobId);
+export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
+
+async function activeJob(jobs: JobLookup, event: JobStatusEvent): Promise<ActiveJob> {
+  const job = await jobs.getJob(event.jobId);
   const request = jobRequestSchema.safeParse(job?.data);
   return {
     event,
@@ -37,7 +41,10 @@ async function activeJob(event: JobStatusEvent): Promise<ActiveJob> {
   };
 }
 
-export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
+export async function registerJobRoutes(
+  app: FastifyInstance,
+  jobs: JobLookup = jobQueue,
+): Promise<void> {
   const statusHub = createStatusHub(
     () => redis.duplicate({ enableReadyCheck: false }),
     (err) => app.log.error({ err }, "job status subscriber error"),
@@ -65,8 +72,9 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
     active.sort((a, b) => b.at - a.at);
     try {
-      const jobs = await Promise.all(active.map(activeJob));
-      return withEstimates(jobs, (job) => dbTypicalStageMs(openDb(), job), Date.now());
+      const live = await Promise.all(active.map((event) => activeJob(jobs, event)));
+      const typical = (job: ActiveJob) => dbTypicalStageMs(openDb(), job);
+      return withEstimates(live, { typical, isHeld: () => false }, Date.now());
     } catch (err) {
       app.log.warn({ err }, "job estimates left out of /jobs/active");
       return active;

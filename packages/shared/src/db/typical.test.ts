@@ -52,6 +52,8 @@ describe("typical stage durations", () => {
     const { db, settle } = history();
     for (const ms of [10, 20, 30, 0]) settle(ms);
     db.query("UPDATE jobs SET timings_json = '[{\"stage\":\"x\"}]' WHERE id = 'j4'").run();
+    settle(0);
+    db.query("UPDATE jobs SET timings_json = '{' WHERE id = 'j5'").run();
     expect(dbTypicalStageMs(db, pair)).toEqual({ generator: 20 });
   });
 });

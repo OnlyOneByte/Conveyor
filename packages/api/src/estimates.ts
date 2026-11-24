@@ -1,4 +1,4 @@
-import type { JobStatusEvent, Stage } from "@conveyor/shared";
+import type { JobStatusEvent } from "@conveyor/shared";
 import type { StageDurations } from "@conveyor/shared/db";
 
 export interface ActiveJob {
@@ -10,54 +10,65 @@ export interface ActiveJob {
 
 export type JobEstimate = { typicalMs?: StageDurations; startsAt?: number };
 
-const STAGE_ORDER: readonly Stage[] = ["generator", "slicer", "transport"];
-
-function sumFrom(typical: StageDurations, first: number): number | undefined {
-  let sum = 0;
-  for (const stage of STAGE_ORDER.slice(first)) {
-    const ms = typical[stage];
-    if (ms === undefined) return undefined;
-    sum += ms;
-  }
-  return sum;
+export interface EstimateInputs {
+  typical(job: ActiveJob): StageDurations;
+  isHeld(printerId: string): boolean;
 }
 
-function remainingMs({ event }: ActiveJob, typical: StageDurations, now: number) {
-  const left = event.print?.secondsLeft;
-  if (event.state === "printing")
-    return left === undefined ? undefined : event.at + left * 1000 - now;
-  const stage = event.state === "queued" ? "generator" : (event.stage ?? "generator");
-  return sumFrom(typical, STAGE_ORDER.indexOf(stage));
+type Maybe = number | undefined;
+
+const add = (a: Maybe, b: Maybe): Maybe => (a === undefined || b === undefined ? undefined : a + b);
+const later = (a: Maybe, b: Maybe): Maybe =>
+  a === undefined || b === undefined ? undefined : Math.max(a, b);
+
+function prepMs({ event }: ActiveJob, typical: StageDurations): Maybe {
+  if (event.state === "slicing") return typical.slicer;
+  return add(typical.generator, typical.slicer);
 }
 
-function startTimes(jobs: ActiveJob[], typical: Map<ActiveJob, StageDurations>, now: number) {
+function printerQueue(group: ActiveJob[], typical: Map<ActiveJob, StageDurations>, now: number) {
   const starts = new Map<ActiveJob, number>();
-  for (const group of Map.groupBy(jobs, (job) => job.printerId).values()) {
-    let waitMs: number | undefined = 0;
-    for (const running of group.filter((job) => job.event.state !== "queued")) {
-      const left = remainingMs(running, typical.get(running) ?? {}, now);
-      waitMs = waitMs === undefined || left === undefined ? undefined : Math.max(waitMs, left);
+  let printerFree: Maybe = now;
+  let prepFree: Maybe = now;
+  for (const job of group.filter((j) => j.event.state !== "queued")) {
+    const t = typical.get(job) ?? {};
+    const { state, at, print } = job.event;
+    if (state === "printing") {
+      const left = print?.secondsLeft;
+      printerFree = later(printerFree, left === undefined ? undefined : at + left * 1000);
+    } else if (state === "transferring") {
+      printerFree = later(printerFree, add(now, t.transport));
+    } else {
+      prepFree = later(prepFree, add(now, prepMs(job, t)));
+      printerFree = later(printerFree, add(prepFree, t.transport));
     }
-    const queued = group
-      .filter((job) => job.event.state === "queued")
-      .sort((a, b) => a.createdAt - b.createdAt || a.event.jobId.localeCompare(b.event.jobId));
-    for (const job of queued) {
-      if (waitMs === undefined) break;
-      starts.set(job, now + waitMs);
-      const own = remainingMs(job, typical.get(job) ?? {}, now);
-      waitMs = own === undefined ? undefined : waitMs + own;
-    }
+  }
+  const queued = group
+    .filter((job) => job.event.state === "queued")
+    .sort((a, b) => a.createdAt - b.createdAt || a.event.jobId.localeCompare(b.event.jobId));
+  for (const job of queued) {
+    const t = typical.get(job) ?? {};
+    const prepDone = add(prepFree, prepMs(job, t));
+    const start = later(printerFree, prepDone);
+    if (start === undefined) break;
+    starts.set(job, start);
+    prepFree = prepDone;
+    printerFree = add(start, t.transport);
   }
   return starts;
 }
 
 export function withEstimates(
   jobs: ActiveJob[],
-  lookup: (job: ActiveJob) => StageDurations,
+  inputs: EstimateInputs,
   now: number,
 ): (JobStatusEvent & { estimate?: JobEstimate })[] {
-  const typical = new Map(jobs.map((job) => [job, lookup(job)] as const));
-  const starts = startTimes(jobs, typical, now);
+  const typical = new Map(jobs.map((job) => [job, inputs.typical(job)] as const));
+  const starts = new Map<ActiveJob, number>();
+  for (const [printerId, group] of Map.groupBy(jobs, (job) => job.printerId)) {
+    if (inputs.isHeld(printerId)) continue;
+    for (const [job, start] of printerQueue(group, typical, now)) starts.set(job, start);
+  }
   return jobs.map((job) => {
     const typicalMs = typical.get(job) ?? {};
     const startsAt = starts.get(job);

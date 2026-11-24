@@ -62,10 +62,13 @@ In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; wit
 - `typicalMs`: the median `durationMs` of each stage over the last 20 `done` jobs with the same generator and
   printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is left out. `transport` covers the upload and
   the print together.
-- `startsAt` (epoch ms), for a `queued` job: each printer's queue is walked in `createdAt` order. The wait starts
-  at the longest running job's time left: a `printing` job's `print.secondsLeft` from its event's `at`, or the
-  typical durations of a job's current and later stages. Each queued job ahead then adds its typical total.
-  With nothing running, the first queued job starts now. Once a step is unknown, the jobs behind it get none.
+- `startsAt` (epoch ms), for a `queued` job: when it should start printing, that is, take the printer. Each
+  printer's queue is walked in `createdAt` order. The printer is free when its printing job's `print.secondsLeft`
+  runs out (from the event's `at`), or after a running job's remaining model, slicing and typical `transport`.
+  A queued job's model and slicing run meanwhile, one job at a time, so it starts at the later of the printer
+  being free and its own preparation being done. Each job ahead then holds the printer for its typical
+  `transport`. Once a step is unknown, the jobs behind it get no `startsAt`, and a held printer
+  (`printers.hold_job_id`, SQLite queue) gives none to its whole queue.
 - On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
 
 ## Job routes on the Redis queue (`routes/jobs.ts`)
