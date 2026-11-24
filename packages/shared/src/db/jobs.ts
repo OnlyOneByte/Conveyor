@@ -109,7 +109,7 @@ export function dbListJobs(db: Database, page: HistoryPage = { limit: 50 }): Job
       `SELECT * FROM jobs INDEXED BY idx_jobs_history WHERE ${sql} ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(...params, page.limit)
-    .map(rowToJob);
+    .flatMap((row) => rowToJob(row) ?? []);
 }
 
 export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCounts {
@@ -125,8 +125,8 @@ export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCo
 }
 
 export function dbGetJob(db: Database, id: string): Job | null {
-  const row = db.query("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | null;
-  return row ? rowToJob(row) : null;
+  const row = db.query<JobRow, [string]>("SELECT * FROM jobs WHERE id = ?").get(id);
+  return (row && rowToJob(row)) ?? null;
 }
 
 export type DismissResult =
@@ -184,5 +184,5 @@ export function dbListNeedsYou(db: Database, limit = 50): Job[] {
         AND retried_by IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(limit)
-    .map(rowToJob);
+    .flatMap((row) => rowToJob(row) ?? []);
 }

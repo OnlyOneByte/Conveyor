@@ -365,6 +365,12 @@ that isn't JSON, or is JSON of the wrong shape (`7`, `"boom"`, `{}`), is left ou
 row is still listed and counted, so a page and `dbCountJobs` keep agreeing, and the history cursor still moves
 past it.
 
+`stage` is parsed the same way. A stored stage that isn't `generator`, `slicer` or `transport` becomes
+`stage: null` and is named `"stage"` in `unreadable`. `state` is checked against `JOB_STATES`. A job whose
+stored state isn't one of them can't be given a state without making one up, so `rowToJob` leaves it out:
+`dbGetJob` returns `null` and the lists skip it. It logs `[jobs] job <id> has an unknown state <state>`
+once. The list queries name their states in SQL, so only `dbGetJob` can meet one.
+
 `dbGetJob(id)` exists because `dbListJobs()` is windowed (50 rows by default; the API's `/jobs-history`
 route in `packages/api/src/routes/catalog.ts` caps a requested limit at 200): a deep link to an older job
 would otherwise resolve to "not found" only because it fell off the window.

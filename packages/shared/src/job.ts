@@ -57,7 +57,7 @@ export interface Job {
   updatedAt: number;
 }
 
-export type UnreadableColumn = "params" | "error" | "timings";
+export type UnreadableColumn = "params" | "error" | "timings" | "stage";
 
 export interface FilamentUse {
   grams?: number;
