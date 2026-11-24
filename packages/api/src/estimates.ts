@@ -69,7 +69,11 @@ export function withEstimates(
   inputs: EstimateInputs,
   now: number,
 ): (JobStatusEvent & { estimate?: JobEstimate })[] {
-  const typical = new Map(jobs.map((job) => [job, inputs.typical(job)] as const));
+  const pairOf = (job: ActiveJob) => JSON.stringify([job.generatorId, job.printerId]);
+  const byPair = new Map<string, StageDurations>();
+  for (const job of jobs)
+    if (!byPair.has(pairOf(job))) byPair.set(pairOf(job), inputs.typical(job));
+  const typical = new Map(jobs.map((job) => [job, byPair.get(pairOf(job)) ?? {}] as const));
   const starts = new Map<ActiveJob, number>();
   for (const [printerId, group] of Map.groupBy(jobs, (job) => job.printerId)) {
     if (inputs.isHeld(printerId)) continue;

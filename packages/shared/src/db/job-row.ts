@@ -1,6 +1,13 @@
 import { z } from "zod";
-import type { FilamentUse, Job, JobState, StageTiming, UnreadableColumn } from "../job.js";
+import {
+  type FilamentUse,
+  JOB_STATES,
+  type Job,
+  type StageTiming,
+  type UnreadableColumn,
+} from "../job.js";
 import type { Stage } from "../plugins.js";
+import { readJson } from "./json.js";
 
 export interface JobRow {
   id: string;
@@ -44,14 +51,20 @@ const timingsSchema = z.array(
   z.object({ stage: stageSchema, enteredAt: z.number(), durationMs: z.number().optional() }),
 );
 
-const warnedUnreadable = new Set<string>();
+const warned = new Set<string>();
 
-function parseJson(json: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(json) };
-  } catch {
-    return { ok: false };
-  }
+function warnOnce(key: string, line: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(line);
+}
+
+function markUnreadable(r: JobRow, column: UnreadableColumn, unreadable: UnreadableColumn[]): void {
+  unreadable.push(column);
+  warnOnce(
+    `${r.id}:${column}`,
+    `[jobs] job ${r.id} has an unreadable ${column} column; listing it without it`,
+  );
 }
 
 function readColumn<T>(
@@ -62,20 +75,29 @@ function readColumn<T>(
   unreadable: UnreadableColumn[],
 ): T | undefined {
   if (!json) return undefined;
-  const parsed = parseJson(json);
+  const parsed = readJson(json);
   const checked = parsed.ok ? schema.safeParse(parsed.value) : undefined;
   if (checked?.success) return checked.data;
-  unreadable.push(column);
-  const key = `${r.id}:${column}`;
-  if (!warnedUnreadable.has(key)) {
-    warnedUnreadable.add(key);
-    console.warn(`[jobs] job ${r.id} has an unreadable ${column} column; listing it without it`);
-  }
+  markUnreadable(r, column, unreadable);
   return undefined;
 }
 
-export function rowToJob(r: JobRow): Job {
+function stageOf(r: JobRow, unreadable: UnreadableColumn[]): Stage | null {
+  if (r.stage === null) return null;
+  const parsed = stageSchema.safeParse(r.stage);
+  if (parsed.success) return parsed.data;
+  markUnreadable(r, "stage", unreadable);
+  return null;
+}
+
+export function rowToJob(r: JobRow): Job | undefined {
+  const state = JOB_STATES.find((known) => known === r.state);
+  if (state === undefined) {
+    warnOnce(`${r.id}:state`, `[jobs] job ${r.id} has an unknown state ${r.state}; leaving it out`);
+    return undefined;
+  }
   const unreadable: UnreadableColumn[] = [];
+  const stage = stageOf(r, unreadable);
   const params = readColumn(r, "params", r.params_json, paramsSchema, unreadable);
   const error = readColumn(r, "error", r.error_json, errorSchema, unreadable);
   const timings: StageTiming[] | undefined = readColumn(
@@ -92,8 +114,8 @@ export function rowToJob(r: JobRow): Job {
       printerId: r.printer_id ?? "",
       profileId: r.profile_id ?? "",
     },
-    state: r.state as JobState,
-    stage: (r.stage as Stage) ?? null,
+    state,
+    stage,
     error,
     artifacts: { model: r.model_path ?? undefined, gcode: r.gcode_path ?? undefined },
     timings,

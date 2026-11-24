@@ -199,8 +199,12 @@ SQLite mode `GET /jobs/:id` leaves it out and a client gets it from the next tai
 A row exists for every live login. Logout deletes it, and a login prunes the expired ones. See `docs/modules/api.md` § Auth.
 
 Indexes: `idx_jobs_created_at`, the partial `idx_jobs_history` on `(updated_at DESC, id DESC)` for finished
-jobs (history pages; `dbListJobs` names it with `INDEXED BY`), `idx_jobs_claim`, `idx_jobs_lease` and the partial
-`idx_jobs_printer_live` (the queue), and `idx_job_events_job`. The schema itself is in
+jobs (history pages, and counts over a time window; `dbListJobs`, and `dbCountJobs` when given `since` or `until`, name it with `INDEXED BY`), `idx_jobs_claim`,
+`idx_jobs_lease` and the partial `idx_jobs_printer_live` (the queue), the partial `idx_jobs_typical` on
+`(generator_id, printer_id, updated_at DESC, id DESC)` over `done` jobs with timings (estimates), the partial
+`idx_jobs_needs_you` on `(updated_at DESC, id DESC)` over failed jobs not yet dismissed or retried
+(Needs-you), and `idx_job_events_job`. The queries the belt polls name their index with `INDEXED BY`, and
+`db/query-plans.test.ts` checks each plan. The schema itself is in
 `packages/shared/src/db/schema.sql.ts` and `db/migrate.ts`.
 
 ## Lifecycle ↔ storage
