@@ -17,6 +17,7 @@ export interface Sample {
 }
 
 export function holdProblem(samples: Sample[], expectedTop: number | null): string | null {
+  if (samples.length === 0) return "no samples were taken";
   const gone = samples.findIndex((s) => !s.present);
   if (gone >= 0) return `gone at sample ${gone} of ${samples.length}`;
   const tops = samples.flatMap((s) => (s.top === null ? [] : [s.top]));

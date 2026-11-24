@@ -223,6 +223,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
+- A job whose stored params, error or timings don't parse, or have the wrong shape, is still answered, without that field and with
+  `unreadable` naming it (`"unreadable": ["params"]`), instead of failing the whole list with a 500 (#400; see
+  [shared.md](shared.md#jobs)).
 - `GET /jobs-history` lists newest-finished first (`updatedAt`, then `id`, both descending). Its query is
   parsed with zod (`history-query.ts`), and a bad value is a 400 naming the field:
   - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as

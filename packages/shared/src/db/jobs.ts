@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
-import { z } from "zod";
 import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
+import { type JobRow, rowToJob } from "./job-row.js";
 import { dbListPrinters } from "./printers.js";
 import { dbListProfiles } from "./profiles.js";
 
@@ -22,64 +22,6 @@ export function dbResolveJobTarget(
     slicerId: profile.slicerId,
     gcodeFlavor: profile.gcodeFlavor,
     allowedGenerators: printer.allowedGenerators,
-  };
-}
-
-interface JobRow {
-  id: string;
-  generator_id: string;
-  params_json: string | null;
-  printer_id: string | null;
-  profile_id: string | null;
-  state: string;
-  stage: string | null;
-  error_json: string | null;
-  model_path: string | null;
-  gcode_path: string | null;
-  timings_json: string | null;
-  filament_json: string | null;
-  notes: string | null;
-  dismissed_at: number | null;
-  retried_by: string | null;
-  created_at: number;
-  updated_at: number;
-}
-
-const filamentSchema = z.object({
-  grams: z.number().nonnegative().optional(),
-  metres: z.number().nonnegative().optional(),
-});
-
-function filamentOf(json: string | null): FilamentUse | undefined {
-  if (!json) return undefined;
-  try {
-    return filamentSchema.parse(JSON.parse(json));
-  } catch {
-    return undefined;
-  }
-}
-
-function rowToJob(r: JobRow): Job {
-  return {
-    id: r.id,
-    request: {
-      generator: {
-        id: r.generator_id,
-        params: r.params_json ? JSON.parse(r.params_json) : undefined,
-      },
-      printerId: r.printer_id ?? "",
-      profileId: r.profile_id ?? "",
-    },
-    state: r.state as JobState,
-    stage: (r.stage as Stage) ?? null,
-    error: r.error_json ? JSON.parse(r.error_json) : undefined,
-    artifacts: { model: r.model_path ?? undefined, gcode: r.gcode_path ?? undefined },
-    timings: r.timings_json ? (JSON.parse(r.timings_json) as StageTiming[]) : undefined,
-    filament: filamentOf(r.filament_json),
-    notes: r.notes ?? undefined,
-    dismissedAt: r.dismissed_at ?? undefined,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
   };
 }
 

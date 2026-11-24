@@ -12,4 +12,5 @@ test("a hold passes only while the element stays and the anchor stays within a f
   expect(holdProblem([held(86), held(156)], 86)).toBe("the anchor moved 70 px");
   expect(holdProblem([held(86), { present: true, top: null }], 86)).toBe("the anchor is missing");
   expect(holdProblem([held(86)], null)).toBe("the anchor is missing");
+  expect(holdProblem([], 86)).toBe("no samples were taken");
 });

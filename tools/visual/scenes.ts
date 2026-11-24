@@ -18,7 +18,8 @@ export type Step =
   | { follow: string }
   | { history: "back" | "forward"; url?: string }
   | { hits: string; viewports: readonly Viewport[] }
-  | { holds: string; ms: number; scrollTo: number; anchor: string };
+  | { holds: string; ms: number; scrollTo: number; anchor: string }
+  | { still: string; ms: number };
 
 export interface Scene {
   name: string;
@@ -28,6 +29,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
+  reducedMotion?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
 }
 
@@ -122,7 +124,7 @@ export const scenes: Scene[] = [
     steps: [
       { press: "Control+k" },
       { type: "dialog[open] input", text },
-      { waitFor: "dialog[open] [role=option] >> text=Printed" },
+      { waitFor: "role=option[name=/^Gridfinity Bin 2×3 · 6u , Elegoo Neptune · Printed · /]" },
       { wait: 300 },
     ],
   })),

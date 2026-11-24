@@ -6,11 +6,12 @@ import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { follow, travel } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
-import { pinHistoryRoute } from "./history.ts";
+import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
 import { assertHolds } from "./holds.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
+import { assertStill } from "./still.ts";
 
 export interface ShotResult {
   scene: string;
@@ -79,6 +80,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
     );
   else if ("history" in step) await travel(page, step.history, step.url);
   else if ("holds" in step) await assertHolds(page, step);
+  else if ("still" in step) await assertStill(page, step);
   else await page.waitForTimeout(step.wait);
 }
 
@@ -150,8 +152,10 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     viewport: { width, height: HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
     colorScheme,
+    reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",
   });
   await pinHistoryRoute(context);
+  await context.clock.setSystemTime(CAPTURE_NOW);
   if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;
