@@ -249,8 +249,9 @@ an expand button (`aria-expanded`) that opens the full Track in place.
 
 The full Track does not fit, so the belt becomes a **summary chip**: "6 on the belt · Ender 64%, 41 min", the waiting
 and Needs-you counts, and the mini-rail. Its expand button opens a sheet of full-width chips that show their status
-in words ("printing", plus "· 41 min left" once #335 lands), plus the two bins. On Make the summary scrolls with the page; once scrolled, a
-sticky copy takes its place. On every other page it is sticky from the start.
+in words ("printing", plus "· 41 min left" once #335 lands), plus the two bins. It is sticky on every page, Make included, so it never scrolls away; one copy in the DOM, not a
+second sticky one. In the sheet the Needs-you tray opens in the flow below the bins, so the sheet's own scroll never
+clips it.
 
 ## Keyboard, ARIA and screen readers
 
@@ -354,7 +355,7 @@ props, so the same component renders stub data in the visual-capture scenes.
 
 ## Implementation plan
 
-Twelve UI PRs of at most 400 changed lines each, in dependency order, tracked in
+Twelve UI PRs, in dependency order, tracked in
 [#322](https://github.com/OnlyOneByte/Conveyor/issues/322) (#323 to #334), plus the eight backend issues in
 [Data](#data) (#335 to #342). Each UI issue carries its acceptance criteria, the audit issues it closes, the
 visuals it must attach, and the backend issues it waits on with their fallbacks.

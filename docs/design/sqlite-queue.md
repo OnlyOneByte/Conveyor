@@ -600,10 +600,8 @@ requires. Coverage must not drop, and the queue module targets at least 90% line
 
 ## Breakdown into PRs
 
-AGENTS.md §4 caps a PR at 400 changed lines; 401 to 800 is an S2 with a request to split. Each code PR below
-is planned under 400. Tests count toward the limit, which is what makes some of them close. PR 6 is the one
-most likely to go over. If it does, it asks for `large-ok` rather than splitting the submit steps from their
-crash tests, because the tests are what prove #5 is fixed.
+Each code PR below is one concern. PR 6 keeps the submit steps with their crash tests, because the tests are
+what prove #5 is fixed.
 
 | # | Title | Scope | Estimate |
 |---|---|---|---|
@@ -612,10 +610,10 @@ crash tests, because the tests are what prove #5 is fixed.
 | 3 | `feat(queue): guard status writes and tail the event log` | Fenced status write with the terminal guard, progress coalescing, events, snapshot-plus-cursor read, tail query, retention. Writes and events tests | ~360 |
 | 4 | `feat(queue): cancel, printer slot and printer holds` | Queued and in-flight cancel, slot acquisition, hold set and release functions. Cancel (queue side), slot and hold tests | ~330 |
 | 5 | `feat(worker): run jobs from the sqlite queue behind a flag` | Worker loop: claim with the engine-only `WORKER_CONCURRENCY` count, the run timer (cancel every 1 s, renew every 10 s), status through the queue, settle through the queue, behind `CONVEYOR_QUEUE=sqlite` plus `CONVEYOR_QUEUE_UNSTABLE=1` | ~370 |
-| 6 | `fix(worker): never resubmit after a restart` | Slot, intent, marker, resume, holds on an unknown outcome and on a failed stop after the intent, `SIGTERM`, `stop_grace_period`. The #5 crash, resume failure, two-printer and shutdown tests. Closes #5 | ~400, may ask for `large-ok` |
+| 6 | `fix(worker): never resubmit after a restart` | Slot, intent, marker, resume, holds on an unknown outcome and on a failed stop after the intent, `SIGTERM`, `stop_grace_period`. The #5 crash, resume failure, two-printer and shutdown tests. Closes #5 | ~400 |
 | 7 | `feat(api): serve jobs from the sqlite queue` | Enqueue, snapshot, active, history filter, cancel, the WebSocket tail and `POST /catalog/printers/:id/release`, behind the flag; removes the unstable guard and documents the flag. Api and switch tests | ~390 |
 | 8 | `feat(worker): import queued jobs from redis` | The importer with both refusals, its tests, and the upgrade runbook in `self-hosting.md` | ~300 |
-| 9 | `refactor(infra): make the sqlite queue the only queue and remove redis` | Default to SQLite and remove the flag; delete `bullmq`, `ioredis`, `StatusBus`, the Lua script and the Redis keys; drop `redis` from compose; update `DATA-MODEL.md`, `SEQUENCE.md` and the module pages. Mostly deletions, which §4 does not count | ~250 added |
+| 9 | `refactor(infra): make the sqlite queue the only queue and remove redis` | Default to SQLite and remove the flag; delete `bullmq`, `ioredis`, `StatusBus`, the Lua script and the Redis keys; drop `redis` from compose; update `DATA-MODEL.md`, `SEQUENCE.md` and the module pages. Mostly deletions | ~250 added |
 | 10 | `feat(infra): run the api and worker in one process` | `conveyor serve` and `conveyor work`, the in-process `EventTarget` fast path, compose down to caddy, web and conveyor | ~350 |
 
 Order: 1, then 2, 3 and 4 in any order; 5 needs 2 and 3; 6 needs 4 and 5; 7 needs 3 and 4 and can be reviewed

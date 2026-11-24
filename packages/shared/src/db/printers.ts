@@ -1,13 +1,27 @@
 import type { Database } from "bun:sqlite";
-import { sealPrinterSecrets } from "./printer-secrets.js";
+import { dbGetPrinterSecrets, sealPrinterSecrets } from "./printer-secrets.js";
+
+export const MAX_PRINTER_SECRETS = 16;
+
+export type PrinterSecretsPatch = Record<string, string | null>;
 
 export interface PrinterInput {
   id: string;
   transportId: string;
   name: string;
   address: string;
-  secrets?: Record<string, string>;
+  secrets?: PrinterSecretsPatch;
   allowedGenerators?: string[];
+}
+
+export class PrinterSecretsWriteError extends Error {
+  override name = "PrinterSecretsWriteError";
+  constructor(
+    readonly kind: "TooManySecrets" | "StoredSecretsUnreadable",
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 export interface Printer extends Omit<PrinterInput, "secrets"> {
@@ -56,12 +70,34 @@ export function dbListPrinters(db: Database): Printer[] {
   return (db.query("SELECT * FROM printers ORDER BY name").all() as PrinterRow[]).map(rowToPrinter);
 }
 
-function storedSecrets(db: Database, p: PrinterInput): string | null {
-  if (!p.secrets || Object.keys(p.secrets).length === 0) return null;
-  return sealPrinterSecrets(db, p.id, p.secrets);
+function mergedSecrets(db: Database, id: string, patch: PrinterSecretsPatch): string | null {
+  const stored = dbGetPrinterSecrets(db, id);
+  if (!stored.ok) {
+    throw new PrinterSecretsWriteError(
+      "StoredSecretsUnreadable",
+      `printer ${id}'s stored secrets can't be read, so they can't be updated; delete the printer and add it again`,
+    );
+  }
+  const merged = { ...stored.value };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  }
+  if (Object.keys(merged).length > MAX_PRINTER_SECRETS) {
+    throw new PrinterSecretsWriteError(
+      "TooManySecrets",
+      `secrets: at most ${MAX_PRINTER_SECRETS} secrets per printer, counting the ones already stored`,
+    );
+  }
+  return Object.keys(merged).length === 0 ? null : sealPrinterSecrets(db, id, merged);
 }
 
 export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
+  db.transaction(() => upsertPrinter(db, p)).immediate();
+}
+
+function upsertPrinter(db: Database, p: PrinterInput): void {
+  const secrets = p.secrets === undefined ? null : mergedSecrets(db, p.id, p.secrets);
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)
@@ -75,7 +111,7 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
     p.transportId,
     p.name,
     p.address,
-    storedSecrets(db, p),
+    secrets,
     p.allowedGenerators ? JSON.stringify(p.allowedGenerators) : null,
     Date.now(),
     p.secrets !== undefined,

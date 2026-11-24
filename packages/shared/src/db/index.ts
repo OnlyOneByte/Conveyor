@@ -1,11 +1,6 @@
 import { Database } from "bun:sqlite";
 import { migrate } from "./migrate.js";
-import {
-  bindSecretsKey,
-  encryptPlaintextSecrets,
-  resolveSecretsKey,
-  sealPrinterSecrets,
-} from "./printer-secrets.js";
+import { bindSecretsKey, encryptPlaintextSecrets, resolveSecretsKey } from "./printer-secrets.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 import { enableWal } from "./wal.js";
@@ -73,14 +68,7 @@ function seedDefaults(db: Database): void {
     for (const p of DEFAULT_PROFILES)
       insertProfile.run(p.id, p.slicerId, p.name, p.path, p.gcodeFlavor, now);
     for (const p of DEFAULT_PRINTERS)
-      insertPrinter.run(
-        p.id,
-        p.transportId,
-        p.name,
-        p.address,
-        p.secrets ? sealPrinterSecrets(db, p.id, p.secrets) : null,
-        now,
-      );
+      insertPrinter.run(p.id, p.transportId, p.name, p.address, null, now);
   });
   tx.immediate();
 }

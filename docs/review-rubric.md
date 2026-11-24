@@ -83,9 +83,8 @@ Check the ones that apply and name them in the body:
 ### 8. File and module size
 - A file is at most 250 lines, a Svelte component at most 150. Over is S1. CI's `file-size` check enforces this, except for the files in `scripts/checks/lines/baseline.json`, which it only stops from growing.
 - Cognitive complexity at most 12 per function, at most 3 positional parameters. Over is S1.
-- The PR is at most 400 changed lines (lockfiles, snapshots, migrations, `docs/design/**` and pure deletions excluded). 401 to 800 is S2 with a request to split; over 800 without the owner's `large-ok` label is S1.
 - Dependency direction follows `docs/architecture.md` in the repo (today: `web → shared`, `api → shared`, `worker → shared`, generator plugins depend only on `shared`). An import against the documented direction is S1.
-- One concern per PR. Two unrelated changes is S1: ask for a split.
+- One concern per PR. Related small issues in one area count as one concern. Two unrelated changes is S1: ask for a split. The size of the diff is never a finding on its own.
 
 ### 9. Zero comments
 **Any comment added by the diff is S1, with no exceptions and no judgement call.** Check the added lines yourself; do not rely on the guard alone.
@@ -109,7 +108,7 @@ git diff origin/main...HEAD -U0 | grep -nE '^\+[^+].*(//|/\*|<!--)|^\+\s*#[^!]' 
 
 ### 11. PR template
 - Every section of `.github/PULL_REQUEST_TEMPLATE.md` is filled with real content: What, Why, `Closes #N`, How verified, Visuals (for UI PRs), Risk and rollback, Docs touched. An empty or placeholder section is S1.
-- `Closes #N` names an existing open issue in this repo, and the diff actually addresses it.
+- Each `Closes #N` or `Part of #N` line names an existing open issue in this repo, and the diff actually addresses it. A PR may name several issues, one per line.
 - Every claim under "How verified" is something you reproduced. One you could not reproduce is S1 `could not verify`.
 - The body describes the current diff, not an earlier round.
 
