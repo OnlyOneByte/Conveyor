@@ -14,7 +14,7 @@ import {
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbMarkRetried, dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
@@ -57,6 +57,7 @@ export async function registerJobRoutes(
 
     const jobId = randomUUID();
     await jobQueue.add("job", submission.request, { jobId });
+    if (submission.retryOf) dbMarkRetried(openDb(), submission.retryOf, jobId);
     return reply.code(202).send({ jobId });
   });
 

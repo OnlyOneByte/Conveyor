@@ -97,12 +97,17 @@ Both queue modes register these, behind the same session check as every other jo
 
 | Route | Answer |
 | --- | --- |
-| `GET /jobs/needs-you` | failed jobs that are not dismissed, newest update first, at most 50, each as a history `Job` |
+| `GET /jobs/needs-you` | failed jobs that are neither dismissed nor retried, newest update first, at most 50, each as a history `Job` |
 | `POST /jobs/:id/dismiss` | `200 { ok, jobId, dismissedAt }` for a failed job; `409` naming the state for any other; `404` for an unknown id |
 
 Dismissing is idempotent: a second call answers with the first `dismissedAt`. A dismissed job stays `failed`
-and stays in `GET /jobs-history`, which returns its `dismissedAt`. A retried job is not linked to the failure
-it retries, so a retry does not take the failure off the list.
+and stays in `GET /jobs-history`, which returns its `dismissedAt`.
+
+A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
+queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
+`retryOf:`, and nothing is queued. Once the retry is queued, the route sets the failed row's `retried_by` to
+the new job's id (`dbMarkRetried`), so the failure leaves `GET /jobs/needs-you` at once, whatever happens to
+the retry, and without a dismissal. A `POST /jobs` without `retryOf` is unchanged.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 

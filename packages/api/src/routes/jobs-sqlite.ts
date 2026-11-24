@@ -9,7 +9,7 @@ import {
   jobView,
   parseStatusEvent,
 } from "@conveyor/shared";
-import { dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbMarkRetried, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import {
   enqueueJob,
   readJobFields,
@@ -80,6 +80,7 @@ export async function registerJobRoutes(
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
     const jobId = randomUUID();
     enqueueJob(db, { id: jobId, request: submission.request });
+    if (submission.retryOf) dbMarkRetried(db, submission.retryOf, jobId);
     return reply.code(202).send({ jobId });
   });
 
