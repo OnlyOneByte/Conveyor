@@ -1,5 +1,5 @@
-import { type JobRequest, jobRequestSchema } from "@conveyor/shared";
-import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { exhaustive, type JobRequest, jobRequestSchema } from "@conveyor/shared";
+import { dbDismissJob, dbListNeedsYou, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import {
   ArtifactError,
@@ -57,4 +57,27 @@ export function registerArtifactRoute(app: FastifyInstance): void {
       }
     },
   );
+}
+
+export function registerNeedsYouRoutes(app: FastifyInstance, now: () => number = Date.now): void {
+  app.get("/jobs/needs-you", async () => dbListNeedsYou(openDb()));
+
+  app.post<{ Params: { id: string } }>("/jobs/:id/dismiss", async (req, reply) => {
+    const jobId = req.params.id;
+    const result = dbDismissJob(openDb(), jobId, now());
+    switch (result.kind) {
+      case "dismissed":
+        return reply.send({ ok: true, jobId, dismissedAt: result.dismissedAt });
+      case "not-failed":
+        return reply.code(409).send({
+          ok: false,
+          jobId,
+          error: `only a failed job can be dismissed; it is ${result.state}`,
+        });
+      case "unknown":
+        return reply.code(404).send({ ok: false, jobId, error: "unknown job" });
+      default:
+        return exhaustive(result);
+    }
+  });
 }

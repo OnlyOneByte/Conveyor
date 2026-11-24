@@ -100,6 +100,7 @@ async function handleStatus(run: Run, status: PrintStatus): Promise<PrintOutcome
         stage: run.stage,
         progress: status.progress,
         message: status.message,
+        print: status.print,
         timings: computeStageTimings(run.enters),
       });
       return undefined;

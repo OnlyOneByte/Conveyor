@@ -2,6 +2,7 @@ import type { JSONSchema7 } from "json-schema";
 import type { ZodType } from "zod";
 import type { GcodeArtifact, ModelArtifact } from "./artifacts.js";
 import type { StageCtx } from "./context.js";
+import type { PrintProgress } from "./events.js";
 
 export type { JSONSchema7 } from "json-schema";
 
@@ -83,6 +84,7 @@ export interface PrintStatus {
   state: "transferring" | "printing" | "done" | "failed" | "canceled";
   progress?: number;
   message?: string;
+  print?: PrintProgress;
 }
 
 export interface TransportPlugin extends PluginManifest {
