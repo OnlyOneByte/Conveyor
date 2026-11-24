@@ -1,8 +1,8 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
-import { beltStateScenes } from "./scenes-belt-states.ts";
 import { liveScenes } from "./scenes-live.ts";
+import { printersScenes } from "./scenes-printers.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { settingsScenes } from "./scenes-settings.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
@@ -112,6 +112,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   ...settingsScenes,
+  ...printersScenes,
   {
     name: "command-menu",
     route: "/",
@@ -165,7 +166,6 @@ export const scenes: Scene[] = [
   })),
   ...signedOutScenes,
   ...beltScenes,
-  ...beltStateScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",

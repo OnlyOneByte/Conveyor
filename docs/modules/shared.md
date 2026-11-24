@@ -276,11 +276,12 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
   generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
   error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
-  that streams logs there would need a rolling buffer. A zero exit resolves `{ stderr }` with the same tail, so
+  that streams logs there would need a rolling buffer. A zero exit resolves `{ stderr }` with all of it, so
   a caller can explain an exit that produced nothing.
 - `requireOutput(stage, path, missing, stderr)` throws a `StageError` for `stage` when `path` is not a file or
-  is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the trimmed
-  stderr when there is any. Both slicers call it after a zero exit (#384), because PrusaSlicer 2.9.2 exits 0
+  is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the last 500
+  characters of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any
+  stderr passed in is bounded. Both slicers call it after a zero exit (#384), because PrusaSlicer 2.9.2 exits 0
   with no G-code when every object is outside the print volume.
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
   reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
@@ -363,6 +364,10 @@ past it.
 `dbGetJob(id)` exists because `dbListJobs()` is windowed (50 rows by default; the API's `/jobs-history`
 route in `packages/api/src/routes/catalog.ts` caps a requested limit at 200): a deep link to an older job
 would otherwise resolve to "not found" only because it fell off the window.
+
+`retry-claims.ts` holds the two reads the Redis worker's reaper needs ([worker.md](worker.md#redis-reaperts)):
+`dbListUnrecordedRetryClaims` lists `retried_by` claims whose retry has no row yet, and `dbRetryOf(retryId)`
+finds the failure a retry was claimed for.
 
 ### Migrations
 

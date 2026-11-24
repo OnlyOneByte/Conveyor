@@ -69,6 +69,35 @@ its two connections.
   and `unknown` for the rest. The per-job control connection is closed whatever happens.
 - `recordTerminal` writes the settled job to SQLite. Notes go to `notes` in every state. Only a failed job
   has an `error`, and its reason is the stage's own failure reason with no notes mixed in.
+- It starts the reaper below: one sweep at start, then every `REAPER_INTERVAL_MS` (one minute).
+
+## redis-reaper.ts
+
+On Redis a job only gets its SQLite row when it settles, so a job whose worker dies without recording an end
+state would otherwise appear nowhere: not in history and not in Needs-you (#383). Each sweep does two things.
+
+- **Jobs that died.** For each id in `ACTIVE_JOBS_KEY` with no SQLite row, the reaper asks BullMQ. A job still
+  `waiting`, `active`, `delayed`, `prioritized` or `waiting-children` is left alone, and so is one whose snapshot
+  is already terminal. Anything else is a job BullMQ gave up on (a stalled job is `failed`; see `WORKER_OPTIONS` below)
+  or no longer has. It is recorded `failed` at its last stage with `ORPHAN_REASON`:
+  "the worker stopped before recording how this job ended; check the printer before you retry". Its request
+  comes from the BullMQ job when there is one; without one the generator is `unknown` and the printer and
+  profile are empty. The same failure is published as a status, so the snapshot, the active set and any open
+  WebSocket settle too.
+- **A retry that died.** When the job just recorded was a retry, its original's `retried_by` claim is released,
+  so the original failure, with its real error, returns to Needs-you. The dead retry is dismissed, so Needs-you
+  shows the job once. Its history row stays.
+- **Claims whose retry was never queued.** `dbListUnrecordedRetryClaims` lists claims whose retry has no row.
+  A claim whose retry BullMQ also lacks is released on the second sweep in a row that finds it missing, so a
+  claim made just before its `add` isn't cut short.
+
+The production `Worker` is created with `WORKER_OPTIONS` (`maxStalledCount: 0`). BullMQ's default of 1
+would move a job whose worker died back to `waiting` and run it again from the start, which re-sends a print
+that may already be on the bed. With 0, BullMQ marks the job `failed` on the first stall, and the reaper
+records it with `ORPHAN_REASON`, so a person checks the printer before retrying.
+
+Several workers may each run the reaper. Recording is an upsert, a second terminal publish is refused, and
+releasing a claim is conditional on its holder, so overlapping sweeps agree.
 
 ## pipeline.ts
 

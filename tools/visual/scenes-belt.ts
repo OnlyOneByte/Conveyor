@@ -1,4 +1,5 @@
 import type { Scene, Step } from "./scenes.ts";
+import { beltStateScenes } from "./scenes-belt-states.ts";
 
 const job = (jobId: string, state: string, progress: number, gridX: number) => ({
   jobId,
@@ -148,4 +149,5 @@ export const beltScenes: Scene[] = [
     reducedMotion: true,
     steps: [...moves, { still: "#belt", ms: 3000 }],
   },
+  ...beltStateScenes,
 ];

@@ -58,7 +58,7 @@
     <button class="exp" type="button" aria-expanded="false" aria-controls={full} aria-label="Expand the belt" bind:this={toggle} on:click={() => open(true)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
   </section>
 {:else}
-  <div class="full" id={full} role="presentation" on:keydown={keys}>
+  <div class="full" class:opened id={full} role="presentation" on:keydown={keys}>
     {#if opened}<button class="exp shut" type="button" aria-expanded="true" aria-controls={full} aria-label="Collapse the belt" bind:this={toggle} on:click={() => open(false)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg></button>{/if}
     <Track {jobs} {ended} {onAction} {finishedToday} {needs} {offline} />
   </div>
@@ -77,11 +77,12 @@
   .mini { position: relative; flex: 1; height: 8px; margin: 0 var(--s2); border-radius: 4px; background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
   .mini u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: color-mix(in oklch, var(--belt-ink) 70%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
-  .exp { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
+  .exp { display: grid; place-items: center; width: 30px; height: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
   .bar :focus-visible { outline-color: var(--belt-ink); }
   .mini u:last-of-type { transform: translateX(-100%); }
   .exp svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .full { position: relative; }
+  .full.opened { padding-right: 38px; }
   .shut { position: absolute; top: 0; right: 0; z-index: 6; background: var(--belt); }
   .mobile { display: none; }
   @media (max-width: 759px) { .mobile { display: block; } .desktop { display: none; } }

@@ -1,49 +1,32 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    fetchCatalogPrinters,
     fetchCatalogProfiles,
-    fetchCatalogTransports,
-    fetchGenerators,
     fetchOrcaProfileContent,
     saveOrcaProfileContent,
     resetOrcaProfileContent,
     fetchPrusaProfileContent,
     savePrusaProfileContent,
     resetPrusaProfileContent,
-    savePrinter,
-    deletePrinter,
     deleteProfile,
     saveProfile,
-    type CatalogPrinter,
     type CatalogProfile,
-    type CatalogTransport,
-    type GeneratorSummary,
     type OrcaProfileContent,
     type PrusaProfileContent,
   } from "#lib/api.js";
   import { slicerFormat } from "@conveyor/shared";
   import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
-  import { secretFieldFor, secretsPatch } from "#lib/printer-secrets.js";
   import ThemePicker from "#lib/components/ThemePicker.svelte";
 
   const reducedMotion = prefersReducedMotion();
 
-  let printers: CatalogPrinter[] = [];
   let profiles: CatalogProfile[] = [];
-  let transports: CatalogTransport[] = [];
-  let generators: GeneratorSummary[] = [];
   let error: string | null = null;
   let loaded = false;
 
   async function reload() {
     try {
-      [printers, profiles, transports, generators] = await Promise.all([
-        fetchCatalogPrinters(),
-        fetchCatalogProfiles(),
-        fetchCatalogTransports(),
-        fetchGenerators(),
-      ]);
+      profiles = await fetchCatalogProfiles();
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -60,86 +43,6 @@
     window.addEventListener("beforeunload", warnUnsaved);
     return () => window.removeEventListener("beforeunload", warnUnsaved);
   });
-
-  // Seed the transport picker once the list arrives, without clobbering an edit.
-  $: if (!ppTransportId && transports.length && !editingPrinter) ppTransportId = transports[0].id;
-
-  // Printer form — doubles as add and edit. `editingPrinter` holds the id being
-  // edited (null = adding), because the M2 hardware flow is "change an existing
-  // printer's address", not "create one".
-  let editingPrinter: string | null = null;
-  let ppId = "";
-  let ppName = "";
-  let ppTransportId = "";
-  let ppAddress = "";
-  let ppSecret = "";
-  $: secretField = secretFieldFor(ppTransportId);
-  // undefined vs [] is a real distinction, so the UI models it explicitly: the
-  // toggle is "is there an allowlist at all", the set is its contents.
-  let ppRestrict = false;
-  let ppAllowed = new Set<string>();
-  let ppError: string | null = null;
-  let ppOpen = false;
-
-  function resetPrinter() {
-    editingPrinter = null;
-    ppId = "";
-    ppName = "";
-    ppTransportId = transports[0]?.id ?? "";
-    ppAddress = "";
-    ppSecret = "";
-    ppRestrict = false;
-    ppAllowed = new Set();
-    ppError = null;
-  }
-
-  function editPrinter(p: CatalogPrinter) {
-    editingPrinter = p.id;
-    ppId = p.id;
-    ppName = p.name;
-    ppTransportId = p.transportId;
-    ppAddress = p.address;
-    // Never prefilled: reads strip secrets, so there is nothing to prefill WITH.
-    // Left blank the stored value is preserved server-side.
-    ppSecret = "";
-    // allowedGenerators IS returned on read, so unlike secrets it round-trips.
-    ppRestrict = p.allowedGenerators !== undefined;
-    ppAllowed = new Set(p.allowedGenerators ?? []);
-    ppError = null;
-    ppOpen = true;
-  }
-
-  async function submitPrinter() {
-    ppError = null;
-    try {
-      await savePrinter({
-        id: ppId,
-        name: ppName,
-        transportId: ppTransportId,
-        address: ppAddress,
-        ...secretsPatch(ppTransportId, ppSecret),
-        // Omitted = no restriction. Sent as an array (possibly empty) when restricting.
-        ...(ppRestrict ? { allowedGenerators: [...ppAllowed] } : {}),
-      });
-      resetPrinter();
-      ppOpen = false;
-      await reload();
-    } catch (e) {
-      ppError = (e as Error).message;
-    }
-  }
-
-  // `del()` surfaces the server's error message verbatim rather than a status code.
-  async function removePrinter(id: string) {
-    if (!confirm(`Delete printer "${id}"?`)) return;
-    try {
-      await deletePrinter(id);
-      if (editingPrinter === id) { resetPrinter(); ppOpen = false; }
-      await reload();
-    } catch (e) {
-      error = (e as Error).message;
-    }
-  }
 
   async function removeProfile(id: string) {
     if (!confirm(`Delete profile "${id}"?`)) return;
@@ -592,86 +495,6 @@
       </details>
     </section>
 
-    <!-- Printers -->
-    <section class="card">
-      <h2>Printers</h2>
-      <p class="muted">Physical devices. Secrets are stored server-side and never shown here.</p>
-      <div class="tablewrap"><table>
-        <thead><tr><th>Name</th><th>Transport</th><th>Address</th><th>Secrets</th><th>Generators</th><th></th></tr></thead>
-        <tbody>
-          {#each printers as p}
-            <tr><td><strong>{p.name}</strong><br /><span class="muted mono">{p.id}</span></td><td class="mono">{p.transportId}</td><td class="mono">{p.address}</td><td>{p.hasSecrets ? "🔒 set" : "—"}</td><td class="mono">{p.allowedGenerators === undefined ? "all" : (p.allowedGenerators.length ? p.allowedGenerators.join(", ") : "none")}</td><td class="actions"><button class="ghost small" on:click={() => editPrinter(p)}>Edit</button><button class="ghost small danger" on:click={() => removePrinter(p.id)}>Delete</button></td></tr>
-          {/each}
-        </tbody>
-      </table></div>
-
-      <details bind:open={ppOpen}>
-        <summary><span class="caret" aria-hidden="true">▶</span>{editingPrinter ? `Editing ${editingPrinter}` : "Add printer"}</summary>
-        <div class="form">
-          <label>ID
-            <input bind:value={ppId} placeholder="klipper-garage" disabled={!!editingPrinter} />
-          </label>
-          <label>Name<input bind:value={ppName} placeholder="Garage Klipper" /></label>
-          <label>Transport
-            <select bind:value={ppTransportId}>
-              <option value="" disabled>— choose —</option>
-              {#each transports as t}<option value={t.id}>{t.name} ({t.id})</option>{/each}
-            </select>
-          </label>
-          <label>Address
-            <input bind:value={ppAddress} placeholder="192.168.1.50:7125" />
-          </label>
-          <label>{secretField.label}<input type={secretField.hidden ? "password" : "text"} bind:value={ppSecret} autocomplete="off"
-            spellcheck="false" placeholder={editingPrinter ? "leave blank to keep the stored value" : secretField.hint} /></label>
-          <p class="muted note">Secrets are write-only — they are never sent back to the browser, so this field always
-            starts empty. Leaving it blank keeps whatever is stored, and saving one secret keeps the others.</p>
-          <label class="check">
-            <input type="checkbox" bind:checked={ppRestrict} />
-            <span>Restrict which generators can print here</span>
-          </label>
-          {#if ppRestrict}
-            <div class="genlist">
-              {#each generators as g}
-                <label class="check">
-                  <input
-                    type="checkbox"
-                    checked={ppAllowed.has(g.id)}
-                    on:change={(e) => {
-                      // Reassign so Svelte sees the change — mutating a Set in place
-                      // does not trigger reactivity.
-                      const next = new Set(ppAllowed);
-                      if (e.currentTarget.checked) next.add(g.id);
-                      else next.delete(g.id);
-                      ppAllowed = next;
-                    }} />
-                  <span>{g.name} <span class="muted mono">{g.id}</span></span>
-                </label>
-              {/each}
-            </div>
-            {#if ppAllowed.size === 0}
-              <p class="muted note">
-                Nothing selected — this printer will accept no jobs at all. Untick the box
-                above to allow every generator instead.
-              </p>
-            {/if}
-          {:else}
-            <p class="muted note">Unrestricted: every generator may print to this printer.</p>
-          {/if}
-          <div class="row-actions">
-            <button class="primary" on:click={submitPrinter}
-              disabled={!ppId || !ppName || !ppTransportId || !ppAddress}>
-              {editingPrinter ? "Save changes" : "Add printer"}
-            </button>
-            {#if editingPrinter}
-              <button class="ghost" on:click={() => { resetPrinter(); ppOpen = false; }}>Cancel</button>
-            {/if}
-          </div>
-          {#if ppError}<p class="err">{ppError}</p>{/if}
-        </div>
-      </details>
-    </section>
-
-    <!-- Job history lives on its own page now: /jobs -->
   {/if}
 </div>
 
@@ -698,18 +521,14 @@
   details[open] .caret { transform: rotate(90deg); }
   .form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.85rem; max-width: 30rem; }
   .form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--muted); }
-  .form input, .form select { padding: 0.45rem 0.6rem; }
+  .form input { padding: 0.45rem 0.6rem; }
   .pref { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;
     cursor: pointer; margin-top: 0.75rem; }
   .pref input { margin: 0; }
   .note { font-size: 0.8rem; margin: 0.5rem 0 0; }
   .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
-  .row-actions { display: flex; gap: 0.5rem; align-items: center; }
   /* NOT display:flex — that turns the cell into a flex container and breaks table
      column sizing. nowrap keeps the two buttons on one line. */
-  .check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; }
-  .check input { width: auto; min-height: 0; }
-  .genlist { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.15rem 0 0 1.2rem; }
   .source { display: inline-block; padding: 0.1rem 0.42rem; border: 1px solid var(--border);
     border-radius: 99px; color: var(--muted); font-size: 0.72rem; text-transform: uppercase;
     letter-spacing: 0.04em; }
@@ -728,7 +547,7 @@
     font-family: ui-monospace, monospace; font-size: 0.78rem; }
   .tab.active { color: var(--live); border-bottom-color: var(--accent); }
   .json-editor { box-sizing: border-box; width: 100%; min-height: 28rem; margin-top: 0.65rem;
-    resize: vertical; border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem;
+    resize: vertical; border: 1.5px solid var(--field-line); border-radius: 6px; padding: 0.7rem;
     background: var(--bg); color: var(--text); font-family: ui-monospace, monospace;
     font-size: 0.78rem; line-height: 1.45; tab-size: 2; white-space: pre; }
   .json-editor:focus { outline: 1px solid var(--focus); border-color: var(--focus); }

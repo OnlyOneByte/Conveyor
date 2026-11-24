@@ -20,7 +20,7 @@ describe("what the belt announces", () => {
       { level: "polite", text: "Bin 1×1 · 3u moved to Send on Voron 2.4" },
       { level: "polite", text: "Bin 1×1 · 3u started printing on Voron 2.4 at 14:05" },
       { level: "polite", text: "Bin 1×1 · 3u finished on Voron 2.4" },
-      { level: "polite", text: "Bin 1×1 · 3u was canceled" },
+      { level: "polite", text: "Bin 1×1 · 3u was canceled", canceled: "d" },
       { level: "polite", text: "Bin 1×1 · 3u moved to Slice on Voron 2.4" },
     ]);
   });
