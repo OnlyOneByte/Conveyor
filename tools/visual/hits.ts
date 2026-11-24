@@ -2,9 +2,23 @@ import type { Page } from "playwright";
 
 export type Viewport = readonly [width: number, height: number];
 
+interface Target {
+  tagName: string;
+  className: unknown;
+  textContent: string | null;
+  getBoundingClientRect(): { x: number; y: number; width: number; height: number };
+  contains(other: Target): boolean;
+}
+
+declare const document: {
+  querySelectorAll(selector: string): Iterable<Target>;
+  elementFromPoint(x: number, y: number): Target | null;
+};
+declare const requestAnimationFrame: (run: (time: number) => void) => number;
+
 export async function coveredTargets(page: Page, selector: string): Promise<string[]> {
   return page.evaluate((sel) => {
-    const name = (el: Element) =>
+    const name = (el: Target) =>
       `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).trim().split(/\s+/).join(".")}` : ""}`;
     return [...document.querySelectorAll(sel)].flatMap((el) => {
       const box = el.getBoundingClientRect();
