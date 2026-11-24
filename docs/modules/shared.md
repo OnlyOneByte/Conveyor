@@ -346,6 +346,13 @@ instead of enqueueing a job that cannot run.
 been deleted has a null printer and profile; `rowToJob` surfaces them as empty strings rather than invent
 values.
 
+`rowToJob` parses `params_json`, `error_json` and `timings_json` one at a time. A column that doesn't parse is
+left out of the job and named in `unreadable` (`["params"]`, for example), so one corrupt row can't fail
+`dbListJobs`, `dbGetJob` or `dbListNeedsYou` for every other job (#400). It logs
+`[jobs] job <id> has an unreadable <column> column` once per job and column for the life of the process. The
+row is still listed and counted, so a page and `dbCountJobs` keep agreeing, and the history cursor still moves
+past it.
+
 `dbGetJob(id)` exists because `dbListJobs()` is windowed (50 rows by default; the API's `/jobs-history`
 route in `packages/api/src/routes/catalog.ts` caps a requested limit at 200): a deep link to an older job
 would otherwise resolve to "not found" only because it fell off the window.
