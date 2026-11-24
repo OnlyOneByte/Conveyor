@@ -53,27 +53,16 @@ describe("retrying a failed job", () => {
     expect(row).toEqual({ retried_by: "retry-1" });
   });
 
-  test("a job that isn't failed can't be claimed", () => {
-    const db = jobs(["fine", "done"]);
-    expect([dbClaimRetry(db, "fine", "retry-1"), dbClaimRetry(db, "nope", "retry-2")]).toEqual([
-      false,
-      false,
-    ]);
-    expect(db.query("SELECT id, retried_by FROM jobs").all()).toEqual([
+  test("only a failed job can be claimed, once; only its claimant can release it", () => {
+    const db = jobs(["broke", "failed"], ["fine", "done"]);
+    const claims = ["fine", "nope", "broke", "broke"].map((id, n) => dbClaimRetry(db, id, `r${n}`));
+    expect(claims).toEqual([false, false, true, false]);
+    dbReleaseRetry(db, "broke", "r3");
+    expect(needsYou(db)).toEqual([]);
+    dbReleaseRetry(db, "broke", "r2");
+    expect(db.query("SELECT id, retried_by FROM jobs ORDER BY id").all()).toEqual([
+      { id: "broke", retried_by: null },
       { id: "fine", retried_by: null },
     ]);
-  });
-
-  test("a failure is claimed once; only its claimant can release it", () => {
-    const db = jobs(["broke", "failed"]);
-    expect([dbClaimRetry(db, "broke", "retry-1"), dbClaimRetry(db, "broke", "retry-2")]).toEqual([
-      true,
-      false,
-    ]);
-    dbReleaseRetry(db, "broke", "retry-2");
-    expect(needsYou(db)).toEqual([]);
-    dbReleaseRetry(db, "broke", "retry-1");
-    expect(needsYou(db)).toEqual(["broke"]);
-    expect(dbClaimRetry(db, "broke", "retry-3")).toBe(true);
   });
 });

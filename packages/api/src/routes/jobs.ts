@@ -21,13 +21,9 @@ import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
-import {
-  parseSubmission,
-  registerArtifactRoute,
-  registerNeedsYouRoutes,
-  submitJob,
-} from "./job-common.js";
+import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
+import { submitJob } from "./submit.js";
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 

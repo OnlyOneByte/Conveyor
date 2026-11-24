@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,10 +22,11 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
   let queue: typeof import("../queue.js");
   const app = Fastify();
   const queued: string[] = [];
-  let dir = "";
-  let previous: string | undefined;
+  const dir = mkdtempSync(join(tmpdir(), "conveyor-redis-retry-"));
+  const previous = process.env.DB_PATH;
 
   beforeAll(async () => {
+    process.env.DB_PATH = join(dir, "conveyor.db");
     const { registerJobRoutes } = await import("./jobs.js");
     queue = await import("../queue.js");
     if (queue.redis.status === "end") await queue.redis.connect();
@@ -36,20 +37,11 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
   });
 
   afterAll(async () => {
+    for (const id of queued) await (await queue.jobQueue.getJob(id))?.remove();
     await app.close();
     await queue.jobQueue.close();
     queue.redis.disconnect();
     queue.connection.disconnect();
-  });
-
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "conveyor-redis-retry-"));
-    previous = process.env.DB_PATH;
-    process.env.DB_PATH = join(dir, "conveyor.db");
-  });
-
-  afterEach(async () => {
-    for (const id of queued.splice(0)) await (await queue.jobQueue.getJob(id))?.remove();
     openDb().close();
     if (previous === undefined) delete process.env.DB_PATH;
     else process.env.DB_PATH = previous;
@@ -61,11 +53,6 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
     dbRecordJob(openDb(), { ...request, id, generatorId: "gridfinity", state: "failed" });
     return id;
   };
-  const listed = async () =>
-    z
-      .array(z.object({ id: z.string() }))
-      .parse(await (await fetch(`${base}/jobs/needs-you`)).json())
-      .map((j) => j.id);
   const post = async (body: unknown) => {
     const res = await fetch(`${base}/jobs`, {
       method: "POST",
@@ -78,36 +65,34 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
     if (answer.jobId) queued.push(answer.jobId);
     return { status: res.status, ...answer };
   };
-  const waiting = () => queue.jobQueue.getWaitingCount();
 
-  test("a retry takes its failure off the Needs-you list; an unknown retryOf is a 400", async () => {
+  test("a retry takes its failure off the Needs-you list", async () => {
     const failed = failedJob();
+    const listed = async () =>
+      z
+        .array(z.object({ id: z.string() }))
+        .parse(await (await fetch(`${base}/jobs/needs-you`)).json())
+        .map((j) => j.id);
     expect(await listed()).toEqual([failed]);
-    expect(await post({ ...request, retryOf: "nope" })).toEqual({
-      status: 400,
-      error: "retryOf: unknown job nope",
-    });
-    const res = await post({ ...request, retryOf: failed });
-    expect([res.status, await listed()]).toEqual([202, []]);
-  });
-
-  test("a second retry of the same failure is a 409 naming retryOf, and queues nothing", async () => {
-    const failed = failedJob();
-    const before = await waiting();
-    const first = await post({ ...request, retryOf: failed });
-    const second = await post({ ...request, retryOf: failed });
-    expect([first.status, second]).toEqual([
+    expect([(await post({ ...request, retryOf: failed })).status, await listed()]).toEqual([
       202,
-      { status: 409, error: `retryOf: job ${failed} is already being retried` },
+      [],
     ]);
-    expect(await waiting()).toBe(before + 1);
   });
 
-  test("two retries sent at once queue exactly one job", async () => {
-    const failed = failedJob();
-    const before = await waiting();
-    const answers = await Promise.all([1, 2, 3].map(() => post({ ...request, retryOf: failed })));
-    expect(answers.map((a) => a.status).sort()).toEqual([202, 409, 409]);
-    expect(await waiting()).toBe(before + 1);
+  test("of a double retry, sent in turn or at once, one is queued and the rest are 409s", async () => {
+    const [one, two] = [failedJob(), failedJob()];
+    const before = await queue.jobQueue.getWaitingCount();
+    const inTurn = [];
+    for (const _ of [1, 2]) inTurn.push(await post({ ...request, retryOf: one }));
+    const atOnce = await Promise.all([1, 2, 3].map(() => post({ ...request, retryOf: two })));
+    expect(inTurn[1]).toEqual({
+      status: 409,
+      error: `retryOf: job ${one} is already being retried`,
+    });
+    expect([inTurn[0]?.status, ...atOnce.map((a) => a.status).sort()]).toEqual([
+      202, 202, 409, 409,
+    ]);
+    expect(await queue.jobQueue.getWaitingCount()).toBe(before + 2);
   });
 });

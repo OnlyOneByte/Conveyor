@@ -8,8 +8,8 @@ import { enqueueJob } from "@conveyor/shared/queue";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
-import { submitJob } from "./job-common.js";
 import { registerJobRoutes } from "./jobs-sqlite.js";
+import { submitJob } from "./submit.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-retry-"));
 const previousDbPath = process.env.DB_PATH;
@@ -94,33 +94,22 @@ describe("retrying a failed job on the SQLite queue", () => {
     expect(count()).toBe(before);
   });
 
-  test("a second retry of the same failure is a 409 naming retryOf, and queues nothing", async () => {
-    const failed = job("failed");
-    const before = count();
-    const first = await submit({ ...request, retryOf: failed });
-    const second = await submit({ ...request, retryOf: failed });
-    expect([first.status, second]).toEqual([
-      202,
-      { status: 409, body: { error: `retryOf: job ${failed} is already being retried` } },
-    ]);
-    expect(count()).toBe((before ?? 0) + 1);
-  });
-
-  test("retries sent at once queue exactly one job", async () => {
-    const failed = job("failed");
-    const before = count();
-    const answers = await Promise.all([1, 2, 3].map(() => submit({ ...request, retryOf: failed })));
-    expect(answers.map((a) => a.status).sort()).toEqual([202, 409, 409]);
-    expect(count()).toBe((before ?? 0) + 1);
+  test("of a double retry, sent in turn or at once, one is queued and the rest are 409s", async () => {
+    const [one, two] = [job("failed"), job("failed")];
+    const before = count() ?? 0;
+    const inTurn = [];
+    for (const _ of [1, 2]) inTurn.push(await submit({ ...request, retryOf: one }));
+    const atOnce = await Promise.all([1, 2, 3].map(() => submit({ ...request, retryOf: two })));
+    expect(inTurn.map((a) => a.status)).toEqual([202, 409]);
+    expect(inTurn[1]?.body).toEqual({ error: `retryOf: job ${one} is already being retried` });
+    expect(atOnce.map((a) => a.status).sort()).toEqual([202, 409, 409]);
+    expect(count()).toBe(before + 2);
   });
 
   test("a retry whose queueing fails leaves the failure on the list to try again", async () => {
     const failed = job("failed");
-    const enqueue = () => {
-      throw new Error("queue down");
-    };
-    const submission = { request, retryOf: failed };
-    await expect(submitJob(db, submission, enqueue)).rejects.toThrow("queue down");
+    const down = () => Promise.reject(new Error("queue down"));
+    await expect(submitJob(db, { request, retryOf: failed }, down)).rejects.toThrow("queue down");
     expect(await needsYou()).toContain(failed);
     expect((await submit({ ...request, retryOf: failed })).status).toBe(202);
   });

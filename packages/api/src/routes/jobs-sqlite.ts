@@ -20,12 +20,8 @@ import type { FastifyInstance } from "fastify";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
-import {
-  parseSubmission,
-  registerArtifactRoute,
-  registerNeedsYouRoutes,
-  submitJob,
-} from "./job-common.js";
+import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import { submitJob } from "./submit.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
