@@ -9,7 +9,7 @@ import type { JobState } from "@conveyor/shared";
 
 const KEY = "conveyor.rerun";
 
-interface RerunPayload {
+export interface RerunPayload {
   generatorId: string;
   params?: unknown;
   printerId: string;
@@ -21,6 +21,12 @@ interface Rerunnable {
   state: JobState;
   request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
 }
+
+export const linkedRetry = (handoff: RerunPayload | null, source: string, generatorId: string | undefined) =>
+  handoff?.retryOf && source === "generate" && generatorId === handoff.generatorId ? handoff.retryOf : undefined;
+
+export const submitError = (message: string) =>
+  message.startsWith("retryOf:") && message.endsWith("already being retried") ? "This failure was already retried." : message;
 
 export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
   const settled = state === "done" || state === "canceled";

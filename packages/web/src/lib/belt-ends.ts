@@ -41,9 +41,11 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
     ui.show(finished, needs.map((job) => trackJob(asStatus(job), undefined, catalog)));
   }
 
+  const runnable = (job: TrackJob) => (job.request ? rerunRequest({ state: "canceled", request: job.request }) : null);
+
   async function again(job: TrackJob) {
-    const entry = await feed.entry(job.id);
-    const request = entry && rerunRequest(entry);
+    const entry = await feed.entry(job.id).catch(() => null);
+    const request = entry ? rerunRequest(entry) : runnable(job);
     if (!request) throw new Error("can't run again");
     await feed.submit(request);
     ui.say(`${shortName(job.name)} is queued again.`, "polite");
@@ -53,8 +55,7 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
     const failed = failures.get(job.id);
     if (action === "Cancel") {
       await feed.cancel(job.id);
-      const entry = await feed.entry(job.id).catch(() => null);
-      ui.toast(`${shortName(job.name)} canceled`, entry && rerunRequest(entry) ? { label: "Print again", run: () => void act(job, "Print again") } : undefined);
+      ui.toast(`${shortName(job.name)} canceled`, runnable(job) ? { label: "Print again", run: () => void act(job, "Print again") } : undefined);
     } else if (action === "Print again") await again(job);
     else if (action === "Pick printer" && failed) ui.pick({ ...failed.request, printerId: "", profileId: "" }, job.id);
     else if (action === "Retry" && failed) {

@@ -59,7 +59,7 @@ describe("the belt's live feed", () => {
     state.active = [view("a", "printing", { progress: 0.4 }), view("b", "queued", { generator: undefined })];
     await belt.poll();
     expect(shown.at(-1)).toEqual([
-      { id: "a", name: "Gridfinity Bin 2 × 3", state: "printing", progress: 0.4, printer: "Voron 2.4" },
+      { id: "a", name: "Gridfinity Bin 2 × 3", state: "printing", progress: 0.4, printer: "Voron 2.4", request: { generator: { id: "gridfinity", params: { gridX: 2, gridY: 3 } }, printerId: "voron", profileId: "pla" } },
       { id: "b", name: "Job", state: "queued", printer: "Voron 2.4" },
     ]);
     expect(told).toEqual([]);

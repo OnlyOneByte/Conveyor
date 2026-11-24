@@ -1,7 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { Politeness } from "./announce";
 import type { JobHistoryEntry } from "./api";
-import { createEnds, ENDS_MS, type EndsFeed, midnight } from "./belt-ends";
+import { createEnds, ENDS_MS, type EndsFeed, http, midnight } from "./belt-ends";
 import type { Retried } from "./retry";
 import type { TrackJob } from "./track";
 
@@ -22,7 +22,7 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
   const toasts: { text: string; action?: { label: string; run: () => void } }[] = [];
   const picked: unknown[] = [];
   const upload = { ...request, generator: { id: "passthrough", params: { uploadId: "u1", filename: "clip.stl" } } };
-  const records = new Map([["c1", entry("c1", "canceled")], ["u1", entry("u1", "canceled", at(9), { request: upload })]]);
+  const records = new Map<string, JobHistoryEntry>();
   const call = (name: string) => async (arg?: unknown) => {
     calls.push(`${name} ${JSON.stringify(arg)}`);
     if (refuse.includes(name)) throw new Error("409");
@@ -43,7 +43,7 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     say: (text, level) => said.push([text, level]),
     pick: (asked, retryOf) => picked.push([asked, retryOf]),
   }, () => NOW);
-  return { calls, said, shown, toasts, picked, ends };
+  return { calls, said, shown, toasts, picked, ends, records, upload };
 }
 
 describe("the belt's end states", () => {
@@ -77,20 +77,37 @@ describe("the belt's end states", () => {
     expect(picked).toEqual([[{ ...request, printerId: "", profileId: "" }, "f1"]]);
   });
 
-  test("Cancel shows a Print again toast that sends the same request again, without retryOf", async () => {
+  test("canceling a running job, which has no record yet, offers Print again from the chip's request, without retryOf", async () => {
     const { calls, said, toasts, ends } = rig();
-    await ends.act({ ...job, id: "c1", state: "printing" }, "Cancel");
+    await ends.act({ ...job, id: "c1", state: "printing", request }, "Cancel");
     expect([calls, toasts.map((t) => [t.text, t.action?.label])]).toEqual([['cancel "c1"'], [["Bin 2 × 3 canceled", "Print again"]]]);
     toasts[0]?.action?.run();
     await Bun.sleep(0);
     expect([calls[1], said]).toEqual([`submit ${JSON.stringify(request)}`, [["Bin 2 × 3 is queued again.", "polite"]]]);
   });
 
-  test("a canceled upload's toast has no Print again, and an upload can't be printed again", async () => {
-    const { said, toasts, calls, ends } = rig();
-    await ends.act({ ...job, id: "u1", name: "clip.stl", state: "printing" }, "Cancel");
-    await ends.act({ ...job, id: "u1", name: "clip.stl", state: "canceled" }, "Print again");
-    expect([toasts, said, calls.some((c) => c.startsWith("submit"))]).toEqual([[{ text: "clip.stl canceled" }], [["Couldn't print clip.stl again.", "assertive"]], false]);
+  test("an upload's toast has no Print again; on click, a record that settled as failed wins over the chip's request", async () => {
+    const { said, toasts, calls, ends, records, upload } = rig();
+    await ends.act({ ...job, id: "u1", name: "clip.stl", state: "printing", request: upload }, "Cancel");
+    await ends.act({ ...job, id: "u1", name: "clip.stl", state: "canceled", request: upload }, "Print again");
+    records.set("c2", entry("c2", "failed"));
+    await ends.act({ ...job, id: "c2", state: "canceled", request }, "Print again");
+    expect([toasts, said, calls.some((c) => c.startsWith("submit"))]).toEqual([
+      [{ text: "clip.stl canceled" }],
+      [["Couldn't print clip.stl again.", "assertive"], ["Couldn't print Bin 2 × 3 again.", "assertive"]],
+      false,
+    ]);
+  });
+
+  test("the Finished count is the counts endpoint's done, since the given time", async () => {
+    const seen: string[] = [];
+    const reply = (body: unknown) => Object.assign(async (url: string | URL | Request) => (seen.push(String(url)), Response.json(body)), { preconnect: fetch.preconnect });
+    const stub = spyOn(globalThis, "fetch").mockImplementation(reply({ done: 7, failed: 2, canceled: 1 }));
+    const counted = [await http.finished(at(0))];
+    stub.mockImplementation(reply({ failed: 2 }));
+    counted.push(await http.finished(at(0)));
+    stub.mockRestore();
+    expect([counted, seen[0]]).toEqual([[7, 0], `/api/jobs-history/counts?since=${at(0)}`]);
   });
 
   test("a failed cancel, and Print again for a job that's gone, are announced", async () => {

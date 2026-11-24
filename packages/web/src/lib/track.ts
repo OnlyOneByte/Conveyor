@@ -94,6 +94,7 @@ export interface TrackJob {
   progress?: number;
   printer?: string;
   reason?: string;
+  request?: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
 }
 
 export function value({ state, progress }: TrackJob): string {

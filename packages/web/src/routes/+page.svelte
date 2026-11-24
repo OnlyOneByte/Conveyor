@@ -14,7 +14,7 @@
     type CatalogTransport,
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
-  import { takeRerun } from "#lib/rerun.js";
+  import { linkedRetry, type RerunPayload, submitError, takeRerun } from "#lib/rerun.js";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -33,7 +33,7 @@
         selectedGenId = r.generatorId;
         selectedPrinterId = r.printerId;
         selectedProfileId = r.profileId;
-        retryOf = r.retryOf;
+        handoff = r;
         if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
       }
     }
@@ -48,10 +48,11 @@
   let source: Source = "generate";
 
   let selectedGenId = "";
+  let handoff: RerunPayload | null = null;
   let selectedPrinterId = "";
   let selectedProfileId = "";
   let params: Record<string, unknown> = {};
-  let retryOf: string | undefined;
+  $: retryOf = linkedRetry(handoff, source, selectedGenId);
 
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
@@ -153,7 +154,6 @@
         ...(retryOf ? { retryOf } : {}),
       });
       jobId = res.jobId;
-      // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,
@@ -163,10 +163,10 @@
         state: "queued",
       });
     } catch (e) {
-      error = (e as Error).message;
+      error = submitError((e as Error).message);
     } finally {
       submitting = false;
-      retryOf = undefined;
+      handoff = null;
     }
   }
 

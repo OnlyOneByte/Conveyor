@@ -49,7 +49,7 @@
       "suppressions": 0
     },
     "packages/web/src/routes/+page.svelte": {
-      "comments": 57,
+      "comments": 56,
       "suppressions": 0
     },
     "packages/web/src/routes/history/[jobId]/+page.svelte": {
