@@ -52,7 +52,7 @@ export const jobsScenes: Scene[] = [
       { fulfill: "**/api/jobs-history?*", status: 503, json: { error: "down" } },
       { click: ".pill >> text=Printed" },
       { click: ".pill >> text=All" },
-      { waitFor: "[role=alert] >> text=Can't reach Conveyor" },
+      { waitFor: "[aria-live=assertive] >> text=Can't reach Conveyor" },
       { waitFor: "[data-id='j1']" },
       { wait: 300 },
     ],
