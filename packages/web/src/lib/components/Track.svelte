@@ -33,7 +33,9 @@
     const by = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!by) return;
     const stops = [...rail.querySelectorAll<HTMLElement>("[data-stop]")];
-    const to = stops[step(stops.findIndex((el) => el === document.activeElement), by, stops.length)];
+    const at = stops.findIndex((el) => el === document.activeElement);
+    if (at < 0) return;
+    const to = stops[step(at, by, stops.length)];
     if (to?.dataset.stop) active = Number(to.dataset.stop);
     to?.focus();
     event.preventDefault();

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ACTIONS, chipName, groupName, groupVisible, shortName, status, type TrackJob, value, visible } from "#lib/track.js";
+  import { tick } from "svelte";
   import { uid } from "#lib/ui/behaviour.js";
 
   export let jobs: TrackJob[];
@@ -31,14 +32,21 @@
   function keys(event: KeyboardEvent) {
     const inCard = event.target !== chip;
     if (event.key === "Escape" && open) open = false;
-    else if (event.key === "ArrowDown" && !inCard && open) slot.querySelector<HTMLElement>(".card a, .card button")?.focus();
+    else if (event.key === "ArrowDown" && !inCard) {
+      open = index >= 0;
+      void tick().then(() => slot.querySelector<HTMLElement>(".card a, .card button")?.focus());
+    }
     else if (event.key === "ArrowUp" && inCard) chip.focus();
     else return;
     if (inCard && event.key === "Escape") chip.focus();
     event.preventDefault();
   }
+  const dismiss = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && open && !slot.contains(document.activeElement)) open = false;
+  };
 </script>
 
+<svelte:window on:keydown={dismiss} />
 <div class="slot" {style} role="presentation" bind:this={slot} on:mouseenter={() => hover(true)} on:mouseleave={() => hover(false)} on:focusin={() => (open = index >= 0)} on:focusout={blur} on:keydown={keys}>
   {#if jobs.length > 1}
     <button type="button" class="chip grp" aria-expanded={open} aria-controls={card} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
@@ -46,7 +54,7 @@
       {jobs.length} jobs <span class="v">{jobs.map(value).join(" · ")}<span class="sr">{groupName(jobs).slice(groupVisible(jobs).length)}</span></span>
     </button>
   {:else if job}
-    <a class="chip s-{job.state}" href="/history/{job.id}" aria-describedby={open ? card : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
+    <a class="chip s-{job.state}" href="/history/{job.id}" aria-describedby={open ? `${card}-n ${card}-w` : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
       <span class="ring" class:ind={job.state === "generating"} style="--p: {fill(job)}" aria-hidden="true"></span>
       <span class="t">{shortName(job.name)}</span> <span class="v">{value(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
     </a>
@@ -56,8 +64,8 @@
       {#if jobs.length > 1}
         <ul>{#each jobs as member (member.id)}<li><a href="/history/{member.id}" data-stop tabindex="-1">{shortName(member.name)} <span class="v">{value(member)}<span class="sr">, {status(member)}</span></span></a></li>{/each}</ul>
       {:else}
-        <p class="name">{job.name}</p>
-        <p class="what">{status(job)} · {value(job)}</p>
+        <p class="name" id="{card}-n">{job.name}</p>
+        <p class="what" id="{card}-w">{status(job)} · {value(job)}</p>
         <p class="acts"><a class="btn" href="/history/{job.id}">Open job</a>{#if action}<button type="button" class="btn ghost" on:click={() => action && onAction(job, action)}>{action}</button>{/if}</p>
       {/if}
     </div>
@@ -80,6 +88,7 @@
   .stack { display: flex; } .stack .ring { width: 22px; height: 22px; margin-left: -9px; box-shadow: 0 0 0 2px var(--paper); } .stack .ring:first-child { margin-left: 0; }
   .sr { font-size: 0; line-height: 0; }
   .card { position: absolute; top: 44px; left: 0; z-index: 10; min-width: 260px; padding: var(--s3); border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); box-shadow: var(--lift-hi); }
+  .card::before { content: ""; position: absolute; inset: -12px 0 100%; }
   .card.end { right: 0; left: auto; }
   .card p { margin: 0 0 var(--s2); } .name { font-weight: 700; } .what { color: var(--muted); font-size: var(--fs-chip); } .acts { display: flex; gap: var(--s2); margin: 0; }
   ul { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; } ul a { display: flex; gap: var(--s3); padding: var(--s1) var(--s2); border-radius: var(--r-control); color: var(--ink); text-decoration: none; } ul a:focus-visible { background: var(--sunk); }
