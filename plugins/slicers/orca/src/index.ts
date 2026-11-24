@@ -7,7 +7,7 @@ import type {
   SlicerPlugin,
   StageCtx,
 } from "@conveyor/shared";
-import { runEngine } from "@conveyor/shared/node";
+import { requireOutput, runEngine } from "@conveyor/shared/node";
 
 const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 const orcaBin = () => process.env.ORCA_BIN ?? "orca-slicer";
@@ -48,9 +48,11 @@ export const orca: SlicerPlugin = {
     ];
     const bin = orcaBin();
     ctx.log(`xvfb-run -a ${bin} ${args.join(" ")}`);
-    await runEngine("slicer", "xvfb-run", ["-a", bin, ...args], ctx);
+    const { stderr } = await runEngine("slicer", "xvfb-run", ["-a", bin, ...args], ctx);
+    const plate = join(ctx.workDir, "plate_1.gcode");
+    await requireOutput("slicer", plate, `${bin} exited 0 but wrote no G-code`, stderr);
 
-    await copyFile(join(ctx.workDir, "plate_1.gcode"), out);
+    await copyFile(plate, out);
     return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },
 };

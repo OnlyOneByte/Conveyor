@@ -8,7 +8,7 @@ import {
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
-import { runEngine } from "@conveyor/shared/node";
+import { requireOutput, runEngine } from "@conveyor/shared/node";
 
 const stub = () => process.env.CONVEYOR_ENGINE_STUB === "1";
 const prusaBin = () => process.env.PRUSA_BIN ?? "prusa-slicer";
@@ -40,7 +40,8 @@ export const prusa: SlicerPlugin = {
 
     const bin = prusaBin();
     ctx.log(`${bin} ${args.join(" ")}`);
-    await runEngine("slicer", bin, args, ctx);
+    const { stderr } = await runEngine("slicer", bin, args, ctx);
+    await requireOutput("slicer", out, `${bin} exited 0 but wrote no G-code`, stderr);
 
     return { path: out, format: "gcode", meta: { profileId: profile.id } };
   },

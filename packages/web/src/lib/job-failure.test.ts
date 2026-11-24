@@ -13,10 +13,12 @@ const ORCA_PARTLY = "xvfb-run exited 1: Found Object model.stl partly inside, ca
 const PRUSA_EMPTY =
   "prusa-slicer exited 1: Nothing to print for model.gcode . Either the print is empty or no " +
   "object is fully inside the print volume.";
+const PRUSA_292_OUTSIDE =
+  "prusa-slicer exited 0 but wrote no G-code: All objects are outside of the print volume.";
 
 describe("failureText", () => {
   test("reads the slicers' out-of-bed errors as a model that doesn't fit", () => {
-    for (const reason of [ORCA_EMPTY, ORCA_PARTLY, PRUSA_EMPTY]) {
+    for (const reason of [ORCA_EMPTY, ORCA_PARTLY, PRUSA_EMPTY, PRUSA_292_OUTSIDE]) {
       expect(failureText("slicer", reason)).toEqual({
         title: "Slicing didn't finish",
         detail: TOO_BIG,
