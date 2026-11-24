@@ -1,17 +1,32 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
+import { fakeTransport, stubSlicer } from "../test/helpers/index.ts";
 import type { JobRequest, JobTarget } from "./job";
-import type { GeneratorPlugin, SlicerPlugin, TransportPlugin } from "./plugins";
+import type { GeneratorPlugin } from "./plugins";
 import { CompatibilityError, createRegistry, validateJob } from "./registry";
+
+const generator = (id: string, outputs: string[]): GeneratorPlugin => ({
+  id,
+  name: id,
+  version: "0.0.0",
+  stage: "generator",
+  params: z.object({}),
+  paramSchema: {},
+  outputs,
+  generate: async () => {
+    throw new Error("validateJob never generates");
+  },
+});
 
 const registry = () => {
   const reg = createRegistry();
-  reg.generators.set("box", { id: "box", outputs: ["stl"] } as unknown as GeneratorPlugin);
-  reg.slicers.set("orca", { id: "orca", accepts: ["stl", "3mf"] } as unknown as SlicerPlugin);
-  reg.slicers.set("svg-only", { id: "svg-only", accepts: ["svg"] } as unknown as SlicerPlugin);
-  reg.transports.set("moonraker", {
-    id: "moonraker",
-    acceptsFlavors: ["klipper"],
-  } as unknown as TransportPlugin);
+  for (const plugin of [generator("box", ["stl"]), generator("drawing", ["svg"])])
+    reg.generators.set(plugin.id, plugin);
+  reg.slicers.set("orca", stubSlicer({ id: "orca" }).plugin);
+  reg.transports.set(
+    "moonraker",
+    fakeTransport({ id: "moonraker", acceptsFlavors: ["klipper"] }).plugin,
+  );
   return reg;
 };
 
@@ -74,9 +89,9 @@ describe("validateJob", () => {
     ],
     [
       "a slicer that cannot read the generator's output",
-      request,
-      { ...target, slicerId: "svg-only" },
-      "generator box outputs [stl] but slicer svg-only accepts [svg]",
+      { ...request, generator: { id: "drawing", params: {} } },
+      target,
+      "generator drawing outputs [svg] but slicer orca accepts [stl,3mf]",
     ],
     [
       "a flavor the transport does not accept",
