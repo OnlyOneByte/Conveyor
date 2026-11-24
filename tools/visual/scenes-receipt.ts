@@ -112,7 +112,7 @@ export const receiptScenes: Scene[] = [
       { waitFor: "text=42%" },
       { history: "back" },
       { waitFor: "text=From this browser" },
-      { history: "forward" },
+      { history: "forward", url: "/jobs/scene-forward" },
       { waitFor: "text=Printing · 42%" },
       { scroll: "text=Printing · 42%" },
       { wait: 800 },

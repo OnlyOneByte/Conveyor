@@ -66,6 +66,10 @@ export async function liveView(id: string, fetchFn: typeof fetch): Promise<JobVi
   return r?.ok ? r.json() : null;
 }
 
+const reloaded = new Set<string>();
+
+export const firstEnd = (id: string) => !reloaded.has(id) && Boolean(reloaded.add(id));
+
 export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
 
 export const SETTLED: JobState[] = ["done", "failed", "canceled"];

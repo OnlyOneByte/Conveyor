@@ -14,6 +14,7 @@
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
+  import { showMake } from "#lib/make-shown.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
@@ -25,9 +26,8 @@
   let profiles: CatalogProfile[] = data.profiles ?? [];
   let transports: CatalogTransport[] = data.transports ?? [];
 
-  const arrived = page.url.searchParams.get("job");
+  onMount(showMake);
   onMount(async () => {
-    if (arrived) return goto(`/jobs/${encodeURIComponent(arrived)}`, { replaceState: true });
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
@@ -120,7 +120,7 @@
   }
 
   let submitting = false;
-  $: jobId = arrived ? null : (data.initialJobId ?? null);
+  $: jobId = data.initialJobId ?? null;
   let error: string | null = null;
   let retried: string | null = null;
 

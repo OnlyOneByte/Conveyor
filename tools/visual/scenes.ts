@@ -14,7 +14,7 @@ export type Step =
   | { wait: number }
   | { fulfill: string; method?: string; status: number; json: unknown }
   | { follow: string }
-  | { history: "back" | "forward" }
+  | { history: "back" | "forward"; url?: string }
   | { hits: string; viewports: readonly Viewport[] };
 
 export interface Scene {
