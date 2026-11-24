@@ -11,6 +11,6 @@ export const REACH: Viewport[] = [
 export const toastOnMake: Step[] = [
   { click: "button:has-text('Show a toast')" },
   { click: "nav[aria-label='Main'] a[href='/']" },
-  { waitFor: "text=Configure", timeout: 15000 },
+  { waitFor: "text=How big?", timeout: 15000 },
   { hover: ".toasts .toast" },
 ];

@@ -2,6 +2,7 @@ import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
 import { liveScenes } from "./scenes-live.ts";
+import { makeScenes } from "./scenes-make.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { settingsScenes } from "./scenes-settings.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
@@ -16,6 +17,7 @@ export type Step =
   | { wait: number }
   | { fulfill: string; method?: string; status: number; json: unknown }
   | { follow: string }
+  | { upload: string; name: string; text: string }
   | { history: "back" | "forward" }
   | { hits: string; viewports: readonly Viewport[] }
   | { holds: string; ms: number; scrollTo: number; anchor: string };
@@ -42,7 +44,7 @@ export const scenes: Scene[] = [
   {
     name: "home",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ wait: 1500 }],
   },
   {
@@ -52,7 +54,7 @@ export const scenes: Scene[] = [
     steps: [
       ...toastOnMake,
       {
-        hits: "nav[aria-label='Main'] a, .mobile-cta button, .toasts button",
+        hits: "nav[aria-label='Main'] a, .dock button, .toasts button",
         viewports: REACH,
       },
     ],
@@ -60,32 +62,32 @@ export const scenes: Scene[] = [
   {
     name: "upload-empty",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ click: "button:has-text('Upload STL')" }, { wait: 800 }],
   },
   {
     name: "new-job",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },
       { click: "button:has-text('Upload STL')" },
       { wait: 700 },
-      { click: "button:has-text('Generate')" },
+      { click: "role=tab[name='Gridfinity Bin']" },
       { wait: 700 },
-      { click: "[role=radiogroup] button >> nth=-1" },
+      { click: "label.pill >> nth=-1" },
       { wait: 800 },
     ],
   },
   {
     name: "job-progress",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },
-      { click: "button.desktop-print:visible, .mobile-cta button:visible" },
+      { click: "button.print" },
       { scroll: "ol.stages, .status" },
       {
         waitFor: "ol.stages li.done:last-child, .status .failed",
@@ -102,6 +104,7 @@ export const scenes: Scene[] = [
   },
   ...receiptScenes,
   ...liveScenes,
+  ...makeScenes,
   {
     name: "monitor",
     route: "/monitor",
@@ -112,13 +115,13 @@ export const scenes: Scene[] = [
   {
     name: "command-menu",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
   },
   ...["done", "2 x 3"].map((text) => ({
     name: `command-menu-${text.replaceAll(" ", "")}`,
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [
       { press: "Control+k" },
       { type: "dialog[open] input", text },
@@ -129,7 +132,7 @@ export const scenes: Scene[] = [
   {
     name: "shortcut-sheet",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ wait: 500 }, ...keys("?"), { click: "dialog[open] >> [role=switch]" }, { wait: 300 }],
   },
   {
@@ -145,7 +148,7 @@ export const scenes: Scene[] = [
   {
     name: "keyboard",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },
@@ -207,7 +210,7 @@ export const scenes: Scene[] = [
     steps: [
       ...toastOnMake,
       {
-        hits: ".toasts button, .mobile-cta button, nav[aria-label='Main'] a",
+        hits: ".toasts button, .dock button, nav[aria-label='Main'] a",
         viewports: REACH,
       },
     ],

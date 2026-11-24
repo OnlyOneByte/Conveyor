@@ -1,6 +1,7 @@
 import type {
   FormUiHints,
   JobState,
+  JobView,
   OrcaEditableProfile,
   OrcaProfileDocuments,
   PrusaProfileDocument,
@@ -26,7 +27,6 @@ export interface JobStatusEvent {
   progress?: number;
   message?: string;
   error?: { stage: string; reason: string };
-  /** per-stage wall-clock so far; final stage open while running */
   timings?: StageTiming[];
   at: number;
 }
@@ -82,7 +82,7 @@ export async function fetchJobSnapshot(jobId: string): Promise<JobStatusEvent | 
   return r.json();
 }
 
-export async function fetchActiveJobs(fetchFn: typeof fetch = fetch): Promise<JobStatusEvent[]> {
+export async function fetchActiveJobs(fetchFn: typeof fetch = fetch): Promise<JobView[]> {
   const r = await fetchFn(`${API}/jobs/active`);
   if (!r.ok) throw new Error(`GET /jobs/active ${r.status}`);
   return r.json();

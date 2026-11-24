@@ -71,6 +71,12 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
   else if ("follow" in step) await follow(page, step.follow);
+  else if ("upload" in step)
+    await page.setInputFiles(step.upload, {
+      name: step.name,
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from(step.text),
+    });
   else if ("fulfill" in step)
     await page.route(step.fulfill, (route) =>
       step.method && route.request().method() !== step.method

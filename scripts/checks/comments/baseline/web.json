@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": {
-      "comments": 18,
+      "comments": 17,
       "suppressions": 0
     },
     "packages/web/src/lib/components/JobStatus.svelte": {
@@ -21,7 +21,7 @@
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaForm.svelte": {
-      "comments": 16,
+      "comments": 11,
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaGroup.svelte": {
@@ -46,10 +46,6 @@
     },
     "packages/web/src/lib/rerun.ts": {
       "comments": 13,
-      "suppressions": 0
-    },
-    "packages/web/src/routes/+page.svelte": {
-      "comments": 50,
       "suppressions": 0
     },
     "packages/web/src/routes/history/+page.svelte": {

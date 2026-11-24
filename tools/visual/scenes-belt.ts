@@ -55,13 +55,13 @@ export const beltScenes: Scene[] = [
   {
     name: "belt-bar-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     steps: [
       live,
       { waitFor: "#belt .chips a.chip", timeout: 8000 },
-      { scroll: "button.desktop-print" },
+      { scroll: "label.pill >> nth=-1" },
       { waitFor: "#belt .bar .mini i" },
       { wait: 300 },
     ],
@@ -69,7 +69,7 @@ export const beltScenes: Scene[] = [
   {
     name: "belt-holds-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     steps: [
