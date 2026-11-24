@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35757",
+  "url": "http://127.0.0.1:43483",
   "warnings": [],
   "results": [
     {
@@ -25,15 +25,16 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 499104,
+      "gifBytes": 523334,
       "gif": "new-job-1440.gif"
     },
     {
       "scene": "job-progress",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 12000ms exceeded.",
-      "png": "job-progress-1440.png"
+      "png": "job-progress-1440.png",
+      "gifBytes": 280608,
+      "gif": "job-progress-1440.gif"
     },
     {
       "scene": "history",
@@ -178,7 +179,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 863444,
+      "gifBytes": 957184,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -192,7 +193,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 691602,
+      "gifBytes": 782417,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -200,7 +201,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 568261,
+      "gifBytes": 670849,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -256,7 +257,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 794751,
+      "gifBytes": 865604,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -336,7 +337,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 577027,
+      "gifBytes": 659973,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -344,7 +345,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1059191,
+      "gifBytes": 1324324,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -352,7 +353,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1082742,
+      "gifBytes": 1083761,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -360,7 +361,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 277068,
+      "gifBytes": 313079,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -398,7 +399,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 760942,
+      "gifBytes": 834437,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -424,15 +425,16 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 594294,
+      "gifBytes": 619018,
       "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
       "warnings": [],
-      "error": "waitFor: Timeout 12000ms exceeded.",
-      "png": "job-progress-390.png"
+      "png": "job-progress-390.png",
+      "gifBytes": 346065,
+      "gif": "job-progress-390.gif"
     },
     {
       "scene": "history",
@@ -577,7 +579,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1335060,
+      "gifBytes": 1340251,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -591,7 +593,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1117752,
+      "gifBytes": 1090164,
       "gif": "printers-add-390.gif"
     },
     {
@@ -599,7 +601,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 971005,
+      "gifBytes": 971540,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -655,7 +657,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1099999,
+      "gifBytes": 1097371,
       "gif": "keyboard-390.gif"
     },
     {
@@ -729,7 +731,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506821,
+      "gifBytes": 506989,
       "gif": "track-keys-390.gif"
     },
     {
@@ -767,7 +769,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1031711,
+      "gifBytes": 1030898,
       "gif": "primitives-keys-390.gif"
     }
   ]
