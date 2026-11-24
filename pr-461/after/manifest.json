@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:44063",
+  "url": "http://127.0.0.1:39357",
   "warnings": [],
   "results": [
     {
@@ -25,16 +25,15 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 499104,
+      "gifBytes": 497386,
       "gif": "new-job-1440.gif"
     },
     {
       "scene": "job-progress",
       "width": 1440,
       "warnings": [],
-      "png": "job-progress-1440.png",
-      "gifBytes": 275755,
-      "gif": "job-progress-1440.gif"
+      "error": "waitFor: Timeout 12000ms exceeded.",
+      "png": "job-progress-1440.png"
     },
     {
       "scene": "history",
@@ -155,7 +154,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 857954,
+      "gifBytes": 914375,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -169,7 +168,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 666966,
+      "gifBytes": 688778,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -177,7 +176,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 564200,
+      "gifBytes": 582335,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -233,7 +232,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 792992,
+      "gifBytes": 794237,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -313,7 +312,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 613200,
+      "gifBytes": 579422,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -321,7 +320,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1038964,
+      "gifBytes": 961465,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -329,7 +328,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1083761,
+      "gifBytes": 1056519,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -337,7 +336,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 276393,
+      "gifBytes": 277249,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -375,7 +374,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 759568,
+      "gifBytes": 760132,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -401,16 +400,15 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 594059,
+      "gifBytes": 622249,
       "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
       "warnings": [],
-      "png": "job-progress-390.png",
-      "gifBytes": 346065,
-      "gif": "job-progress-390.gif"
+      "error": "waitFor: Timeout 12000ms exceeded.",
+      "png": "job-progress-390.png"
     },
     {
       "scene": "history",
@@ -531,7 +529,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1364320,
+      "gifBytes": 1336275,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -545,7 +543,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1008369,
+      "gifBytes": 1091362,
       "gif": "printers-add-390.gif"
     },
     {
@@ -609,7 +607,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1076816,
+      "gifBytes": 1028976,
       "gif": "keyboard-390.gif"
     },
     {
@@ -683,7 +681,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506467,
+      "gifBytes": 506510,
       "gif": "track-keys-390.gif"
     },
     {
@@ -721,7 +719,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030404,
+      "gifBytes": 1031097,
       "gif": "primitives-keys-390.gif"
     }
   ]
