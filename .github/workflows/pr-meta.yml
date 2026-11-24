@@ -1,0 +1,65 @@
+name: PR metadata
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+concurrency:
+  group: pr-meta-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  issues: read
+
+jobs:
+  pr-meta:
+    name: pr-meta
+    runs-on: ubuntu-latest
+    steps:
+      - name: Title, labels and issue link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          AGENT_LOGIN: OnlyOneByte
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          err() { echo "::error::$1"; fail=1; }
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+            echo "dependabot PR: metadata rules don't apply"
+            exit 0
+          fi
+          type='(feat|fix|refactor|perf|test|docs|build|ci|chore|revert)'
+          scope='(web|api|worker|shared|engine|queue|db|core|plugins|infra|guard|tools|docs|deps)'
+          if ! printf '%s' "$PR_TITLE" | grep -Pq "^${type}(\\(${scope}\\))?!?: \\S.{0,70}\$"; then
+            err "Title doesn't match the AGENTS.md §8 pattern <type>(<scope>)?!?: <summary>: $PR_TITLE"
+          fi
+          if (( ${#PR_TITLE} > 72 )); then
+            err "Title is ${#PR_TITLE} characters; at most 72."
+          fi
+          areas=$(jq -r '[.[] | select(startswith("area/"))] | length' <<<"$PR_LABELS")
+          if [[ "$areas" != 1 ]]; then
+            err "Needs exactly one area/* label (area/backend, area/ui, area/infra); it has $areas."
+          fi
+          if [[ "$PR_AUTHOR" == "$AGENT_LOGIN" ]] && ! jq -e 'index("agent")' <<<"$PR_LABELS" >/dev/null; then
+            err "Agent PRs (author $AGENT_LOGIN) need the agent label."
+          fi
+          issues=$(printf '%s\n' "$PR_BODY" | grep -iP '^\s*(closes|part of)\s+#\d+' \
+            | grep -ioP '(closes|part of)\s+#\K\d+' | sort -un || true)
+          if [[ -z "$issues" ]]; then
+            err "The body needs a line 'Closes #N' or 'Part of #N' naming an issue."
+          fi
+          for n in $issues; do
+            kind=$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "a pull request" else "issue" end' 2>/dev/null || echo "missing")
+            if [[ "$kind" != issue ]]; then
+              err "#$n is not an issue of $REPO ($kind)."
+            fi
+          done
+          if (( fail == 0 )); then echo "Title, labels and issue link are fine."; fi
+          exit "$fail"
