@@ -124,14 +124,18 @@ describe("job routes on the sqlite queue", () => {
     const blank = queued();
     db.query("UPDATE jobs SET params_json = '{' WHERE id = ?").run(broken);
     db.query("UPDATE jobs SET printer_id = NULL WHERE id = ?").run(blank);
-    for (const id of [broken, blank]) {
-      const one = (await inject("GET", `/jobs/${id}`)).json<unknown>();
-      expect(one).toMatchObject({ jobId: id, state: "queued" });
-      expect(one).not.toHaveProperty("profileId");
+    try {
+      for (const id of [broken, blank]) {
+        const one = (await inject("GET", `/jobs/${id}`)).json<unknown>();
+        expect(one).toMatchObject({ jobId: id, state: "queued" });
+        expect(one).not.toHaveProperty("profileId");
+      }
+      const active = (await inject("GET", "/jobs/active")).json<{ jobId: string }[]>();
+      expect(active.map((j) => j.jobId)).toEqual(expect.arrayContaining([broken, blank]));
+      expect(active.find((j) => j.jobId === broken)).not.toHaveProperty("printerId");
+    } finally {
+      db.query("DELETE FROM jobs WHERE id IN (?, ?)").run(broken, blank);
     }
-    const active = (await inject("GET", "/jobs/active")).json<{ jobId: string }[]>();
-    expect(active.map((j) => j.jobId)).toEqual(expect.arrayContaining([broken, blank]));
-    expect(active.find((j) => j.jobId === broken)).not.toHaveProperty("printerId");
   });
 
   test("GET /jobs/active adds typical durations, and a print start behind the print's time left unless the printer is held", async () => {

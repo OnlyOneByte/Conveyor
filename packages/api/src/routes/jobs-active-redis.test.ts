@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+} from "bun:test";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,8 +38,18 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
   let queue: typeof import("../queue.js");
   let jobs: Queue<JobRequest>;
   const app = Fastify();
-  const ids = { old: randomUUID(), fresh: randomUUID(), done: randomUUID(), gone: randomUUID() };
-  const mine = new Set<string>(Object.values(ids));
+  let ids = { old: "", fresh: "", done: "", gone: "" };
+  let mine = new Set<string>();
+
+  beforeEach(() => {
+    ids = { old: randomUUID(), fresh: randomUUID(), done: randomUUID(), gone: randomUUID() };
+    mine = new Set(Object.values(ids));
+  });
+
+  afterEach(async () => {
+    await redis.srem(ACTIVE_JOBS_KEY, ...mine);
+    await redis.del(...[...mine].map(jobSnapshotKey));
+  });
 
   beforeAll(async () => {
     redis = new Redis(url ?? "");
@@ -52,8 +71,6 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
   });
 
   afterAll(async () => {
-    await redis.srem(ACTIVE_JOBS_KEY, ...mine);
-    await redis.del(...[...mine].map(jobSnapshotKey));
     await app.close();
     await closeQueue();
     await jobs.close();
