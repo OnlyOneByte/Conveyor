@@ -158,7 +158,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `lint` | `bun run lint` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
-| `test` | `bun run test:coverage && bun run check:coverage`; after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
+| `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order (seed from the commit, sorted file list, both printed in the log); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
 | `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |

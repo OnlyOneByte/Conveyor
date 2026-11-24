@@ -41,7 +41,7 @@
         <div id="{id}-{group}" class="head" role="presentation">{group}</div>
         {#each results as command, i}
           {#if command.group === group}
-            <div id="{id}-{i}" role="option" tabindex="-1" aria-selected={i === active} on:click={() => run(command)} on:keydown={keydown} on:pointermove={() => (active = i)}>
+            <div id="{id}-{i}" role="option" tabindex="-1" class:stack={command.group === "Jobs"} aria-selected={i === active} on:click={() => run(command)} on:keydown={keydown} on:pointermove={() => (active = i)}>
               {command.label}<span class="hint">{command.hint}</span>
             </div>
           {/if}
@@ -65,5 +65,10 @@
   .hint { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s4); color: var(--muted); }
   .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
-  @media (max-width: 759px) { dialog { margin-top: var(--s4); } .keys { display: none; } }
+  @media (max-width: 759px) {
+    dialog { margin-top: var(--s4); }
+    .keys { display: none; }
+    .stack { flex-wrap: wrap; row-gap: 2px; padding: 6px var(--s4); }
+    .stack .hint { flex-basis: 100%; margin-left: 0; }
+  }
 </style>
