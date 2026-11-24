@@ -28,6 +28,8 @@
     "check:lines:update": "bun scripts/checks/lines.ts --update",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
     "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",
+    "check:bundle": "bun scripts/checks/bundle.ts",
+    "check:bundle:update": "bun scripts/checks/bundle.ts --update",
     "check:coverage": "bun scripts/checks/coverage/main.ts",
     "check:coverage:update": "bun scripts/checks/coverage/main.ts --update"
   },
