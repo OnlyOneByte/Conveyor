@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:34699",
+  "url": "http://127.0.0.1:37503",
   "warnings": [
     "warm-up /: waitFor: Timeout 120000ms exceeded."
   ],
@@ -315,7 +315,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 642580,
+      "gifBytes": 641920,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -337,7 +337,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 313193,
+      "gifBytes": 313740,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -376,7 +376,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 846797,
+      "gifBytes": 874932,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -675,7 +675,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 507114,
+      "gifBytes": 507134,
       "gif": "track-keys-390.gif"
     },
     {
@@ -714,7 +714,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1031275,
+      "gifBytes": 1028938,
       "gif": "primitives-keys-390.gif"
     }
   ]
