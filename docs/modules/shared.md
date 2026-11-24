@@ -322,6 +322,11 @@ Callers import from `@conveyor/shared/db` only; the module split is not part of 
 `Printer.allowedGenerators` is returned to clients so a form can round-trip it. `undefined` means no
 restriction, which is deliberately distinct from `[]`, an empty allowlist that permits nothing; a stored
 `"[]"` must parse to `[]` and never collapse into "no restriction".
+A stored `allowed_generators_json` that isn't a JSON array of strings fails closed. The printer is still
+listed, with `allowedGenerators: []` and `unreadable: ["allowedGenerators"]`, so it takes no jobs until it is
+saved again, while every other printer works as before. It is logged once per printer per process.
+`dbResolveJobTarget` reads the one printer and profile by id, so another printer's bad row can't affect it.
+Profile reads select only the columns a `Profile` needs plus one `is_edited` flag, never the stored blobs.
 
 `dbUpsertPrinter` treats the two columns differently, on purpose:
 
@@ -403,6 +408,8 @@ raise `busy_timeout` around the transaction.
    the claim's per-printer check reads. `printers.hold_job_id`, `hold_reason` and `hold_at` are added in
    the same step. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
    `migrate()`, not `SCHEMA_SQL`, because `SCHEMA_SQL` runs first and an old table has no such columns yet.
+   The partial indexes `idx_jobs_typical` and `idx_jobs_needs_you`, for the estimate and Needs-you queries,
+   are created there too.
 7. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
    already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
    it.
@@ -428,7 +435,10 @@ to come, are in [../design/sqlite-queue.md](../design/sqlite-queue.md).
   `lease_token`. A queued job is skipped while another job for its printer is generating or slicing, and
   while its printer is held. A hold means the printer may still have a job the queue lost track of, so no
   job is prepared for it until an operator releases it with `releasePrinterHold`, which the api exposes as
-  `POST /catalog/printers/:id/release`.
+  `POST /catalog/printers/:id/release`. A queued job whose `params_json` doesn't parse is settled `failed`
+  at the generator stage with `UNREADABLE_PARAMS_REASON`, in the same transaction, and the claim moves on to
+  the next job, so one corrupt row can't block the queue. A submitted orphan is resumed without its params,
+  which resuming doesn't read.
 - Every write against a held lease (`renewLease`, `releaseLease`) checks owner, token and an unexpired
   `lease_until`. A worker past its own lease cannot write, even before anyone takes the job over.
 - `releaseLease` requeues an unsubmitted job without counting the attempt and leaves a submitted one as an

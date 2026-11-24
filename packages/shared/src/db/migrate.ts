@@ -144,6 +144,11 @@ export function migrate(db: Database): void {
     WHERE state IN ('done', 'failed', 'canceled')`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_printer_live ON jobs (printer_id, state)
     WHERE state IN ('generating', 'slicing', 'transferring', 'printing')`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_typical
+    ON jobs (generator_id, printer_id, updated_at DESC, id DESC)
+    WHERE state = 'done' AND timings_json IS NOT NULL`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_needs_you ON jobs (updated_at DESC, id DESC)
+    WHERE state = 'failed' AND dismissed_at IS NULL AND retried_by IS NULL`);
 
   const printerColumns = new Set(columnsOf(db, "printers"));
   for (const [column, type] of PRINTER_COLUMNS) {

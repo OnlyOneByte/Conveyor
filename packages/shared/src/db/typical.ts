@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { z } from "zod";
 import type { Stage } from "../plugins.js";
+import { readJson } from "./json.js";
 
 export const TYPICAL_SAMPLE = 20;
 export const MIN_TYPICAL_SAMPLES = 3;
@@ -19,14 +20,6 @@ function median(values: number[]): number {
   return sorted.length % 2 === 1 ? middle : Math.round(((sorted[mid - 1] ?? 0) + middle) / 2);
 }
 
-function parsedOrNull(json: string): unknown {
-  try {
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
 export function dbTypicalStageMs(
   db: Database,
   job: { generatorId: string; printerId: string },
@@ -34,14 +27,15 @@ export function dbTypicalStageMs(
 ): StageDurations {
   const rows = db
     .query<{ timings_json: string }, [string, string, number]>(
-      `SELECT timings_json FROM jobs
+      `SELECT timings_json FROM jobs INDEXED BY idx_jobs_typical
         WHERE state = 'done' AND generator_id = ? AND printer_id = ? AND timings_json IS NOT NULL
         ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(job.generatorId, job.printerId, sample);
   const seen = new Map<Stage, number[]>();
   for (const row of rows) {
-    const timings = timingsSchema.safeParse(parsedOrNull(row.timings_json));
+    const read = readJson(row.timings_json);
+    const timings = timingsSchema.safeParse(read.ok ? read.value : null);
     for (const { stage, durationMs } of timings.data ?? [])
       seen.set(stage, [...(seen.get(stage) ?? []), durationMs]);
   }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { FilamentUse, Job, JobState, StageTiming, UnreadableColumn } from "../job.js";
 import type { Stage } from "../plugins.js";
+import { readJson } from "./json.js";
 
 export interface JobRow {
   id: string;
@@ -46,14 +47,6 @@ const timingsSchema = z.array(
 
 const warnedUnreadable = new Set<string>();
 
-function parseJson(json: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: JSON.parse(json) };
-  } catch {
-    return { ok: false };
-  }
-}
-
 function readColumn<T>(
   r: JobRow,
   column: UnreadableColumn,
@@ -62,7 +55,7 @@ function readColumn<T>(
   unreadable: UnreadableColumn[],
 ): T | undefined {
   if (!json) return undefined;
-  const parsed = parseJson(json);
+  const parsed = readJson(json);
   const checked = parsed.ok ? schema.safeParse(parsed.value) : undefined;
   if (checked?.success) return checked.data;
   unreadable.push(column);

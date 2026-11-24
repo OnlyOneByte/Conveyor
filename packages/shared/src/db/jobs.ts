@@ -2,16 +2,16 @@ import type { Database } from "bun:sqlite";
 import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import { type JobRow, rowToJob } from "./job-row.js";
-import { dbListPrinters } from "./printers.js";
-import { dbListProfiles } from "./profiles.js";
+import { dbGetPrinter } from "./printers.js";
+import { dbGetProfile } from "./profiles.js";
 
 export function dbResolveJobTarget(
   db: Database,
   printerId: string,
   profileId: string,
 ): JobTarget | null {
-  const printer = dbListPrinters(db).find((p) => p.id === printerId);
-  const profile = dbListProfiles(db).find((p) => p.id === profileId);
+  const printer = dbGetPrinter(db, printerId);
+  const profile = dbGetProfile(db, profileId);
   if (!printer || !profile) return null;
   return {
     printerId: printer.id,
@@ -117,7 +117,7 @@ export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCo
   const counts: HistoryCounts = { done: 0, failed: 0, canceled: 0 };
   const rows = db
     .query<{ state: HistoryState; n: number }, SqlParam[]>(
-      `SELECT state, COUNT(*) AS n FROM jobs WHERE ${sql} GROUP BY state`,
+      `SELECT state, COUNT(*) AS n FROM jobs INDEXED BY idx_jobs_history WHERE ${sql} GROUP BY state`,
     )
     .all(...params);
   for (const row of rows) counts[row.state] = row.n;
@@ -180,8 +180,8 @@ export function dbReleaseRetry(db: Database, id: string, by: string): void {
 export function dbListNeedsYou(db: Database, limit = 50): Job[] {
   return db
     .query<JobRow, [number]>(
-      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL AND retried_by IS NULL
-        ORDER BY updated_at DESC, id DESC LIMIT ?`,
+      `SELECT * FROM jobs INDEXED BY idx_jobs_needs_you WHERE state = 'failed' AND dismissed_at IS NULL
+        AND retried_by IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(limit)
     .map(rowToJob);
