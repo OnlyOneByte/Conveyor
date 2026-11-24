@@ -41,6 +41,18 @@ export const beltScenes: Scene[] = [
     ],
   },
   {
+    name: "belt-holds-make",
+    route: "/",
+    ready: "text=Configure",
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      live,
+      { waitFor: "#belt .chips a.chip", timeout: 8000 },
+      { holds: "#belt .bar", ms: 3000, scrollTo: 100, anchor: "main h1" },
+    ],
+  },
+  {
     name: "belt-expand",
     route: "/history",
     ready: "h1",
