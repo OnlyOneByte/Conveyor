@@ -32,6 +32,10 @@ describe("a chip's place on the rail", () => {
     expect([centre("transferring", -1), centre("transferring", 2)]).toEqual([centre("transferring", 0), centre("transferring", 1)]);
   });
 
+  test("the inset is the spec's 2% of the rail", () => {
+    expect(INSET).toBe(0.02);
+  });
+
   test("stages tile the rail, Print takes half, and only rail states have a span", () => {
     expect(Object.values(SPANS)).toEqual([[0, 0.15], [0.15, 0.34], [0.34, 0.49], [0.49, 1]]);
     const states: JobState[] = ["queued", "generating", "slicing", "transferring", "printing", "done", "failed", "canceled"];
@@ -92,6 +96,26 @@ describe("collision and merge", () => {
   test("a wider group chip pushes the next chip out of the gap", () => {
     const chips = [{ id: "a", x: 300, width: W }, { id: "b", x: 380, width: W }, { id: "c", x: 560, width: W }];
     expect([ids(merge(chips, RAIL)), ids(merge(chips, RAIL, [], () => 340))]).toEqual([[["a", "b"], ["c"]], [["a", "b", "c"]]]);
+  });
+
+  test("hysteresis keeps only the pair that was together; an unrelated pair at 10 px stays apart", () => {
+    const elsewhere: Group[] = [{ ids: ["x", "y"], x: 0, width: W }];
+    expect(ids(pair(10, elsewhere))).toEqual([["a"], ["b"]]);
+  });
+
+  test("a group that grows to its chip's width re-checks the group on its left and merges with it", () => {
+    const chips = [{ id: "c", x: 200, width: W }, { id: "d", x: 362, width: W }, { id: "e", x: 370, width: W }];
+    const wide = (m: Placed[]) => (m.length > 1 ? 200 : Math.max(...m.map((p) => p.width)));
+    const groups = merge(chips, RAIL, [], wide);
+    expect(ids(groups)).toEqual([["c", "d", "e"]]);
+    expect(groups[0]?.width).toBe(200);
+  });
+
+  test("mixed widths: a group is as wide as its widest member, and a wide group clamps at the right end", () => {
+    const groups = merge([{ id: "s", x: 500, width: W }, { id: "l", x: 600, width: 220 }], RAIL);
+    expect(groups.map((g) => [g.ids, g.width])).toEqual([[["s", "l"], 220]]);
+    const right = merge([{ id: "p", x: 960, width: W }, { id: "q", x: 990, width: W }], RAIL, [], () => 300);
+    expect(right.map((g) => g.x)).toEqual([RAIL - 150]);
   });
 
   test("sorts by x first, so input order doesn't matter", () => {
