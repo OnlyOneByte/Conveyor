@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
-  import { cancelJob, fetchActiveJobs, fetchJobHistory, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
+  import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
   import { createBelt, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
@@ -41,12 +41,12 @@
   let beltJobs: TrackJob[] = [];
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const ends = createEnds({ ...http, history: () => fetchJobHistory(), entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
+  const ends = createEnds({ ...http, entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
     show: (finished, failures) => ((finishedToday = finished), (needs = failures)),
     toast: (text, action) => toasts.show(text, action),
     say: (text, level) => void announce(text, level),
-    pick: ({ generator, printerId, profileId }) => {
-      stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId });
+    pick: ({ generator, printerId, profileId }, retryOf) => {
+      stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId, retryOf });
       location.assign("/?rerun=1");
     },
   });

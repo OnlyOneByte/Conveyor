@@ -21,6 +21,7 @@ export interface Status {
   error?: { reason: string };
   generator?: { id: string; params?: unknown };
   printerId?: string;
+  profileId?: string;
 }
 
 export interface Feed {
@@ -45,6 +46,9 @@ export function trackJob(view: Status, was?: TrackJob, catalog: Catalog | null =
   const printer = catalog?.printers.find((p) => p.id === view.printerId)?.name ?? was?.printer;
   if (printer) job.printer = printer;
   if (view.error) job.reason = view.error.reason;
+  const { generator, printerId, profileId } = view;
+  const request = generator && printerId && profileId ? { generator, printerId, profileId } : was?.request;
+  if (request) job.request = request;
   return job;
 }
 
