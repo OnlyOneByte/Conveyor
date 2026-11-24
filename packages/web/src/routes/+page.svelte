@@ -152,7 +152,6 @@
         profileId: selectedProfileId,
         ...(retryOf ? { retryOf } : {}),
       });
-      retryOf = undefined;
       jobId = res.jobId;
       // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
@@ -167,6 +166,7 @@
       error = (e as Error).message;
     } finally {
       submitting = false;
+      retryOf = undefined;
     }
   }
 
