@@ -42,8 +42,8 @@
     <span class="seg">{waiting} waiting</span>
     <span class="mini" aria-hidden="true">{#each TICKS as x (x)}<u style="left: {x * 100}%"></u>{/each}{#each dots as dot (dot.id)}<i style="left: {dot.x * 100}%"></i>{/each}</span>
     <span class="sr">{dots.length} on the rail</span>
-    {#if finishedToday}<a class="seg good" href="/history">{finishedToday} finished</a>{/if}
-    {#if needs.length}<a class="seg bad" href="/history">{needs.length} needs you</a>{/if}
+    {#if finishedToday}<a class="seg good" href="/jobs">{finishedToday} finished</a>{/if}
+    {#if needs.length}<a class="seg bad" href="/jobs">{needs.length} needs you</a>{/if}
     <button class="exp" type="button" aria-expanded="false" aria-label="Expand the belt" bind:this={toggle} on:click={() => open(true)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
   </div>
 {:else}

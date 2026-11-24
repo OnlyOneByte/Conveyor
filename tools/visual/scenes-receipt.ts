@@ -27,8 +27,8 @@ export const receiptScenes: Scene[] = [
   },
   {
     name: "receipt-outside-bed",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       {
         fulfill: "**/api/jobs-history/seed-failed",
@@ -122,8 +122,8 @@ export const receiptScenes: Scene[] = [
   },
   {
     name: "print-forward",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       { follow: "/" },
       { waitFor: "text=Configure" },
@@ -143,7 +143,7 @@ export const receiptScenes: Scene[] = [
       { click: "button.desktop-print:visible, .mobile-cta button:visible" },
       { waitFor: "text=42%" },
       { history: "back" },
-      { waitFor: "text=From this browser" },
+      { waitFor: "h1 >> text=Jobs" },
       { history: "forward", url: "/jobs/scene-forward" },
       { waitFor: "text=Printing · 42%" },
       { scroll: "text=Printing · 42%" },

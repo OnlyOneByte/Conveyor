@@ -6,7 +6,7 @@
   export let when: string;
 </script>
 
-<a class="crumb" href="/history">← Jobs</a>
+<a class="crumb" href="/jobs">← Jobs</a>
 <div class="head">
   <div class="t">
     <h1 id="job-title">{title}</h1>

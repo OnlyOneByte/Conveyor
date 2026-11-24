@@ -1,2 +1,6 @@
-// Client-rendered surface (cookies + fetch run in the browser), same as Settings.
-export const ssr = false;
+import { redirect } from "@sveltejs/kit";
+import type { PageLoad } from "./$types";
+
+export const ssr = true;
+
+export const load: PageLoad = () => redirect(308, "/jobs");

@@ -24,7 +24,7 @@
   const { polite, assertive } = announcements;
   const TABS = [
     { href: "/", label: "Make", icon: "M12 3 4 7.5v9L12 21l8-4.5v-9L12 3ZM4 7.5l8 4.5 8-4.5M12 12v9", on: (p: string) => p === "/" },
-    { href: "/history", label: "Jobs", icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01", on: (p: string) => p.startsWith("/history") || p.startsWith("/monitor") },
+    { href: "/jobs", label: "Jobs", icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01", on: (p: string) => p.startsWith("/jobs") || p.startsWith("/monitor") },
     { href: "/settings", label: "Printers", icon: "M5 3h14v4H5zM3 7h18v10H3zM8 17v4h8v-4", on: (p: string) => p.startsWith("/settings") },
   ];
 

@@ -40,7 +40,7 @@
         <p class="none">Nothing is moving right now.</p>
       {/each}
       <div class="bins">
-        <a class="done" href="/history">Finished<span class="n">{finishedToday ?? 0} today</span></a>
+        <a class="done" href="/jobs">Finished<span class="n">{finishedToday ?? 0} today</span></a>
         {#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}
       </div>
     </div>

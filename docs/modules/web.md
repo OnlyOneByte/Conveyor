@@ -25,8 +25,17 @@ submit it themselves.
   - **One send path:** with `retryOf`, Make's Print goes through `sendJob`, which calls `retryJob` (`lib/retry.ts`)
     like the tray's Retry. Without it, `sendJob` calls `submitJob`.
   - **A 409:** a failure that was already retried is shown as "This job was already retried." (`ALREADY_RETRIED`).
-- **Recent jobs.** After a submit, Make records the job in the browser's recent-jobs memory (`lib/recent-jobs.ts`),
-  so a refresh keeps it visible.
+- **Jobs** (`routes/jobs/+page.svelte`, `lib/jobs-list.ts`). One server-backed list:
+  - **Groups:** On the belt (from `GET /jobs/active`, polled every 2 s while visible), then Today, Yesterday and
+    Earlier (from `GET /jobs-history`, 50 at a time with its `before` cursor). A job that is on the belt is never
+    listed again below it.
+  - **Rows:** each row is one link to `/jobs/<id>` with the name, printer, status in words and time. A failure leads
+    with what to do (`failureText`).
+  - **Filters:** All, On the belt, Printed, Failed and Canceled. The settled ones ask the server by `state`, and the
+    counts come from `GET /jobs-history/counts`.
+  - **Keys:** the rows share one Tab stop. `J`/`K` move real focus, Enter opens, `C` cancels a job on the belt after
+    a confirm dialog, `R` retries a failure, and `/` focuses the filter.
+  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` redirects here.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
   isn't an upload (an upload's file isn't kept), and still has a printer and a profile.
   - **Users:** the receipt and the belt's Print-again toast both decide with it.

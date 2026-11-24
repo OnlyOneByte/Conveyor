@@ -29,7 +29,7 @@ const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { 
 export const beltScenes: Scene[] = [
   {
     name: "belt-mobile",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -37,7 +37,7 @@ export const beltScenes: Scene[] = [
   },
   {
     name: "belt-mobile-sheet",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -51,7 +51,7 @@ export const beltScenes: Scene[] = [
       { wait: 300 },
     ],
   },
-  { name: "belt-bar", route: "/history", ready: "h1", widths: [1440], steps: onBar },
+  { name: "belt-bar", route: "/jobs", ready: "h1", widths: [1440], steps: onBar },
   {
     name: "belt-bar-make",
     route: "/",
@@ -80,7 +80,7 @@ export const beltScenes: Scene[] = [
   },
   {
     name: "belt-expand",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [1440],
     record: true,
