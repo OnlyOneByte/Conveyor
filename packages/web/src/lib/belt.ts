@@ -1,4 +1,5 @@
-import { type JobState, parseStatusEvent } from "@conveyor/shared";
+import type { JobState } from "@conveyor/shared";
+import { parseStatusEvent } from "@conveyor/shared/status-lite";
 import { changes, type News } from "./belt-news";
 import type { Catalog } from "./catalog";
 import { jobName } from "./job-settings";

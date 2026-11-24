@@ -11,6 +11,7 @@ import { assertHits, titleMismatch } from "./hits.ts";
 import { assertHolds } from "./holds.ts";
 import { readyWaiter } from "./ready.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
+import { scrollTo } from "./scroll.ts";
 import { bootStack } from "./stack.ts";
 import { assertStill } from "./still.ts";
 
@@ -68,8 +69,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("type" in step) await page.locator(step.type).first().fill(step.text);
   else if ("press" in step) await page.keyboard.press(step.press);
   else if ("hover" in step) await page.locator(step.hover).first().hover();
-  else if ("scroll" in step)
-    await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
+  else if ("scroll" in step) await scrollTo(page, step.scroll);
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
   else if ("follow" in step) await follow(page, step.follow);

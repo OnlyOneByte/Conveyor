@@ -49,8 +49,13 @@ export async function seedHistory(
 ): Promise<void> {
   const db: typeof Db = await import(join(root, "packages/shared/src/db/index.ts"));
   const conn = db.openDb(env.DB_PATH, env);
+  const first = Date.now() - SEEDED_JOBS.length * 1000;
+  const settle = conn.prepare("UPDATE jobs SET created_at = ?1, updated_at = ?1 WHERE id = ?2");
   try {
-    for (const job of SEEDED_JOBS) db.dbRecordJob(conn, job);
+    for (const [i, job] of SEEDED_JOBS.entries()) {
+      db.dbRecordJob(conn, job);
+      settle.run(first + i * 1000, job.id);
+    }
   } finally {
     conn.close();
   }
