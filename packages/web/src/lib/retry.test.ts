@@ -28,4 +28,11 @@ describe("retrying a failed job", () => {
       { ok: false, status: 202, error: "POST /jobs 202" },
     ]);
   });
+
+  test("a 409 for a job already retried names the retry that has it", async () => {
+    const error = "retryOf: job f1 is already being retried";
+    const taken = answering(409, JSON.stringify({ error, retriedBy: "r1" }));
+    const retried = await retryJob(failed, taken.fetchFn);
+    expect(retried).toEqual({ ok: false, status: 409, error, retriedBy: "r1" });
+  });
 });
