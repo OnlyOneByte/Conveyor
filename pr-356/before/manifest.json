@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:37231",
+  "url": "http://127.0.0.1:46011",
   "warnings": [],
   "results": [
     {
@@ -9,11 +9,17 @@
       "png": "home-1440.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "upload-empty-1440.png"
+    },
+    {
       "scene": "new-job",
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 439062,
+      "gifBytes": 456360,
       "gif": "new-job-1440.gif"
     },
     {
@@ -21,7 +27,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 267377,
+      "gifBytes": 299289,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -61,11 +67,17 @@
       "png": "home-390.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 390,
+      "warnings": [],
+      "png": "upload-empty-390.png"
+    },
+    {
       "scene": "new-job",
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 607853,
+      "gifBytes": 558599,
       "gif": "new-job-390.gif"
     },
     {
@@ -73,7 +85,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 365771,
+      "gifBytes": 330479,
       "gif": "job-progress-390.gif"
     },
     {
