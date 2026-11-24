@@ -6,6 +6,7 @@
   import { cancelJob, fetchActiveJobs, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
   import { createBelt, POLL_MS } from "#lib/belt.js";
+  import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
   import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
@@ -36,7 +37,7 @@
 
   let beltJobs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, clock }, (jobs) => (beltJobs = jobs), createNewsDesk(announce));
+  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs) => (beltJobs = jobs), createNewsDesk(announce));
   let polling = false;
   function tick() {
     if (polling || !showApp || document.visibilityState !== "visible") return;
