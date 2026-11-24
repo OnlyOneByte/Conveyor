@@ -1,4 +1,4 @@
-import { ORCA_PROFILE_DOCUMENT_NAMES, slicerFormat } from "@conveyor/shared";
+import { ORCA_PROFILE_DOCUMENT_NAMES, slicerFormat } from "@conveyor/shared/profile";
 import {
   type CatalogProfile,
   fetchOrcaProfileContent,

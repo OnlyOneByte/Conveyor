@@ -3,7 +3,7 @@ import {
   type OrcaProfileDocuments,
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
-} from "@conveyor/shared";
+} from "@conveyor/shared/profile";
 import { parser } from "@lezer/json";
 
 export interface Problem {

@@ -182,9 +182,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `'self'`, can still open the job status socket. That `csp` option is fixed at build time and cannot name the host,
   hence the hook. A host that is not a plain name or IPv4 address with an optional port leaves the policy at
   `'self'`.
-- `script-src` never allows `'unsafe-eval'`. Zod would probe `new Function` once to decide whether to JIT its
-  parsers, and the CSP would log that probe as a violation, so `packages/web/src/hooks.client.ts` sets Zod's
-  `jitless` before anything parses.
+- `script-src` never allows `'unsafe-eval'`. Zod probes `new Function` once to decide whether to JIT its
+  parsers, and the CSP logs that probe as a violation, so Settings and the profile editor import only
+  `@conveyor/shared/profile`, which has no Zod in it.
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
   successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the

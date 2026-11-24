@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { slicerFormat } from "@conveyor/shared";
+  import { slicerFormat } from "@conveyor/shared/profile";
   import type { CatalogProfile, CatalogSlicer } from "#lib/api.js";
   import { profileFacts, profileTag } from "#lib/profile-facts.js";
   import DeleteProfile from "./DeleteProfile.svelte";

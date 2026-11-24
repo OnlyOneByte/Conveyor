@@ -4,7 +4,7 @@ import { isTerminal, JOB_STATES, TERMINAL_STATES } from "./job.js";
 
 const stageSchema = z.enum(["generator", "slicer", "transport"]);
 
-const statusEventSchema = z.object({
+export const statusEventSchema = z.object({
   jobId: z.string(),
   state: z.enum(JOB_STATES),
   at: z.number(),
