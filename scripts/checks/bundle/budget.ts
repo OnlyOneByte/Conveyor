@@ -13,6 +13,8 @@ export interface Measured {
   precache: Sizes;
 }
 
+const SIZE_KEYS: (keyof Sizes)[] = ["raw", "gzip"];
+
 const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} KB`;
 
 export function budgetErrors(measured: Measured, budget: Budget): string[] {
@@ -26,7 +28,7 @@ export function budgetErrors(measured: Measured, budget: Budget): string[] {
     if (limit !== undefined && sizes.gzip > limit)
       errors.push(`${route}: initial JS is ${kb(sizes.gzip)} gzip, over the ${kb(limit)} budget`);
   }
-  for (const key of ["raw", "gzip"] as const) {
+  for (const key of SIZE_KEYS) {
     const limit = Math.floor(budget.precache[key] * PRECACHE_GROWTH);
     if (measured.precache[key] > limit)
       errors.push(
