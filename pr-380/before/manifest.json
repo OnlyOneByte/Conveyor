@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:37831",
+  "url": "http://127.0.0.1:38961",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 482505,
+      "gifBytes": 532415,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 293650,
+      "gifBytes": 295996,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -89,8 +89,44 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 734056,
+      "gifBytes": 841710,
       "gif": "keyboard-1440.gif"
+    },
+    {
+      "scene": "track-0",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-0-1440.png"
+    },
+    {
+      "scene": "track-1",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-1-1440.png"
+    },
+    {
+      "scene": "track-3",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-3-1440.png"
+    },
+    {
+      "scene": "track-8",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-8-1440.png"
+    },
+    {
+      "scene": "track-20",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-20-1440.png"
+    },
+    {
+      "scene": "track-states",
+      "width": 1440,
+      "warnings": [],
+      "png": "track-states-1440.png"
     },
     {
       "scene": "primitives",
@@ -121,7 +157,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 602811,
+      "gifBytes": 672652,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -147,7 +183,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 593944,
+      "gifBytes": 593746,
       "gif": "new-job-390.gif"
     },
     {
@@ -155,7 +191,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357306,
+      "gifBytes": 331730,
       "gif": "job-progress-390.gif"
     },
     {
@@ -211,8 +247,44 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1061754,
+      "gifBytes": 1061588,
       "gif": "keyboard-390.gif"
+    },
+    {
+      "scene": "track-0",
+      "width": 390,
+      "warnings": [],
+      "png": "track-0-390.png"
+    },
+    {
+      "scene": "track-1",
+      "width": 390,
+      "warnings": [],
+      "png": "track-1-390.png"
+    },
+    {
+      "scene": "track-3",
+      "width": 390,
+      "warnings": [],
+      "png": "track-3-390.png"
+    },
+    {
+      "scene": "track-8",
+      "width": 390,
+      "warnings": [],
+      "png": "track-8-390.png"
+    },
+    {
+      "scene": "track-20",
+      "width": 390,
+      "warnings": [],
+      "png": "track-20-390.png"
+    },
+    {
+      "scene": "track-states",
+      "width": 390,
+      "warnings": [],
+      "png": "track-states-390.png"
     },
     {
       "scene": "primitives",
@@ -243,7 +315,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1002276,
+      "gifBytes": 1004165,
       "gif": "primitives-keys-390.gif"
     }
   ]
