@@ -1,6 +1,7 @@
 import { isTerminal } from "@conveyor/shared";
 import {
   DEFAULT_PROFILES,
+  dbCountJobs,
   dbDeletePrinter,
   dbDeleteProfile,
   dbGetJob,
@@ -16,6 +17,7 @@ import {
 } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
+import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
 import { describeIssues, listTransports } from "../validate.js";
@@ -37,9 +39,18 @@ export async function registerCatalogRoutes(
   app: FastifyInstance,
   liveJobs: LiveJobCounter,
 ): Promise<void> {
-  app.get<{ Querystring: { limit?: string } }>("/jobs-history", async (req) => {
-    const limit = Math.min(Number(req.query.limit ?? 50) || 50, 200);
-    return dbListJobs(openDb(), limit);
+  app.get("/jobs-history", async (req, reply) => {
+    const parsed = historyPageQuery.safeParse(req.query);
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    return dbListJobs(openDb(), parsed.data);
+  });
+
+  app.get("/jobs-history/counts", async (req, reply) => {
+    const parsed = historyCountQuery.safeParse(req.query);
+    if (!parsed.success)
+      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    return dbCountJobs(openDb(), parsed.data);
   });
 
   app.get<{ Params: { id: string } }>("/jobs-history/:id", async (req, reply) => {

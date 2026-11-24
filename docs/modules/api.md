@@ -186,6 +186,18 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
+- `GET /jobs-history` lists newest-finished first (`updatedAt`, then `id`, both descending). Its query is
+  parsed with zod (`history-query.ts`), and a bad value is a 400 naming the field:
+  - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
+    200, as before.
+  - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
+    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
+    page.
+  - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
+    (`since` inclusive, `until` exclusive).
+- `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
+  for the filter pills. Both modes share these routes, since both keep finished jobs in the SQLite `jobs` table.
+  The static `counts` path wins over `/jobs-history/:id`; job ids are UUIDs, so none is called `counts`.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
   `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
   `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
