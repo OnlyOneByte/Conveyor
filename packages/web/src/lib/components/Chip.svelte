@@ -54,7 +54,7 @@
       {jobs.length} jobs <span class="v">{jobs.map(value).join(" · ")}<span class="sr">{groupName(jobs).slice(groupVisible(jobs).length)}</span></span>
     </button>
   {:else if job}
-    <a class="chip s-{job.state}" href="/history/{job.id}" aria-describedby={open ? `${card}-n ${card}-w` : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
+    <a class="chip s-{job.state}" href="/jobs/{job.id}" aria-describedby={open ? `${card}-n ${card}-w` : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
       <span class="ring" class:ind={job.state === "generating"} style="--p: {fill(job)}" aria-hidden="true"></span>
       <span class="t">{shortName(job.name)}</span> <span class="v">{value(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
     </a>
@@ -62,11 +62,11 @@
   {#if open && job}
     <div class="card" class:end id={card} style="--chip: {width}px">
       {#if jobs.length > 1}
-        <ul>{#each jobs as member (member.id)}<li><a href="/history/{member.id}" data-stop tabindex="-1">{shortName(member.name)} <span class="v">{value(member)}<span class="sr">, {status(member)}</span></span></a></li>{/each}</ul>
+        <ul>{#each jobs as member (member.id)}<li><a href="/jobs/{member.id}" data-stop tabindex="-1">{shortName(member.name)} <span class="v">{value(member)}<span class="sr">, {status(member)}</span></span></a></li>{/each}</ul>
       {:else}
         <p class="name" id="{card}-n">{job.name}</p>
         <p class="what" id="{card}-w">{status(job)} · {value(job)}</p>
-        <p class="acts"><a class="btn" href="/history/{job.id}">Open job</a>{#if action}<button type="button" class="btn ghost" on:click={() => action && onAction(job, action)}>{action}</button>{/if}</p>
+        <p class="acts"><a class="btn" href="/jobs/{job.id}">Open job</a>{#if action}<button type="button" class="btn ghost" on:click={() => action && onAction(job, action)}>{action}</button>{/if}</p>
       {/if}
     </div>
   {/if}

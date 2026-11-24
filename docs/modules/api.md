@@ -111,9 +111,10 @@ queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `40
 `retryOf:`, and nothing is queued. `submitJob` (`routes/submit.ts`) then claims the failure in one `UPDATE`
 that sets `retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`). A lost claim answers `409
 { error, retriedBy }` and queues nothing, so a double-clicked Retry prints once. `error` names `retryOf`, and
-`retriedBy` is the id of the retry that holds the claim (`dbRetriedBy`), or `null` if it can't be read. The PWA
-links to that retry at `/?job=<retriedBy>`. A queueing error clears
-the claim (`dbReleaseRetry`). A claimed failure leaves `GET /jobs/needs-you` at once, without a dismissal.
+`retriedBy` is the id of the retry that holds the claim (`dbRetriedBy`), or `null` if it can't be read. On Make,
+`sendJob` turns the 409 into `AlreadyRetried` ("This job was already retried."), and Make links to that retry
+with "See the retry" at `/?job=<retriedBy>`. A queueing error clears the claim (`dbReleaseRetry`). A claimed
+failure leaves `GET /jobs/needs-you` at once, without a dismissal.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 

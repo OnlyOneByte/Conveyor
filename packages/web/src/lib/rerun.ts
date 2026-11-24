@@ -29,11 +29,21 @@ export const linkedRetry = (handoff: RerunPayload | null, source: string, genera
 
 export const ALREADY_RETRIED = "This job was already retried.";
 
+export class AlreadyRetried extends Error {
+  retriedBy: string | null;
+
+  constructor(retriedBy: string | null) {
+    super(ALREADY_RETRIED);
+    this.retriedBy = retriedBy;
+  }
+}
+
 export async function sendJob(request: Rerunnable["request"], retryOf?: string, fetchFn: typeof fetch = fetch): Promise<{ jobId: string }> {
   if (!retryOf) return submitJob({ ...request, generator: { ...request.generator, params: request.generator.params } });
   const retried = await retryJob({ id: retryOf, request }, fetchFn);
   if (retried.ok) return { jobId: retried.jobId };
-  throw new Error(retried.status === 409 ? ALREADY_RETRIED : retried.error);
+  if (retried.status === 409) throw new AlreadyRetried(retried.retriedBy ?? null);
+  throw new Error(retried.error);
 }
 
 export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
