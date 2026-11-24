@@ -1,6 +1,7 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
+import { liveScenes } from "./scenes-live.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
@@ -25,7 +26,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
-  widths?: readonly number[];
+  widths?: readonly (typeof WIDTHS)[number][];
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -98,6 +99,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   ...receiptScenes,
+  ...liveScenes,
   {
     name: "monitor",
     route: "/monitor",
@@ -116,6 +118,17 @@ export const scenes: Scene[] = [
     ready: "text=Configure",
     steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
   },
+  ...["done", "2 x 3"].map((text) => ({
+    name: `command-menu-${text.replaceAll(" ", "")}`,
+    route: "/",
+    ready: "text=Configure",
+    steps: [
+      { press: "Control+k" },
+      { type: "dialog[open] input", text },
+      { waitFor: "dialog[open] [role=option] >> text=Printed" },
+      { wait: 300 },
+    ],
+  })),
   {
     name: "shortcut-sheet",
     route: "/",

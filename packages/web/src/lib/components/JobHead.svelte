@@ -38,6 +38,8 @@
   .pill.done { color: var(--ok); }
   .pill.failed { color: var(--err); }
   .pill.canceled { color: var(--off); }
+  .pill.live { color: var(--live); }
+  .pill.queued { color: var(--muted); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .acts:empty { display: none; }
   @media (max-width: 759px) {

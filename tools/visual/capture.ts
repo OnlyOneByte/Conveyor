@@ -55,6 +55,10 @@ const colorScheme = values.scheme === "dark" ? "dark" : "light";
 const outDir = resolve(values.out);
 const only = values.only?.split(",").map((s) => s.trim());
 const selected = only ? scenes.filter((s) => only.includes(s.name)) : scenes;
+const unshot = selected
+  .filter((s) => !WIDTHS.some((w) => !s.widths || s.widths.includes(w)))
+  .map((s) => s.name);
+if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")}`);
 
 async function runStep(page: Page, step: Step, warnings: string[]): Promise<void> {
   if ("click" in step) await page.locator(step.click).first().click();
