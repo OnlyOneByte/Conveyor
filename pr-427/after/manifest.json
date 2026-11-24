@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:46773",
+  "url": "http://127.0.0.1:35121",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 500645,
+      "gifBytes": 538664,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 279690,
+      "gifBytes": 306112,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -65,7 +65,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 734800,
+      "gifBytes": 802148,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -211,7 +211,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 741971,
+      "gifBytes": 825077,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -291,7 +291,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 490307,
+      "gifBytes": 607408,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -299,7 +299,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1013494,
+      "gifBytes": 961242,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -307,7 +307,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1083065,
+      "gifBytes": 1284481,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -315,7 +315,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 277585,
+      "gifBytes": 315153,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -353,7 +353,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 699695,
+      "gifBytes": 786754,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -379,7 +379,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 622330,
+      "gifBytes": 622175,
       "gif": "new-job-390.gif"
     },
     {
@@ -419,7 +419,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1143192,
+      "gifBytes": 1117857,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -639,7 +639,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506242,
+      "gifBytes": 507050,
       "gif": "track-keys-390.gif"
     },
     {
@@ -677,7 +677,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030898,
+      "gifBytes": 1030284,
       "gif": "primitives-keys-390.gif"
     }
   ]
