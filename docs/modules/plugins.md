@@ -1,8 +1,8 @@
 # Plugins: implementation notes
 
 The why behind the bundled plugins in `plugins/`. Contracts live in [../PLUGINS.md](../PLUGINS.md); engine
-installs in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md); hardware runbooks in
-[../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
+installs in [../archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER-ENGINES.md). The hardware runbooks are
+under each transport below.
 
 With `CONVEYOR_ENGINE_STUB=1` the pipeline runs with no engine or printer: the Gridfinity generator writes a
 placeholder STL, slicers write a placeholder g-code, and transports fake an upload and a short progress run.
@@ -87,8 +87,14 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
 
 ## Transports
 
-Neither transport has been run against real hardware yet (written 2026-06-29). Confirm with the runbooks in
-[../M2-TRANSPORTS.md](../M2-TRANSPORTS.md).
+Neither transport has been run against real hardware yet (written 2026-06-29), and neither cancel path has
+either. Confirm them with the "Verify on hardware" runbook under each one. Both read `CONVEYOR_ENGINE_STUB`
+once, when the worker loads them, so restart the worker after unsetting it.
+
+Printer settings live under **Printers** in the nav (`/settings`). The form's secret field saves
+`secrets.mainboardId` for an Elegoo printer and `secrets.apiKey` for any other; other keys are set with
+`PUT /api/catalog/printers`. A write's `secrets` merges per key, so saving one keeps the rest, and `null`
+removes a key ([api.md](api.md#catalog-and-history-routescatalogts-routescatalog-contentts)).
 
 Both upload the g-code through `multipartFileUpload({ field, path, filename }, onSent)` (`@conveyor/shared/node`),
 which streams the file from disk as one multipart part with a fixed `Content-Length`. `onSent(bytesSent,
@@ -152,6 +158,18 @@ dropped. Two guards apply to every upload:
 - Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
+
+Verify on hardware:
+
+1. Set the `klipper-garage` printer's address to your Moonraker host, for example `192.168.1.50:7125` or a
+   full `http://…` URL.
+2. Auth: either add the worker host to `[authorization] trusted_clients` in `moonraker.conf`, or give both
+   halves a key: the printer's `apiKey` secret for `submit()`, and `MOONRAKER_API_KEY` on the worker for
+   `status()` and `cancel()`.
+3. Unset `CONVEYOR_ENGINE_STUB`, restart the worker and submit a job to Garage Klipper. Confirm that progress
+   advances and the job ends `done`.
+4. Mid-print, cancel the job from Monitor (or `POST /api/jobs/:id/cancel`). Confirm that the printer stops and
+   the job ends `canceled`.
 
 ### Elegoo (`plugins/transports/elegoo`)
 
@@ -228,9 +246,18 @@ numeric string (`"40"`); any other string (`"40%"`) makes the frame malformed.
   `CurrentTicks` can be fractional, so any finite value of 0 or more is read. `secondsLeft` is left out when
   either is missing or negative, when `TotalTicks` is 0, or when the print has run past the estimate.
 
-To verify on hardware:
+Verify on hardware. The upload route is the least certain part, because SDCP leaves file transfer
+under-specified and resin and FDM firmware differ, so confirm it first:
 
-1. The upload route: the plugin uses `POST http://<ip>:3030/uploadFile/upload` (multipart `File`). Capture
-   ElegooLink's traffic and adjust `uploadGcode()` if it 404s.
-2. The `START_PRINT` payload: whether it takes `{ Filename, StartLayer }` or a path or token returned by the
-   upload.
+1. Upload: the plugin sends `POST http://<ip>:3030/uploadFile/upload` (`ELEGOO_WS_PORT`, multipart field
+   `File`). Send a file with ElegooLink or the printer's web UI while capturing the traffic (Wireshark or
+   browser devtools), note the URL, method, field name and whether it chunks, and adjust `uploadGcode()` in
+   `src/index.ts` to match.
+2. Start: check whether `START_PRINT` (`Cmd 128`) takes `{ Filename, StartLayer }`, as sent today, or a path
+   or token the upload returns.
+3. Mainboard id: read the printer's `MainboardID` from its screen or ElegooLink. If it differs from the
+   printer's `id`, store it as the `mainboardId` secret; every command and the stop go to it.
+4. Control: confirm the handshake at `ws://<ip>:3030/websocket` and that a status request (`Cmd 0`) gets a
+   frame `parsePushFrame` reads as `frame`.
+5. Unset `CONVEYOR_ENGINE_STUB`, restart the worker, submit to the Elegoo printer and watch the job. Then
+   cancel one mid-print and confirm the printer acks the stop and the job ends `canceled`.

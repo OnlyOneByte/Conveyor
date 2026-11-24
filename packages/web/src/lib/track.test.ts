@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import {
   ACTIONS,
+  beltSummary,
+  COLLAPSE_AT,
+  collapsedBelt,
+  REOPEN_AT,
   centre,
   chipName,
   groupName,
@@ -155,5 +159,28 @@ describe("chip text", () => {
     const members = [job("slicing", 0.35), { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" }, job("slicing", 0.12)];
     expect(groupVisible(members)).toBe("3 jobs 35% · … · 12%");
     expect(groupName(members)).toBe("3 jobs 35% · … · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing");
+  });
+});
+
+describe("when the belt collapses to its 40 px bar", () => {
+  test("on Make only past 80 px of scroll, on every other page always, and never while opened", () => {
+    expect(COLLAPSE_AT).toBe(80);
+    expect([collapsedBelt("/", 0, false), collapsedBelt("/", 80, false), collapsedBelt("/", 81, false)]).toEqual([false, false, true]);
+    expect([collapsedBelt("/history", 0, false), collapsedBelt("/jobs/a", 0, false), collapsedBelt("/settings", 0, true), collapsedBelt("/", 300, true)]).toEqual([true, true, false, false]);
+  });
+
+  test("once collapsed on Make it stays collapsed until the page is back near the top, so the shrink can't flip it back", () => {
+    expect(REOPEN_AT).toBe(4);
+    expect([collapsedBelt("/", 11, false, true), collapsedBelt("/", 5, false, true), collapsedBelt("/", 4, false, true), collapsedBelt("/", 0, false, true)]).toEqual([true, true, false, false]);
+    expect([collapsedBelt("/", 79, false, false), collapsedBelt("/", 74, false, false), collapsedBelt("/", 300, true, true)]).toEqual([false, false, false]);
+  });
+});
+
+describe("the mobile belt's summary line", () => {
+  const job = (id: string, state: JobState, extra: Partial<TrackJob> = {}): TrackJob => ({ id, name: "Gridfinity Bin 2 × 3", state, ...extra });
+  test("counts waiting and moving jobs, and leads with the printing job's printer and percent", () => {
+    expect(beltSummary([job("a", "queued"), job("b", "slicing"), job("c", "printing", { printer: "Ender 3 V3", progress: 0.64 }), job("d", "done")])).toBe("3 on the belt · Ender 64%");
+    expect(beltSummary([job("a", "printing", { progress: 0.2 }), job("b", "queued")])).toBe("2 on the belt · 20%");
+    expect([beltSummary([job("a", "queued")]), beltSummary([job("a", "failed"), job("b", "done")])]).toEqual(["1 on the belt", "Belt empty"]);
   });
 });

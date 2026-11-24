@@ -1,7 +1,9 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
+import { beltScenes } from "./scenes-belt.ts";
 import { liveScenes } from "./scenes-live.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
+import { settingsScenes } from "./scenes-settings.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
@@ -15,7 +17,8 @@ export type Step =
   | { fulfill: string; method?: string; status: number; json: unknown }
   | { follow: string }
   | { history: "back" | "forward"; url?: string }
-  | { hits: string; viewports: readonly Viewport[] };
+  | { hits: string; viewports: readonly Viewport[] }
+  | { holds: string; ms: number; scrollTo: number; anchor: string };
 
 export interface Scene {
   name: string;
@@ -25,6 +28,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
+  widths?: readonly (typeof WIDTHS)[number][];
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -104,12 +108,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 800 }],
   },
-  {
-    name: "settings",
-    route: "/settings",
-    ready: "h1",
-    steps: [{ wait: 800 }],
-  },
+  ...settingsScenes,
   {
     name: "command-menu",
     route: "/",
@@ -162,6 +161,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 600 }],
   })),
   ...signedOutScenes,
+  ...beltScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",

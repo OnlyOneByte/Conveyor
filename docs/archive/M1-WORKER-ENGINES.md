@@ -58,7 +58,7 @@ through the actual `buildRegistry()` + `StageCtx` contract — not isolated call
   bbox **83.5 × 125.5 × 45.5 mm** (exact Gridfinity spec) via OpenSCAD 2023.09 nightly.
 - **slice** that STL → real **3.9 MB G-code, 228 layers** via PrusaSlicer 2.9.2 (headless).
 
-(Transport stage needs hardware, so the E2E stops after slice — see `docs/M2-TRANSPORTS.md`.)
+(Transport stage needs hardware, so the E2E stops after slice — see `docs/archive/M2-TRANSPORTS.md`.)
 
 ## OrcaSlicer half: ✅ VERIFIED on aarch64 (2026-06-30)
 

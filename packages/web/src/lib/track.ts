@@ -17,6 +17,11 @@ export const STAGE_LABELS: Record<RailState, string> = {
 };
 
 export const INSET = 0.02;
+export const COLLAPSE_AT = 80;
+export const REOPEN_AT = 4;
+
+export const collapsedBelt = (path: string, scrollY: number, opened: boolean, was = false) =>
+  !opened && (path !== "/" || scrollY > (was ? REOPEN_AT : COLLAPSE_AT));
 export const JOIN_PX = 6;
 export const SPLIT_PX = 16;
 export const MIN_CHIP_PX = 156;
@@ -115,6 +120,13 @@ export const ACTIONS: Partial<Record<JobState, string>> = {
   failed: "Retry",
   canceled: "Print again",
 };
+
+export function beltSummary(jobs: TrackJob[]): string {
+  const on = jobs.filter((job) => job.state === "queued" || onRail(job.state)).length;
+  const printing = jobs.find((job) => job.state === "printing");
+  const lead = printing ? ` · ${printing.printer ? `${printing.printer.split(" ")[0]} ` : ""}${value(printing)}` : "";
+  return on ? `${on} on the belt${lead}` : "Belt empty";
+}
 
 export const status = (job: TrackJob) => `${WORDS[job.state]}${job.printer ? ` on ${job.printer}` : ""}`;
 

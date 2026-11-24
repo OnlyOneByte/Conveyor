@@ -44,7 +44,7 @@ const ahead = (jobId: string, createdAt: number) => ({
 });
 
 export const liveScenes: Scene[] = [
-  live("queued", "text=2nd", { state: "queued", timings: [] }, [
+  live("queued", "main >> text=2nd", { state: "queued", timings: [] }, [
     {
       fulfill: "**/api/jobs/active",
       status: 200,

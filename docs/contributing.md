@@ -46,11 +46,15 @@ fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
-tested, so rerunning the job gives the same order, and the log and job summary print it with the full command.
-`--seed` alone shuffles the order, and the order also depends on the list of files bun starts from, which
-differs between machines. CI therefore passes the test files explicitly, sorted
-(`git ls-files '*.test.ts' ':!:tools/visual/**' | sort`). Run the printed command to get the same order
-locally. A test that only fails there depends on what ran before it: make it set up its own state.
+tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
+command to check that commit out, and the command that reruns the order. On a pull request the commit is
+GitHub's merge of the PR into its base, not the PR head, so check out the printed commit
+(`git fetch origin <sha> && git checkout <sha>`) rather than your branch. `--seed` alone shuffles the order,
+and the order also depends on the list of files bun starts from, which differs between machines. CI therefore
+passes the test files explicitly, sorted byte-wise so every locale gives the same list
+(`git ls-files '*.test.ts' ':!:tools/visual/**' | LC_ALL=C sort`). On the printed commit, run the printed
+command to get the same order locally. A test that only fails there depends on what ran before it: make it
+set up its own state.
 
 How the comments baseline works, and what each `check:comments` message means, is in
 [AGENTS.md §2](../AGENTS.md#2-no-comments). It is one file per area,
@@ -131,11 +135,13 @@ with `main`'s newer tip instead would judge a PR against baselines it was never 
 
 ## The PR flow
 
-1. **Issue.** Find or open the issue the change answers.
+1. **Issue.** Find or open the issues the change answers.
 2. **Branch** from fresh `main`: `<type>/<slug>`, for example `fix/cancel-during-slice`.
-3. **Change** one concern, at most 400 changed lines. Update the docs the change touches, in the same PR.
+3. **Change** one concern; related small issues in one area count as one. Update the docs the change
+   touches, in the same PR.
 4. **Open the PR** with a Conventional-Commit title and every section of the template filled in. The body
-   names the issue (`Closes #N` or `Part of #N`). Agent PRs carry the `agent` label and one `area/*` label.
+   names each issue on its own line (`Closes #N` or `Part of #N`). Agent PRs carry the `agent` label and one
+   `area/*` label.
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
 6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, `file-size`, the three Docker builds and `compose`, which
@@ -144,7 +150,7 @@ with `main`'s newer tip instead would judge a PR against baselines it was never 
    [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
    `[S1]` finding, then push; the reviewer re-reviews the new head.
 8. **Merge.** The merge tooling squash-merges once every required check and the review status are green on
-   the same head. `do-not-merge` stops it; `large-ok` (owner only) allows a diff over 800 lines.
+   the same head. `do-not-merge` stops it.
 
 ## Changing the rules
 
