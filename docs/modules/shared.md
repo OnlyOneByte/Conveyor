@@ -64,8 +64,9 @@ An `Artifact` is a file on the shared `/data` volume that one stage hands to the
 `StageCtx` is the per-job context the worker hands to every stage.
 
 - `workDir` is the job's absolute working directory under `/data`.
-- `report(progress, message)` takes progress from 0 to 1 within the current stage and surfaces it on the
-  status bus.
+- `report(progress, message)` takes progress from 0 to 1 within the current stage and surfaces it as a
+  status event, which goes to the Redis status bus or the SQLite `job_events` log depending on the queue mode
+  (see [events.ts](#eventsts)).
 - `reportUpload(bytesSent, bytesTotal)` is optional and only transports call it. The worker publishes it as a
   `transferring` event with `bytesSent`, `bytesTotal` and `progress = bytesSent / bytesTotal` (1 for an empty
   file). `parseStatusEvent` takes both counts only as whole, non-negative numbers; old events without them
@@ -77,8 +78,17 @@ message reads `[stage] reason`.
 
 ## events.ts
 
-`JobStatusEvent` is one message on the Redis status bus. The API forwards it verbatim to the WebSocket, and
-the PWA is a pure projection of these events.
+`JobStatusEvent` is one status update for a job. The API forwards it verbatim to the WebSocket, and the PWA is
+a pure projection of these events. How it travels depends on the queue mode ([queue-mode.ts](#queue-modets)):
+
+- **Redis** (the default): the worker's `publishStatus` writes it as the job's snapshot and publishes it on
+  the job's pub/sub channel in one Lua script ([status.ts](#statusts)).
+- **SQLite**: the worker's `writeStatus` updates the `jobs` row and appends the event to the `job_events` log
+  in one transaction, and the API tails that log ([queue/status.ts](#queuestatusts-and-queueevent-logts)).
+
+Both stamp `seq`, the event's position in that job's stream: a per-job counter on Redis, the `job_events` row
+id on SQLite. A WebSocket sends the snapshot, then only events with a higher `seq`, so none is missed or
+repeated.
 
 - `progress` runs from 0 to 1 within the current stage.
 - `timings` is the per-stage wall clock so far, with the last stage left open while it runs. Live events
@@ -89,8 +99,8 @@ the PWA is a pure projection of these events.
 `JOB_QUEUE` is the BullMQ queue name shared by the API (producer) and the worker (consumer). BullMQ forbids
 `:` in queue names, so it uses a hyphen.
 
-`jobChannel` and `jobSnapshotKey` are the single source of truth for the pub/sub channel and snapshot key
-on both ends.
+The names below are Redis-mode only. `jobChannel` and `jobSnapshotKey` are the single source of truth for the
+pub/sub channel and snapshot key on both ends.
 
 `ACTIVE_JOBS_KEY` names a Redis set of the job ids in flight. The worker adds an id when it starts a job and
 removes it on any terminal state. The API reads the set, then each job's snapshot, to answer
@@ -152,67 +162,9 @@ The input must be in entry order, which is how the worker records it.
 
 ## plugins.ts
 
-The three stage contracts and the shapes they exchange. The full contract is in [../PLUGINS.md](../PLUGINS.md).
-
-`JSONSchema7` is re-exported so plugins depend only on `@conveyor/shared`, not on `json-schema` directly.
-
-`PluginManifest.id` is stable and unique within a stage (`gridfinity`, `orca`, `moonraker`); `name` is the
-label the UI shows.
-
-`PreviewDescriptor` points the client-side viewport at a client module that builds Three.js geometry from
-the params, which keeps preview rendering off the server (ADR 0002).
-
-### Form presentation hints
-
-The PWA renders a generator's config form straight from `paramSchema`, with no per-generator UI code.
-`FormUiHints` lets a generator say how its fields are grouped and which are advanced, without the form
-component learning any generator-specific field names. A generator that omits them renders as a flat list
-of controls.
-
-- `FormControl` is the preferred control for a field; when omitted it is inferred from the JSON Schema type.
-- `FormGroup.title` is the heading above the group; omit it for an unlabelled cluster. `fields` are field
-  keys in render order.
-- `FormGroup.layout`: `pair` puts two controls on one row separated by `×`; `stack` (the default) puts one
-  control per row; `grid` is a two-column grid for compact booleans.
-- `groups` are always visible; `advanced` sits behind a disclosure; `controls` overrides the control per
-  field.
-- `unitMm` is the millimetres one unit of a field represents. It drives the live size readout beside a
-  group heading, for example gridfinity's 42 mm footprint and 7 mm height units.
-- `note` is a small static legend under the primary groups.
-
-### Generator
-
-`params` is the generator's strict zod schema: `POST /jobs` parses the request's params with it, applies its
-defaults, and rejects unknown keys. `validateRequest`, when present, checks the parsed params against the
-outside world (passthrough: the upload is a regular `.stl` file in the uploads dir, within
-`MAX_UPLOAD_BYTES`, with an STL header). `paramSchema` is the JSON Schema derived from `params`; the PWA renders the form from it. `outputs` lists the model formats
-the generator can emit (`["stl", "3mf"]`). `generate` is the exact, server-side model generation that
-shells out to OpenSCAD and similar.
-
-### Slicer
-
-`ProfileRef.id` looks like `orca/elegoo-pla-0.2`; `name` is shown in Settings, never to end users; `path` is
-a bundled or per-job materialized profile directory.
-
-`SlicerPlugin.accepts` lists input formats, and `gcodeFlavor` is the flavour the slicer declares (`marlin`,
-`klipper`). A slicer declares no profile list: profiles are rows in SQLite, seeded once from `DEFAULT_PROFILES`.
-
-`slice` receives a profile the worker has already resolved. Adapters consume its path; they do not own
-profile persistence or look ids up in a hard-coded list. That is what lets the worker materialize edited
-JSON into a per-job directory and pass that directory to Orca without coupling the plugin to SQLite.
-
-### Transport
-
-`PrinterTarget.id` looks like `klipper-garage`; `transportId` names the owning transport; `address` is a
-`host:port`, serial device or MQTT topic; `secrets` (API keys and the like) are resolved server-side and
-never sent to the client.
-
-`PrintHandle.ref` is the transport-specific job reference (a filename, a task id). `address` is the device
-address, carried so `status()` and `cancel()` can reach the printer without re-resolving it. It is
-server-side only and never leaves the worker.
-
-`PrintStatus.progress` runs from 0 to 1. `TransportPlugin.acceptsFlavors` lists the g-code flavours it can
-print. There is no discovery hook: printers are added with an explicit address.
+The three stage contracts (`GeneratorPlugin`, `SlicerPlugin`, `TransportPlugin`) and the shapes they
+exchange. [../PLUGINS.md](../PLUGINS.md) is the contract page: every interface, field by field, including
+the form presentation hints.
 
 ## registry.ts
 
@@ -290,6 +242,31 @@ there makes its profiles editable everywhere at once.
 `queueMode(env)` reads `CONVEYOR_QUEUE`: `redis` (the default, also for an empty value) or `sqlite`, and
 throws on anything else. `sqlite` also throws unless `CONVEYOR_QUEUE_UNSTABLE=1` is set. The worker and the
 api both call it at startup and exit with code 1 on a throw, so they always agree on what a value means.
+
+## status.ts
+
+Status parsing for both queue modes, and the Redis write path.
+
+- `parseStatusEvent(raw)` turns a stored or received JSON string into a `JobStatusEvent`, or `undefined` for
+  an empty, unparsable or invalid one; it never throws. The API reads Redis snapshots and pub/sub messages
+  with it, the SQLite queue reads `job_events` rows with it (`tailEvents` throws when it returns `undefined`),
+  and the PWA parses WebSocket frames with it.
+- `publishStatus(client, event)` runs `PUBLISH_STATUS_SCRIPT`, one Lua script, so the snapshot, the
+  pub/sub message and the active-jobs set change together. It refuses to overwrite a terminal snapshot and
+  returns `false` when it did. Otherwise it stamps the next `seq` from `jobSeqKey`, sets the snapshot,
+  publishes it, and adds the id to `ACTIVE_JOBS_KEY`, or removes it on a terminal state.
+- Cancel on Redis: the API sets `jobCancelKey` (expiring after `CANCEL_TTL_SECONDS`, 7 days) and publishes
+  on `jobControlChannel`; the worker checks the key and listens on the channel.
+
+## slicer-keys.ts and slicer-key-policy.ts
+
+The per-slicer allowlists of profile setting keys. `profile.ts` rejects any key not in `PRUSA_CONFIG_KEYS` or
+`ORCA_CONFIG_KEYS`. The lists are generated data, `packages/shared/slicer-keys/*.json`, and `toKeySet`
+refuses to load an empty list or an entry that isn't a plain key name or that `DENIED_KEY` matches.
+
+`DENIED_KEY` sits in its own file because `scripts/slicer-keys/generate.ts` filters with the same pattern
+when it builds the lists, and importing it from there doesn't load the JSON files it is about to rewrite.
+What the lists leave out and how to regenerate them are in [../SLICER-PROFILES.md](../SLICER-PROFILES.md#setting-keys).
 
 ## node/ (`@conveyor/shared/node`)
 
@@ -535,6 +512,23 @@ twice.
   step and resets `NORMAL` in a `finally`, all in one synchronous block. `bun:sqlite` is synchronous, so no
   other write on the connection can run at `FULL` meanwhile, and a throwing step cannot leave it there.
 - The worker calls them through `queueDeps` (see [worker.md](worker.md#queue-depsts)).
+
+## queue/hold.ts
+
+A printer hold says the printer may still have a job the queue lost track of. While `printers.hold_job_id`
+is set, `claimJob` prepares no new job for that printer.
+
+- `holdPrinter(db, { printerId, jobId, reason, at })` sets `hold_job_id`, `hold_reason` and `hold_at`, but
+  only on a printer with no hold, so the first hold and its reason stay until someone releases it. It runs
+  inside its caller's transaction, so the hold and the job's settled state commit together. Its callers:
+  - `writeStatus`, when a terminal write lands inside the upload window (`UPLOAD_SETTLE_REASON`);
+  - `settleCancel`, when the printer did not confirm the stop (`STOP_UNCONFIRMED_REASON`);
+  - the reaper, for a job with a submit intent but no marker (`UNKNOWN_REASON`);
+  - `failResume`, when a worker restarted mid-print and could not reconnect to the printer
+    (`RESUME_FAILED_REASON`).
+- `releasePrinterHold(db, printerId)` clears all three columns and returns `true` only when there was a
+  hold. The API's `POST /catalog/printers/:id/release` calls it after an explicit confirmation (see
+  [api.md](api.md#printer-holds-routesprinter-holdsts)).
 
 ## queue/status.ts and queue/event-log.ts
 

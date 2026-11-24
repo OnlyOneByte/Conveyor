@@ -1,9 +1,14 @@
 # Conveyor — Plugin Contracts
 
-All contracts live in the `shared` package and are imported by `api` and `worker`.
+This page is the plugin contract: every interface a plugin implements or receives, and what each field
+means. The types are in `packages/shared/src/plugins.ts` (with `artifacts.ts`, `context.ts`, `job.ts` and
+`registry.ts`), exported from `@conveyor/shared`, and imported by `api`, `worker` and the plugins.
+JSON Schema's `JSONSchema7` type is re-exported there too, so a plugin depends only on `@conveyor/shared`.
+
 Nothing self-registers: the api and the worker each build the same per-stage `Registry` at startup by
 calling `buildRegistry` from `@conveyor/plugin-registry`, the one list of bundled plugins. A `Job` is validated for
-cross-stage capability compatibility before being enqueued.
+cross-stage capability compatibility before being enqueued. How the bundled plugins work inside is in
+[modules/plugins.md](modules/plugins.md).
 
 ## Shared artifacts
 
@@ -18,49 +23,91 @@ export type ModelArtifact = Artifact;    // generator output / slicer input
 export type GcodeArtifact = Artifact;    // slicer output / transport input
 ```
 
+Every stage also gets a `StageCtx` (`workDir`, `report`, `reportUpload`, `signal`) and fails by throwing a
+`StageError`; both are described in [modules/shared.md](modules/shared.md#contextts).
+
 ## Common manifest
 
 ```ts
+export type Stage = "generator" | "slicer" | "transport";
+
 export interface PluginManifest {
-  id: string;            // stable, unique within a stage: "gridfinity", "orca"
+  id: string;            // stable, unique within a stage: "gridfinity", "orca", "moonraker"
   name: string;          // human label for the UI
   version: string;
-  stage: "generator" | "slicer" | "transport";
+  stage: Stage;
 }
 ```
 
 ## Stage 1 — Generator
 
 ```ts
-import type { JSONSchema7 } from "json-schema";
-
 export interface GeneratorPlugin<P = unknown> extends PluginManifest {
   stage: "generator";
-  // Strict zod schema; POST /jobs parses params with it (defaults applied) and answers 400 naming the field.
-  params: ZodType<P, ZodTypeDef, unknown>;
-  // Zod-derived JSON Schema → the PWA renders the config form from this.
-  paramSchema: JSONSchema7;
-  // Optional request-time check on parsed params, e.g. that an upload exists; null means OK.
-  validateRequest?(params: P): ParamIssue | null;
-  // Optional layout hints for that form: groups, an advanced section, controls, units.
-  ui?: FormUiHints;
-  // Optional procedural-preview descriptor for the client-side fast viewport.
-  preview?: PreviewDescriptor;
-  // Declares the model format(s) this generator can emit.
-  outputs: string[];                       // e.g. ["stl", "3mf"]
-  // Server-side, exact model generation (shells out to OpenSCAD etc.).
+  params: ZodType<P, unknown>;             // strict zod schema for the params
+  paramSchema: JSONSchema7;                // JSON Schema derived from params; the PWA renders the form from it
+  validateRequest?(params: P): ParamIssue | null; // request-time check on parsed params; null means OK
+  ui?: FormUiHints;                        // layout hints for that form
+  preview?: PreviewDescriptor;             // procedural-preview descriptor for the client viewport
+  outputs: string[];                       // model formats it can emit, e.g. ["stl", "3mf"]
   generate(params: P, ctx: StageCtx): Promise<ModelArtifact>;
 }
 
-// Hint for client-side Three.js/Threlte preview — keeps render off the server.
+export interface ParamIssue {
+  field: string;
+  message: string;
+}
+
 export interface PreviewDescriptor {
   kind: "procedural";
-  module: string;            // client module id that builds geometry from params
+  module: string;                          // client module id that builds geometry from params
 }
 ```
 
-`FormUiHints` (groups, `advanced`, `controls`, `unitMm`, `note`) is in `packages/shared/src/plugins.ts`; what each
-field does is in [modules/shared.md](modules/shared.md#form-presentation-hints).
+- `params` is the generator's strict zod schema: `POST /jobs` parses the request's params with it, applies
+  its defaults, rejects unknown keys and answers 400 naming the field.
+- `validateRequest`, when present, checks the parsed params against the outside world. Passthrough checks
+  that the upload is a regular `.stl` file in the uploads directory, within `MAX_UPLOAD_BYTES`, with an STL
+  header.
+- `generate` is the exact, server-side model generation, which shells out to OpenSCAD and similar.
+- `PreviewDescriptor` points the client-side viewport at a module that builds Three.js geometry from the
+  params, which keeps preview rendering off the server (ADR 0002).
+
+### Form presentation hints
+
+```ts
+export type FormControl = "stepper" | "slider" | "checkbox";
+
+export interface FormGroup {
+  title?: string;
+  fields: string[];
+  layout?: "pair" | "stack" | "grid";
+}
+
+export interface FormUiHints {
+  groups?: FormGroup[];
+  advanced?: { title: string; groups: FormGroup[] };
+  controls?: Record<string, FormControl>;
+  unitMm?: Record<string, number>;
+  note?: string;
+}
+```
+
+The PWA renders a generator's config form straight from `paramSchema`, with no per-generator UI code.
+`FormUiHints` lets a generator say how its fields are grouped and which are advanced, without the form
+component learning any generator-specific field names. A generator that omits them renders as a flat list
+of controls.
+
+- `FormControl` is the preferred control for a field; when omitted it is inferred from the JSON Schema type.
+- `FormGroup.title` is the heading above the group; omit it for an unlabelled cluster. `fields` are field
+  keys in render order.
+- `FormGroup.layout`: `pair` puts two controls on one row separated by `×`; `stack` (the default) puts one
+  control per row; `grid` is a two-column grid for compact booleans.
+- `groups` are always visible; `advanced` sits behind a disclosure; `controls` overrides the control per
+  field.
+- `unitMm` is the millimetres one unit of a field represents. It drives the live size readout beside a
+  group heading, for example gridfinity's 42 mm footprint and 7 mm height units.
+- `note` is a small static legend under the primary groups.
 
 Bundled: **`gridfinity`** wraps `gridfinity-rebuilt-openscad`, running
 `openscad -o model.stl -D gridx=2 -D gridy=3 ... gridfinity-rebuilt-bins.scad` (override the file with
@@ -79,9 +126,17 @@ export interface SlicerPlugin extends PluginManifest {
 export interface ProfileRef {
   id: string;                              // "orca/klipper-pla-0.2"
   name: string;                            // shown in Settings, not to end users
-  path: string;                            // path to the locked profile bundle
+  path: string;                            // the profile bundle directory
 }
 ```
+
+- A slicer declares no profile list: profiles are rows in SQLite, seeded once from `DEFAULT_PROFILES`.
+- `slice` receives a profile the worker has already resolved. `path` is a bundled directory or a per-job
+  directory the worker materialized from edited JSON. Adapters consume the path; they don't own profile
+  persistence or look ids up in a hard-coded list, so edited profiles reach Orca without coupling the
+  plugin to SQLite.
+- `gcodeFlavor` is the flavour the slicer declares (`marlin`, `klipper`). Compatibility checks use the
+  profile's flavour instead, because one slicer can ship profiles that emit others.
 
 Bundled: **`orca`** runs the OrcaSlicer CLI under `xvfb-run`, and **`prusa`** runs the PrusaSlicer CLI. Neither
 is a default: a job's profile names its slicer, and the seed ships profiles for both.
@@ -105,16 +160,35 @@ export interface TransportPlugin extends PluginManifest {
 export interface PrinterTarget {
   id: string;                              // "klipper-garage"
   transportId: string;                     // which transport owns it
-  address: string;                         // host:port / serial / mqtt topic
-  secrets?: Record<string, string>;        // api keys, never sent to the client
+  address: string;                         // host:port, serial device or MQTT topic
+  secrets?: Record<string, string>;        // API keys and the like
+}
+
+export interface PrintHandle {
+  transportId: string;
+  printerId: string;
+  ref: string;                             // transport-specific job reference: a filename, a task id
+  address?: string;                        // the device address, so status() and cancel() need no lookup
+  deviceId?: string;                       // a device id the transport addressed, e.g. Elegoo's mainboard
 }
 
 export interface PrintStatus {
   state: "transferring" | "printing" | "done" | "failed" | "canceled";
   progress?: number;                       // 0..1
   message?: string;
+  print?: PrintProgress;
+}
+
+export interface PrintProgress {           // from events.ts
+  layer?: number;
+  layers?: number;
+  secondsLeft?: number;
 }
 ```
+
+- `secrets` are resolved server-side and never sent to the client. The same goes for `PrintHandle.address`,
+  which never leaves the worker.
+- There is no discovery hook: printers are added with an explicit address.
 
 First adapters: **`moonraker`** (Klipper HTTP API) and **`elegoo`** (ElegooLink / SDCP).
 
@@ -139,11 +213,12 @@ export interface JobTarget {
 ## Job & lifecycle
 
 ```ts
-export interface JobRequest {
-  generator: { id: string; params: unknown };
+// Inferred from jobRequestSchema (zod), which POST /jobs and the worker both parse with.
+export type JobRequest = {
+  generator: { id: string; params?: unknown };
   printerId: string;                       // → transport
   profileId: string;                       // → slicer + gcode flavour
-}
+};
 
 export type JobState =
   | "queued" | "generating" | "slicing"
@@ -168,6 +243,8 @@ export interface Registry {
 //   target.gcodeFlavor (the profile's) ∈ transport.acceptsFlavors
 export function validateJob(req: JobRequest, target: JobTarget, reg: Registry): void;
 ```
+
+Why the checks run in that order is in [modules/shared.md](modules/shared.md#registryts).
 
 ## Adding a plugin (the whole checklist)
 
