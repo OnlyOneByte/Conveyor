@@ -494,7 +494,7 @@
     .panel { order: 1; }
     .desktop-print { display: none; }
     .mobile-cta {
-      display: block; position: fixed; left: 0; right: 0; bottom: 0; padding: 0.7rem 1rem;
+      display: block; position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 0.7rem 1rem;
       background: linear-gradient(transparent, var(--bg) 35%); z-index: 30;
     }
     .mobile-cta button { width: 100%; font-size: 1.05rem; }

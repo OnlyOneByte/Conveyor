@@ -5,6 +5,7 @@ import { type Browser, chromium, type Page } from "playwright";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
+import { assertHits } from "./hits.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -61,6 +62,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("scroll" in step)
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
+  else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
   else await page.waitForTimeout(step.wait);
 }
 

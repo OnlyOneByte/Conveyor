@@ -18,4 +18,12 @@ describe("announce", () => {
     stop();
     expect(seen.slice(-4)).toEqual(["", "Printed.", "", "Printed."]);
   });
+
+  test("leaves the region empty for longer than a frame before refilling it", async () => {
+    const done = announce("Printed.");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(get(announcements.polite)).toBe("");
+    await done;
+    expect(get(announcements.polite)).toBe("Printed.");
+  });
 });
