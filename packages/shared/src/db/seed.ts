@@ -25,7 +25,7 @@ export const DEFAULT_PROFILES: Profile[] = [
   },
 ];
 
-export const DEFAULT_PRINTERS: PrinterInput[] = [
+export const DEFAULT_PRINTERS: Omit<PrinterInput, "secrets">[] = [
   {
     id: "klipper-garage",
     transportId: "moonraker",

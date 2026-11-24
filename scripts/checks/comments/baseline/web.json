@@ -69,7 +69,7 @@
       "suppressions": 0
     },
     "packages/web/src/routes/settings/+page.svelte": {
-      "comments": 30,
+      "comments": 29,
       "suppressions": 0
     },
     "packages/web/src/routes/settings/+page.ts": {

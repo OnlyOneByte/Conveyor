@@ -10,7 +10,7 @@ severity for that case. Rules move from [review] to [CI] as the guard grows; tre
 ## 0. Golden rules
 
 1. No comments in code, ever, including suppressions. [CI] Prose goes in `docs/`.
-2. One concern per PR. [review]
+2. One concern per PR. Related small issues in one area count as one concern. [review]
 3. Types are the documentation: make illegal states unrepresentable. [review]
 4. Delete before you add. No code "for later". [review]
 5. Every UI change ships with screenshots, and a GIF when anything moves. [review]
@@ -80,7 +80,6 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 | Lines per UI component (`.svelte`) | 150 | [CI: `file-size`]; also [review], S1 |
 | Cognitive complexity per function | 12 | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Positional parameters | 3 (then pass one object) | [CI] in `scripts/**`; [review], S1, elsewhere |
-| Changed lines per PR (lockfiles, snapshots, migrations, `docs/design/**`, pure deletions excluded) | 400 | [review]: 401–800 is S2 with a request to split; over 800 is S1 unless the owner applied `large-ok` |
 
 The `file-size` check counts lines in code, style and component files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.svelte`, `.css`). A file listed in `scripts/checks/lines/baseline.json` may stay as long as its entry there; every other file must keep to the limit. The baseline only shrinks: an entry above the base branch's, or a new entry, fails, and so does a baseline that no longer matches the files over the limit.
 
@@ -138,8 +137,8 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
   name as the scope (`web`, `api`, `worker`, `shared`, `plugins`); `guard` is `scripts/checks`, `tools` is
   `tools/`. Breaking changes carry `!` and a `BREAKING CHANGE:` line in the body.
 - **Branches**: `<type>/<slug>` or `<type>/<issue>-<slug>` (`feat/42-sqlite-queue`). Never push to `main`.
-- **Issue first.** Every PR names one issue on its own line: `Closes #N`, or `Part of #N` when it stays
-  open. [review]
+- **Issue first.** Every PR names each issue it answers, one per line: `Closes #N`, or `Part of #N` when
+  it stays open. A PR may name several. [review]
 - **Template**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md` with real content. [review]
 - **Labels**: `agent` on agent-authored PRs, plus one `area/*` (`area/backend`, `area/ui`, `area/infra`).
 - **Merging**: squash by default. A merge commit only for a format-only commit that must survive for

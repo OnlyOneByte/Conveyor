@@ -189,15 +189,22 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 
 - These routes are the whole configuration surface: printers, profiles and the job history. A job names a
   printer and a profile directly, so there is no saved pairing to curate.
-- Printer `secrets` are accepted on write and never returned on read; reads return `hasSecrets` instead.
-  Omitting `secrets` on a write keeps the stored value (see `dbUpsertPrinter`).
+- Printer `secrets` are accepted on write and never returned on read; reads return `hasSecrets` instead,
+  and a write answers only `{ ok: true }`.
+- A write's `secrets` is a patch, merged per key into what is stored (`dbUpsertPrinter`): a string sets that
+  key, `null` removes it, and keys it leaves out are kept. Omitting `secrets`, or sending `{}`, keeps them
+  all. So the Settings form can save an API key without erasing an Elegoo `mainboardId` (#412).
+  - The 16-secret limit counts the merged result. A write that would pass it answers `400`, and nothing in it
+    is stored.
+  - A printer whose stored secrets don't decrypt can't be patched: the write answers `409` and changes
+    nothing. Delete the printer and add it again.
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
 - Every catalog write is parsed by the schemas in `catalog-validation.ts` and the content schemas in
   `routes/catalog-content.ts`. A rejected write answers `400 { error }` naming each field, e.g.
   `gcodeFlavor: unknown gcode flavor` or `allowedGenerators.1: unknown generator`. Profiles: `slicerId` must be
   a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
   registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
-  entries with names up to 64 and values up to 4096 characters.
+  entries with names up to 64 and values up to 4096 characters, or `null`.
 - `DELETE /catalog/printers/:id` and `DELETE /catalog/profiles/:id` answer `404` for an unknown id, and `409`
   while a queued or running job names the row or when the profile is bundled ([DATA-MODEL.md](../DATA-MODEL.md)).
   `index.ts` hands the catalog routes the queue mode's `countLiveJobs` (`routes/jobs.ts` scans BullMQ,
