@@ -55,6 +55,22 @@ created with `enableReadyCheck: false`: with the check on, two viewers arriving 
 subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which failed one of them with
 `1011`.
 
+## Estimates on `GET /jobs/active` (`estimates.ts`)
+
+In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; with neither, there is no `estimate`.
+
+- `typicalMs`: the median `durationMs` of each stage over the last 20 `done` jobs with the same generator and
+  printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is left out. `transport` covers the upload and
+  the print together.
+- `startsAt` (epoch ms), for a `queued` job: when it should start printing, that is, take the printer. Each
+  printer's queue is walked in `createdAt` order. The printer is free when its printing job's `print.secondsLeft`
+  runs out (from the event's `at`), or after a running job's remaining model, slicing and typical `transport`.
+  A queued job's model and slicing run meanwhile, but only once the job ahead of it has taken the
+  printer, so it starts at the later of the printer being free and its own preparation being done. Each job ahead then holds the printer for its typical
+  `transport`. Once a step is unknown, the jobs behind it get no `startsAt`, and a held printer
+  (`printers.hold_job_id`, SQLite queue) gives none to its whole queue.
+- On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
+
 ## Job routes on the Redis queue (`routes/jobs.ts`)
 
 `GET /jobs/active` reads the `jobs:active` set and returns each member's snapshot, newest event first. The
