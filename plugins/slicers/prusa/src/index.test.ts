@@ -88,4 +88,29 @@ describe("the prusa slicer", () => {
     expect((err as StageError).stage).toBe("slicer");
     expect((err as StageError).reason).toMatch(/exited 1: object outside bed/);
   });
+
+  test("fails the slice when PrusaSlicer exits 0 without writing G-code, quoting its stderr", async () => {
+    const outside = "All objects are outside of the print volume.";
+    const { ctx, dir, profileDir, plugin } = await setup(
+      real,
+      `echo 'Nothing to print for model.gcode .'; echo '${outside}' >&2; exit 0`,
+    );
+    const err = await plugin.slice(model, profileDir(["config.ini"]), ctx).catch((e: unknown) => e);
+    expect((err as StageError).stage).toBe("slicer");
+    expect((err as StageError).reason).toBe(
+      `${join(dir, "prusa-slicer")} exited 0 but wrote no G-code: ${outside}`,
+    );
+  });
+
+  test("fails the slice when PrusaSlicer exits 0 leaving an empty G-code file", async () => {
+    const { ctx, profileDir, plugin } = await setup(
+      real,
+      'p=; for a; do [ "$p" = --output ] && : > "$a"; p=$a; done',
+    );
+    const err = await plugin.slice(model, profileDir(["config.ini"]), ctx).catch((e: unknown) => e);
+    expect((err as StageError).stage).toBe("slicer");
+    expect((err as StageError).reason).toEndWith(
+      "exited 0 but wrote no G-code (the file is empty)",
+    );
+  });
 });
