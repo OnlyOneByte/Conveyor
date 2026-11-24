@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type Command, matchCommands } from "./commands";
-import { createShortcuts, keyName, step } from "./shortcuts";
+import { CHORD_MS, createShortcuts, inTextField, keyName, step } from "./shortcuts";
 
 const setup = (singleKeys = true) => {
   const ran: string[] = [];
@@ -32,10 +32,7 @@ describe("the shortcut registry", () => {
 
   test("never fires a single key in a text field, but ⌘K still works there", () => {
     const { keys, ran } = setup();
-    keys.handle({ key: "n", target: "field" });
-    keys.handle({ key: "g" });
-    keys.handle({ key: "m", target: "field" });
-    keys.handle({ key: "k", metaKey: true, target: "field" });
+    for (const input of [{ key: "n", target: "field" }, { key: "g" }, { key: "m", target: "field" }, { key: "k", metaKey: true, target: "field" }]) keys.handle(input);
     expect(ran).toEqual(["mod+k"]);
   });
 
@@ -50,10 +47,39 @@ describe("the shortcut registry", () => {
     const { keys, ran } = setup();
     expect(keys.handle({ key: "n", altKey: true })).toBe(false);
     expect(() => keys.register("n", () => {})).toThrow('shortcut "n" is already registered');
-    const off = keys.register("t", () => ran.push("t"));
-    off();
+    keys.register("t", () => ran.push("t"))();
     expect(keys.handle({ key: "t" })).toBe(false);
     expect(() => keys.register("t", () => {})).not.toThrow();
+  });
+
+  test("Shift with a letter is its own key, so Shift+N doesn't run N, and ? still works", () => {
+    const { keys, ran } = setup();
+    expect([keyName({ key: "N", shiftKey: true }), keys.handle({ key: "N", shiftKey: true }), keys.handle({ key: "?", shiftKey: true })]).toEqual(["shift+n", false, true]);
+    expect(ran).toEqual(["?"]);
+  });
+
+  test("a pending G times out after CHORD_MS", () => {
+    let at = 0;
+    const ran: string[] = [];
+    const keys = createShortcuts({ inField: () => false, now: () => at });
+    for (const k of ["g m", "m"]) keys.register(k, () => ran.push(k));
+    const press = (key: string, time: number) => { at = time; keys.handle({ key }); };
+    for (const [key, time] of [["g", 0], ["m", CHORD_MS], ["g", CHORD_MS], ["m", 2 * CHORD_MS + 1]] as const) press(key, time);
+    expect(ran).toEqual(["g m", "m"]);
+  });
+
+  test("the real field guard covers input, textarea, select and contenteditable", () => {
+    class FakeElement {
+      constructor(readonly tag: string, readonly editable = false) {}
+      matches = (selector: string) => selector.split(", ").some((part) => part === this.tag || (this.editable && part.startsWith("[contenteditable]")));
+    }
+    Object.assign(globalThis, { Element: FakeElement });
+    try {
+      const targets = ["input", "textarea", "select", "button", "a"].map((tag) => new FakeElement(tag));
+      expect([...targets, new FakeElement("div", true), "input", null].map(inTextField)).toEqual([true, true, true, false, false, true, false, false]);
+    } finally {
+      Reflect.deleteProperty(globalThis, "Element");
+    }
   });
 
   test("J and K step through rows and stop at the ends", () => {

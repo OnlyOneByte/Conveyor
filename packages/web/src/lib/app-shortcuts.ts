@@ -11,7 +11,5 @@ export function jobKeys(): () => void {
   };
   const off = [shortcuts.register("j", () => move(1)), shortcuts.register("k", () => move(-1))];
   off.push(shortcuts.register("/", () => document.querySelector<HTMLInputElement>(".search")?.focus()));
-  return () => {
-    for (const unregister of off) unregister();
-  };
+  return () => off.forEach((unregister) => unregister());
 }

@@ -21,11 +21,7 @@
   }
   $: if (dialog && !open && dialog.open) dialog.close();
 
-  function run(command: Command | undefined) {
-    if (!command) return;
-    open = false;
-    command.run();
-  }
+  const run = (command: Command | undefined) => { if (!command) return; open = false; command.run(); };
 
   function keydown(event: KeyboardEvent) {
     const to = nextIndex(event.key, active, results.length);
@@ -37,18 +33,8 @@
 </script>
 
 <dialog bind:this={dialog} aria-label="Command menu" on:close={() => ((open = false), restore())}>
-  <input
-    role="combobox"
-    aria-expanded="true"
-    aria-controls="{id}-list"
-    aria-autocomplete="list"
-    aria-activedescendant={results[active] ? `${id}-${active}` : undefined}
-    aria-label="Search jobs, printers and actions"
-    placeholder="Search jobs, printers and actions"
-    autocomplete="off"
-    bind:value={query}
-    on:keydown={keydown}
-  />
+  <input role="combobox" aria-expanded="true" aria-controls="{id}-list" aria-autocomplete="list" aria-activedescendant={results[active] ? `${id}-${active}` : undefined}
+    aria-label="Search jobs, printers and actions" placeholder="Search jobs, printers and actions" autocomplete="off" bind:value={query} on:keydown={keydown} />
   <div id="{id}-list" role="listbox" aria-label="Results">
     {#each groups as group}
       <div role="group" aria-labelledby="{id}-{group}">
@@ -75,7 +61,7 @@
   [role="listbox"] { max-height: 50vh; overflow-y: auto; padding-bottom: var(--s2); }
   .head { padding: var(--s3) var(--s4) var(--s1); font: 700 var(--fs-label) / 1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   [role="option"] { display: flex; align-items: center; gap: var(--s3); min-height: var(--tap); padding: 0 var(--s4); cursor: pointer; }
-  [role="option"][aria-selected="true"] { background: var(--sunk); box-shadow: inset 3px 0 0 var(--accent); }
+  [role="option"][aria-selected="true"] { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
   .hint { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s4); color: var(--muted); }
   .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
