@@ -384,7 +384,7 @@
         {submitting ? "Submitting…" : "Print"}
       </button>
       {#if error}
-        <p class="err">{error} {#if retried}<a href="/?job={retried}">See the retry</a>{/if}</p>
+        <p class="err">{error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}</p>
       {/if}
     </div>
 
