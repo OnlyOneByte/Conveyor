@@ -326,8 +326,6 @@ SQLite mode a live job has a row from enqueue, but the list filters on `done`/`f
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
 home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
 
-> The page routes (`/`, `/settings`, `/history`, `/history/<jobId>`) deliberately share **no prefix**
-> with any API namespace. A page at `/admin` or `/jobs` 404s on direct load, because the proxy and
-> Caddy forward those whole prefixes to the API. Note `/history` (page) vs `/jobs-history` (API) are
-> distinct on purpose. Both the vite proxy and Caddy match API namespaces by **prefix**, so
-> sub-paths like `/jobs-history/:id` and `/catalog/printers/:id` need no routing change.
+> The browser reaches the API under `/api/`: the vite proxy and Caddy strip that prefix, so the API's
+> own routes (`/jobs-history/:id`, `/catalog/printers/:id`) stay as written here. Every other path is a
+> page, so a page may use any name, `/jobs` included.

@@ -57,7 +57,7 @@ Contracts are in [PLUGINS.md](PLUGINS.md).
 
 1. The PWA posts `{ generator, params, printerId, profileId }` to `POST /jobs`.
 2. The api resolves the printer → transport and the profile → slicer, runs `validateJobRequest`, enqueues on
-   BullMQ and answers `202 { jobId }`. The PWA opens `/jobs/:id/ws`.
+   BullMQ and answers `202 { jobId }`. The PWA opens `/api/jobs/:id/ws`, which Caddy hands to the api as `/jobs/:id/ws`.
 3. The worker claims the job and publishes `generating`, `slicing`, `transferring`, then printer progress.
    Artifacts land in `/data/<jobId>/` and pass between stages as path handles.
 4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until something deletes it.

@@ -307,8 +307,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
 prepared for a held printer until someone checks the printer and releases it.
 
-- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
-  namespace to the api.
+- It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
+  every API route.
 - The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold

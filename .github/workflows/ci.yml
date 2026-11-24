@@ -268,7 +268,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      LOGIN_URL: https://localhost/auth/login
+      LOGIN_URL: https://localhost/api/auth/login
       WRONG: '{"password":"not-the-password"}'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -329,10 +329,10 @@ jobs:
           caddy_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q caddy)")
           echo "caddy: $caddy_ip"
           test "$caddy_ip" = 172.31.250.2
-      - name: Caddy answers /health with 200 on 127.0.0.1
+      - name: Caddy answers /api/health with 200 on 127.0.0.1
         run: |
           for _ in $(seq 60); do
-            code=$(curl -sk -o health.json -w '%{http_code}' --resolve localhost:443:127.0.0.1 https://localhost/health || true)
+            code=$(curl -sk -o health.json -w '%{http_code}' --resolve localhost:443:127.0.0.1 https://localhost/api/health || true)
             if [ "$code" = 200 ] && grep -q '"ok":true' health.json; then exit 0; fi
             sleep 2
           done
@@ -342,17 +342,36 @@ jobs:
         run: |
           api() { curl -sk --resolve localhost:443:127.0.0.1 -b cookies.txt -c cookies.txt "$@"; }
           body=$(jq -nc --arg password "$CONVEYOR_PASSWORD" '{password: $password}')
-          test "$(api -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -d "$body" https://localhost/auth/login)" = 200
+          test "$(api -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -d "$body" https://localhost/api/auth/login)" = 200
           job='{"generator":{"id":"gridfinity","params":{}},"printerId":"klipper-garage","profileId":"orca/klipper-pla-0.2"}'
-          id=$(api -H 'content-type: application/json' -d "$job" https://localhost/jobs | jq -er .jobId)
+          id=$(api -H 'content-type: application/json' -d "$job" https://localhost/api/jobs | jq -er .jobId)
           echo "job: $id"
           for _ in $(seq 60); do
-            state=$(api "https://localhost/jobs/$id" | jq -r '.state // empty')
-            case "$state" in done) echo "state: done"; exit 0 ;; failed|canceled) break ;; esac
+            state=$(api "https://localhost/api/jobs/$id" | jq -r '.state // empty')
+            case "$state" in done) echo "state: done"; echo "$id" > job-id.txt; exit 0 ;; failed|canceled) break ;; esac
             sleep 2
           done
-          api "https://localhost/jobs/$id"
+          api "https://localhost/api/jobs/$id"
           exit 1
+      - name: Caddy sends /api to the api and every other path to the web app
+        run: |
+          api() { curl -sk --resolve localhost:443:127.0.0.1 -b cookies.txt "$@"; }
+          id=$(cat job-id.txt)
+          api -o active.json -w '%{http_code} %{content_type}\n' https://localhost/api/jobs/active | tee code.txt
+          grep -qE '^200 application/json' code.txt
+          jq -e 'type == "array"' active.json
+          api -o model.stl -w '%{http_code}\n' "https://localhost/api/jobs/$id/artifact/model" | tee code.txt
+          grep -qx 200 code.txt
+          test -s model.stl
+          ws=$(api --http1.1 -o /dev/null -w '%{http_code}' --max-time 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "https://localhost/api/jobs/$id/ws" || true)
+          echo "websocket: $ws"
+          test "$ws" = 101
+          for page in "/jobs/$id" /jobs /history; do
+            api -o page.html -w '%{http_code} %{content_type}\n' -H 'Accept: application/json' "https://localhost$page" | tee code.txt
+            grep -qE '^(200|404) text/html' code.txt
+            grep -qi '<!doctype html>' page.html
+          done
       - name: The api keys the real client, not Caddy or a forged header
         run: |
           login() {

@@ -20,8 +20,7 @@ self.addEventListener("fetch", (event) => {
   const e = event as FetchEvent;
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  const API_PREFIXES = ["/jobs", "/catalog", "/generators", "/uploads", "/auth"];
-  if (API_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) return;
+  if (url.pathname.startsWith("/api/")) return;
   if (ASSETS.includes(url.pathname)) {
     e.respondWith(caches.match(e.request).then((r) => r ?? fetch(e.request)));
   }

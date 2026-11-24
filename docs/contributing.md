@@ -18,10 +18,9 @@ CONVEYOR_ENGINE_STUB=1 bun run dev:worker
 CONVEYOR_ENGINE_STUB=1 bun run dev:api
 ```
 
-The web dev server (`vite dev` in `packages/web`) proxies the API paths (`/jobs` with its WebSocket,
-`/generators`, `/uploads`, `/auth`, `/jobs-history` and `/catalog`) to the api, so the PWA only ever calls its
-own origin. A page route never shares a prefix with an API path: `/admin` and `/jobs` pages both 404ed on a
-direct load when they did. Two variables tune it:
+The web dev server (`vite dev` in `packages/web`) proxies `/api/`, WebSocket included, to the api and strips
+the prefix, the same as Caddy, so the PWA only ever calls its own origin. Every API call in the PWA goes
+through the `API` base in `lib/api.ts`, and every other path is a page. Two variables tune it:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
