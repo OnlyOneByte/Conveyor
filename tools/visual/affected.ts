@@ -55,9 +55,12 @@ function closure(root: string, entries: string[]): Set<string> {
   return seen;
 }
 
-function pageDirs(root: string): string[] {
-  const pages = new Bun.Glob("**/+page.svelte").scanSync({ cwd: join(root, ROUTES) });
-  return [...pages].map((p) => dirname(p)).map((d) => (d === "." ? "" : d));
+export function pageDirs(root: string): string[] {
+  if (!existsSync(join(root, ROUTES))) return [];
+  const pages = new Bun.Glob("**/+page.{svelte,ts,server.ts}").scanSync({
+    cwd: join(root, ROUTES),
+  });
+  return [...new Set([...pages].map((p) => dirname(p)).map((d) => (d === "." ? "" : d)))];
 }
 
 export function pageDirFor(dirs: string[], path: string): string | null {
@@ -85,6 +88,11 @@ export function entriesFor(dir: string | null): string[] {
   return [...files, ...own];
 }
 
+export function landsElsewhere(dirs: string[], scene: Scene, path: string): boolean {
+  const own = new Set(scenePaths(scene).map((p) => pageDirFor(dirs, p)));
+  return !own.has(pageDirFor(dirs, path));
+}
+
 export function selectScenes(root: string, changed: string[], scenes: Scene[]): Selection {
   const relevant = changed.filter((f) => !f.endsWith(".test.ts") && !f.endsWith(".md"));
   const outside = relevant.find((f) => !f.startsWith(`${WEB_SRC}/`));
@@ -93,10 +101,15 @@ export function selectScenes(root: string, changed: string[], scenes: Scene[]): 
   if (gone) return { all: true, reason: `${gone} was moved or deleted` };
   const dirs = pageDirs(root);
   const touched = new Set(relevant);
-  const picked = scenes.filter((scene) => {
-    const entries = scenePaths(scene).flatMap((p) => entriesFor(pageDirFor(dirs, p)));
-    return [...closure(root, entries)].some((f) => touched.has(f));
-  });
+  const reach = scenes.map((scene) =>
+    closure(
+      root,
+      scenePaths(scene).flatMap((p) => entriesFor(pageDirFor(dirs, p))),
+    ),
+  );
+  const stray = relevant.find((f) => !reach.some((files) => files.has(f)));
+  if (stray) return { all: true, reason: `${stray} is reached by no scene` };
+  const picked = scenes.filter((_, i) => [...(reach[i] ?? [])].some((f) => touched.has(f)));
   if (picked.length === scenes.length)
     return { all: true, reason: "every scene reaches a changed file" };
   return { all: false, scenes: picked.map((s) => s.name) };

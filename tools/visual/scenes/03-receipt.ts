@@ -4,12 +4,14 @@ export const scenes: Scene[] = [
   {
     name: "job-detail",
     route: "/history/seed-canceled",
+    visits: ["/jobs/seed-canceled"],
     ready: "text=Print again",
     steps: [{ wait: 800 }],
   },
   {
     name: "job-detail-failed",
     route: "/history/seed-failed",
+    visits: ["/jobs/seed-failed"],
     ready: "text=didn't finish",
     steps: [{ wait: 800 }],
   },

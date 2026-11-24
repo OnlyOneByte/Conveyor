@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { entriesFor, pageDirFor, scenePaths, selectScenes } from "./affected.ts";
+import {
+  entriesFor,
+  landsElsewhere,
+  pageDirFor,
+  pageDirs,
+  scenePaths,
+  selectScenes,
+} from "./affected.ts";
 import { scenes } from "./scenes.ts";
 
 const root = join(import.meta.dir, "../..");
@@ -27,6 +34,17 @@ test("routes map to page folders, a fixed folder before a parameter", () => {
   expect(pageDirFor(dirs, "/no-such-page")).toBeNull();
   expect(entriesFor(null)).toContain("packages/web/src/routes/+error.svelte");
   expect(entriesFor("jobs/[id]")).toContain("packages/web/src/routes/+layout.svelte");
+  expect(pageDirs(root)).toContain("history/[jobId]");
+});
+
+test("a scene lands only on its own pages", () => {
+  const detail = scenes.find((s) => s.name === "job-detail");
+  const forward = scenes.find((s) => s.name === "print-forward");
+  if (!detail || !forward) throw new Error("scenes renamed");
+  const dirs = pageDirs(root);
+  expect(landsElsewhere(dirs, detail, "/jobs/seed-canceled")).toBe(false);
+  expect(landsElsewhere(dirs, detail, "/settings")).toBe(true);
+  expect(landsElsewhere(dirs, forward, "/jobs/any-new-id")).toBe(false);
 });
 
 test("one page's change captures only the scenes that reach it", () => {
@@ -39,6 +57,8 @@ test("one page's change captures only the scenes that reach it", () => {
   expect(receipt).toContain("receipt-printed");
   expect(receipt).toContain("print-forward");
   expect(receipt).not.toContain("settings");
+  expect(receipt).toContain("job-detail");
+  expect(receipt).toContain("job-detail-failed");
   expect(named("packages/web/src/lib/job-live.test.ts", "docs/x.md")).toEqual([]);
 });
 
@@ -49,6 +69,9 @@ test("shared styles, tooling, other packages and deleted files capture everythin
     "packages/api/src/index.ts",
     "bun.lock",
     "packages/web/src/routes/gone/+page.svelte",
+    "packages/web/src/app.html",
+    "packages/web/src/hooks.server.ts",
+    "packages/web/src/service-worker/index.ts",
   ])
     expect(pick(changed).all).toBe(true);
 });

@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
+import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
@@ -64,6 +65,7 @@ const unshot = selected
   .filter((s) => !WIDTHS.some((w) => !s.widths || s.widths.includes(w)))
   .map((s) => s.name);
 if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")}`);
+const dirs = pageDirs(resolve(values.root));
 
 function startSampler(page: Page, warnings: string[]): Sampler {
   const frames: Frame[] = [];
@@ -123,6 +125,11 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   await context.clock.setSystemTime(CAPTURE_NOW);
   if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
+  const landed = new Set<string>();
+  page.on("framenavigated", (frame) => {
+    const url = new URL(frame.url());
+    if (frame === page.mainFrame() && url.protocol.startsWith("http")) landed.add(url.pathname);
+  });
   let sampler: Sampler | undefined;
   try {
     await page.goto(new URL(scene.route, base).toString(), { waitUntil: "load" });
@@ -131,6 +138,11 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
     const mismatch = await titleMismatch(page);
     if (mismatch) throw new Error(mismatch);
+    const elsewhere = [...landed].filter((path) => landsElsewhere(dirs, scene, path));
+    if (elsewhere.length)
+      throw new Error(
+        `reached ${elsewhere.join(", ")}, which isn't the scene's route, a follow or history step, or in its visits`,
+      );
   } catch (err) {
     result.error = messageOf(err);
   }

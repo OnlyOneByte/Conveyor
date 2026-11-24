@@ -29,7 +29,7 @@ permissions: {}
 
 concurrency:
   group: visual-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PR: ${{ github.event.pull_request.number }}
@@ -137,7 +137,7 @@ jobs:
           ONLY: ${{ steps.pick.outputs.only }}
         run: |
           set -euo pipefail
-          if [ "$ONLY" = all ]; then scope="every scene"; else scope="scenes this change reaches: ${ONLY:-none}"; fi
+          if [ "$ONLY" = all ]; then scope="every scene"; else scope="scenes this change reaches: ${ONLY:-none (no page is affected)}"; fi
           raw="https://raw.githubusercontent.com/$REPO/__ASSETS_SHA__/pr-$PR"
           footer="base \`${BASE_SHA::7}\` (capture: $BEFORE_OUTCOME) → merge \`${MERGE_SHA::7}\` (capture: $AFTER_OUTCOME) · $scope · stub mode · [run]($RUN_URL)"
           bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \

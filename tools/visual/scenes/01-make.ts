@@ -11,6 +11,7 @@ export const scenes: Scene[] = [
   {
     name: "nav-reach",
     route: "/primitives",
+    visits: ["/"],
     ready: "text=Primitives",
     steps: [
       ...toastOnMake,

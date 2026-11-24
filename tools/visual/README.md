@@ -41,11 +41,11 @@ Scenes live in `scenes/`, one file per page or area (`01-make.ts`, `03-receipt.t
 
 Step kinds live in `steps/`, one file per kind. Each file adds its shape to `StepKinds` (TypeScript declaration merging) and exports a `step` runner, and `step.ts` loads them all. A new step kind is a new file.
 
-Each scene has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `hover`, `scroll`, `waitFor`, `wait`, `hits`, `fulfill`, `follow`, `history`) and an optional `record`. `fulfill` answers every request to a URL glob, or only those with its `method`, with a fixed status and JSON body for the rest of the scene, as `retry-link` does to get an already-retried 409 without changing the seeded jobs. `follow` clicks a link to a path from inside the page, so SvelteKit navigates on the client, as `job-switch` does to move Make from one `?job=` to another. It fails the scene if the page reloads instead. `history` goes `back` or `forward`, as `print-forward` does. When you add a page, add a scene for it, and keep selectors on stable text or roles. A scene that reaches another page by a click, not a `follow` or `history` step, lists that page in `visits`.
+Each scene has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `hover`, `scroll`, `waitFor`, `wait`, `hits`, `fulfill`, `follow`, `history`) and an optional `record`. `fulfill` answers every request to a URL glob, or only those with its `method`, with a fixed status and JSON body for the rest of the scene, as `retry-link` does to get an already-retried 409 without changing the seeded jobs. `follow` clicks a link to a path from inside the page, so SvelteKit navigates on the client, as `job-switch` does to move Make from one `?job=` to another. It fails the scene if the page reloads instead. `history` goes `back` or `forward`, as `print-forward` does. When you add a page, add a scene for it, and keep selectors on stable text or roles. A scene that reaches another page by a click or a redirect, not a `follow` or `history` step, lists that page in `visits`. Capture fails a scene that lands on a page it doesn't list.
 
 ### Which scenes a PR captures
 
-The `visual` job captures only the scenes a PR can change (`select.ts`, `affected.ts`). A scene's pages are its `route`, its `follow` targets, its `history` landings and its `visits`. For each page, it walks `packages/web/src`'s imports from the page's `+page` files and every `+layout` above it. It keeps the scene when that walk reaches a changed file. A route with no page (a 404) starts from the root layout and `+error.svelte`.
+The `visual` job captures only the scenes a PR can change (`select.ts`, `affected.ts`). A scene's pages are its `route`, its `follow` targets, its `history` landings and its `visits`. For each page, it walks `packages/web/src`'s imports from the page's `+page` files (a `+page.ts` redirect counts as a page) and every `+layout` above it. It keeps the scene when that walk reaches a changed file. A route with no page (a 404) starts from the root layout and `+error.svelte`.
 
 | Change | Captured |
 | --- | --- |
@@ -53,6 +53,7 @@ The `visual` job captures only the scenes a PR can change (`select.ts`, `affecte
 | anything the root layout imports (styles, the belt, shared libs) | every scene |
 | anything outside `packages/web/src`: `tools/visual`, the API, shared, profiles, lockfiles, web config | every scene |
 | a moved or deleted file under `packages/web/src` | every scene |
+| a file under `packages/web/src` that no scene reaches (`app.html`, `hooks.server.ts`, the service worker) | every scene |
 | only tests or Markdown | no scene |
 | a push to `main` | every scene |
 

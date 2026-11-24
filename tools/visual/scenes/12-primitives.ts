@@ -16,6 +16,7 @@ export const scenes: Scene[] = [
   {
     name: "toast-reach",
     route: "/primitives",
+    visits: ["/"],
     ready: "text=Primitives",
     steps: [
       ...toastOnMake,
@@ -51,9 +52,12 @@ export const scenes: Scene[] = [
     route: "/primitives",
     ready: "text=Primitives",
     record: true,
-    steps: keys(
-      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
-      ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
-    ),
+    steps: [
+      { click: "h1" },
+      ...keys(
+        ...["Tab", "Enter", "Tab", "Escape"],
+        ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
+      ),
+    ],
   },
 ];
