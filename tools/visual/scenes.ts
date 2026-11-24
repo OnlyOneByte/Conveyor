@@ -151,6 +151,12 @@ export const scenes: Scene[] = [
       ...keys("j", "j", "j", "k", "?"),
     ],
   },
+  ...["0", "1", "3", "8", "20", "states"].map((jobs) => ({
+    name: `track-${jobs}`,
+    route: `/primitives/track?jobs=${jobs}`,
+    ready: "h1",
+    steps: [{ wait: 600 }],
+  })),
   {
     name: "primitives",
     route: "/primitives",
