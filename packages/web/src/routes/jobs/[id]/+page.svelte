@@ -2,6 +2,7 @@
   import { Canvas } from "@threlte/core";
   import { ACESFilmicToneMapping } from "three";
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { titled } from "#lib/belt.js";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import PreviewScene from "#lib/components/PreviewScene.svelte";
@@ -16,6 +17,7 @@
   const WHEN = { done: "Finished", failed: "Stopped", canceled: "Canceled" } as const;
 
   $: job = data.job;
+  $: watch = `/?job=${encodeURIComponent(page.params.id ?? "")}`;
   $: gen = data.generator;
   $: params = job?.request.generator.params;
   $: schema = gen?.paramSchema ?? null;
@@ -49,8 +51,10 @@
   <section class="nf" aria-labelledby="job-title">
     <h1 id="job-title">{title}</h1>
     {#if data.live}
-      <p>Follow its progress on the Monitor page until it finishes.</p>
-      <div class="acts"><a class="btn primary" href="/monitor">Open Monitor</a></div>
+      <p>Watch it live on Make until it finishes.</p>
+      <div class="acts">
+        <a class="btn primary" href={watch}>Watch it live</a>
+      </div>
     {:else}
       <p>It may have been removed, or the link is mistyped.</p>
       <div class="acts">

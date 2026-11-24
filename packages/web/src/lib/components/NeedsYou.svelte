@@ -35,7 +35,7 @@
     <ul class="tray" id={tray}>
       {#each jobs as job, at (job.id)}
         <li>
-          <a href="/history/{job.id}">{shortName(job.name)}</a> {#if job.printer}<span class="on">on {job.printer}</span>{/if}
+          <a href="/jobs/{job.id}">{shortName(job.name)}</a> {#if job.printer}<span class="on">on {job.printer}</span>{/if}
           <p>{job.reason ?? "It stopped without giving a reason."}</p>
           <p class="acts">{#each ACTIONS as action (action)}<button type="button" class="btn" class:ghost={action !== "Retry"} on:click={() => run(job, action, at)}>{action}</button>{/each}</p>
         </li>

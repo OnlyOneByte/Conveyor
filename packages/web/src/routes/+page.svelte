@@ -13,7 +13,7 @@
     type CatalogTransport,
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
-  import { linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
+  import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -99,7 +99,7 @@
       error = "Please choose an .stl file.";
       return;
     }
-    error = null;
+    error = retried = null;
     uploadFile = f; // render the real mesh immediately (client-side)
     uploadName = f.name;
     uploading = true;
@@ -121,13 +121,10 @@
   }
 
   let submitting = false;
-  // ?job=<uuid> lets /history's per-browser strip hand a still-running job back to
-  // this live panel — job history only records TERMINAL jobs, so there is nowhere
-  // else to watch one in flight.
   let jobId: string | null = data.initialJobId ?? null;
   let error: string | null = null;
+  let retried: string | null = null;
 
-  // Can we submit? Generate needs a generator; Upload needs a finished upload.
   $: canPrint =
     !!selectedPrinterId &&
     !!selectedProfileId &&
@@ -139,7 +136,7 @@
     if (source === "generate" && !selectedGen) return;
     if (source === "upload" && !uploadId) return;
     submitting = true;
-    error = null;
+    error = retried = null;
     jobId = null;
     try {
       const generator =
@@ -158,6 +155,7 @@
       });
     } catch (e) {
       error = (e as Error).message;
+      retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       submitting = false;
       handoff = null;
@@ -385,7 +383,9 @@
       <button class="primary print desktop-print" on:click={print} disabled={!canPrint}>
         {submitting ? "Submitting…" : "Print"}
       </button>
-      {#if error}<p class="err">{error}</p>{/if}
+      {#if error}
+        <p class="err">{error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}</p>
+      {/if}
     </div>
 
     {#if jobId}

@@ -373,6 +373,9 @@ jobs:
             grep -qi '<!doctype html>' page.html
           }
           page 200 /history
+          moved=$(api -o /dev/null -w '%{http_code} %header{location}' "https://localhost/history/$id")
+          echo "history/$id: $moved"
+          test "$moved" = "308 /jobs/$id"
           for path in "/jobs/$id" /jobs; do page '(200|404)' "$path"; done
       - name: The api keys the real client, not Caddy or a forged header
         run: |

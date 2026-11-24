@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ALREADY_RETRIED, linkedRetry, rerunRequest, sendJob } from "./rerun";
+import { ALREADY_RETRIED, AlreadyRetried, linkedRetry, rerunRequest, sendJob } from "./rerun";
 
 const request = { generator: { id: "gridfinity", params: { gridX: 2 } }, printerId: "voron", profileId: "pla" };
 
@@ -38,5 +38,11 @@ describe("whether a job can run again", () => {
     await expect(sendJob(request, "f1", replying(409, { error: "retryOf: job f1 is already being retried" }))).rejects.toThrow(ALREADY_RETRIED);
     await expect(sendJob(request, "f1", replying(400, { error: "unknown printer voron" }))).rejects.toThrow("unknown printer voron");
     expect(ALREADY_RETRIED).toBe("This job was already retried.");
+    const taken = { error: "retryOf: job f1 is already being retried", retriedBy: "r1" };
+    const refused = await sendJob(request, "f1", replying(409, taken)).catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(AlreadyRetried);
+    expect(refused).toMatchObject({ message: ALREADY_RETRIED, retriedBy: "r1" });
+    const unnamed = await sendJob(request, "f1", replying(409, { error: "taken" })).catch((e: unknown) => e);
+    expect(unnamed).toMatchObject({ message: ALREADY_RETRIED, retriedBy: null });
   });
 });
