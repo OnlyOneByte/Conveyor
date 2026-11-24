@@ -50,6 +50,7 @@ export interface Job {
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
   notes?: string;
+  dismissedAt?: number;
   createdAt: number;
   updatedAt: number;
 }

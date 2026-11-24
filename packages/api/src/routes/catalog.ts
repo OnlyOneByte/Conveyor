@@ -9,6 +9,7 @@ import {
   dbListJobs,
   dbListPrinters,
   dbListProfiles,
+  dbRecordPrinterCheck,
   dbUpsertPrinter,
   dbUpsertProfile,
   openDb,
@@ -73,6 +74,7 @@ export async function registerCatalogRoutes(
     const printer = dbGetPrinter(openDb(), req.params.id);
     if (!printer) return reply.code(404).send({ error: `unknown printer ${req.params.id}` });
     const result = await probePrinter(printer.address, printer.transportId);
+    dbRecordPrinterCheck(openDb(), printer.id, { at: Date.now(), reachable: result.reachable });
     return reply.send(result);
   });
 

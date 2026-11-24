@@ -24,6 +24,7 @@
     "check:comments": "bun scripts/checks/comments.ts",
     "check:comments:update": "bun scripts/checks/comments.ts --update",
     "check:lines": "bun scripts/checks/lines.ts",
+    "check:colours": "bun scripts/checks/colours.ts",
     "check:lines:update": "bun scripts/checks/lines.ts --update",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
     "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",

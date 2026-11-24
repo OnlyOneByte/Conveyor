@@ -69,6 +69,25 @@ describe("a job run on the sqlite queue", () => {
     ]);
   });
 
+  test("puts the upload's bytes sent and total, and their fraction, on a transferring event", async () => {
+    const h = queued({
+      submit: async (ctx) => {
+        ctx.reportUpload?.(512, 2048);
+        await Bun.sleep(80);
+      },
+    });
+    expect(await h.run()).toBe("done");
+    expect(events().filter((e) => e.bytesTotal !== undefined)).toEqual([
+      expect.objectContaining({
+        state: "transferring",
+        stage: "transport",
+        progress: 0.25,
+        bytesSent: 512,
+        bytesTotal: 2048,
+      }),
+    ]);
+  });
+
   test("writes at most one progress update per flush interval", async () => {
     const h = queued({
       slice: async (ctx) => {

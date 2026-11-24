@@ -62,6 +62,8 @@ sequenceDiagram
     R-->>API-->>PWA: transferring
     W->>T: submit(gcode, printerTarget)
     T->>P: upload gcode + start
+    T-->>W: reportUpload(bytesSent, bytesTotal), at most 4 a second
+    W->>R: publish state=transferring, bytesSent, bytesTotal
     T-->>W: PrintHandle
 
     W->>T: status(handle)

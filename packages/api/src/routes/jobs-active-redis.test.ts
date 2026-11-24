@@ -98,4 +98,9 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("serves the Needs-you list and dismiss routes", () => {
+    expect(app.hasRoute({ method: "GET", url: "/jobs/needs-you" })).toBe(true);
+    expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);
+  });
 });

@@ -100,6 +100,7 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
 | `hold_job_id`, `hold_reason`, `hold_at` | text / text / integer, null | SQLite mode only: a [printer hold](design/sqlite-queue.md#printer-holds) after an outcome the queue cannot know |
+| `last_seen_at`, `last_checked_at` | integer null | epoch ms the printer last answered, and the last time anything tried it. Returned as `lastSeenAt` and `lastCheckedAt`, absent until the first check. Written by `dbRecordPrinterCheck`, which never moves either time back |
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
@@ -157,6 +158,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
 | `timings_json` | text null | when each stage was entered and how long it took (`StageTiming[]`) |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
+| `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |

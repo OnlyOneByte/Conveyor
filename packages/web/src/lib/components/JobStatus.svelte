@@ -82,7 +82,7 @@
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
   .stages li.done { color: var(--ok); }
   .stages li.done .dot { background: var(--ok); }
-  .stages li.active { color: var(--accent); }
+  .stages li.active { color: var(--live); }
   .stages li.active .dot { background: var(--accent); animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: 0.3; } }
   .bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }

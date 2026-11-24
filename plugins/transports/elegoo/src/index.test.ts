@@ -154,6 +154,7 @@ describe("elegoo submit", () => {
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\nG1 X5\n");
     const parts: { field: string; name: string; text: string }[] = [];
+    const sent: number[][] = [];
     const upload = async (_url: string | URL | Request, init?: RequestInit) => {
       const form = await new Response(init?.body, {
         headers: new Headers(init?.headers),
@@ -170,11 +171,13 @@ describe("elegoo submit", () => {
       workDir: dir,
       signal: new AbortController().signal,
       report: () => {},
+      reportUpload: (bytesSent, bytesTotal) => void sent.push([bytesSent, bytesTotal]),
       log: () => {},
     };
     const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
     await elegoo.submit({ path, format: "gcode" }, target, ctx);
     expect(parts).toEqual([{ field: "File", name: "a.gcode", text: "G28\nG1 X5\n" }]);
+    expect(sent).toEqual([[10, 10]]);
   });
 
   test("an upload the printer never answers times out and never sends START_PRINT", async () => {

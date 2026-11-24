@@ -27,6 +27,12 @@ export const scenes: Scene[] = [
     steps: [{ wait: 1500 }],
   },
   {
+    name: "upload-empty",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ click: "button:has-text('Upload STL')" }, { wait: 800 }],
+  },
+  {
     name: "new-job",
     route: "/",
     ready: "text=Configure",

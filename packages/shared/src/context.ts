@@ -4,6 +4,7 @@ export interface StageCtx {
   jobId: string;
   workDir: string;
   report(progress: number, message?: string): void;
+  reportUpload?(bytesSent: number, bytesTotal: number): void;
   signal: AbortSignal;
   log(msg: string): void;
 }

@@ -167,23 +167,23 @@
     cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
   .chip:hover { color: var(--text); }
-  .chip.active { color: var(--accent); border-color: var(--accent); background: var(--surface-2); }
-  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip.active { color: var(--ink); border-color: var(--accent); background: var(--surface-2); }
+  .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .search {
     flex: 1; min-width: 12rem; font-size: 0.85rem; padding: 0.35rem 0.6rem;
     border-radius: var(--radius); border: 1px solid var(--border);
     background: var(--bg); color: var(--text);
   }
-  .search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   .resultnote { margin: 0.4rem 0 0; font-size: 0.82rem; }
   .strip { margin-top: 0.75rem; }
-  .navlink { color: var(--accent); text-decoration: none; }
+  .navlink { color: var(--live); text-decoration: none; }
   .tablewrap { margin-top: 0.75rem; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
-  .jobid { color: var(--accent); text-decoration: none; }
+  .jobid { color: var(--live); text-decoration: none; }
   .jobid:hover { text-decoration: underline; }
   .err { color: var(--danger); }
   @media (max-width: 640px) {

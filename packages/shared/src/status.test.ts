@@ -90,3 +90,23 @@ describe("a status event's print fields", () => {
     expect(parseStatusEvent(event(print))).toBeUndefined();
   });
 });
+
+describe("a status event's upload bytes", () => {
+  const event = (bytes: Record<string, unknown>) =>
+    JSON.stringify({ jobId: "j1", state: "transferring", at: 5, ...bytes });
+
+  test("are kept when whole and not negative, and an event without them still parses", () => {
+    expect(parseStatusEvent(event({ bytesSent: 0, bytesTotal: 7_500_000 }))).toMatchObject({
+      bytesSent: 0,
+      bytesTotal: 7_500_000,
+    });
+    expect(parseStatusEvent(event({}))).toEqual({ jobId: "j1", state: "transferring", at: 5 });
+  });
+
+  test.each([{ bytesSent: -1 }, { bytesSent: 1.5 }, { bytesTotal: "7.5 MB" }])(
+    "refuse the event when they are out of range: %j",
+    (bytes) => {
+      expect(parseStatusEvent(event(bytes))).toBeUndefined();
+    },
+  );
+});

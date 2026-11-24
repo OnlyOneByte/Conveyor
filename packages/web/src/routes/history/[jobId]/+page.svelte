@@ -156,12 +156,12 @@
   .head { display: flex; align-items: baseline; justify-content: space-between; }
   h1 { margin: 0; }
   h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 1.25rem 0 0.4rem; }
-  .navlink { color: var(--accent); text-decoration: none; }
+  .navlink { color: var(--live); text-decoration: none; }
   .idrow { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
   .id { font-size: 0.9rem; word-break: break-all; }
   .small { min-height: 32px; padding: 0.2rem 0.55rem; font-size: 0.8rem; }
   .primary {
-    background: var(--accent); color: var(--bg); border: 1px solid var(--accent);
+    background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent);
     border-radius: var(--radius); cursor: pointer; font-weight: 600;
   }
   .primary:hover { background: var(--accent-hover, var(--accent)); }
@@ -169,7 +169,7 @@
   .dl {
     display: inline-flex; align-items: center; gap: 0.3rem;
     padding: 0.35rem 0.7rem; border-radius: var(--radius);
-    border: 1px solid var(--accent); color: var(--accent); text-decoration: none;
+    border: 1px solid var(--accent); color: var(--live); text-decoration: none;
     font-size: 0.85rem; transition: background 0.15s;
   }
   .dl:hover { background: var(--surface-2); }
