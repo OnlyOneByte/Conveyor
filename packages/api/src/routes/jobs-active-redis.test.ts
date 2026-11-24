@@ -37,6 +37,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     const { registerJobRoutes } = await import("./jobs.js");
     queue = await import("../queue.js");
     if (queue.redis.status === "end") await queue.redis.connect();
+    if (queue.connection.status === "end") await queue.connection.connect();
     closeQueue = async () => {
       await queue.jobQueue.close();
       queue.redis.disconnect();
@@ -145,13 +146,17 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       for (const i of [1, 2, 3])
         dbRecordJob(openDb(), { ...settled, id: `${jobId}-${i}`, state: "done", timings });
       const request = { ...settled, generator: { id: "gridfinity", params: {} } };
-      await jobs.add("job", request, { jobId });
+      const job = await jobs.add("job", request, { jobId });
       await publishStatus(redis, { jobId, state: "queued", at: 40 });
       const listed = z
-        .array(z.object({ jobId: z.string(), estimate: z.unknown().optional() }))
+        .array(z.looseObject({ jobId: z.string() }))
         .parse(await (await fetch(`${base}/jobs/active`)).json());
-      expect(listed.find((evt) => evt.jobId === jobId)?.estimate).toEqual({
-        typicalMs: { slicer: 4_000 },
+      expect(listed.find((evt) => evt.jobId === jobId)).toMatchObject({
+        estimate: { typicalMs: { slicer: 4_000 } },
+        printerId: request.printerId,
+        profileId: request.profileId,
+        generator: request.generator,
+        createdAt: job.timestamp,
       });
     } finally {
       await (await jobs.getJob(jobId))?.remove();

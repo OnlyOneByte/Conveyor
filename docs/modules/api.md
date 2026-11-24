@@ -87,7 +87,8 @@ Both routes add what the job is to each snapshot: `printerId`, `profileId`, `gen
 an upload's `params` carry its `filename`) and `createdAt`, in epoch milliseconds. They come from the BullMQ
 job's data and `timestamp`, and are checked by `jobFieldsSchema` in `@conveyor/shared`. A job BullMQ no longer
 holds, a request that fails the schema, or a failed BullMQ read leaves those four fields out, logs, and still
-answers the snapshot, so the UI can label the job by its stage (#342).
+answers the snapshot, so the UI can label the job by its stage (#342). The four fields do not depend on
+estimates: `GET /jobs/active` adds them whether or not its estimates were left out.
 
 ## The Needs-you list (`registerNeedsYouRoutes` in `routes/job-common.ts`)
 
