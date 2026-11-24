@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { budgetErrors, parseBudget } from "./budget";
-import { closure, missingCode, parseManifest, routeNodes } from "./measure";
+import {
+  bundlesThree,
+  closure,
+  missingCode,
+  parseChunkModules,
+  parseManifest,
+  routeNodes,
+} from "./measure";
 
 const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1_000_000, gzip: 400_000 } };
 const ok = { raw: 300_000, gzip: 100_000, three: false };
@@ -84,5 +91,23 @@ describe("reading the budget and the manifest", () => {
   test("an immutable .js or .css the precache drops is reported", () => {
     const immutable = ["_app/immutable/a.js", "_app/immutable/b.css", "_app/immutable/c.wasm"];
     expect(missingCode(immutable, ["_app/immutable/b.css"])).toEqual(["_app/immutable/a.js"]);
+  });
+});
+
+describe("finding three.js in a route's chunks", () => {
+  test("goes by the module ids each chunk was built from, on POSIX and Windows paths", () => {
+    const modules = parseChunkModules(
+      JSON.stringify({
+        "a.js": ["/repo/packages/web/src/lib/api.ts"],
+        "b.js": ["/repo/node_modules/.bun/three@0.187.0/node_modules/three/build/three.core.js"],
+        "c.js": ["C:\\repo\\node_modules\\three\\build\\three.module.js"],
+        "d.js": ["/repo/node_modules/three-mesh-bvh/index.js"],
+      }),
+    );
+    expect(bundlesThree(["a.js"], modules)).toBe(false);
+    expect(bundlesThree(["a.js", "b.js"], modules)).toBe(true);
+    expect(bundlesThree(["c.js"], modules)).toBe(true);
+    expect(bundlesThree(["d.js", "missing.js"], modules)).toBe(false);
+    expect(() => parseChunkModules(JSON.stringify({ "a.js": "x" }))).toThrow("isn't a list");
   });
 });

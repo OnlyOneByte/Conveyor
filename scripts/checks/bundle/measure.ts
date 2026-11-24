@@ -15,7 +15,7 @@ export interface Sizes {
   gzip: number;
 }
 
-export const THREE_MARKERS = ["__THREE__", "THREE.WebGLRenderer"];
+export const THREE_MODULE = /[\\/]node_modules[\\/]three[\\/]/;
 
 const isStrings = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -42,6 +42,22 @@ export function parseManifest(text: string): Record<string, Chunk> {
   }
   return manifest;
 }
+
+export function parseChunkModules(text: string): Record<string, string[]> {
+  const value: unknown = JSON.parse(text);
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("chunk-modules.json isn't an object");
+  const modules: Record<string, string[]> = {};
+  for (const [file, ids] of Object.entries(value)) {
+    if (!isStrings(ids))
+      throw new Error(`chunk-modules.json's entry ${file} isn't a list of module ids`);
+    modules[file] = ids;
+  }
+  return modules;
+}
+
+export const bundlesThree = (files: Iterable<string>, modules: Record<string, string[]>): boolean =>
+  [...files].some((file) => (modules[file] ?? []).some((id) => THREE_MODULE.test(id)));
 
 const gzipOf = (bytes: Buffer) => gzipSync(bytes, { level: 9 }).length;
 
@@ -106,11 +122,8 @@ export function initialJs(output: string, route: string): Sizes & { three: boole
     return key;
   });
   const files = closure(manifest, [...entries, ...leaves]);
-  const three = [...files].some((file) => {
-    const code = readFileSync(join(client, file), "utf8");
-    return THREE_MARKERS.some((marker) => code.includes(marker));
-  });
-  return { ...sizeOf(client, files), three };
+  const modules = parseChunkModules(readFileSync(join(output, "chunk-modules.json"), "utf8"));
+  return { ...sizeOf(client, files), three: bundlesThree(files, modules) };
 }
 
 function walk(dir: string): string[] {
