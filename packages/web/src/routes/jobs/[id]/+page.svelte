@@ -7,7 +7,7 @@
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
-  import { stashRerun } from "#lib/rerun.js";
+  import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -27,15 +27,14 @@
     ? job.state
     : null;
   $: failure = job?.error ? failureText(job.error.stage, job.error.reason) : null;
-  $: rerunnable = !!job && job.state !== "failed" && job.request.generator.id !== "passthrough"
-    && !!job.request.printerId && !!job.request.profileId;
+  $: rerun = job ? rerunRequest(job) : null;
   $: when = job
     ? new Date(job.updatedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
     : "";
 
   async function again() {
-    if (!job) return;
-    const { generator, printerId, profileId } = job.request;
+    if (!rerun) return;
+    const { generator, printerId, profileId } = rerun;
     stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId });
     await goto("/?rerun=1");
   }
@@ -68,7 +67,7 @@
         {#if state}<span>{WHEN[state]} {when}</span>{/if}
       </p>
     </div>
-    {#if rerunnable}
+    {#if rerun}
       <div class="acts">
         <button class="btn primary" type="button" on:click={again}>
           Print again

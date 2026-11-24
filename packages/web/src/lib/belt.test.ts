@@ -128,6 +128,16 @@ describe("the belt's live feed", () => {
     expect(sockets.get("b")?.closed).toBe(true);
   });
 
+  test("a chip keeps its earlier request when a later active-jobs answer lacks one", async () => {
+    const { state, shown, belt } = rig();
+    state.active = [view("a", "queued")];
+    await belt.poll();
+    const request = shown.at(-1)?.[0]?.request;
+    state.active = [view("a", "queued", { profileId: undefined, generator: undefined })];
+    await belt.poll();
+    expect([request, shown.at(-1)?.[0]?.request]).toEqual([{ generator: { id: "gridfinity", params: { gridX: 2, gridY: 3 } }, printerId: "voron", profileId: "pla" }, request]);
+  });
+
   test("a status event keeps the name and printer it had", () => {
     const was: TrackJob = { id: "a", name: "Gridfinity Bin 2 × 3", state: "slicing", printer: "Voron 2.4" };
     expect(trackJob({ jobId: "a", state: "failed", error: { reason: "x" } }, was)).toEqual({ ...was, state: "failed", reason: "x" });
