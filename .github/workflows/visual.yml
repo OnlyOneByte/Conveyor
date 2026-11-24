@@ -13,11 +13,22 @@ on:
       - "bun.lock"
       - "tools/visual/**"
       - ".github/workflows/visual.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/web/**"
+      - "packages/api/**"
+      - "packages/shared/**"
+      - "profiles/**"
+      - "package.json"
+      - "bun.lock"
+      - "tools/visual/**"
+      - ".github/workflows/visual.yml"
 
 permissions: {}
 
 concurrency:
-  group: visual-${{ github.event.pull_request.number }}
+  group: visual-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -42,9 +53,11 @@ jobs:
         with:
           ref: ${{ env.MERGE_SHA }}
           path: head
+          fetch-depth: 2
           persist-credentials: false
 
       - name: Checkout base
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ env.BASE_SHA }}
@@ -71,7 +84,7 @@ jobs:
       - name: Install dependencies
         run: |
           (cd head && bun install --frozen-lockfile)
-          (cd base && bun install --frozen-lockfile)
+          if [ -d base ]; then (cd base && bun install --frozen-lockfile); fi
           (cd head/tools/visual && bun install --frozen-lockfile)
 
       - name: Typecheck and test visual tooling
@@ -84,25 +97,49 @@ jobs:
         working-directory: head/tools/visual
         run: bunx playwright install --with-deps chromium
 
+      - name: Pick the scenes this change reaches
+        id: pick
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            git -C head diff --name-only HEAD^1 HEAD > "$RUNNER_TEMP/changed.txt"
+            only=$(bun head/tools/visual/select.ts --root head --changed "$RUNNER_TEMP/changed.txt")
+          else
+            only=all
+          fi
+          echo "only=$only" >> "$GITHUB_OUTPUT"
+
       - name: Capture base
         id: before
+        if: github.event_name == 'pull_request'
         continue-on-error: true
-        run: bun head/tools/visual/capture.ts --root base --out "$OUT/before"
+        env:
+          ONLY: ${{ steps.pick.outputs.only }}
+        run: |
+          if [ "$ONLY" = all ]; then set --; else set -- "--only=$ONLY"; fi
+          bun head/tools/visual/capture.ts --root base --out "$OUT/before" "$@"
 
       - name: Capture merge commit
         id: after
         continue-on-error: true
-        run: bun head/tools/visual/capture.ts --root head --out "$OUT/after"
+        env:
+          ONLY: ${{ steps.pick.outputs.only }}
+        run: |
+          if [ "$ONLY" = all ]; then set --; else set -- "--only=$ONLY"; fi
+          bun head/tools/visual/capture.ts --root head --out "$OUT/after" "$@"
 
       - name: Build comparison
+        if: github.event_name == 'pull_request'
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BEFORE_OUTCOME: ${{ steps.before.outcome }}
           AFTER_OUTCOME: ${{ steps.after.outcome }}
+          ONLY: ${{ steps.pick.outputs.only }}
         run: |
           set -euo pipefail
+          if [ "$ONLY" = all ]; then scope="every scene"; else scope="scenes this change reaches: ${ONLY:-none}"; fi
           raw="https://raw.githubusercontent.com/$REPO/__ASSETS_SHA__/pr-$PR"
-          footer="base \`${BASE_SHA::7}\` (capture: $BEFORE_OUTCOME) → merge \`${MERGE_SHA::7}\` (capture: $AFTER_OUTCOME) · stub mode · [run]($RUN_URL)"
+          footer="base \`${BASE_SHA::7}\` (capture: $BEFORE_OUTCOME) → merge \`${MERGE_SHA::7}\` (capture: $AFTER_OUTCOME) · $scope · stub mode · [run]($RUN_URL)"
           bun head/tools/visual/compare.ts --before "$OUT/before" --after "$OUT/after" \
             --before-url "$raw/before" --after-url "$raw/after" \
             --title "Visual changes" --footer "$footer" --out "$OUT/comment.md"
@@ -115,7 +152,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: visual-pr-${{ env.PR }}
+          name: ${{ github.event_name == 'pull_request' && format('visual-pr-{0}', env.PR) || format('visual-main-{0}', github.sha) }}
           path: ${{ env.OUT }}
           if-no-files-found: error
           retention-days: 14

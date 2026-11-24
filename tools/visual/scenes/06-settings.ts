@@ -1,4 +1,4 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene } from "../scene.ts";
 
 const printerFormScenes: Scene[] = [
   { printer: "Elegoo Neptune", field: "Mainboard ID", slug: "elegoo" },
@@ -15,7 +15,7 @@ const printerFormScenes: Scene[] = [
   ],
 }));
 
-export const settingsScenes: Scene[] = [
+export const scenes: Scene[] = [
   { name: "settings", route: "/settings", ready: "h1", steps: [{ wait: 800 }] },
   ...printerFormScenes,
 ];

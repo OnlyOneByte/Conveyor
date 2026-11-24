@@ -1,6 +1,6 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene } from "../scene.ts";
 
-export const receiptScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "job-detail",
     route: "/history/seed-canceled",
@@ -72,6 +72,7 @@ export const receiptScenes: Scene[] = [
   {
     name: "retry-link",
     route: "/jobs/seed-failed",
+    visits: ["/", "/jobs/seed-printed"],
     ready: "text=didn't finish",
     steps: [
       {

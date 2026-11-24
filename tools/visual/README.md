@@ -37,7 +37,24 @@ After its steps, every scene checks that the page's `<title>` is its first `h1` 
 
 ## Scenes
 
-Scenes live in `scenes.ts`. Each has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `hover`, `scroll`, `waitFor`, `wait`, `hits`, `fulfill`, `follow`, `history`) and an optional `record`. `fulfill` answers every request to a URL glob, or only those with its `method`, with a fixed status and JSON body for the rest of the scene, as `retry-link` does to get an already-retried 409 without changing the seeded jobs. `follow` clicks a link to a path from inside the page, so SvelteKit navigates on the client, as `job-switch` does to move Make from one `?job=` to another. It fails the scene if the page reloads instead. `history` goes `back` or `forward`, as `print-forward` does. When you add a page, add a scene for it, and keep selectors on stable text or roles.
+Scenes live in `scenes/`, one file per page or area (`01-make.ts`, `03-receipt.ts`, …). Each file exports a `scenes` array, and `scenes.ts` loads every file in name order, so the two-digit prefix sets the capture order. `history` comes after `job-progress` because it lists the jobs `job-progress` ran. To add scenes, edit your area's file, or add a new file with a free prefix. No list needs editing, so PRs that add scenes to different areas don't touch the same lines.
+
+Step kinds live in `steps/`, one file per kind. Each file adds its shape to `StepKinds` (TypeScript declaration merging) and exports a `step` runner, and `step.ts` loads them all. A new step kind is a new file.
+
+Each scene has a name, a route, a `ready` selector, optional `steps` (`click`, `type`, `press`, `hover`, `scroll`, `waitFor`, `wait`, `hits`, `fulfill`, `follow`, `history`) and an optional `record`. `fulfill` answers every request to a URL glob, or only those with its `method`, with a fixed status and JSON body for the rest of the scene, as `retry-link` does to get an already-retried 409 without changing the seeded jobs. `follow` clicks a link to a path from inside the page, so SvelteKit navigates on the client, as `job-switch` does to move Make from one `?job=` to another. It fails the scene if the page reloads instead. `history` goes `back` or `forward`, as `print-forward` does. When you add a page, add a scene for it, and keep selectors on stable text or roles. A scene that reaches another page by a click, not a `follow` or `history` step, lists that page in `visits`.
+
+### Which scenes a PR captures
+
+The `visual` job captures only the scenes a PR can change (`select.ts`, `affected.ts`). A scene's pages are its `route`, its `follow` targets, its `history` landings and its `visits`. For each page, it walks `packages/web/src`'s imports from the page's `+page` files and every `+layout` above it. It keeps the scene when that walk reaches a changed file. A route with no page (a 404) starts from the root layout and `+error.svelte`.
+
+| Change | Captured |
+| --- | --- |
+| a page, or a component only some pages import | those pages' scenes, at 1440 and 390 |
+| anything the root layout imports (styles, the belt, shared libs) | every scene |
+| anything outside `packages/web/src`: `tools/visual`, the API, shared, profiles, lockfiles, web config | every scene |
+| a moved or deleted file under `packages/web/src` | every scene |
+| only tests or Markdown | no scene |
+| a push to `main` | every scene |
 
 The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/api/auth/status` answers signed out, and `/api/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it; no other request is stubbed.
 
