@@ -92,7 +92,9 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 - No explicit `any`. [CI: `lint`, outside `packages/web`; review inside it] No implied `any` either (untyped
   `JSON.parse`, a `catch (e)` used as an object): use `unknown` and narrow. [review]
 - No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
-- No `as` casts except `as const`. Parse values; don't assert them. [review]
+- No `as` casts except `as const`. Parse values; don't assert them. [CI: `lint`, through `bun run check:casts`
+  over every `.ts` file and Svelte `<script>` block; the casts that predate it are listed in
+  `scripts/checks/casts/baseline.json`, which may only shrink. Casts inside Svelte markup: review]
 - No `enum`. Use a string-literal union with a `const` array:
   `export const JOB_STATES = ["queued", "slicing", "done"] as const; export type JobState = (typeof JOB_STATES)[number];` [review]
 - IDs are branded, never bare `string`:
@@ -131,16 +133,18 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 
 ## 8. Commits, branches and PRs
 
-- **Titles** are Conventional Commits; squash merge uses the PR title. [review]
+- **Titles** are Conventional Commits; squash merge uses the PR title. [CI: `pr-meta`]
   `^(feat|fix|refactor|perf|test|docs|build|ci|chore|revert)(\((web|api|worker|shared|engine|queue|db|core|plugins|infra|guard|tools|docs|deps)\))?!?: \S.{0,70}$`
   Imperative, lower-case after the colon, no trailing period, at most 72 characters. Use the real package
   name as the scope (`web`, `api`, `worker`, `shared`, `plugins`); `guard` is `scripts/checks`, `tools` is
   `tools/`. Breaking changes carry `!` and a `BREAKING CHANGE:` line in the body.
 - **Branches**: `<type>/<slug>` or `<type>/<issue>-<slug>` (`feat/42-sqlite-queue`). Never push to `main`.
 - **Issue first.** Every PR names each issue it answers, one per line: `Closes #N`, or `Part of #N` when
-  it stays open. A PR may name several. [review]
+  it stays open. A PR may name several. [CI: `pr-meta` checks that each one named is an existing issue;
+  review checks it is the right one]
 - **Template**: fill every section of `.github/PULL_REQUEST_TEMPLATE.md` with real content. [review]
-- **Labels**: `agent` on agent-authored PRs, plus one `area/*` (`area/backend`, `area/ui`, `area/infra`).
+- **Labels**: `agent` on agent-authored PRs (those opened by the `OnlyOneByte` account), plus exactly one
+  `area/*` (`area/backend`, `area/ui`, `area/infra`). [CI: `pr-meta`]
 - **Merging**: squash by default. A merge commit only for a format-only commit that must survive for
   `.git-blame-ignore-revs`. Agents never merge by hand; the merge tooling lands a PR once the gate is green.
 - **UI PRs** (anything touching `packages/web/**`, `docs/design/**`, `*.svelte`, `*.css`, or a user-visible
@@ -154,7 +158,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 
 | Check | Local command |
 |---|---|
-| `lint` | `bun run lint` |
+| `lint` | `bun run lint && bun run check:casts`; after removing a cast, run `bun run check:casts:update` and commit `scripts/checks/casts/baseline.json` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
 | `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order over an `LC_ALL=C`-sorted file list (the log prints the seed, the commit, how to check it out and the rerun command, not the file list itself); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
@@ -162,6 +166,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
 | `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/api/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
+| `pr-meta` | CI only, from the PR's own metadata, no code checked out: the title pattern and length, the labels, and the issue lines (§8). It re-runs when the title, body or labels change, so fix them in place; Dependabot PRs are skipped |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
 
 Review may start before CI is green. Merge needs both: every required check and the review status green on
