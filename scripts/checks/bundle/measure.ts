@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { runInNewContext } from "node:vm";
 import { gzipSync } from "node:zlib";
 import { z } from "zod";
-import { precached } from "../../../packages/web/src/service-worker/precache";
 
 export interface Chunk {
   file: string;
@@ -53,15 +53,42 @@ export const bundlesThree = (
       code(file).includes(THREE_SIGNATURE),
   );
 
-export function serviceWorkerPaths(source: string): string[] {
-  const paths = [...source.matchAll(/\{path:\s*[`"']([^`"']+)[`"']\}/g)].flatMap(([, path]) =>
-    path ? [path] : [],
-  );
-  if (paths.length === 0)
+export async function serviceWorkerPrecache(source: string): Promise<string[]> {
+  const handlers = new Map<string, (event: unknown) => void>();
+  let installed: Promise<unknown> = Promise.resolve();
+  let list: unknown;
+  const context = {
+    location: { pathname: "/service-worker.js" },
+    self: {
+      addEventListener: (type: string, handler: (event: unknown) => void) =>
+        handlers.set(type, handler),
+      skipWaiting: () => Promise.resolve(),
+    },
+    caches: {
+      open: () =>
+        Promise.resolve({
+          addAll: (paths: unknown) => {
+            list = paths;
+            return Promise.resolve();
+          },
+        }),
+    },
+  };
+  runInNewContext(source, context);
+  const install = handlers.get("install");
+  if (!install) throw new Error("service-worker.js registers no install handler");
+  install({
+    waitUntil: (work: Promise<unknown>) => {
+      installed = work;
+    },
+  });
+  await installed;
+  const paths = z.array(z.string()).safeParse(list);
+  if (!paths.success || paths.data.length === 0)
     throw new Error(
-      "found no precache paths in service-worker.js; has SvelteKit's manifest format changed?",
+      "service-worker.js precached nothing on install; has its precache list changed shape?",
     );
-  return paths;
+  return paths.data;
 }
 
 const gzipOf = (bytes: Buffer) => gzipSync(bytes, { level: 9 }).length;
@@ -144,10 +171,12 @@ export const missingCode = (immutable: string[], kept: string[]): string[] => {
   return immutable.filter((path) => /\.(js|css)$/.test(path) && !list.has(path));
 };
 
-export function precache(output: string): Sizes & { files: number; missing: string[] } {
+export async function precache(
+  output: string,
+): Promise<Sizes & { files: number; missing: string[] }> {
   const client = join(output, "client");
   const immutable = walk(join(client, "_app/immutable")).map((path) => relative(client, path));
-  const listed = serviceWorkerPaths(readFileSync(join(client, "service-worker.js"), "utf8"));
-  const list = precached(listed).map((path) => path.slice(1));
+  const source = readFileSync(join(client, "service-worker.js"), "utf8");
+  const list = (await serviceWorkerPrecache(source)).map((path) => path.replace(/^\//, ""));
   return { ...sizeOf(client, list), files: list.length, missing: missingCode(immutable, list) };
 }

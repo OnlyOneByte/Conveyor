@@ -7,7 +7,7 @@ import {
   parseChunkModules,
   parseManifest,
   routeNodes,
-  serviceWorkerPaths,
+  serviceWorkerPrecache,
 } from "./measure";
 
 const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1_000_000, gzip: 400_000 } };
@@ -143,12 +143,18 @@ describe("failing closed", () => {
     ]);
   });
 
-  test("a service worker with no precache paths is an error, and its paths are read in order", () => {
-    expect(serviceWorkerPaths("t=[{path:`_app/immutable/a.js`},{path:`favicon.svg`}]")).toEqual([
-      "_app/immutable/a.js",
-      "favicon.svg",
-    ]);
-    expect(() => serviceWorkerPaths("self.addEventListener()")).toThrow("found no precache paths");
+  test("the precache list is what the built service worker adds on install, after its own filter", async () => {
+    const source =
+      "var t=[{path:`_app/immutable/a.js`},{path:`_app/immutable/b.wasm`}];self.addEventListener(`install`,e=>{e.waitUntil(caches.open(`c`).then(c=>c.addAll(t.map(({path})=>`/`+path).filter(p=>!p.endsWith(`.wasm`)))))})";
+    expect(await serviceWorkerPrecache(source)).toEqual(["/_app/immutable/a.js"]);
+    await expect(serviceWorkerPrecache("self.addEventListener(`fetch`,()=>{})")).rejects.toThrow(
+      "no install handler",
+    );
+    await expect(
+      serviceWorkerPrecache(
+        "self.addEventListener(`install`,e=>{e.waitUntil(caches.open(`c`).then(c=>c.addAll([])))})",
+      ),
+    ).rejects.toThrow("precached nothing");
   });
 });
 

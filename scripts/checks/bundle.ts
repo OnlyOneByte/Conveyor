@@ -17,11 +17,11 @@ const OUTPUT = join(ROOT, "packages/web/.svelte-kit/output");
 
 const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} KB`;
 
-function measured(): Measured {
+async function measured(): Promise<Measured> {
   const routes = Object.fromEntries(
     routesOf(OUTPUT).map((route) => [route, initialJs(OUTPUT, route)]),
   );
-  const { raw, gzip, files, missing } = precache(OUTPUT);
+  const { raw, gzip, files, missing } = await precache(OUTPUT);
   for (const [route, sizes] of Object.entries(routes))
     console.log(`${route}: initial JS ${kb(sizes.gzip)} gzip`);
   console.log(`precache: ${files} files, ${kb(raw)} raw, ${kb(gzip)} gzip`);
@@ -39,7 +39,7 @@ function baseErrors(baseRef: string, current: string): string[] {
   return loosenedErrors(parseBudget(current), parseBudget(committed));
 }
 
-function main(argv: string[]): number {
+async function main(argv: string[]): Promise<number> {
   const { values } = parseArgs({
     args: argv,
     options: {
@@ -49,7 +49,7 @@ function main(argv: string[]): number {
   });
   const text = readFileSync(join(ROOT, BUDGET_PATH), "utf8");
   const budget = parseBudget(text);
-  const now = measured();
+  const now = await measured();
   if (values.update) {
     const refusal = updateRefusal(process.env);
     if (refusal !== null) {
@@ -69,4 +69,4 @@ function main(argv: string[]): number {
   return errors.length === 0 ? 0 : 1;
 }
 
-process.exit(main(process.argv.slice(2)));
+process.exit(await main(process.argv.slice(2)));
