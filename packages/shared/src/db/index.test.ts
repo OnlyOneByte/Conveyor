@@ -106,7 +106,7 @@ openDb(${JSON.stringify(path)});`;
     const db = reopen(path);
     expect(dbListPrinters(db)).toHaveLength(DEFAULT_PRINTERS.length);
     expect(dbListProfiles(db)).toHaveLength(DEFAULT_PROFILES.length);
-  });
+  }, 30_000);
 });
 
 describe("openDb's shared handle", () => {

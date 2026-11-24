@@ -22,7 +22,7 @@ export function runEngine(
     child.on("error", (e) => reject(new StageError(stage, e.message, { cause: e })));
     child.on("close", (code) =>
       code === 0
-        ? resolve({ stderr: stderr.slice(-STDERR_TAIL_CHARS) })
+        ? resolve({ stderr })
         : reject(
             new StageError(stage, `${cmd} exited ${code}: ${stderr.slice(-STDERR_TAIL_CHARS)}`),
           ),
@@ -41,7 +41,7 @@ export async function requireOutput(
     () => -1,
   );
   if (size > 0) return;
-  const said = stderr.trim();
+  const said = stderr.trim().slice(-STDERR_TAIL_CHARS);
   const empty = size === 0 ? " (the file is empty)" : "";
   throw new StageError(stage, `${missing}${empty}${said ? `: ${said}` : ""}`);
 }
