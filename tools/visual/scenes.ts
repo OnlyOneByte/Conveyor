@@ -116,6 +116,17 @@ export const scenes: Scene[] = [
     ready: "text=Configure",
     steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
   },
+  ...["done", "2 x 3"].map((text) => ({
+    name: `command-menu-${text.replaceAll(" ", "")}`,
+    route: "/",
+    ready: "text=Configure",
+    steps: [
+      { press: "Control+k" },
+      { type: "dialog[open] input", text },
+      { waitFor: "dialog[open] [role=option] >> text=Printed" },
+      { wait: 300 },
+    ],
+  })),
   {
     name: "shortcut-sheet",
     route: "/",
