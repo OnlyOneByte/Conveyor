@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:42993",
+  "url": "http://127.0.0.1:46773",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 543714,
+      "gifBytes": 500645,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 303182,
+      "gifBytes": 279690,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -65,7 +65,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 808712,
+      "gifBytes": 734800,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -114,7 +114,6 @@
       "scene": "retry-link",
       "width": 1440,
       "warnings": [],
-      "error": "click: Timeout 30000ms exceeded.",
       "png": "retry-link-1440.png"
     },
     {
@@ -212,7 +211,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 800910,
+      "gifBytes": 741971,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -292,7 +291,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 619008,
+      "gifBytes": 490307,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -300,7 +299,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 987322,
+      "gifBytes": 1013494,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -308,7 +307,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1284481,
+      "gifBytes": 1083065,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -316,7 +315,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 313888,
+      "gifBytes": 277585,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -354,7 +353,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 781232,
+      "gifBytes": 699695,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -380,7 +379,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 622148,
+      "gifBytes": 622330,
       "gif": "new-job-390.gif"
     },
     {
@@ -420,7 +419,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1143416,
+      "gifBytes": 1143192,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -469,7 +468,6 @@
       "scene": "retry-link",
       "width": 390,
       "warnings": [],
-      "error": "click: Timeout 30000ms exceeded.",
       "png": "retry-link-390.png"
     },
     {
@@ -641,7 +639,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 523254,
+      "gifBytes": 506242,
       "gif": "track-keys-390.gif"
     },
     {
@@ -679,7 +677,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030404,
+      "gifBytes": 1030898,
       "gif": "primitives-keys-390.gif"
     }
   ]
