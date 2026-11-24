@@ -8,13 +8,11 @@ const SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
 export const inScope = (path: string) => IN_SCOPE.test(path);
 
-const isConstAssertion = (node: ts.AsExpression) =>
+const isConstAssertion = (node: ts.AsExpression | ts.TypeAssertion) =>
   ts.isTypeReferenceNode(node.type) && node.type.typeName.getText() === "const";
 
-function isCast(node: ts.Node): boolean {
-  if (ts.isAsExpression(node)) return !isConstAssertion(node);
-  return ts.isTypeAssertionExpression(node);
-}
+const isCast = (node: ts.Node): boolean =>
+  (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) && !isConstAssertion(node);
 
 function countIn(source: ts.SourceFile): number {
   let casts = 0;
