@@ -132,7 +132,7 @@ export const beltScenes: Scene[] = [
   {
     name: "belt-motion",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     record: true,
@@ -141,7 +141,7 @@ export const beltScenes: Scene[] = [
   {
     name: "belt-motion-reduced",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     record: true,
