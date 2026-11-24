@@ -5,12 +5,10 @@ import {
   type Stage,
   type StageTiming,
 } from "@conveyor/shared";
-import { Redis } from "ioredis";
-
-const REDIS_URL = process.env.REDIS_URL ?? "redis://redis:6379";
+import type { Redis } from "ioredis";
 
 export class StatusBus {
-  private readonly redis = new Redis(REDIS_URL);
+  constructor(private readonly redis: Redis) {}
 
   async publish(
     jobId: string,
