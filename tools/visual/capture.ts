@@ -2,10 +2,11 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
+import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
-import { assertHits } from "./hits.ts";
+import { assertHits, titleMismatch } from "./hits.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -136,6 +137,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     colorScheme,
   });
   await pinHistoryRoute(context);
+  if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;
   try {
@@ -143,6 +145,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     await page.locator(scene.ready).first().waitFor({ timeout: 30000 });
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
+    const mismatch = await titleMismatch(page);
+    if (mismatch) throw new Error(mismatch);
   } catch (err) {
     result.error = messageOf(err);
   }
