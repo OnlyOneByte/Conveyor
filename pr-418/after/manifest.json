@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:41117",
+  "url": "http://127.0.0.1:37865",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 542078,
+      "gifBytes": 497267,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 303294,
+      "gifBytes": 296689,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -65,6 +65,12 @@
       "width": 1440,
       "warnings": [],
       "png": "receipt-failed-1440.png"
+    },
+    {
+      "scene": "receipt-outside-bed",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-outside-bed-1440.png"
     },
     {
       "scene": "receipt-canceled",
@@ -185,7 +191,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 934277,
+      "gifBytes": 838600,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -265,7 +271,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 682274,
+      "gifBytes": 615240,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -273,7 +279,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 312650,
+      "gifBytes": 280554,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -311,7 +317,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 867575,
+      "gifBytes": 780201,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -337,7 +343,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 622882,
+      "gifBytes": 622644,
       "gif": "new-job-390.gif"
     },
     {
@@ -345,7 +351,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 346065,
+      "gifBytes": 373671,
       "gif": "job-progress-390.gif"
     },
     {
@@ -377,6 +383,12 @@
       "width": 390,
       "warnings": [],
       "png": "receipt-failed-390.png"
+    },
+    {
+      "scene": "receipt-outside-bed",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-outside-bed-390.png"
     },
     {
       "scene": "receipt-canceled",
@@ -497,7 +509,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1088743,
+      "gifBytes": 1101480,
       "gif": "keyboard-390.gif"
     },
     {
@@ -571,7 +583,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 523631,
+      "gifBytes": 505422,
       "gif": "track-keys-390.gif"
     },
     {
@@ -609,7 +621,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030239,
+      "gifBytes": 1030898,
       "gif": "primitives-keys-390.gif"
     }
   ]
