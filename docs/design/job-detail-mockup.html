@@ -115,21 +115,21 @@ const ICON = {
 const model = document.getElementById("model").innerHTML;
 const crumb = '<a class="crumb" href="#printed">← Jobs</a>';
 const meta = (when) => `<span>Voron 2.4 · PLA 0.2 mm</span><span>${when}</span>`;
-const settings = `<section><h2>Settings</h2><dl class="rows"><dt>Width</dt><dd>2 u · 84 mm</dd><dt>Depth</dt><dd>3 u · 126 mm</dd><dt>Height</dt><dd>6 u · 42 mm</dd><dt>Dividers</dt><dd>2</dd><dt>Magnet holes</dt><dd>Yes</dd></dl></section>`;
+const settings = `<section><h2>Settings</h2><dl class="rows"><dt>Width in 42mm units</dt><dd>2 u · 84 mm</dd><dt>Depth in 42mm units</dt><dd>3 u · 126 mm</dd><dt>Height in 7mm units</dt><dd>6 u · 42 mm</dd><dt>Compartments across</dt><dd>2</dd><dt>Magnet holes in base</dt><dd>Yes</dd></dl></section>`;
 const times = (rows) => `<section><h2>Stage times</h2><dl class="rows">${rows}</dl></section>`;
-const fullTimes = times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>41 s</dd><dt>Send</dt><dd>6 s</dd><dt>Print</dt><dd>1 h 12 min</dd><dt class="total">Took</dt><dd class="total">1 h 13 min</dd>');
+const fullTimes = times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>41 s</dd><dt>Send to printer</dt><dd>1 h 12 min</dd><dt class="total">Took</dt><dd class="total">1 h 13 min</dd>');
 const filament = '<section><h2>Filament</h2><dl class="rows"><dt>Used</dt><dd>12.4 g · 4.1 m</dd></dl></section>';
 const files = `<section><h2>Files</h2><div class="files"><a class="btn" href="#printed" download>${ICON.down}Model (STL)</a><a class="btn" href="#printed" download>${ICON.down}G-code</a></div></section>`;
 const id = '<div class="idrow"><span>Job ID</span><button class="btn" type="button">Copy job ID</button></div>';
-const head = (pill, when, acts) => `${crumb}<div class="head"><div class="t"><h1 id="title">Gridfinity bin 2×3</h1><div class="meta">${pill}${meta(when)}</div></div><div class="acts">${acts}</div></div>`;
+const head = (pill, when, acts) => `${crumb}<div class="head"><div class="t"><h1 id="title">Gridfinity Bin 2 × 3</h1><div class="meta">${pill}${meta(when)}</div></div><div class="acts">${acts}</div></div>`;
 const receipt = (body) => `<div class="grid"><div class="mat">${model}<span class="tag">84 × 126 × 42 mm</span></div><div class="receipt">${body}</div></div>`;
 const S = {
   printed: () => head(`<span class="pill done">${ICON.done}Printed</span>`, "Finished today at 12:04", `<a class="btn pri" href="#printed">${ICON.again}Print again</a>`) + receipt(settings + fullTimes + filament + files + id),
-  failed: () => head(`<span class="pill failed">${ICON.failed}Failed</span>`, "Stopped today at 11:20", `<a class="btn pri" href="#failed">${ICON.again}Retry</a><a class="btn" href="#failed">Pick another printer</a>`) +
-    `<div class="why" role="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3ZM12 10v4M12 17v.5"/></svg><div><strong>Slicing didn't finish</strong><p>The model is bigger than the Voron 2.4's bed. Make it smaller, or pick a printer with a bigger bed.</p></div></div>` +
-    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>stopped after 3 s</dd>') + `<details><summary>Details</summary><pre>slicer: exit 1: Objects could not fit on the bed</pre></details>` + id),
+  failed: () => head(`<span class="pill failed">${ICON.failed}Failed</span>`, "Stopped today at 11:20", `<a class="btn pri" href="#failed">${ICON.again}Retry</a>`) +
+    `<div class="why" role="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3ZM12 10v4M12 17v.5"/></svg><div><strong>Slicing didn't finish</strong><p>The model doesn't fit the printer's bed. Make it smaller, or pick a bigger printer.</p></div></div>` +
+    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>3 s</dd>') + `<details><summary>Details</summary><pre>slicer: xvfb-run exited 1: Found Object model.stl partly inside, can not be sliced.</pre></details>` + id),
   canceled: () => head(`<span class="pill canceled">${ICON.canceled}Canceled</span>`, "Canceled today at 10:51", `<a class="btn pri" href="#canceled">${ICON.again}Print again</a>`) +
-    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>40 s</dd><dt>Send</dt><dd>canceled after 2 s</dd>') + files.replace(/<a class="btn" href="#printed" download>[^]*?G-code<\/a>/, "") + id),
+    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>40 s</dd><dt>Send to printer</dt><dd>2 s</dd>') + files.replace(/<a class="btn" href="#printed" download>[^]*?G-code<\/a>/, "") + id),
   printing: () => head('<span class="pill live">Printing · 64%</span>', "Started today at 12:31", '<button class="btn danger" type="button">Cancel print</button>') +
     receipt(`<section class="live"><h2>Progress</h2><ol class="steps"><li class="past">Model</li><li class="past">Slice</li><li class="past">Send</li><li class="now" aria-current="step">Print</li></ol><div class="big"><b>64%</b><span>Layer 112 of 175 · 38 min left · done at 13:42</span></div><div class="bar" role="progressbar" aria-label="Print progress" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100"><i></i></div></section>` + settings + id),
   queued: () => head('<span class="pill queued">Waiting</span>', "Added today at 12:40", '<button class="btn danger" type="button">Cancel</button>') +
