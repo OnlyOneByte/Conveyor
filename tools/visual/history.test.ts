@@ -78,6 +78,19 @@ describe("the /api/jobs-history route", () => {
     await fulfillPinned(route);
     expect(fulfilled).toEqual([{ response }]);
   });
+
+  test("settles quietly when the page closed and its response is gone", async () => {
+    const { route, fulfilled } = fakeRoute(true, []);
+    const gone = {
+      ...route,
+      fetch: async () => ({
+        ok: () => true,
+        json: async () => Promise.reject(new Error("Response has been disposed")),
+      }),
+    };
+    await expect(fulfillPinned(gone)).resolves.toBeUndefined();
+    expect(fulfilled).toEqual([]);
+  });
 });
 
 describe("one job's detail, /api/jobs-history/<id>", () => {

@@ -44,13 +44,16 @@ interface PinnableRoute<R extends Fetched> {
   fulfill(options: { response?: R; json?: unknown }): Promise<unknown>;
 }
 
+async function pinOne<R extends Fetched>(route: PinnableRoute<R>, pin: (body: unknown) => unknown) {
+  const response = await route.fetch();
+  if (!response.ok()) return route.fulfill({ response });
+  await route.fulfill({ response, json: pin(await response.json()) });
+}
+
 const fulfillWith =
   (pin: (body: unknown) => unknown) =>
-  async <R extends Fetched>(route: PinnableRoute<R>) => {
-    const response = await route.fetch();
-    if (!response.ok()) return route.fulfill({ response });
-    await route.fulfill({ response, json: pin(await response.json()) });
-  };
+  <R extends Fetched>(route: PinnableRoute<R>) =>
+    pinOne(route, pin).catch(() => undefined);
 
 export const fulfillPinned = fulfillWith(pinHistory);
 
