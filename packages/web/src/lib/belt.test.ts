@@ -47,9 +47,10 @@ function rig() {
     },
     clock: () => "14:05",
   };
-  const belt = createBelt(feed, (jobs) => shown.push(jobs), (news) => told.push(...news));
+  const ended: TrackJob[][] = [];
+  const belt = createBelt(feed, (jobs, gone) => (shown.push(jobs), ended.push(gone)), (news) => told.push(...news));
   const send = (event: JobStatusEvent, to = event.jobId) => sockets.get(to)?.onmessage?.(new MessageEvent("message", { data: JSON.stringify(event) }));
-  return { state, sockets, shown, told, belt, send };
+  return { state, sockets, shown, ended, told, belt, send };
 }
 
 describe("the belt's live feed", () => {
@@ -66,9 +67,10 @@ describe("the belt's live feed", () => {
   });
 
   test("a job that leaves the list is announced from its final state, or as gone if that can't be read", async () => {
-    const { state, shown, told, belt } = rig();
+    const { state, shown, ended, told, belt } = rig();
     state.active = [view("a", "printing"), view("b", "slicing"), view("c", "printing")];
     await belt.poll();
+    expect(ended.at(-1)).toEqual([]);
     state.active = [];
     state.final.set("a", { jobId: "a", state: "done", at: 2, generator: { id: "gridfinity", params: {} } });
     state.final.set("b", { jobId: "b", state: "failed", at: 2, error: { stage: "slicer", reason: "no profile." } });
@@ -80,8 +82,10 @@ describe("the belt's live feed", () => {
       { level: "polite", text: "Bin 2×3 · 6u left the belt; its job page has how it ended" },
     ]);
     expect(shown.at(-1)).toEqual([]);
+    expect(ended.at(-1)?.map((job) => [job.id, job.state])).toEqual([["a", "done"], ["b", "failed"]]);
     await belt.poll();
     expect(told).toHaveLength(3);
+    expect(ended.at(-1)).toEqual([]);
   });
 
   test("a socket per rail chip, at most 10, carries moves; a socket job isn't overwritten by a poll", async () => {

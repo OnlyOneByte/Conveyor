@@ -42,7 +42,9 @@
         {#each results as command, i}
           {#if command.group === group}
             <div id="{id}-{i}" role="option" tabindex="-1" class:stack={command.group === "Jobs"} aria-selected={i === active} on:click={() => run(command)} on:keydown={keydown} on:pointermove={() => (active = i)}>
-              {command.label}<span class="hint">{command.hint}</span>
+              {command.label}{#if command.hint}<span class="hint"
+                ><span class="sr">, </span>{command.hint}</span
+              >{/if}
             </div>
           {/if}
         {/each}
@@ -62,6 +64,10 @@
   .head { padding: var(--s3) var(--s4) var(--s1); font: 700 var(--fs-label) / 1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   [role="option"] { display: flex; align-items: center; gap: var(--s3); min-height: var(--tap); padding: 0 var(--s4); cursor: pointer; }
   [role="option"][aria-selected="true"] { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
+  .sr {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
   .hint { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s4); color: var(--muted); }
   .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
