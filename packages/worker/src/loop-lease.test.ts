@@ -41,7 +41,7 @@ describe("the sqlite queue worker", () => {
           await Bun.sleep(700);
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 2000 }, renewEvery: 140 },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 2000 }, renewEvery: 100 },
     );
     await until(() => row("a").state === "done", 10_000);
     holder.close();
