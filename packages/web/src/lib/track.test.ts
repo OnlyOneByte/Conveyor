@@ -2,6 +2,9 @@ import { describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import {
   ACTIONS,
+  COLLAPSE_AT,
+  collapsedBelt,
+  REOPEN_AT,
   centre,
   chipName,
   groupName,
@@ -155,5 +158,19 @@ describe("chip text", () => {
     const members = [job("slicing", 0.35), { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" }, job("slicing", 0.12)];
     expect(groupVisible(members)).toBe("3 jobs 35% · … · 12%");
     expect(groupName(members)).toBe("3 jobs 35% · … · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing");
+  });
+});
+
+describe("when the belt collapses to its 40 px bar", () => {
+  test("on Make only past 80 px of scroll, on every other page always, and never while opened", () => {
+    expect(COLLAPSE_AT).toBe(80);
+    expect([collapsedBelt("/", 0, false), collapsedBelt("/", 80, false), collapsedBelt("/", 81, false)]).toEqual([false, false, true]);
+    expect([collapsedBelt("/history", 0, false), collapsedBelt("/jobs/a", 0, false), collapsedBelt("/settings", 0, true), collapsedBelt("/", 300, true)]).toEqual([true, true, false, false]);
+  });
+
+  test("once collapsed on Make it stays collapsed until the page is back near the top, so the shrink can't flip it back", () => {
+    expect(REOPEN_AT).toBe(4);
+    expect([collapsedBelt("/", 11, false, true), collapsedBelt("/", 5, false, true), collapsedBelt("/", 4, false, true), collapsedBelt("/", 0, false, true)]).toEqual([true, true, false, false]);
+    expect([collapsedBelt("/", 79, false, false), collapsedBelt("/", 74, false, false), collapsedBelt("/", 300, true, true)]).toEqual([false, false, false]);
   });
 });

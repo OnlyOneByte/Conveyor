@@ -79,6 +79,7 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--err` | `oklch(.5 .2 28)` | `oklch(.74 .16 28)` | Failed, Needs you |
 | `--off` | `oklch(.5 .01 60)` | `oklch(.68 .01 60)` | Offline, canceled |
 | `--belt` / `--tread` | `oklch(.26 .008 60)` / `oklch(.34 .008 60)` | `oklch(.12 .005 60)` / `oklch(.2 .006 60)` | The rail |
+| `--belt-ink` | `oklch(.9 .01 80)` | `oklch(.88 .01 80)` | Text, ticks and dot rings on the collapsed belt |
 | `--mat` | `oklch(.44 .075 168)` | `oklch(.31 .055 168)` | Model preview background |
 
 The model's faces use seven `--bin-*` tokens (safety-orange PLA) so the preview recolours with the theme. Colour is
