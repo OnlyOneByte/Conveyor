@@ -1,4 +1,14 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -39,6 +49,10 @@ beforeAll(async () => {
 beforeEach(() => {
   for (const spy of Object.values(fakes)) spy.mockClear();
   connection.status = "ready";
+});
+
+afterEach(() => {
+  connection.status = "end";
 });
 
 afterAll(async () => {
