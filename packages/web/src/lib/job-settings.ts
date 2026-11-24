@@ -61,9 +61,17 @@ export function jobName(
 ): string {
   if (!isRecord(params)) return generatorName;
   if (typeof params.filename === "string") return params.filename;
+  if (!ui?.groups?.length) return generatorName;
   const props = resolveRoot(schema)?.properties ?? {};
-  const first = primaryGroups(props, ui)[0];
-  const size =
-    first && ui?.groups?.length ? groupSummary(first, props, params, { ...ui, unitMm: {} }) : "";
-  return size ? `${generatorName} ${size}` : generatorName;
+  const sizes = primaryGroups(props, ui).flatMap((group) => {
+    const [only] = group.fields;
+    if (group.fields.length === 1 && only !== undefined) {
+      const units = params[only];
+      return typeof units === "number" && ui.unitMm?.[only] !== undefined ? [`${units}u`] : [];
+    }
+    if (!group.fields.every((field) => typeof params[field] === "number")) return [];
+    const size = groupSummary(group, props, params, { ...ui, unitMm: {} });
+    return size ? [size] : [];
+  });
+  return sizes.length ? `${generatorName} ${sizes.join(" · ")}` : generatorName;
 }
