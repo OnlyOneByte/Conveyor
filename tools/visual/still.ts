@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import type { Step } from "./scenes.ts";
+import type { Step } from "./scene.ts";
 
 export const JUMP_MS = 1;
 

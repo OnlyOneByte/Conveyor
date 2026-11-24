@@ -1,4 +1,4 @@
-import type { Scene, Step } from "./scenes.ts";
+import type { Scene, Step } from "../scene.ts";
 
 const job = (jobId: string, state: string, progress: number, gridX: number) => ({
   jobId,
@@ -36,7 +36,7 @@ const lateFailure = {
   updatedAt: Date.UTC(2026, 0, 1, 12, 1),
 };
 
-export const jobsScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "jobs-today",
     route: "/jobs?day=today",
@@ -130,6 +130,7 @@ export const jobsScenes: Scene[] = [
   {
     name: "jobs-keys",
     route: "/jobs",
+    visits: ["/jobs/j1"],
     ready: "[data-id]",
     record: true,
     steps: [

@@ -1,8 +1,9 @@
 import { version } from "$app/env";
 import { assets, immutable } from "$app/manifest";
+import { precached } from "./precache";
 
 const CACHE = `conveyor-cache-${version}`;
-const ASSETS = [...immutable, ...assets].map(({ path }) => (path.startsWith("/") ? path : `/${path}`));
+const ASSETS = precached([...immutable, ...assets].map(({ path }) => path));
 
 self.addEventListener("install", (event) => {
   const e = event as ExtendableEvent;

@@ -1,4 +1,4 @@
-import type { Scene, Step } from "./scenes.ts";
+import type { Scene, Step } from "../scene.ts";
 
 const ADDED = Date.UTC(2026, 0, 1, 12, 31);
 
@@ -43,7 +43,7 @@ const ahead = (jobId: string, createdAt: number) => ({
   createdAt,
 });
 
-export const liveScenes: Scene[] = [
+export const scenes: Scene[] = [
   live("queued", "main >> text=2nd", { state: "queued", timings: [] }, [
     {
       fulfill: "**/api/jobs/active",

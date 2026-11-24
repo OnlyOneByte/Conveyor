@@ -10,7 +10,9 @@
     "./db": "./src/db/index.ts",
     "./queue": "./src/queue/index.ts",
     "./uploads": "./src/upload-settings.ts",
-    "./node": "./src/node/index.ts"
+    "./node": "./src/node/index.ts",
+    "./profile": "./src/profile.ts",
+    "./status-lite": "./src/status-lite.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"
