@@ -108,6 +108,30 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   {
+    name: "receipt-printed",
+    route: "/jobs/seed-printed",
+    ready: "text=Print again",
+    steps: [{ wait: 1200 }],
+  },
+  {
+    name: "receipt-failed",
+    route: "/jobs/seed-failed",
+    ready: "text=Retry",
+    steps: [{ wait: 1200 }],
+  },
+  {
+    name: "receipt-canceled",
+    route: "/jobs/seed-canceled",
+    ready: "text=Print again",
+    steps: [{ wait: 1200 }],
+  },
+  {
+    name: "receipt-missing",
+    route: "/jobs/no-such-job",
+    ready: "text=We can't find that job",
+    steps: [{ wait: 1200 }],
+  },
+  {
     name: "monitor",
     route: "/monitor",
     ready: "h1",
