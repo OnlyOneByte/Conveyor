@@ -1,16 +1,12 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": {
-      "comments": 20,
+      "comments": 19,
       "suppressions": 0
     },
     "packages/web/src/lib/components/JobStatus.svelte": {
       "comments": 3,
       "suppressions": 0
-    },
-    "packages/web/src/lib/components/Login.svelte": {
-      "comments": 1,
-      "suppressions": 1
     },
     "packages/web/src/lib/components/MeshScene.svelte": {
       "comments": 9,

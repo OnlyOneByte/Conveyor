@@ -31,7 +31,7 @@
 <style>
   .field { display: grid; gap: var(--s1); }
   label { font-weight: 650; }
-  .box { display: flex; align-items: center; border: 1.5px solid var(--line-2); border-radius: var(--r-control); background: var(--paper); }
+  .box { display: flex; align-items: center; border: 1.5px solid var(--field-line); border-radius: var(--r-control); background: var(--paper); }
   .box:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .box.bad { border-color: var(--err); }
   input { flex: 1; min-width: 0; border: 0; background: transparent; min-height: 30px; outline: none; }

@@ -1,4 +1,5 @@
 import type { Viewport } from "./hits.ts";
+import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
   | { click: string }
@@ -17,6 +18,7 @@ export interface Scene {
   steps?: Step[];
   record?: boolean;
   fullPage?: boolean;
+  signedOut?: boolean;
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -157,6 +159,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 600 }],
   })),
+  ...signedOutScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",
