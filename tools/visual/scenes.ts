@@ -2,6 +2,7 @@ import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
 import { liveScenes } from "./scenes-live.ts";
+import { printersScenes } from "./scenes-printers.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { settingsScenes } from "./scenes-settings.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
@@ -111,6 +112,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   ...settingsScenes,
+  ...printersScenes,
   {
     name: "command-menu",
     route: "/",
