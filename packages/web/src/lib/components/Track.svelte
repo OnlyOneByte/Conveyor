@@ -1,10 +1,13 @@
 <script lang="ts">
   import { centre, type Group, MIN_CHIP_PX, merge, onRail, type RailState, SPANS, STAGE_LABELS, type TrackJob } from "#lib/track.js";
+  import { type Departure, departures, hopDistance } from "#lib/motion.js";
+  import { prefersReducedMotion } from "#lib/preferences.js";
   import { step } from "#lib/shortcuts.js";
   import Chip from "./Chip.svelte";
   import NeedsYou from "./NeedsYou.svelte";
 
   export let jobs: TrackJob[];
+  export let ended: TrackJob[] = [];
   export let idle = "Nothing on the rail";
   export let onAction: (job: TrackJob, action: string) => void = () => {};
   export let finishedToday: number | undefined = undefined;
@@ -15,6 +18,9 @@
   let groups: Group[] = [];
   const widths: Record<string, number> = {};
   const groupWidths: Record<string, number> = {};
+  const lefts = new Map<string, number>();
+  let leaving: Departure[] = [];
+  let hidden = false;
 
   $: moving = jobs.filter((j) => onRail(j.state));
   $: waiting = jobs.filter((j) => j.state === "queued").length;
@@ -28,7 +34,14 @@
   function layout(list: TrackJob[], px: number, sizes: Record<string, number>, grouped: Record<string, number>) {
     const placed = list.flatMap((j) => (onRail(j.state) ? [{ id: j.id, x: centre(j.state, j.progress ?? 0) * px, width: sizes[j.id] || MIN_CHIP_PX }] : []));
     groups = merge(placed, px, groups, (m) => grouped[m.map((p) => p.id).join(" ")] || Math.max(...m.map((p) => p.width)));
+    for (const g of groups) for (const id of g.ids) lefts.set(id, Math.round(g.x - g.width / 2));
   }
+  $: if (ended.length) leave(ended);
+  function leave(list: TrackJob[]) {
+    const now = departures(list, lefts);
+    if (now.length && !prefersReducedMotion()) leaving = [...leaving, ...now];
+  }
+  const landed = (job: TrackJob) => (leaving = leaving.filter((d) => d.job !== job));
   const members = (g: Group) => g.ids.flatMap((id) => byId.get(id) ?? []);
   $: if (active >= groups.length) active = 0;
 
@@ -45,7 +58,8 @@
   }
 </script>
 
-<section class="belt" aria-label="On the belt">
+<svelte:document on:visibilitychange={() => (hidden = document.hidden)} />
+<section class="belt" class:paused={hidden} aria-label="On the belt">
   <div class="queue">
     <span class="label">Queue</span>
     <span class="slot q">{waiting ? "Waiting" : "Empty"}{#if waiting}<span class="n">{waiting}</span>{/if}</span>
@@ -55,10 +69,13 @@
       <i class="tick" style="left: {stage.start * 100}%"></i>
       <span class="stage" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
     {/each}
-    <div class="rail"></div>
+    <div class="rail"><i class="treads" class:run={moving.length > 0}></i></div>
     <div class="chips" role="presentation" bind:this={rail} bind:clientWidth={railPx} on:keydown={walk}>
       {#each groups as group, i (group.ids.join(" "))}
         <Chip jobs={members(group)} left={Math.round(group.x - group.width / 2)} index={i} tabindex={i === active ? 0 : -1} end={group.x > railPx / 2} {onAction} />
+      {/each}
+      {#each leaving as { job, left } (job.id)}
+        <div class="gone {job.state}" style="--left: {left}px; --dx: {hopDistance(left, railPx)}px" aria-hidden="true" inert on:animationend={(event) => event.target === event.currentTarget && landed(job)}><Chip jobs={[job]} left={0} /></div>
       {/each}
     </div>
     {#if moving.length === 0 && waiting === 0}<span class="label idle">{idle}</span>{/if}
@@ -87,7 +104,18 @@
   .stage { position: absolute; bottom: 36px; font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .stage.on { color: var(--ink); }
   .stage.on::before { content: "● " / ""; color: var(--accent); }
-  .rail { position: absolute; inset: auto 0 8px; height: 22px; border-radius: 11px; background: repeating-linear-gradient(90deg, var(--tread) 0 3px, transparent 3px 26px), var(--belt); }
+  .rail { position: absolute; inset: auto 0 8px; height: 22px; overflow: hidden; border-radius: 11px; background: var(--belt); }
+  .treads { position: absolute; inset: 0 0 0 -26px; background: repeating-linear-gradient(90deg, var(--tread) 0 3px, transparent 3px 26px); }
+  .treads.run { animation: tread 1.3s linear infinite; will-change: transform; }
+  @keyframes tread { to { transform: translateX(26px); } }
+  .gone { position: absolute; inset: 0 auto auto 0; transform: translateX(var(--left)); animation: hop var(--t-hop) var(--ease-move) forwards; pointer-events: none; }
+  .gone.failed { animation-name: drop; }
+  .gone.canceled { animation: fade var(--t-fast) linear forwards; }
+  @keyframes hop { 60% { opacity: 1; } to { transform: translateX(calc(var(--left) + var(--dx))); opacity: 0; } }
+  @keyframes drop { 60% { opacity: 1; } to { transform: translate(calc(var(--left) + var(--dx)), 44px); opacity: 0; } }
+  @keyframes fade { to { opacity: 0; } }
+  .paused .treads, .paused .gone { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .treads.run { animation: none; } .gone { display: none; } }
   :global([data-theme="dark"]) .rail { box-shadow: 0 0 0 1px var(--faint); }
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
   .idle { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); white-space: nowrap; }

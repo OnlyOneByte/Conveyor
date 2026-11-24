@@ -106,6 +106,10 @@ never the only signal: every state also has an icon or a word.
 
 Under `prefers-reduced-motion: reduce`, durations become 0 and the treads stop. See [Reduced motion](#reduced-motion).
 
+Only `transform` and `opacity` animate, so motion never triggers layout. The treads drift right, one 26 px tread every
+1.3 s, while a job is on the rail, and stand still otherwise. They, and a chip mid-hop, pause while the tab is hidden.
+The collapsed bar's dots jump to their new place without a tween.
+
 ## Information architecture
 
 Three nouns in the main nav, in this order: **Make**, **Jobs**, **Printers**. Settings lives under Printers'

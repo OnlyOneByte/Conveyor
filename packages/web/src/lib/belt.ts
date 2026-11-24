@@ -52,15 +52,16 @@ export function trackJob(view: Status, was?: TrackJob, catalog: Catalog | null =
   return job;
 }
 
-export function createBelt(feed: Feed, show: (jobs: TrackJob[]) => void, tell: (news: News[]) => void) {
+export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[]) => void, tell: (news: News[]) => void) {
   let known = new Map<string, TrackJob>();
   const sockets = new Map<string, Socket>();
   let failures = 0;
 
   function settle(next: TrackJob[], extra: News[] = []) {
     tell([...changes(known, next, feed.clock()), ...extra]);
+    const ended = next.filter(settled);
     known = new Map(next.filter((job) => !settled(job)).map((job) => [job.id, job]));
-    show([...known.values()]);
+    show([...known.values()], ended);
     for (const [id, socket] of sockets) {
       const job = known.get(id);
       if (job && onRail(job.state)) continue;
@@ -91,7 +92,7 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[]) => void, tell: (
     if (!live) {
       if (++failures < FAILS_TO_CLEAR) return;
       stop();
-      show([]);
+      show([], []);
       if (known.size) tell([{ level: "polite", text: "The belt can't reach the server, so its jobs are hidden until it can" }]);
       known = new Map();
       return;

@@ -6,6 +6,7 @@
   import Track from "./Track.svelte";
 
   export let jobs: TrackJob[];
+  export let ended: TrackJob[] = [];
   export let onAction: (job: TrackJob, action: string) => void;
   export let finishedToday: number | undefined = undefined;
   export let needs: TrackJob[] = [];
@@ -46,7 +47,7 @@
 {:else}
   <div class="full" role="presentation" on:keydown={keys}>
     {#if opened}<button class="exp shut" type="button" aria-expanded="true" aria-label="Collapse the belt" bind:this={toggle} on:click={() => open(false)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg></button>{/if}
-    <Track {jobs} {onAction} {finishedToday} {needs} />
+    <Track {jobs} {ended} {onAction} {finishedToday} {needs} />
   </div>
 {/if}
 

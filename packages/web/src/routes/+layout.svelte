@@ -38,7 +38,7 @@
   });
   $: dark = resolveTheme($theme, osDark) === "dark";
 
-  let beltJobs: TrackJob[] = [];
+  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [];
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const ends = createEnds({ ...http, entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
@@ -52,7 +52,7 @@
   });
   const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
   const desk = createNewsDesk(announce);
-  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs) => (beltJobs = jobs), (news) => (desk(news), news.length && refreshEnds()));
+  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended) => ((beltJobs = jobs), (beltEnded = ended)), (news) => (desk(news), news.length && refreshEnds()));
   let polling = false;
   function tick() {
     if (polling || !showApp || document.visibilityState !== "visible") return;
@@ -101,7 +101,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
