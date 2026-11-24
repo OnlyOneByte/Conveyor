@@ -41,10 +41,13 @@ export interface Group {
   width: number;
 }
 
-export function merge(chips: Placed[], railPx: number, previous: Group[] = []): Group[] {
+const widest = (members: Placed[]) => Math.max(...members.map((m) => m.width));
+const clamp = (x: number, width: number, railPx: number) => Math.min(Math.max(x, width / 2), Math.max(width / 2, railPx - width / 2));
+
+export function merge(chips: Placed[], railPx: number, previous: Group[] = [], groupWidth = widest): Group[] {
   const together = new Set(previous.flatMap((g) => g.ids.slice(1).map((id, i) => `${g.ids[i]} ${id}`)));
   const groups: { members: Placed[]; x: number; width: number }[] = [];
-  for (const chip of [...chips].sort((a, b) => a.x - b.x)) {
+  for (const chip of chips.map((c) => ({ ...c, x: clamp(c.x, c.width, railPx) })).sort((a, b) => a.x - b.x)) {
     const last = groups.at(-1);
     const prior = last?.members.at(-1);
     const gap = last ? chip.x - chip.width / 2 - (last.x + last.width / 2) : Number.POSITIVE_INFINITY;
@@ -52,12 +55,12 @@ export function merge(chips: Placed[], railPx: number, previous: Group[] = []): 
     if (last && (gap < JOIN_PX || stays)) {
       last.members.push(chip);
       last.x = last.members.reduce((sum, m) => sum + m.x, 0) / last.members.length;
-      last.width = Math.max(last.width, chip.width);
+      last.width = groupWidth(last.members);
     } else groups.push({ members: [chip], x: chip.x, width: chip.width });
   }
   return groups.map(({ members, x, width }) => ({
     ids: members.map((m) => m.id),
-    x: Math.min(Math.max(x, width / 2), Math.max(width / 2, railPx - width / 2)),
+    x: clamp(x, width, railPx),
     width,
   }));
 }

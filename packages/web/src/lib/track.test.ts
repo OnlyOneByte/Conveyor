@@ -54,7 +54,7 @@ describe("collision and merge", () => {
     const chips = [at("m", "generating", 0.5), at("s", "slicing", 0.35), at("p", "printing", 0.64)];
     const groups = merge(chips, RAIL);
     expect(ids(groups)).toEqual([["m", "s"], ["p"]]);
-    expect(groups[0]?.x).toBeCloseTo(((chips[0]?.x ?? 0) + (chips[1]?.x ?? 0)) / 2);
+    expect(groups[0]?.x).toBeCloseTo((Math.max(chips[0]?.x ?? 0, W / 2) + (chips[1]?.x ?? 0)) / 2);
   });
 
   test("20 jobs: three slicing chips form one group near Slice; Send and Print stay separate", () => {
@@ -83,6 +83,15 @@ describe("collision and merge", () => {
     const groups = merge([{ id: "l", x: 10, width: W }, { id: "r", x: 995, width: W }], RAIL);
     expect(groups.map((g) => g.x)).toEqual([W / 2, RAIL - W / 2]);
     expect(merge([{ id: "n", x: 50, width: W }], 100)[0]?.x).toBe(W / 2);
+  });
+
+  test("clamps a chip before merging, so one pushed in from the rail end joins its neighbour", () => {
+    expect(ids(merge([{ id: "m", x: 19, width: W }, { id: "s", x: 208, width: W }], RAIL))).toEqual([["m", "s"]]);
+  });
+
+  test("a wider group chip pushes the next chip out of the gap", () => {
+    const chips = [{ id: "a", x: 300, width: W }, { id: "b", x: 380, width: W }, { id: "c", x: 560, width: W }];
+    expect([ids(merge(chips, RAIL)), ids(merge(chips, RAIL, [], () => 340))]).toEqual([[["a", "b"], ["c"]], [["a", "b", "c"]]]);
   });
 
   test("sorts by x first, so input order doesn't matter", () => {
