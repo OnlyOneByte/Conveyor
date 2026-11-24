@@ -50,7 +50,7 @@
       stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId, retryOf });
       location.assign("/?rerun=1");
     },
-  }, undefined, toasted);
+  }, { toasted });
   const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
   const desk = createNewsDesk(announce, undefined, toasted);
   const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended) => ((beltJobs = jobs), (beltEnded = ended)), (news) => (desk(news), news.length && refreshEnds()));

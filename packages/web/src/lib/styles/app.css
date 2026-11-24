@@ -41,7 +41,7 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
   min-height: var(--tap);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
-:where(button:hover:not(:disabled)) { border-color: var(--accent); }
+button:hover:not(:disabled) { border-color: var(--accent); }
 :where(button:disabled) { opacity: 0.5; cursor: not-allowed; }
 
 :where(button.primary) {

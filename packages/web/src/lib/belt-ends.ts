@@ -32,7 +32,7 @@ export const midnight = (now: Date) => new Date(now.getFullYear(), now.getMonth(
 
 const asStatus = (job: JobHistoryEntry) => ({ ...job, jobId: job.id, generator: job.request.generator, printerId: job.request.printerId });
 
-export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date(), toasted: Set<string> = new Set()) {
+export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(), toasted = new Set<string>() } = {}) {
   let failures = new Map<string, JobHistoryEntry>();
 
   async function refresh() {

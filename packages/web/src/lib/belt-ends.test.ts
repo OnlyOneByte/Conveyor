@@ -48,7 +48,7 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     toast: (text, action) => toasts.push(action ? { text, action } : { text }),
     say: (text, level) => said.push([text, level]),
     pick: (asked, retryOf) => picked.push([asked, retryOf]),
-  }, () => NOW);
+  }, { now: () => NOW });
   return { calls, said, shown, toasts, picked, ends, records, upload };
 }
 
@@ -135,7 +135,7 @@ describe("a cancel from the belt", () => {
       if (refuse.includes(id)) throw new Error("409");
     };
     const feed = { finished: async () => 0, needsYou: async () => [], entry: async () => null, submit: async () => ({}), retry: async () => ({ ok: true as const, jobId: "x" }), dismiss: async () => ({}), cancel, catalog: async () => catalog };
-    const ends = createEnds(feed, { show: () => {}, toast: (text, action) => toasts.show(text, action), say: (text) => said.push(text), pick: () => {} }, () => NOW, toasted);
+    const ends = createEnds(feed, { show: () => {}, toast: (text, action) => toasts.show(text, action), say: (text) => said.push(text), pick: () => {} }, { now: () => NOW, toasted });
     const desk = createNewsDesk((text) => said.push(text), (run, ms) => ms === BURST_MS && timers.push(run), toasted);
     const settle = (id: string) => {
       desk(changes(new Map([[id, { ...job, id, state: "printing" }]]), [{ ...job, id, state: "canceled" }], "14:05"));
