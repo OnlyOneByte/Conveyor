@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   ACTIVE_JOBS_KEY,
   CANCEL_TTL_SECONDS,
@@ -24,6 +23,7 @@ import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
+import { submitJob } from "./submit.js";
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 
@@ -55,9 +55,10 @@ export async function registerJobRoutes(
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
 
-    const jobId = randomUUID();
-    await jobQueue.add("job", submission.request, { jobId });
-    return reply.code(202).send({ jobId });
+    const result = await submitJob(openDb(), submission, (jobId, request) =>
+      jobQueue.add("job", request, { jobId }),
+    );
+    return reply.code(result.code).send(result.body);
   });
 
   const withFields = async (snapshot: JobStatusEvent): Promise<JobView> => {

@@ -160,6 +160,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
+| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once, and cleared if queueing fails), so the failure leaves the Needs-you list |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |

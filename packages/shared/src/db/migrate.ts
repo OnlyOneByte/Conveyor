@@ -126,6 +126,10 @@ export function migrate(db: Database): void {
     db.exec("ALTER TABLE jobs ADD COLUMN dismissed_at INTEGER");
   }
 
+  if (!columnsOf(db, "jobs").includes("retried_by")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN retried_by TEXT");
+  }
+
   if (!columnsOf(db, "jobs").includes("notes")) {
     db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
   }
