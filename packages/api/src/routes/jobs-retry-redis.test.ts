@@ -91,7 +91,7 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
     const atOnce = await Promise.all([1, 2, 3].map(() => post({ ...request, retryOf: two })));
     expect(inTurn[1]).toEqual({
       status: 409,
-      error: `retryOf: job ${one} is already being retried`,
+      error: `retryOf: job ${one} was already retried`,
       retriedBy: inTurn[0]?.jobId,
     });
     expect([inTurn[0]?.status, ...atOnce.map((a) => a.status).sort()]).toEqual([
