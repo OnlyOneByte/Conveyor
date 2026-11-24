@@ -70,6 +70,8 @@ export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
 
 export const SETTLED: JobState[] = ["done", "failed", "canceled"];
 
+const LIVED_MS = 30_000;
+
 type Socket = Pick<WebSocket, "close" | "onmessage" | "onclose">;
 
 export function followJob(
@@ -81,15 +83,12 @@ export function followJob(
 ): () => void {
   let socket: Socket | null = null;
   let stopped = false;
+  let ended = false;
   let tries = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const finish = () => {
     stopped = true;
     reload();
-  };
-  const seen = (view: JobView) => {
-    update(view);
-    if (SETTLED.includes(view.state)) finish();
   };
   const later = (run: () => void) => {
     timer = setTimeout(run, RETRY_MS[Math.min(tries++, RETRY_MS.length - 1)]);
@@ -98,20 +97,30 @@ export function followJob(
     const view = await snapshot(id).catch(() => null);
     if (stopped) return;
     if (!view && !reopen) return finish();
-    if (view) seen(view);
-    if (stopped) return;
-    if (reopen) open();
+    if (view && SETTLED.includes(view.state)) {
+      update(view);
+      return finish();
+    }
+    if (view && !ended) update(view);
+    if (reopen && !ended) open();
     else later(() => check(false));
   };
   const open = () => {
     const next = connect(id);
+    const opened = Date.now();
     socket = next;
     next.onmessage = (message) => {
-      tries = 0;
-      seen(JSON.parse(message.data));
+      const view: JobView = JSON.parse(message.data);
+      update(view);
+      if (!SETTLED.includes(view.state) || ended) return;
+      ended = true;
+      socket = null;
+      next.close();
+      void check(false);
     };
     next.onclose = ({ code }) => {
       if (stopped || socket !== next) return;
+      if (Date.now() - opened >= LIVED_MS) tries = 0;
       if (code === 1000 || code === 4404) void check(false);
       else later(() => check(true));
     };

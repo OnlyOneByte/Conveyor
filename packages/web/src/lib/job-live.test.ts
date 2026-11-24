@@ -72,13 +72,51 @@ function watch(...snapshots: (JobView | null)[]) {
 const snap = (state: JobView["state"]): JobView => ({ jobId: "j", state, at: 2 });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, (RETRY_MS[0] ?? 0) + 100));
+const twoPolls = () =>
+  new Promise((resolve) => setTimeout(resolve, (RETRY_MS[0] ?? 0) + (RETRY_MS[1] ?? 0) + 200));
 
 describe("followJob", () => {
-  test("passes events on, and reloads once the job settles", () => {
-    const live = watch();
+  test("passes events on, and reloads once the snapshot agrees the job settled", async () => {
+    const live = watch(snap("done"));
     live.sockets[0]?.send("printing");
     live.sockets[0]?.send("done");
-    expect([live.seen, live.ended]).toEqual([["printing", "done"], 1]);
+    await settle();
+    expect([live.seen, live.ended, live.sockets[0]?.closed]).toEqual([
+      ["printing", "done", "done"],
+      1,
+      true,
+    ]);
+  });
+
+  test("reloads once when the socket says done before the snapshot does", async () => {
+    const early = watch(snap("printing"), snap("printing"), snap("done"));
+    early.sockets[0]?.send("done");
+    await settle();
+    expect(early.ended).toBe(0);
+    await twoPolls();
+    expect([early.seen, early.reads, early.sockets.length, early.ended]).toEqual([
+      ["done", "done"],
+      3,
+      1,
+      1,
+    ]);
+    early.sockets[0]?.send("done");
+    await settle();
+    expect(early.ended).toBe(1);
+  });
+
+  test("keeps backing off when each new stream sends one event and drops", async () => {
+    const flaky = watch(snap("printing"));
+    flaky.sockets[0]?.send("printing");
+    flaky.sockets[0]?.drop(1011);
+    await settle();
+    flaky.sockets[1]?.send("printing");
+    flaky.sockets[1]?.drop(1011);
+    await settle();
+    expect(flaky.sockets.length).toBe(2);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_MS[1] ?? 0));
+    expect(flaky.sockets.length).toBe(3);
+    flaky.stop();
   });
 
   test("reloads when the stream closes for good and the job is gone or settled", async () => {
@@ -95,7 +133,7 @@ describe("followJob", () => {
     refused.sockets[0]?.drop(4404);
     await settle();
     expect(refused.ended).toBe(0);
-    await new Promise((resolve) => setTimeout(resolve, (RETRY_MS[0] ?? 0) + (RETRY_MS[1] ?? 0) + 200));
+    await twoPolls();
     expect([refused.seen, refused.sockets.length, refused.ended]).toEqual([
       ["printing", "printing", "done"],
       1,
