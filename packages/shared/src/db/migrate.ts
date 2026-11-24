@@ -122,6 +122,10 @@ export function migrate(db: Database): void {
     db.exec("ALTER TABLE jobs ADD COLUMN filament_json TEXT");
   }
 
+  if (!columnsOf(db, "jobs").includes("dismissed_at")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN dismissed_at INTEGER");
+  }
+
   if (!columnsOf(db, "jobs").includes("notes")) {
     db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
   }

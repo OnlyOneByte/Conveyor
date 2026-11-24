@@ -39,6 +39,7 @@ interface JobRow {
   timings_json: string | null;
   filament_json: string | null;
   notes: string | null;
+  dismissed_at: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -75,6 +76,7 @@ function rowToJob(r: JobRow): Job {
     timings: r.timings_json ? (JSON.parse(r.timings_json) as StageTiming[]) : undefined,
     filament: filamentOf(r.filament_json),
     notes: r.notes ?? undefined,
+    dismissedAt: r.dismissed_at ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -137,4 +139,33 @@ export function dbListJobs(db: Database, limit = 50): Job[] {
 export function dbGetJob(db: Database, id: string): Job | null {
   const row = db.query("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | null;
   return row ? rowToJob(row) : null;
+}
+
+export type DismissResult =
+  | { kind: "dismissed"; dismissedAt: number }
+  | { kind: "not-failed"; state: JobState }
+  | { kind: "unknown" };
+
+export function dbDismissJob(db: Database, id: string, at: number): DismissResult {
+  const row = db
+    .query<{ state: JobState; dismissed_at: number | null }, [number, string]>(
+      `UPDATE jobs SET dismissed_at = COALESCE(dismissed_at, ?)
+        WHERE id = ? AND state = 'failed' RETURNING state, dismissed_at`,
+    )
+    .get(at, id);
+  if (row && row.dismissed_at !== null) return { kind: "dismissed", dismissedAt: row.dismissed_at };
+  const found = db
+    .query<{ state: JobState }, [string]>("SELECT state FROM jobs WHERE id = ?")
+    .get(id);
+  return found ? { kind: "not-failed", state: found.state } : { kind: "unknown" };
+}
+
+export function dbListNeedsYou(db: Database, limit = 50): Job[] {
+  return db
+    .query<JobRow, [number]>(
+      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL
+        ORDER BY updated_at DESC, id DESC LIMIT ?`,
+    )
+    .all(limit)
+    .map(rowToJob);
 }

@@ -51,6 +51,7 @@ export interface Job {
   timings?: StageTiming[];
   filament?: FilamentUse;
   notes?: string;
+  dismissedAt?: number;
   createdAt: number;
   updatedAt: number;
 }

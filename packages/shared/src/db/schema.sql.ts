@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   timings_json  TEXT,
   filament_json TEXT,
   notes         TEXT,
+  dismissed_at  INTEGER,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   progress            REAL,
