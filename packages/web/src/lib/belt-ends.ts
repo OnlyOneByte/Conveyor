@@ -32,7 +32,7 @@ export const midnight = (now: Date) => new Date(now.getFullYear(), now.getMonth(
 
 const asStatus = (job: JobHistoryEntry) => ({ ...job, jobId: job.id, generator: job.request.generator, printerId: job.request.printerId });
 
-export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
+export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(), toasted = new Set<string>() } = {}) {
   let failures = new Map<string, JobHistoryEntry>();
 
   async function refresh() {
@@ -54,7 +54,11 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
   async function run(job: TrackJob, action: string) {
     const failed = failures.get(job.id);
     if (action === "Cancel") {
-      await feed.cancel(job.id);
+      toasted.add(job.id);
+      await feed.cancel(job.id).catch((error: unknown) => {
+        toasted.delete(job.id);
+        throw error;
+      });
       ui.toast(`${shortName(job.name)} canceled`, runnable(job) ? { label: "Print again", run: () => void act(job, "Print again") } : undefined);
     } else if (action === "Print again") await again(job);
     else if (action === "Pick printer" && failed) {

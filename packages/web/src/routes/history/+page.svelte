@@ -171,7 +171,7 @@
   .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .search {
     flex: 1; min-width: 12rem; font-size: 0.85rem; padding: 0.35rem 0.6rem;
-    border-radius: var(--radius); border: 1px solid var(--border);
+    border-radius: var(--radius); border: 1.5px solid var(--field-line);
     background: var(--bg); color: var(--text);
   }
   .search:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

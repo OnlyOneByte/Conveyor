@@ -9,6 +9,7 @@ export * from "./jobs.js";
 export { dbGetPrinterSecrets, SecretsKeyError } from "./printer-secrets.js";
 export * from "./printers.js";
 export * from "./profiles.js";
+export * from "./retry-claims.js";
 export { DEFAULT_PROFILES } from "./seed.js";
 export * from "./sessions.js";
 export * from "./typical.js";

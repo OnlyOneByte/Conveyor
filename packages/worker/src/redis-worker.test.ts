@@ -1,15 +1,16 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobSnapshotKey, parseStatusEvent } from "@conveyor/shared";
+import { ACTIVE_JOBS_KEY, jobSnapshotKey, parseStatusEvent, publishStatus } from "@conveyor/shared";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
 import { Queue } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { type RedisWorker, type RedisWorkerDeps, startRedisWorker } from "./index";
 import { startWorker } from "./main";
+import { ORPHAN_REASON, REAPER_INTERVAL_MS } from "./redis-reaper";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -173,5 +174,54 @@ describe.skipIf(!url)("the worker entry point on the Redis queue (real Redis)", 
     });
     expect(started.mode).toBe("redis");
     await started.stop();
+  });
+});
+
+describe.skipIf(!url)("the Redis worker's double-print guard (real Redis)", () => {
+  test("never re-runs a stalled job, reaps an orphan at start, and stops the reaper on stop()", async () => {
+    const name = `test-redis-worker-${randomUUID()}`;
+    const env = { REDIS_URL: redisUrl(), DB_PATH: join(dir, "conveyor.db"), DATA_DIR: dir };
+    const orphan = `test-orphan-${randomUUID()}`;
+    snapshots.push(orphan);
+    const redis = admin ?? track(redisUrl());
+    await publishStatus(redis, {
+      jobId: orphan,
+      state: "printing",
+      stage: "transport",
+      at: Date.now(),
+    });
+    const intervals = spyOn(globalThis, "setInterval");
+    const cleared = spyOn(globalThis, "clearInterval");
+    const closed = spyOn(Queue.prototype, "close");
+    try {
+      running = startRedisWorker(env, deps(name));
+      const reaperCall = intervals.mock.calls.findIndex(([, ms]) => ms === REAPER_INTERVAL_MS);
+      const reaperTimer = intervals.mock.results[reaperCall]?.value;
+      expect(reaperTimer).toBeDefined();
+      expect(running.worker.opts.maxStalledCount).toBe(0);
+      const db = openDb(env.DB_PATH);
+      const deadline = Date.now() + 4_000;
+      while (!dbGetJob(db, orphan)) {
+        if (Date.now() > deadline) throw new Error(`orphan ${orphan} was never reaped`);
+        await Bun.sleep(25);
+      }
+      expect(dbGetJob(db, orphan)).toMatchObject({
+        state: "failed",
+        error: { reason: ORPHAN_REASON },
+      });
+      expect(await redis.sismember(ACTIVE_JOBS_KEY, orphan)).toBe(0);
+      const lookups = closed.mock.contexts.length;
+      await running.stop();
+      running = undefined;
+      expect(cleared.mock.calls.some(([timer]) => timer === reaperTimer)).toBe(true);
+      const closedNames = closed.mock.contexts
+        .slice(lookups)
+        .flatMap((queue) => (queue instanceof Queue ? [queue.name] : []));
+      expect(closedNames).toContain(name);
+    } finally {
+      intervals.mockRestore();
+      cleared.mockRestore();
+      closed.mockRestore();
+    }
   });
 });

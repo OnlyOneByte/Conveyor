@@ -108,13 +108,20 @@ and stays in `GET /jobs-history`, which returns its `dismissedAt`.
 
 A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
 queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
-`retryOf:`, and nothing is queued. `submitJob` (`routes/submit.ts`) then claims the failure in one `UPDATE`
-that sets `retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`). A lost claim answers `409
-{ error, retriedBy }` and queues nothing, so a double-clicked Retry prints once. `error` names `retryOf`, and
-`retriedBy` is the id of the retry that holds the claim (`dbRetriedBy`), or `null` if it can't be read. On Make,
-`sendJob` turns the 409 into `AlreadyRetried` ("This job was already retried."), and Make links to that retry
-with "See the retry" at `/jobs/<retriedBy>`. A queueing error clears the claim (`dbReleaseRetry`). A claimed
+`retryOf:`, and nothing is queued. `routes/submit.ts` then claims the failure in one `UPDATE` that sets
+`retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`). A lost claim answers `409
+{ error, retriedBy }` and queues nothing, so a double-clicked Retry prints once. `error` is
+`retryOf: job <id> was already retried`, and `retriedBy` is the id of the retry that holds the claim
+(`dbRetriedBy`), or `null` if it can't be read. On Make, `sendJob` turns the 409 into `AlreadyRetried` ("This job
+was already retried."), and Make links to that retry with "See the retry" at `/jobs/<retriedBy>`. A claimed
 failure leaves `GET /jobs/needs-you` at once, without a dismissal.
+
+What happens to a claim when queueing the retry fails depends on the queue:
+
+| Queue | Function | A queueing error |
+| --- | --- | --- |
+| SQLite | `submitJobInTransaction` | Claim and enqueue run in one `IMMEDIATE` transaction, so the error rolls the claim back and the failure stays in Needs-you. |
+| Redis | `submitJob` | The claim is kept. BullMQ's `add` can fail after it stored the job, so releasing on any error could let a second retry print twice. The worker's reaper releases the claim only once the retry is missing from both SQLite and BullMQ on two sweeps in a row (#383, see [worker.md](worker.md#redis-reaperts)). |
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
