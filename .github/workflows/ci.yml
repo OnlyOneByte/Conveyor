@@ -164,6 +164,12 @@ jobs:
         run: |
           base=$(bun scripts/checks/base.ts --previous "$PREVIOUS")
           bun run check:coverage --base "$base"
+      - name: bun test in a random order
+        run: |
+          seed=$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')
+          echo "Test order seed: $seed. Rerun locally with: bun test --seed=$seed"
+          echo "Test order seed: \`$seed\` (rerun with \`bun test --seed=$seed\`)" >> "$GITHUB_STEP_SUMMARY"
+          bun test --seed="$seed"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

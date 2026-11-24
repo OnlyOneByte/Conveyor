@@ -46,6 +46,10 @@ The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when 
 fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
+CI's `test` job also runs the whole suite once more in a random order, with a seed it prints in the log and the
+job summary. A test that only fails there depends on what ran before it; rerun it locally with the same
+`bun test --seed=<seed>`, and make the test set up its own state.
+
 How the comments baseline works, and what each `check:comments` message means, is in
 [AGENTS.md §2](../AGENTS.md#2-no-comments). It is one file per area,
 `scripts/checks/comments/baseline/<area>.json`, and `bun run check:comments:update` rewrites only the areas
