@@ -1,6 +1,11 @@
 {
-  "url": "http://127.0.0.1:45285",
-  "warnings": [],
+  "url": "http://127.0.0.1:45391",
+  "warnings": [
+    "warm-up /jobs/seed-printed: waitFor: Timeout 120000ms exceeded.",
+    "warm-up /jobs/seed-failed: waitFor: Timeout 120000ms exceeded.",
+    "warm-up /jobs/seed-canceled: waitFor: Timeout 120000ms exceeded.",
+    "warm-up /jobs/no-such-job: waitFor: Timeout 120000ms exceeded."
+  ],
   "results": [
     {
       "scene": "home",
@@ -25,7 +30,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 539439,
+      "gifBytes": 539926,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +38,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 298063,
+      "gifBytes": 319863,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -53,6 +58,34 @@
       "width": 1440,
       "warnings": [],
       "png": "job-detail-failed-1440.png"
+    },
+    {
+      "scene": "receipt-printed",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-printed-1440.png"
+    },
+    {
+      "scene": "receipt-failed",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-failed-1440.png"
+    },
+    {
+      "scene": "receipt-canceled",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-canceled-1440.png"
+    },
+    {
+      "scene": "receipt-missing",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-missing-1440.png"
     },
     {
       "scene": "monitor",
@@ -89,7 +122,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 878094,
+      "gifBytes": 906903,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -189,7 +222,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 880405,
+      "gifBytes": 898755,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -215,7 +248,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 593694,
+      "gifBytes": 593673,
       "gif": "new-job-390.gif"
     },
     {
@@ -243,6 +276,34 @@
       "width": 390,
       "warnings": [],
       "png": "job-detail-failed-390.png"
+    },
+    {
+      "scene": "receipt-printed",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-printed-390.png"
+    },
+    {
+      "scene": "receipt-failed",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-failed-390.png"
+    },
+    {
+      "scene": "receipt-canceled",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-canceled-390.png"
+    },
+    {
+      "scene": "receipt-missing",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "receipt-missing-390.png"
     },
     {
       "scene": "monitor",
@@ -279,7 +340,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1070400,
+      "gifBytes": 1072294,
       "gif": "keyboard-390.gif"
     },
     {
@@ -379,7 +440,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1011285,
+      "gifBytes": 1011259,
       "gif": "primitives-keys-390.gif"
     }
   ]
