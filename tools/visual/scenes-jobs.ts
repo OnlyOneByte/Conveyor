@@ -23,7 +23,63 @@ const active = (json: unknown, status = 200): Step => ({
   json,
 });
 
+const lateFailure = {
+  id: "stale-failed",
+  request: {
+    generator: { id: "gridfinity", params: { gridX: 1, gridY: 1, heightUnits: 3 } },
+    printerId: "elegoo-1",
+    profileId: "orca/klipper-pla-0.2",
+  },
+  state: "failed",
+  error: { stage: "slicer", reason: "no profile" },
+  createdAt: Date.UTC(2026, 0, 1, 12, 0),
+  updatedAt: Date.UTC(2026, 0, 1, 12, 1),
+};
+
 export const jobsScenes: Scene[] = [
+  {
+    name: "jobs-today",
+    route: "/jobs?day=today",
+    ready: "text=Today only",
+    steps: [{ waitFor: "h2 >> text=/^Today ·/" }, { wait: 300 }],
+  },
+  {
+    name: "jobs-down-belt",
+    route: "/jobs",
+    ready: "h1",
+    steps: [
+      active(LIVE),
+      { fulfill: "**/api/jobs-history?*", status: 503, json: { error: "down" } },
+      { click: ".pill >> text=Printed" },
+      { click: ".pill >> text=All" },
+      { waitFor: "[role=alert] >> text=Can't reach Conveyor" },
+      { waitFor: "[data-id='j1']" },
+      { wait: 300 },
+    ],
+  },
+  {
+    name: "jobs-stale",
+    route: "/jobs",
+    ready: "[data-id]",
+    widths: [1440],
+    steps: [
+      {
+        fulfill: "**/api/jobs-history?*state=failed*",
+        status: 200,
+        json: [lateFailure],
+        delayMs: 2500,
+      },
+      { click: ".pill >> text=Failed" },
+      { waitFor: "text=Loading jobs…" },
+      { click: ".pill >> text=Printed" },
+      { wait: 3500 },
+      {
+        waitFor:
+          'section.jobs:not(:has([data-id="stale-failed"])) .pill[aria-pressed="true"] >> text=Printed',
+        timeout: 1000,
+      },
+    ],
+  },
   {
     name: "jobs",
     route: "/jobs",

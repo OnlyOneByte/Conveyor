@@ -63,7 +63,7 @@ export function liveRow(view: JobView, catalog: Catalog | null, now: number): Ro
   const request = view.generator && view.printerId && view.profileId ? { generator: view.generator, printerId: view.printerId, profileId: view.profileId } : undefined;
   return {
     id: view.jobId,
-    name: view.generator ? named(view.generator, catalog) : "Job",
+    name: view.generator ? shortName(named(view.generator, catalog)) : "Job",
     state: view.state,
     progress: view.progress ?? 0,
     printer: printerName(view.printerId, catalog),
@@ -85,7 +85,7 @@ export function settledRow(entry: JobHistoryEntry, catalog: Catalog | null, now:
         : "canceled";
   return {
     id: entry.id,
-    name: named(entry.request.generator, catalog),
+    name: shortName(named(entry.request.generator, catalog)),
     state: entry.state,
     progress: 1,
     printer: printerName(entry.request.printerId, catalog),
@@ -121,11 +121,24 @@ export function mergeSettled(older: Row[], fresh: Row[]): Row[] {
   return [...fresh, ...older.filter((row) => !seen.has(row.id))].sort((a, b) => b.at - a.at || (a.id < b.id ? 1 : -1));
 }
 
-export function historyPath(filter: Filter, after: Row | undefined): string {
+export function historyPath(filter: Filter, after: Row | undefined, since?: number): string {
   const query = new URLSearchParams({ limit: String(PAGE) });
   if (filter !== "all" && filter !== "live") query.set("state", filter);
   if (after) query.set("before", `${after.at}:${after.id}`);
+  if (since !== undefined) query.set("since", String(since));
   return `${API}/jobs-history?${query}`;
+}
+
+export function latest() {
+  let at = 0;
+  return {
+    start: () => ++at,
+    now: () => at,
+    keep: async <T>(token: number, work: Promise<T>): Promise<{ value: T } | null> => {
+      const value = await work;
+      return token === at ? { value } : null;
+    },
+  };
 }
 
 async function getJson<T>(path: string, fetchFn: typeof fetch): Promise<T> {
@@ -134,9 +147,10 @@ async function getJson<T>(path: string, fetchFn: typeof fetch): Promise<T> {
   return r.json();
 }
 
-export const fetchPage = (filter: Filter, after: Row | undefined, fetchFn: typeof fetch = fetch) =>
-  getJson<JobHistoryEntry[]>(historyPath(filter, after), fetchFn);
-export const fetchCounts = (fetchFn: typeof fetch = fetch) => getJson<Counts>(`${API}/jobs-history/counts`, fetchFn);
+export const fetchPage = (filter: Filter, after: Row | undefined, since?: number, fetchFn: typeof fetch = fetch) =>
+  getJson<JobHistoryEntry[]>(historyPath(filter, after, since), fetchFn);
+export const fetchCounts = (since?: number, fetchFn: typeof fetch = fetch) =>
+  getJson<Counts>(`${API}/jobs-history/counts${since === undefined ? "" : `?since=${since}`}`, fetchFn);
 
 export const EMPTY: Record<Filter, string> = {
   all: "No jobs yet",

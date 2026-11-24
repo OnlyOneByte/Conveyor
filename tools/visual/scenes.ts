@@ -15,7 +15,7 @@ export type Step =
   | { scroll: string }
   | { waitFor: string; timeout?: number; warn?: string }
   | { wait: number }
-  | { fulfill: string; method?: string; status: number; json: unknown }
+  | { fulfill: string; method?: string; status: number; json: unknown; delayMs?: number }
   | { follow: string }
   | { history: "back" | "forward"; url?: string }
   | { hits: string; viewports: readonly Viewport[] }

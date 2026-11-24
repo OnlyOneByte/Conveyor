@@ -4,6 +4,7 @@
   export let kind: "loading" | "down" | "empty";
   export let filter: Filter;
   export let retry: () => void = () => {};
+  export let today = false;
 </script>
 
 {#if kind === "loading"}
@@ -11,7 +12,7 @@
 {:else if kind === "down"}
   <div class="state" role="alert"><p class="big">Can't reach Conveyor</p><p>The job history didn't load. Check that the server is running, then try again.</p><button class="btn primary" type="button" on:click={retry}>Try again</button></div>
 {:else}
-  <div class="state"><p class="big">{EMPTY[filter]}</p>{#if filter === "all"}<p>Jobs show up here as soon as you print one.</p><a class="btn primary" href="/">Make something</a>{/if}</div>
+  <div class="state"><p class="big">{today ? "Nothing finished today" : EMPTY[filter]}</p>{#if filter === "all" && !today}<p>Jobs show up here as soon as you print one.</p><a class="btn primary" href="/">Make something</a>{/if}</div>
 {/if}
 
 <style>

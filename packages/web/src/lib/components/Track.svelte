@@ -85,7 +85,7 @@
     </div>
   </div>
   <div class="bins">
-    <a class="slot done" href="/jobs">Finished<span class="n">{finished} today</span></a>
+    <a class="slot done" href="/jobs?day=today">Finished<span class="n">{finished} today</span></a>
     {#if needs}{#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}{:else if failed}<span class="slot needs">Needs you<span class="n">{failed}</span></span>{/if}
   </div>
 </section>

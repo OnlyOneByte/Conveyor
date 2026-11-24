@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { JobView } from "@conveyor/shared";
 import type { JobHistoryEntry } from "./api";
 import type { Catalog } from "./catalog";
-import { cancelRow, canCancel, DAY_MS, FILTERS, groupRows, historyPath, liveRow, mergeSettled, PAGE, pillCount, retryRow, settledRow } from "./jobs-list";
+import { cancelRow, canCancel, DAY_MS, FILTERS, groupRows, historyPath, latest, liveRow, mergeSettled, PAGE, pillCount, retryRow, settledRow } from "./jobs-list";
 
 const NOW = new Date(2026, 10, 24, 15, 0);
 const now = NOW.getTime();
@@ -17,7 +17,7 @@ const entry = (id: string, state: JobHistoryEntry["state"], updatedAt: number, e
 
 describe("the Jobs list", () => {
   test("a live row says its stage in words, with its percent while measured, its printer by name and when it was added", () => {
-    expect(liveRow(view("a", "printing", { progress: 0.64 }), catalog, now)).toMatchObject({ id: "a", name: "Gridfinity Bin 2×3 · 6u", printer: "Voron 2.4", status: "printing, 64%", time: "added 2m ago", why: undefined, request });
+    expect(liveRow(view("a", "printing", { progress: 0.64 }), catalog, now)).toMatchObject({ id: "a", name: "Bin 2×3 · 6u", printer: "Voron 2.4", status: "printing, 64%", time: "added 2m ago", why: undefined, request });
     expect(liveRow(view("b", "queued"), catalog, now).status).toBe("waiting");
     expect(liveRow(view("c", "generating"), catalog, now).status).toBe("building the model");
     expect(liveRow(view("d", "transferring", { progress: 0.5, generator: undefined, printerId: undefined }), null, now)).toMatchObject({ name: "Job", printer: undefined, status: "sending, 50%", request: undefined });
@@ -82,5 +82,24 @@ describe("the Jobs list", () => {
     expect(historyPath("all", undefined)).toBe("/api/jobs-history?limit=50");
     const [last] = rows(["z", 123]);
     expect(historyPath("failed", last)).toBe("/api/jobs-history?limit=50&state=failed&before=123%3Az");
+    expect(historyPath("done", undefined, 1000)).toBe("/api/jobs-history?limit=50&state=done&since=1000");
+  });
+
+  test("only the latest request's answer is kept, whatever order the answers arrive in", async () => {
+    const req = latest();
+    const deferred = <T>() => {
+      let done: (value: T) => void = () => {};
+      const promise = new Promise<T>((resolve) => (done = resolve));
+      return { promise, done };
+    };
+    const failed = deferred<string>();
+    const printed = deferred<string>();
+    const first = req.keep(req.start(), failed.promise);
+    const second = req.keep(req.start(), printed.promise);
+    printed.done("printed rows");
+    failed.done("failed rows");
+    expect([await second, await first]).toEqual([{ value: "printed rows" }, null]);
+    const poll = req.keep(req.now(), Promise.resolve("refresh"));
+    expect(await poll).toEqual({ value: "refresh" });
   });
 });

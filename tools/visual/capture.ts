@@ -73,11 +73,11 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
   else if ("follow" in step) await follow(page, step.follow);
   else if ("fulfill" in step)
-    await page.route(step.fulfill, (route) =>
-      step.method && route.request().method() !== step.method
-        ? route.fallback()
-        : route.fulfill({ status: step.status, json: step.json }),
-    );
+    await page.route(step.fulfill, async (route) => {
+      if (step.method && route.request().method() !== step.method) return route.fallback();
+      if (step.delayMs) await Bun.sleep(step.delayMs);
+      return route.fulfill({ status: step.status, json: step.json });
+    });
   else if ("history" in step) await travel(page, step.history, step.url);
   else if ("holds" in step) await assertHolds(page, step);
   else if ("still" in step) await assertStill(page, step);
