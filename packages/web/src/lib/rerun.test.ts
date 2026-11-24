@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { linkedRetry, rerunRequest, submitError } from "./rerun";
+import { ALREADY_RETRIED, linkedRetry, rerunRequest, sendJob } from "./rerun";
 
 const request = { generator: { id: "gridfinity", params: { gridX: 2 } }, printerId: "voron", profileId: "pla" };
 
@@ -30,7 +30,13 @@ describe("whether a job can run again", () => {
     ]).toEqual(["f1", undefined, undefined, undefined, undefined]);
   });
 
-  test("a 409 for a failure already retried reads in plain words; other errors pass through", () => {
-    expect([submitError("retryOf: job f1 is already being retried"), submitError("unknown printer p")]).toEqual(["This failure was already retried.", "unknown printer p"]);
+  test("Make sends a retry through retryJob; a 409 reads in plain words, other refusals pass through", async () => {
+    const sent: string[] = [];
+    const replying = (status: number, body: object) => Object.assign(async (_: string | URL | Request, init?: RequestInit) => (sent.push(String(init?.body)), Response.json(body, { status })), { preconnect: fetch.preconnect });
+    expect(await sendJob(request, "f1", replying(202, { jobId: "j2" }))).toEqual({ jobId: "j2" });
+    expect(sent).toEqual([JSON.stringify({ ...request, retryOf: "f1" })]);
+    await expect(sendJob(request, "f1", replying(409, { error: "retryOf: job f1 is already being retried" }))).rejects.toThrow(ALREADY_RETRIED);
+    await expect(sendJob(request, "f1", replying(400, { error: "unknown printer voron" }))).rejects.toThrow("unknown printer voron");
+    expect(ALREADY_RETRIED).toBe("This job was already retried.");
   });
 });

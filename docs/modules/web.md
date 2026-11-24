@@ -15,11 +15,17 @@ submit it themselves.
 - **Applying it.** Make applies the stash after the catalog has loaded, so its selections win over the reactive
   defaults, which only fill empty selections. A printer or profile that no longer exists is set anyway. The
   eligibility filters then fall back to a valid default, and the user picks again.
-- **`retryOf`.** Pick printer stashes the failure's id as `retryOf`. `linkedRetry` sends it only while Make still
-  generates with the stashed generator. Switching to Upload or to another generator drops the link, so an
-  unrelated print can't spend the failure's retry and clear it from Needs you. Make forgets the handoff after
-  one submit attempt, whatever its result.
-  - **A 409:** a failure that was already retried is shown as "This failure was already retried." (`submitError`).
+- **`retryOf`.** Pick printer stashes the failure's id in the payload's `retryOf` field, and preselects a printer
+  other than the one that failed (the first in the catalog that takes the job's generator), leaving the profile
+  for Make to default. `linkedRetry` keeps `retryOf` only while Make still generates with the stashed
+  generator. Switching to Upload or to another generator drops the link, so an unrelated print can't spend the
+  failure's retry and clear it from Needs you. Make forgets the handoff after one submit attempt, whatever its
+  result.
+  - **One send path:** with `retryOf`, Make's Print goes through `sendJob`, which calls `retryJob` (`lib/retry.ts`)
+    like the tray's Retry. Without it, `sendJob` calls `submitJob`.
+  - **A 409:** a failure that was already retried is shown as "This job was already retried." (`ALREADY_RETRIED`).
+- **Recent jobs.** After a submit, Make records the job in the browser's recent-jobs memory (`lib/recent-jobs.ts`),
+  so a refresh keeps it visible.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
   isn't an upload (an upload's file isn't kept), and still has a printer and a profile.
   - **Users:** the receipt and the belt's Print-again toast both decide with it.

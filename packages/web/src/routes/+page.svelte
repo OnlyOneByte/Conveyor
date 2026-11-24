@@ -7,14 +7,13 @@
   import SchemaForm from "#lib/components/SchemaForm.svelte";
   import JobStatus from "#lib/components/JobStatus.svelte";
   import {
-    submitJob,
     uploadStl,
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
-  import { linkedRetry, type RerunPayload, submitError, takeRerun } from "#lib/rerun.js";
+  import { linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -147,12 +146,7 @@
         source === "upload"
           ? { id: "passthrough", params: { uploadId, filename: uploadName } }
           : { id: selectedGen!.id, params };
-      const res = await submitJob({
-        generator,
-        printerId: selectedPrinterId,
-        profileId: selectedProfileId,
-        ...(retryOf ? { retryOf } : {}),
-      });
+      const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       jobId = res.jobId;
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
@@ -163,7 +157,7 @@
         state: "queued",
       });
     } catch (e) {
-      error = submitError((e as Error).message);
+      error = (e as Error).message;
     } finally {
       submitting = false;
       handoff = null;

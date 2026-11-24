@@ -57,7 +57,12 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
       await feed.cancel(job.id);
       ui.toast(`${shortName(job.name)} canceled`, runnable(job) ? { label: "Print again", run: () => void act(job, "Print again") } : undefined);
     } else if (action === "Print again") await again(job);
-    else if (action === "Pick printer" && failed) ui.pick({ ...failed.request, printerId: "", profileId: "" }, job.id);
+    else if (action === "Pick printer" && failed) {
+      const { printerId, generator } = failed.request;
+      const printers = (await feed.catalog().catch(() => null))?.printers ?? [];
+      const other = printers.find((p) => p.id !== printerId && (!p.allowedGenerators || p.allowedGenerators.includes(generator.id)));
+      ui.pick({ ...failed.request, printerId: other?.id ?? "", profileId: "" }, job.id);
+    }
     else if (action === "Retry" && failed) {
       const retried = await feed.retry(failed);
       if (!retried.ok && retried.status !== 409) throw new Error(retried.error);

@@ -6,6 +6,8 @@
  * to the tab, so it never leaks a stale prefill into an unrelated later visit.
  */
 import type { JobState } from "@conveyor/shared";
+import { submitJob } from "./api";
+import { retryJob } from "./retry";
 
 const KEY = "conveyor.rerun";
 
@@ -25,8 +27,14 @@ interface Rerunnable {
 export const linkedRetry = (handoff: RerunPayload | null, source: string, generatorId: string | undefined) =>
   handoff?.retryOf && source === "generate" && generatorId === handoff.generatorId ? handoff.retryOf : undefined;
 
-export const submitError = (message: string) =>
-  message.startsWith("retryOf:") && message.endsWith("already being retried") ? "This failure was already retried." : message;
+export const ALREADY_RETRIED = "This job was already retried.";
+
+export async function sendJob(request: Rerunnable["request"], retryOf?: string, fetchFn: typeof fetch = fetch): Promise<{ jobId: string }> {
+  if (!retryOf) return submitJob({ ...request, generator: { ...request.generator, params: request.generator.params } });
+  const retried = await retryJob({ id: retryOf, request }, fetchFn);
+  if (retried.ok) return { jobId: retried.jobId };
+  throw new Error(retried.status === 409 ? ALREADY_RETRIED : retried.error);
+}
 
 export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
   const settled = state === "done" || state === "canceled";

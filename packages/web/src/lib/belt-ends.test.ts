@@ -10,7 +10,11 @@ const at = (hours: number) => new Date(2026, 10, 24, hours).getTime();
 const request = { generator: { id: "gridfinity", params: { gridX: 2, gridY: 3 } }, printerId: "voron", profileId: "pla" };
 const entry = (id: string, state: JobHistoryEntry["state"], updatedAt = at(9), extra: Partial<JobHistoryEntry> = {}): JobHistoryEntry => ({ id, request, state, createdAt: updatedAt, updatedAt, ...extra });
 const catalog = {
-  printers: [{ id: "voron", name: "Voron 2.4", transportId: "klipper", address: "192.0.2.9", hasSecrets: false }],
+  printers: [
+    { id: "voron", name: "Voron 2.4", transportId: "klipper", address: "192.0.2.9", hasSecrets: false },
+    { id: "prusa", name: "Prusa", transportId: "prusalink", address: "192.0.2.10", hasSecrets: false, allowedGenerators: ["passthrough"] },
+    { id: "ender", name: "Ender 3", transportId: "klipper", address: "192.0.2.11", hasSecrets: false },
+  ],
   generators: [{ id: "gridfinity", name: "Gridfinity Bin", outputs: [], paramSchema: { properties: { gridX: { type: "integer" }, gridY: { type: "integer" } } }, ui: { groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" as const }] } }],
 };
 const job: TrackJob = { id: "f1", name: "Gridfinity Bin 2 × 3", state: "failed", printer: "Voron 2.4" };
@@ -66,7 +70,7 @@ describe("the belt's end states", () => {
     expect([taken.said, taken.shown.length]).toEqual([[["Bin 2 × 3 is already being retried.", "polite"]], 2]);
   });
 
-  test("a refused retry is announced; Dismiss dismisses, and Pick printer hands over the request without a printer, with retryOf", async () => {
+  test("a refused retry is announced; Dismiss dismisses, and Pick printer hands over the request on another printer that takes it, with retryOf", async () => {
     const { calls, said, picked, ends } = rig([], { ok: false, status: 500, error: "down" });
     await ends.refresh();
     await ends.act(job, "Retry");
@@ -74,7 +78,7 @@ describe("the belt's end states", () => {
     await ends.act(job, "Pick printer");
     expect(said).toEqual([["Couldn't retry Bin 2 × 3.", "assertive"]]);
     expect(calls.filter((c) => !c.startsWith("finished")).slice(1)).toEqual(['dismiss "f1"']);
-    expect(picked).toEqual([[{ ...request, printerId: "", profileId: "" }, "f1"]]);
+    expect(picked).toEqual([[{ ...request, printerId: "ender", profileId: "" }, "f1"]]);
   });
 
   test("canceling a running job, which has no record yet, offers Print again from the chip's request, without retryOf", async () => {
