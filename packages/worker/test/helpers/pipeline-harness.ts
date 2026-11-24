@@ -145,6 +145,7 @@ export function buildDeps(h: Harness, opts: HarnessOptions): PipelineDeps {
       secrets: { mainboardId: "mainboard-abc" },
     }),
     printerSeen: (printerId) => h.seen.push(printerId),
+    readFilament: async () => undefined,
     resolveProfile: async () => ({
       profile: { id: "prof", name: "prof", path: "/profiles/prof" },
       source: "bundled",

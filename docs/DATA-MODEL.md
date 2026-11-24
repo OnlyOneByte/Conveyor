@@ -157,7 +157,9 @@ row is inserted at enqueue and carries the job through its whole life.
 | `model_path` | text null | `/data/<id>/model.stl` |
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
 | `timings_json` | text null | when each stage was entered and how long it took (`StageTiming[]`) |
+| `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
+| `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |
@@ -178,6 +180,12 @@ rows stay inert history.
 | `job_id` | text | the job |
 | `event` | text | a serialized `JobStatusEvent`, the frame the WebSocket sends |
 | `at` | integer | epoch ms |
+
+A `printing` event can carry `print: { layer?, layers?, secondsLeft? }` (`PrintProgress` in
+`packages/shared/src/events.ts`): the current layer, the layer count and the printer's seconds left, each
+only when the printer reports it. It lives only in the event: the `jobs` row has no column for it, so in
+SQLite mode `GET /jobs/:id` leaves it out and a client gets it from the next tailed event. In Redis mode the
+`job:<id>` snapshot is the whole last event and keeps it.
 
 ### sessions
 

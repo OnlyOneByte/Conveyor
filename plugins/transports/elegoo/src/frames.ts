@@ -61,6 +61,8 @@ export const StatusData = z
             Progress: reading,
             CurrentLayer: reading,
             TotalLayer: reading,
+            CurrentTicks: reading,
+            TotalTicks: reading,
           })
           .prefault({}),
       })

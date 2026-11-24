@@ -69,8 +69,8 @@ sequenceDiagram
     W->>T: status(handle)
     loop until terminal
         P-->>T: progress
-        T-->>W: PrintStatus{printing, progress}
-        W->>R: publish state=printing, progress
+        T-->>W: PrintStatus{printing, progress, print?}
+        W->>R: publish state=printing, progress, print?
         R-->>API-->>PWA: printing 0.0 → 1.0
     end
     W->>R: publish state=done
@@ -127,6 +127,7 @@ sequenceDiagram
 - A print cancelled on the printer itself settles as `canceled`.
 - A status stream that ends without `done`, `failed` or `canceled` settles `failed` with `connection lost before completion`. A dropped connection never looks like a finished print.
 - A cancel that lands during the upload stops the transport before it sends the start command. The transport throws `PrintNotStartedError`, no stop is sent, and the job settles `canceled`.
+- A `printing` event may carry `print: { layer?, layers?, secondsLeft? }`, copied from the transport's `PrintStatus.print`. Each field is there only when the printer reported it; nothing is estimated in the worker. The browser derives the finish time from the event's `at` plus `secondsLeft`. Other states never carry `print`. `parseStatusEvent` refuses an event whose `print` has a negative or fractional `layer`, a `layers` below 1, or a negative `secondsLeft`.
 - Every status write goes through one Lua script (`PUBLISH_STATUS_SCRIPT` in `packages/shared/src/status.ts`) that refuses to replace a `done`, `failed` or `canceled` snapshot. A late progress event or a racing writer cannot reopen a finished job.
 
 ## Notes

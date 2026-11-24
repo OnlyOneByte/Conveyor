@@ -64,6 +64,33 @@ describe("cancel keys", () => {
   });
 });
 
+describe("a status event's print fields", () => {
+  const event = (print?: unknown) =>
+    JSON.stringify({ jobId: "j1", state: "printing", at: 5, progress: 0.5, print });
+
+  test("are kept when valid, and an event without them still parses", () => {
+    const print = { layer: 12, layers: 240, secondsLeft: 2460 };
+    expect(parseStatusEvent(event(print))?.print).toEqual(print);
+    expect(parseStatusEvent(event({ layer: 0 }))?.print).toEqual({ layer: 0 });
+    expect(parseStatusEvent(event())).toEqual({
+      jobId: "j1",
+      state: "printing",
+      at: 5,
+      progress: 0.5,
+    });
+  });
+
+  test.each([
+    { layer: -1 },
+    { layer: 1.5 },
+    { layers: 0 },
+    { secondsLeft: -1 },
+    { secondsLeft: "soon" },
+  ])("refuse the whole event when one is out of range: %j", (print) => {
+    expect(parseStatusEvent(event(print))).toBeUndefined();
+  });
+});
+
 describe("a status event's upload bytes", () => {
   const event = (bytes: Record<string, unknown>) =>
     JSON.stringify({ jobId: "j1", state: "transferring", at: 5, ...bytes });

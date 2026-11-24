@@ -6,7 +6,7 @@ import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/s
 import type { FastifyInstance } from "fastify";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
-import { parseSubmission, registerArtifactRoute } from "./job-common.js";
+import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
@@ -76,6 +76,7 @@ export async function registerJobRoutes(
   });
 
   registerArtifactRoute(app);
+  registerNeedsYouRoutes(app);
 
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const jobId = req.params.id;

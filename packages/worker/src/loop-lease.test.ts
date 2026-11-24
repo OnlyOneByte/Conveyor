@@ -36,12 +36,12 @@ describe("the sqlite queue worker", () => {
       {
         generate: async () => {
           holder.exec("BEGIN IMMEDIATE");
-          await Bun.sleep(150);
+          await Bun.sleep(1700);
           holder.exec("COMMIT");
-          await Bun.sleep(100);
+          await Bun.sleep(700);
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 1000 } },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 2000 }, renewEvery: 140 },
     );
     await until(() => row("a").state === "done", 10_000);
     holder.close();
