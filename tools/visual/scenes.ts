@@ -1,4 +1,5 @@
 import type { Viewport } from "./hits.ts";
+import { REACH, toastOnMake } from "./reach.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
@@ -23,20 +24,6 @@ export interface Scene {
 
 const keys = (...presses: string[]): Step[] =>
   presses.flatMap((press) => [{ press }, { wait: 400 }]);
-
-const REACH: Viewport[] = [
-  [390, 844],
-  [390, 667],
-  [700, 900],
-  [1440, 900],
-];
-
-const toastOnMake: Step[] = [
-  { click: "button:has-text('Show a toast')" },
-  { click: "nav[aria-label='Main'] a[href='/']" },
-  { waitFor: "text=Configure", timeout: 15000 },
-  { hover: ".toasts .toast" },
-];
 
 export const WIDTHS = [1440, 390] as const;
 
