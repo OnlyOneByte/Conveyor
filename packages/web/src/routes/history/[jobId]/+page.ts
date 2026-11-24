@@ -1,10 +1,4 @@
-import { fetchJobHistoryEntry, signedIn } from "#lib/api.js";
+import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
-export const ssr = false;
-
-export const load: PageLoad = async ({ params, fetch, parent }) => {
-  if (!signedIn((await parent()).auth)) return { jobId: params.jobId, job: null };
-  const job = await fetchJobHistoryEntry(params.jobId, fetch);
-  return { jobId: params.jobId, job };
-};
+export const load: PageLoad = ({ params }) => redirect(308, `/jobs/${encodeURIComponent(params.jobId)}`);

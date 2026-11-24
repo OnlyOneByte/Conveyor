@@ -8,11 +8,6 @@
   // reload reflects the latest state, not the state at submit time. Snapshots
   // live in Redis and may have expired — in that case we keep the last-known
   // state rather than dropping the row.
-  //
-  // Each entry is a LINK, and where it points depends on whether the job has
-  // settled. Only terminal jobs get a durable row, so /history/<id> would show
-  // "no settled job" for one still running; those link to the home page's live
-  // status panel instead, which is the only place a running job can be watched.
 
   const TERMINAL = new Set(["done", "failed", "canceled"]);
 
@@ -43,7 +38,7 @@
   }
 
   const isSettled = (state: RecentJob["state"]) => TERMINAL.has(state);
-  const hrefFor = (j: RecentJob) => (isSettled(j.state) ? `/history/${j.jobId}` : `/?job=${j.jobId}`);
+  const hrefFor = (j: RecentJob) => (isSettled(j.state) ? `/jobs/${j.jobId}` : `/?job=${j.jobId}`);
 </script>
 
 {#if $recentJobs.length}

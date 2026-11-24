@@ -31,7 +31,7 @@
     const known = catalog.status === "fulfilled" ? catalog.value : null;
     const recent = jobs.status === "fulfilled" ? jobs.value : [];
     commands = [
-      ...jobCommands(recent, known, (id) => goto(`/history/${id}`)),
+      ...jobCommands(recent, known, (id) => goto(`/jobs/${id}`)),
       ...actions,
       ...printerCommands(known?.printers ?? [], () => goto("/settings")),
     ];
