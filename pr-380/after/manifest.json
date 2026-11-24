@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35889",
+  "url": "http://127.0.0.1:34137",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 484940,
+      "gifBytes": 532415,
       "gif": "new-job-1440.gif"
     },
     {
@@ -89,7 +89,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 757241,
+      "gifBytes": 839203,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -121,7 +121,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 616053,
+      "gifBytes": 685856,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -147,7 +147,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 600202,
+      "gifBytes": 593779,
       "gif": "new-job-390.gif"
     },
     {
@@ -155,7 +155,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357306,
+      "gifBytes": 357026,
       "gif": "job-progress-390.gif"
     },
     {
@@ -211,7 +211,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1065840,
+      "gifBytes": 1061606,
       "gif": "keyboard-390.gif"
     },
     {
@@ -243,7 +243,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1002065,
+      "gifBytes": 1004978,
       "gif": "primitives-keys-390.gif"
     }
   ]
