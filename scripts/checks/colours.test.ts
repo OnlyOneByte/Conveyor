@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DEFERRED_3D, isChecked, rawColours, scan } from "./colours";
 
 const hits = (lines: string[], path = "packages/web/src/x.svelte") =>
@@ -39,10 +42,67 @@ describe("the raw colour check", () => {
     ).toEqual([]);
   });
 
-  test("allows 0x colours only in the deferred 3D files", () => {
-    const [file] = [...DEFERRED_3D];
-    expect(hits(["color: 0x2dd4bf, background: #fff"], file)).toEqual(["1: #fff"]);
-    expect(DEFERRED_3D.size).toBe(3);
+  test("finds named colours under any property, custom property, attribute or assignment", () => {
+    expect(
+      hits([
+        ".a { --tone: red; --glow: 0 0 2px gold; }",
+        '<div style:color="white"><rect fill="black" stroke={"navy"} /></div>',
+        'el.style.background = "teal"; const theme = { accent: "orange" };',
+        ".b { background: linear-gradient(to right, red 10%, blue); box-shadow: 0 0 4px black; }",
+      ]),
+    ).toEqual([
+      "1: red",
+      "1: gold",
+      "2: white",
+      "2: black",
+      "2: navy",
+      "3: teal",
+      "3: orange",
+      "4: red",
+      "4: blue",
+      "4: black",
+    ]);
+  });
+
+  test("leaves colour words in prose and method names alone", () => {
+    expect(
+      hits([
+        'const t = Math.tan(half); const label = "Red bins are white on the belt";',
+        '<img alt="A tan bin" /> title="green means done"',
+        "const c = palette.red; const d = theme.white;",
+      ]),
+    ).toEqual([]);
+  });
+
+  test("does not read #face or #add links as hex colours", () => {
+    expect(
+      hits(['<a href="#face">', "<a href='#add'>", '<a href="/jobs#bead">', "goto(`/x#decade`)"]),
+    ).toEqual([]);
+    expect(hits(['x = "#face"; .a { color: #add; }'])).toEqual(["1: #face", "1: #add"]);
+  });
+
+  test("allows 0x colours only in the deferred 3D files, which are exactly these three", () => {
+    expect([...DEFERRED_3D].sort()).toEqual([
+      "packages/web/src/lib/components/MeshScene.svelte",
+      "packages/web/src/lib/components/PreviewScene.svelte",
+      "packages/web/src/lib/previews/gridfinity.ts",
+    ]);
+    for (const file of DEFERRED_3D) {
+      expect(existsSync(join(import.meta.dir, "..", "..", file))).toBe(true);
+      expect(hits(["color: 0x2dd4bf, background: #fff"], file)).toEqual(["1: #fff"]);
+    }
+    expect(hits(["color: 0x2dd4bf"], "packages/web/src/lib/previews/gridfinity.tsx")).toEqual([
+      "1: 0x2dd4bf",
+    ]);
+  });
+
+  test("fails when git ls-files fails instead of passing on an empty list", () => {
+    const outside = mkdtempSync(join(tmpdir(), "colours-"));
+    try {
+      expect(() => scan(outside)).toThrow("git ls-files failed");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   test("checks web sources only, and never the token file", () => {
