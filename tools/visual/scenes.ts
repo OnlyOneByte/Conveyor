@@ -26,7 +26,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
-  widths?: readonly number[];
+  widths?: readonly (typeof WIDTHS)[number][];
 }
 
 const keys = (...presses: string[]): Step[] =>

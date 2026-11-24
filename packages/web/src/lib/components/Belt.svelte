@@ -12,10 +12,12 @@
   let scrollY = 0;
   let opened = false;
   let toggle: HTMLButtonElement | undefined;
-  const TICKS = Object.values(SPANS).slice(1).map(([start]) => start);
+  const TICKS = [...Object.values(SPANS).slice(1).map(([start]) => start), 1];
+  let collapsed = false;
+  const next = (path: string, y: number, open: boolean) => collapsedBelt(path, y, open, collapsed);
 
   afterNavigate(() => (opened = false));
-  $: collapsed = collapsedBelt(page.url.pathname, scrollY, opened);
+  $: collapsed = next(page.url.pathname, scrollY, opened);
   $: dots = jobs.flatMap((job) => (onRail(job.state) ? [{ id: job.id, x: centre(job.state, job.progress ?? 0) }] : []));
   $: waiting = jobs.filter((job) => job.state === "queued").length;
 
@@ -58,6 +60,8 @@
   .mini u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: color-mix(in oklch, var(--belt-ink) 70%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
   .exp { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
+  .bar :focus-visible { outline-color: var(--belt-ink); }
+  .mini u:last-of-type { transform: translateX(-100%); }
   .exp svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .full { position: relative; }
   .shut { position: absolute; top: 0; right: 0; z-index: 6; background: var(--belt); }

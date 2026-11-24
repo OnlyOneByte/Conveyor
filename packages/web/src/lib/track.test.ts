@@ -4,6 +4,7 @@ import {
   ACTIONS,
   COLLAPSE_AT,
   collapsedBelt,
+  REOPEN_AT,
   centre,
   chipName,
   groupName,
@@ -165,5 +166,11 @@ describe("when the belt collapses to its 40 px bar", () => {
     expect(COLLAPSE_AT).toBe(80);
     expect([collapsedBelt("/", 0, false), collapsedBelt("/", 80, false), collapsedBelt("/", 81, false)]).toEqual([false, false, true]);
     expect([collapsedBelt("/history", 0, false), collapsedBelt("/jobs/a", 0, false), collapsedBelt("/settings", 0, true), collapsedBelt("/", 300, true)]).toEqual([true, true, false, false]);
+  });
+
+  test("once collapsed on Make it stays collapsed until the page is back near the top, so the shrink can't flip it back", () => {
+    expect(REOPEN_AT).toBe(4);
+    expect([collapsedBelt("/", 11, false, true), collapsedBelt("/", 5, false, true), collapsedBelt("/", 4, false, true), collapsedBelt("/", 0, false, true)]).toEqual([true, true, false, false]);
+    expect([collapsedBelt("/", 79, false, false), collapsedBelt("/", 74, false, false), collapsedBelt("/", 300, true, true)]).toEqual([false, false, false]);
   });
 });
