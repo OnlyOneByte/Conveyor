@@ -202,7 +202,7 @@ async function main(): Promise<number> {
     warnings = await warmUp(browser, stack.url);
     for (const w of warnings) console.log(`warn ${w}`);
     for (const width of WIDTHS) {
-      for (const scene of selected) {
+      for (const scene of selected.filter((s) => !s.widths || s.widths.includes(width))) {
         const r = await shoot({ browser, base: stack.url, scene, width });
         results.push(r);
         console.log(describe(r));

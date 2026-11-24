@@ -29,6 +29,7 @@
   --off: oklch(0.5 0.01 60);
   --belt: oklch(0.26 0.008 60);
   --tread: oklch(0.34 0.008 60);
+  --belt-ink: oklch(0.9 0.01 80);
   --mat: oklch(0.44 0.075 168);
   --lift: 0 1px 2px color-mix(in oklch, var(--ink) 12%, transparent);
   --lift-hi: 0 6px 18px color-mix(in oklch, var(--ink) 18%, transparent);
@@ -54,6 +55,7 @@
   --off: oklch(0.68 0.01 60);
   --belt: oklch(0.12 0.005 60);
   --tread: oklch(0.2 0.006 60);
+  --belt-ink: oklch(0.88 0.01 80);
   --mat: oklch(0.31 0.055 168);
   --lift: 0 1px 2px oklch(0 0 0 / 0.4);
   --lift-hi: 0 6px 18px oklch(0 0 0 / 0.5);

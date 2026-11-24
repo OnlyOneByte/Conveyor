@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import {
   ACTIONS,
+  COLLAPSE_AT,
+  collapsedBelt,
   centre,
   chipName,
   groupName,
@@ -155,5 +157,13 @@ describe("chip text", () => {
     const members = [job("slicing", 0.35), { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" }, job("slicing", 0.12)];
     expect(groupVisible(members)).toBe("3 jobs 35% · … · 12%");
     expect(groupName(members)).toBe("3 jobs 35% · … · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing");
+  });
+});
+
+describe("when the belt collapses to its 40 px bar", () => {
+  test("on Make only past 80 px of scroll, on every other page always, and never while opened", () => {
+    expect(COLLAPSE_AT).toBe(80);
+    expect([collapsedBelt("/", 0, false), collapsedBelt("/", 80, false), collapsedBelt("/", 81, false)]).toEqual([false, false, true]);
+    expect([collapsedBelt("/history", 0, false), collapsedBelt("/jobs/a", 0, false), collapsedBelt("/settings", 0, true), collapsedBelt("/", 300, true)]).toEqual([true, true, false, false]);
   });
 });

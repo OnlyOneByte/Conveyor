@@ -17,6 +17,9 @@ export const STAGE_LABELS: Record<RailState, string> = {
 };
 
 export const INSET = 0.02;
+export const COLLAPSE_AT = 80;
+
+export const collapsedBelt = (path: string, scrollY: number, opened: boolean) => !opened && (path !== "/" || scrollY > COLLAPSE_AT);
 export const JOIN_PX = 6;
 export const SPLIT_PX = 16;
 export const MIN_CHIP_PX = 156;

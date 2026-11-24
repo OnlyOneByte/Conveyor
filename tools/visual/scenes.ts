@@ -1,5 +1,6 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
+import { beltScenes } from "./scenes-belt.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
@@ -24,6 +25,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
+  widths?: readonly number[];
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -149,6 +151,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 600 }],
   })),
   ...signedOutScenes,
+  ...beltScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",
