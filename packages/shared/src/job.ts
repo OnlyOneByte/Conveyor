@@ -1,24 +1,8 @@
 import { z } from "zod";
+import type { JobState } from "./job-states.js";
 import type { Stage } from "./plugins.js";
 
-export const JOB_STATES = [
-  "queued",
-  "generating",
-  "slicing",
-  "transferring",
-  "printing",
-  "done",
-  "failed",
-  "canceled",
-] as const;
-
-export type JobState = (typeof JOB_STATES)[number];
-
-export const TERMINAL_STATES: readonly JobState[] = ["done", "failed", "canceled"];
-
-export function isTerminal(state: JobState): boolean {
-  return TERMINAL_STATES.includes(state);
-}
+export * from "./job-states.js";
 
 export const jobRequestSchema = z.object({
   generator: z.object({ id: z.string(), params: z.unknown().optional() }),

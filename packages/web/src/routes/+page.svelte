@@ -364,12 +364,12 @@
         {/if}
       {:else if printers.length && !eligiblePrinters.length}
         <p class="muted">
-          No printer accepts <span class="mono">{activeGeneratorId}</span>. Adjust a
-          printer's generator allowlist in Settings.
+          No printer accepts <span class="mono">{activeGeneratorId}</span>. Change which
+          generators a printer takes on <a href="/printers">Printers</a>.
         </p>
       {:else}
         <p class="muted">
-          {printers.length ? "No profiles registered." : "No printers configured."} Add one in Settings.
+          {#if printers.length}No profiles registered. Add one in <a href="/settings">Settings</a>.{:else}No printers yet. Add one on <a href="/printers">Printers</a>.{/if}
         </p>
       {/if}
 

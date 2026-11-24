@@ -10,7 +10,7 @@
   import Viewport from "#lib/components/Viewport.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
-  import { firstEnd, followJob, pillText, SETTLED } from "#lib/job-live.js";
+  import { followJob, pillText, SETTLED } from "#lib/job-live.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
@@ -26,7 +26,8 @@
   $: {
     stop();
     latest = null;
-    stop = data.view ? followJob(data.view.jobId, (v) => (latest = v), settle) : () => {};
+    const watching = data.view && !SETTLED.includes(data.view.state) ? data.view.jobId : null;
+    stop = watching ? followJob(watching, (v) => (latest = v), settle) : () => {};
   }
   onDestroy(() => stop());
   afterNavigate(({ to }) => {
@@ -65,8 +66,7 @@
   }
 
   function settle() {
-    const id = data.view && !SETTLED.includes(data.view.state) ? data.view.jobId : null;
-    if (id && firstEnd(id)) setTimeout(invalidateAll, 300);
+    setTimeout(invalidateAll, 300);
   }
 </script>
 
