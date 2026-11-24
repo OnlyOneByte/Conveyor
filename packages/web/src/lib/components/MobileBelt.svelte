@@ -56,6 +56,7 @@
   .mini { position: relative; height: 8px; margin-top: 6px; border-radius: 4px; background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
   .exp { display: grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
+  .chip :focus-visible { outline-color: var(--belt-ink); }
   .exp svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .sheet { display: grid; gap: 6px; max-height: 60vh; margin-top: var(--s2); overflow-y: auto; }
   .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px var(--s2); min-height: 48px; padding: 6px 14px; border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
