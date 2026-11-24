@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:43617",
+  "url": "http://127.0.0.1:46341",
   "warnings": [],
   "results": [
     {
@@ -9,11 +9,17 @@
       "png": "home-1440.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "upload-empty-1440.png"
+    },
+    {
       "scene": "new-job",
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 377727,
+      "gifBytes": 440239,
       "gif": "new-job-1440.gif"
     },
     {
@@ -21,7 +27,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 244932,
+      "gifBytes": 278036,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -55,17 +61,49 @@
       "png": "settings-1440.png"
     },
     {
+      "scene": "primitives",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-1440.png"
+    },
+    {
+      "scene": "primitives-fields",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-fields-1440.png"
+    },
+    {
+      "scene": "primitives-dialog",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-dialog-1440.png"
+    },
+    {
+      "scene": "primitives-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-keys-1440.png",
+      "gifBytes": 459283,
+      "gif": "primitives-keys-1440.gif"
+    },
+    {
       "scene": "home",
       "width": 390,
       "warnings": [],
       "png": "home-390.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 390,
+      "warnings": [],
+      "png": "upload-empty-390.png"
+    },
+    {
       "scene": "new-job",
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 538821,
+      "gifBytes": 558677,
       "gif": "new-job-390.gif"
     },
     {
@@ -73,7 +111,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 313303,
+      "gifBytes": 353652,
       "gif": "job-progress-390.gif"
     },
     {
@@ -105,6 +143,32 @@
       "width": 390,
       "warnings": [],
       "png": "settings-390.png"
+    },
+    {
+      "scene": "primitives",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-390.png"
+    },
+    {
+      "scene": "primitives-fields",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-fields-390.png"
+    },
+    {
+      "scene": "primitives-dialog",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-dialog-390.png"
+    },
+    {
+      "scene": "primitives-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-keys-390.png",
+      "gifBytes": 794530,
+      "gif": "primitives-keys-390.gif"
     }
   ]
 }
