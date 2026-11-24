@@ -2,6 +2,7 @@
   import "#lib/styles/app.css";
   import { onMount } from "svelte";
   import { fetchAuthStatus, logout, type AuthStatus } from "#lib/api.js";
+  import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
   import Toasts from "#lib/ui/Toasts.svelte";
 
@@ -42,6 +43,7 @@
     <span class="muted tag">self-hosted · generate → slice → print</span>
     <span class="spacer"></span>
     {#if showApp}
+      <Keyboard />
       <!-- Icon-only, so each carries an explicit accessible name; `title` gives sighted
            users the same hover affordance. Inline SVGs rather than ⚙/🗒 characters,
            which render as colour emoji on many platforms and ignore currentColor. -->

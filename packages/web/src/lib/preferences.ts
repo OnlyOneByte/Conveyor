@@ -48,6 +48,11 @@ if (typeof window !== "undefined") {
   });
 }
 
+const SINGLE_KEYS_OFF = "conveyor.prefs.singleKeysOff";
+
+export const singleKeyShortcuts = writable<boolean>(!read(SINGLE_KEYS_OFF));
+singleKeyShortcuts.subscribe((on) => persist(SINGLE_KEYS_OFF, !on));
+
 export type Theme = "system" | "light" | "dark";
 
 const THEME_KEY = "conveyor.prefs.theme";

@@ -98,6 +98,30 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   {
+    name: "command-menu",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
+  },
+  {
+    name: "shortcut-sheet",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ wait: 500 }, ...keys("?"), { waitFor: "dialog[open] >> text=Keyboard shortcuts" }],
+  },
+  {
+    name: "keyboard",
+    route: "/",
+    ready: "text=Configure",
+    record: true,
+    steps: [
+      { wait: 800 },
+      ...keys("Control+k", "j", "o", "b", "s", "Enter"),
+      { waitFor: "a.jobid" },
+      ...keys("j", "j", "j", "k"),
+    ],
+  },
+  {
     name: "primitives",
     route: "/primitives",
     ready: "text=Primitives",
@@ -112,7 +136,7 @@ export const scenes: Scene[] = [
     name: "primitives-fields",
     route: "/primitives",
     ready: "text=Fields",
-    steps: [{ click: "text=Single-key shortcuts" }, { click: "text=Name" }, { wait: 400 }],
+    steps: [{ click: "main >> text=Single-key shortcuts" }, { click: "text=Name" }, { wait: 400 }],
   },
   {
     name: "primitives-dialog",
@@ -135,7 +159,7 @@ export const scenes: Scene[] = [
     ready: "text=Primitives",
     record: true,
     steps: keys(
-      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
+      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
       ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
     ),
   },
