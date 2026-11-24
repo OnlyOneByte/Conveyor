@@ -25,7 +25,8 @@
     toggle?.focus();
   }
   function keys(event: KeyboardEvent) {
-    if (event.key === "Escape" && opened && !event.defaultPrevented) void open(false);
+    const tray = event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
+    if (event.key === "Escape" && opened && !event.defaultPrevented && !tray) void open(false);
   }
 </script>
 
