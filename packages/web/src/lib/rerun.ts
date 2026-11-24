@@ -5,13 +5,40 @@
  * arbitrary JSON that would be fragile and size-limited in a URL — and it is scoped
  * to the tab, so it never leaks a stale prefill into an unrelated later visit.
  */
+import type { JobState } from "@conveyor/shared";
+import { submitJob } from "./api";
+import { retryJob } from "./retry";
+
 const KEY = "conveyor.rerun";
 
-interface RerunPayload {
+export interface RerunPayload {
   generatorId: string;
   params?: unknown;
   printerId: string;
   profileId: string;
+  retryOf?: string;
+}
+
+interface Rerunnable {
+  state: JobState;
+  request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
+}
+
+export const linkedRetry = (handoff: RerunPayload | null, source: string, generatorId: string | undefined) =>
+  handoff?.retryOf && source === "generate" && generatorId === handoff.generatorId ? handoff.retryOf : undefined;
+
+export const ALREADY_RETRIED = "This job was already retried.";
+
+export async function sendJob(request: Rerunnable["request"], retryOf?: string, fetchFn: typeof fetch = fetch): Promise<{ jobId: string }> {
+  if (!retryOf) return submitJob({ ...request, generator: { ...request.generator, params: request.generator.params } });
+  const retried = await retryJob({ id: retryOf, request }, fetchFn);
+  if (retried.ok) return { jobId: retried.jobId };
+  throw new Error(retried.status === 409 ? ALREADY_RETRIED : retried.error);
+}
+
+export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
+  const settled = state === "done" || state === "canceled";
+  return settled && request.generator.id !== "passthrough" && request.printerId && request.profileId ? request : null;
 }
 
 /** Stash a job's request for the home page to pick up. Best-effort. */
