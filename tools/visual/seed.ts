@@ -10,7 +10,10 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
     profileId: "orca/klipper-pla-0.2",
     state: "failed",
     stage: "transport",
-    error: { stage: "transport", reason: "printer 192.0.2.50 did not answer within 10 s" },
+    error: {
+      stage: "transport",
+      reason: "elegoo upload failed: Unable to connect. Is the computer able to access the url?",
+    },
   },
   {
     id: "seed-canceled",
@@ -20,6 +23,23 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
     profileId: "orca/klipper-pla-0.2",
     state: "canceled",
     stage: "slicer",
+  },
+  {
+    id: "seed-printed",
+    generatorId: "gridfinity",
+    params: { gridX: 2, gridY: 3, heightUnits: 6, divisionsX: 2, magnetHoles: true },
+    printerId: "elegoo-1",
+    profileId: "orca/klipper-pla-0.2",
+    state: "done",
+    stage: "transport",
+    modelPath: "/data/jobs/seed-printed/model.stl",
+    gcodePath: "/data/jobs/seed-printed/model.gcode",
+    timings: [
+      { stage: "generator", enteredAt: 1795000000000, durationMs: 2000 },
+      { stage: "slicer", enteredAt: 1795000002000, durationMs: 41000 },
+      { stage: "transport", enteredAt: 1795000043000, durationMs: 4326000 },
+    ],
+    filament: { grams: 12.4, metres: 4.1 },
   },
 ];
 

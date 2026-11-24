@@ -32,7 +32,7 @@ export interface Feed {
   clock(): string;
 }
 
-const titled = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
+export const titled = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
 const settled = (job: TrackJob) => job.state === "done" || job.state === "failed" || job.state === "canceled";
 
 export function named(generator: NonNullable<Status["generator"]>, catalog: Catalog | null) {

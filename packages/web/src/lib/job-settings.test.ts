@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FormUiHints } from "@conveyor/shared";
 import type { JsonSchema } from "./form-schema.js";
-import { jobName, settingRows } from "./job-settings.js";
+import { duration, jobName, settingRows } from "./job-settings.js";
 
 const schema: JsonSchema = {
   $ref: "#/definitions/Bin",
@@ -68,5 +68,19 @@ describe("jobName", () => {
   test("falls back to the generator's name", () => {
     expect(jobName("Gridfinity Bin", null, schema, ui)).toBe("Gridfinity Bin");
     expect(jobName("Gridfinity Bin", { gridX: 2 }, schema, null)).toBe("Gridfinity Bin");
+  });
+});
+
+describe("duration", () => {
+  test("reads in seconds, minutes, then hours and minutes", () => {
+    expect([1400, 41_000, 59_400, 59_600, 600_000, 3_600_000, 4_326_000].map(duration)).toEqual([
+      "1 s",
+      "41 s",
+      "59 s",
+      "1 min",
+      "10 min",
+      "1 h",
+      "1 h 12 min",
+    ]);
   });
 });
