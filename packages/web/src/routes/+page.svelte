@@ -181,7 +181,7 @@
             hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
           />
         {:else}
-          <p class="note">No printer can print this yet. Add one in Settings.</p>
+          <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
         {/if}
       </section>
       {#if jobId}{#key jobId}

@@ -63,7 +63,7 @@
       {/each}
     </div>
   {:else}
-    <p class="note">No profile works with this printer yet. Add one in Settings.</p>
+    <p class="note">No profile works with this printer yet. Add one in <a href="/settings">Settings</a>.</p>
   {/if}
 </fieldset>
 

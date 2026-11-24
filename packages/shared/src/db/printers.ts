@@ -10,7 +10,7 @@ export interface PrinterInput {
   transportId: string;
   name: string;
   address: string;
-  secrets?: PrinterSecretsPatch;
+  secrets?: PrinterSecretsPatch | null;
   allowedGenerators?: string[];
 }
 
@@ -75,7 +75,7 @@ function mergedSecrets(db: Database, id: string, patch: PrinterSecretsPatch): st
   if (!stored.ok) {
     throw new PrinterSecretsWriteError(
       "StoredSecretsUnreadable",
-      `printer ${id}'s stored secrets can't be read, so they can't be updated; delete the printer and add it again`,
+      `printer ${id}'s stored secrets can't be read, so they can't be updated; clear its saved secrets and enter them again`,
     );
   }
   const merged = { ...stored.value };
@@ -97,7 +97,7 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
 }
 
 function upsertPrinter(db: Database, p: PrinterInput): void {
-  const secrets = p.secrets === undefined ? null : mergedSecrets(db, p.id, p.secrets);
+  const secrets = p.secrets ? mergedSecrets(db, p.id, p.secrets) : null;
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)
