@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { measure } from "./casts/count";
-import { BASELINE_PATH, checkRatchet } from "./casts/ratchet";
+import { BASELINE_PATH, checkRatchet, parsePairs } from "./casts/ratchet";
 import { updateRefusal } from "./comments/ratchet";
 import { treeAt, workingTree } from "./comments/tree";
 import { serializeBaseline } from "./lines/baseline";
@@ -35,7 +35,12 @@ const check = (baseRef: string) => {
   const current = measure(tree);
   console.log(`\`as\` casts: ${total(current)} (base ${baseRef})`);
   const present = new Set(tree.list());
-  const errors = checkRatchet({ current, committed: tree.read(BASELINE_PATH), base, present });
+  const diff = Bun.spawnSync(["git", "diff", "-M", "-C", "-z", "--name-status", baseRef], {
+    cwd: ROOT,
+  });
+  const pairs = diff.exitCode === 0 ? parsePairs(diff.stdout.toString()) : [];
+  const committed = tree.read(BASELINE_PATH);
+  const errors = checkRatchet({ current, committed, base, present, pairs });
   for (const error of errors) console.error(error);
   return errors.length === 0 ? 0 : 1;
 };

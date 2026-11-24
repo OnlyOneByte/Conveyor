@@ -94,8 +94,9 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 - No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
 - No `as` casts except `as const` (or `<const>`). Parse values; don't assert them. [CI: `lint`, through
   `bun run check:casts` over every `.ts` file and Svelte `<script>` block; the casts that predate it are
-  listed in `scripts/checks/casts/baseline.json`, which may only shrink, and a renamed or split file keeps
-  its allowance. Casts inside Svelte markup: review]
+  listed in `scripts/checks/casts/baseline.json`, which may only shrink. A file that is new to the base may
+  take over a removed file's allowance only when `git diff -M -C` pairs the two as a rename or copy (a
+  split), and never more than the removed file had. Casts inside Svelte markup: review]
 - No `enum`. Use a string-literal union with a `const` array:
   `export const JOB_STATES = ["queued", "slicing", "done"] as const; export type JobState = (typeof JOB_STATES)[number];` [review]
 - IDs are branded, never bare `string`:
