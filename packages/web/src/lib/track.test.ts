@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import {
   ACTIONS,
+  beltSummary,
   COLLAPSE_AT,
   collapsedBelt,
   centre,
@@ -165,5 +166,14 @@ describe("when the belt collapses to its 40 px bar", () => {
     expect(COLLAPSE_AT).toBe(80);
     expect([collapsedBelt("/", 0, false), collapsedBelt("/", 80, false), collapsedBelt("/", 81, false)]).toEqual([false, false, true]);
     expect([collapsedBelt("/history", 0, false), collapsedBelt("/jobs/a", 0, false), collapsedBelt("/settings", 0, true), collapsedBelt("/", 300, true)]).toEqual([true, true, false, false]);
+  });
+});
+
+describe("the mobile belt's summary line", () => {
+  const job = (id: string, state: JobState, extra: Partial<TrackJob> = {}): TrackJob => ({ id, name: "Gridfinity Bin 2 × 3", state, ...extra });
+  test("counts waiting and moving jobs, and leads with the printing job's printer and percent", () => {
+    expect(beltSummary([job("a", "queued"), job("b", "slicing"), job("c", "printing", { printer: "Ender 3 V3", progress: 0.64 }), job("d", "done")])).toBe("3 on the belt · Ender 64%");
+    expect(beltSummary([job("a", "printing", { progress: 0.2 }), job("b", "queued")])).toBe("2 on the belt · 20%");
+    expect([beltSummary([job("a", "queued")]), beltSummary([job("a", "failed"), job("b", "done")])]).toEqual(["1 on the belt", "Belt empty"]);
   });
 });
