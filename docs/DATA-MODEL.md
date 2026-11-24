@@ -104,10 +104,10 @@ A physical device addressable by a transport. **Secrets live here and never leav
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
-> merging `secrets` into the stored `secrets_json`. Omitting it on write means "no restriction"; COALESCE
+> merging `secrets` into the stored `secrets_json` (`secrets: null` sets it to `NULL`). Omitting it on write means "no restriction"; COALESCE
 > would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
 > load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
-> presence-not-truthiness when checking it, and an explicit toggle in the Settings form
+> presence-not-truthiness when checking it, and an explicit toggle in the printer form
 > so a user can see which state they are in.
 
 > **Removed 2026-09-02: the `stations` table.** A Station was an operator-curated,
@@ -258,7 +258,7 @@ both the database and the key.
 on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
 and `worker` delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
-default catalog (the old in-memory seeds) is seeded once per database, so edits made in Settings
+default catalog (the old in-memory seeds) is seeded once per database, so edits made on Printers or in Settings
 survive restarts. The flag is the row `key = 'seeded'` in a small `meta (key, value)` table that
 `migrate()` creates; `PRAGMA user_version` is left free for a future schema version. The check,
 the flag write and the inserts run in one `BEGIN IMMEDIATE` transaction, so a crash mid-seed

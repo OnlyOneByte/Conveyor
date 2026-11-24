@@ -42,7 +42,7 @@ const printerSchema = z.object({
     .refine((id) => apiRegistry.transports.has(id), "unknown transport"),
   name: z.string().min(1).max(200),
   address: z.string().min(1).max(255),
-  secrets: secretsSchema.optional(),
+  secrets: secretsSchema.nullable().optional(),
   allowedGenerators: z
     .array(z.string().refine((id) => apiRegistry.generators.has(id), "unknown generator"))
     .optional(),

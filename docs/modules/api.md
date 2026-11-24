@@ -193,13 +193,14 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   and a write answers only `{ ok: true }`.
 - A write's `secrets` is a patch, merged per key into what is stored (`dbUpsertPrinter`): a string sets that
   key, `null` removes it, and keys it leaves out are kept. Omitting `secrets`, or sending `{}`, keeps them
-  all. So the Settings form can save an API key without erasing an Elegoo `mainboardId` (#412).
+  all. So the printer form can save an API key without erasing an Elegoo `mainboardId` (#412).
+  - `secrets: null` clears every stored secret, including keys whose names you don't know (reads never
+    return names). The printer form's **Clear saved secrets** sends it (#417).
   - The 16-secret limit counts the merged result. A write that would pass it answers `400`, and nothing in it
     is stored.
   - A printer whose stored secrets don't decrypt can't be patched: the write answers `409` and changes
-    nothing. Delete the printer and add it again.
-  - Removing a key takes its name, and reads never return names, so nothing clears keys you don't know about.
-    To start over with no secrets, delete the printer and add it again.
+    nothing. `secrets: null` still works, so clear them and enter them again. Deleting the printer and adding
+    it again works too, but a delete answers `409` while the printer has queued or running jobs.
   - Merging happens inside one `IMMEDIATE` transaction, so concurrent writes to the same printer each keep
     their keys; `printer-secrets-concurrency.test.ts` runs eight writer processes against one database.
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
@@ -208,7 +209,7 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `gcodeFlavor: unknown gcode flavor` or `allowedGenerators.1: unknown generator`. Profiles: `slicerId` must be
   a registered slicer and `gcodeFlavor` one a registered transport accepts. Printers: `transportId` must be a
   registered transport, every `allowedGenerators` entry a registered generator, and `secrets` at most 16
-  entries with names up to 64 and values up to 4096 characters, or `null`.
+  entries with names up to 64 and values up to 4096 characters (each value may be `null`), or `null` itself.
 - `DELETE /catalog/printers/:id` and `DELETE /catalog/profiles/:id` answer `404` for an unknown id, and `409`
   while a queued or running job names the row or when the profile is bundled ([DATA-MODEL.md](../DATA-MODEL.md)).
   `index.ts` hands the catalog routes the queue mode's `countLiveJobs` (`routes/jobs.ts` scans BullMQ,

@@ -126,7 +126,7 @@ for (const mode of modes) {
         const refused = await put({ ...printer, name: "Renamed", secrets: { apiKey: "new" } });
         expect(refused.status).toBe(409);
         expect(await refused.json()).toEqual({
-          error: `printer ${printer.id}'s stored secrets can't be read, so they can't be updated; delete the printer and add it again`,
+          error: `printer ${printer.id}'s stored secrets can't be read, so they can't be updated; clear its saved secrets and enter them again`,
         });
         expect(rawRow(printer.id)).toBe("v1:garbage");
         const listed = await (await fetch(`${base()}/catalog/printers`)).json();
@@ -135,6 +135,24 @@ for (const mode of modes) {
         );
         expect((await put({ ...printer, name: "Renamed" })).status).toBe(200);
         expect(rawRow(printer.id)).toBe("v1:garbage");
+        expect((await put({ ...printer, secrets: null })).status).toBe(200);
+        expect(rawRow(printer.id)).toBeNull();
+        expect((await put({ ...printer, secrets: { apiKey: "new" } })).status).toBe(200);
+        expect(stored(printer.id)).toEqual({ apiKey: "new" });
+      });
+
+      test("secrets: null clears every saved secret, even ones whose names you don't know", async () => {
+        const printer = newPrinter();
+        const saved = { mainboardId: "board-7f3a", mistyped: "hunter2" };
+        expect((await put({ ...printer, secrets: saved })).status).toBe(200);
+        expect((await put({ ...printer, secrets: {} })).status).toBe(200);
+        expect(stored(printer.id)).toEqual(saved);
+        expect((await put({ ...printer, name: "Cleared", secrets: null })).status).toBe(200);
+        expect(rawRow(printer.id)).toBeNull();
+        const listed = await (await fetch(`${base()}/catalog/printers`)).json();
+        expect(listed).toContainEqual(
+          expect.objectContaining({ id: printer.id, name: "Cleared", hasSecrets: false }),
+        );
       });
     },
   );
