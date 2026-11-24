@@ -36,12 +36,12 @@ sequenceDiagram
     PWA-->>PWA: rebuild preview geometry (sub-ms)
 
     U->>PWA: Print
-    PWA->>API: POST /jobs {generator,params,printerId,profileId}
+    PWA->>API: POST /api/jobs {generator,params,printerId,profileId}
     API->>API: resolve pair → {transport,slicer,profile,printer}
     API->>API: validateJob() capability check
     API->>R: enqueue job
     API-->>PWA: 202 {jobId}
-    PWA->>API: WS subscribe /jobs/{jobId}/ws
+    PWA->>API: WS subscribe /api/jobs/{jobId}/ws
     Note over API,R: API relays Redis pub/sub → WS frames
 
     R->>W: deliver job
@@ -99,7 +99,7 @@ sequenceDiagram
 
     rect rgb(225,235,245)
     Note over PWA,W: User cancels
-    PWA->>API: POST /jobs/{id}/cancel
+    PWA->>API: POST /api/jobs/{id}/cancel
     API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
     alt already done / failed / canceled
         API-->>PWA: 200 {state} (no-op, terminal states are final)

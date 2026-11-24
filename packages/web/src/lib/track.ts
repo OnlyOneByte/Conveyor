@@ -93,6 +93,7 @@ export interface TrackJob {
   state: JobState;
   progress?: number;
   printer?: string;
+  reason?: string;
 }
 
 export function value({ state, progress }: TrackJob): string {

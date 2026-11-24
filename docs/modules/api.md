@@ -4,6 +4,9 @@ The REST and WebSocket front door. It validates requests, serves the catalog and
 It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only in the worker
 ([ADR 0001](../adr/0001-plugin-isolation.md)).
 
+The routes on this page are the api's own paths. Browsers and scripts reach them through Caddy under `/api`, which
+Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from outside.
+
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
@@ -307,8 +310,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
 prepared for a held printer until someone checks the printer and releases it.
 
-- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
-  namespace to the api.
+- It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
+  every API route.
 - The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold

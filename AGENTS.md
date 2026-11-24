@@ -162,7 +162,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `no-comments` | `bun run check:comments` |
 | `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
-| `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
+| `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/api/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
 
 Review may start before CI is green. Merge needs both: every required check and the review status green on

@@ -46,12 +46,13 @@ describe("pinHistory", () => {
   });
 });
 
-describe("the /jobs-history route", () => {
+describe("the /api/jobs-history route", () => {
   test("matches the list with or without a query, and not a single job's detail or another path", () => {
-    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
-    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history?limit=200"))).toBe(true);
-    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history/4a136f3c"))).toBe(false);
-    expect(isHistoryList(new URL("http://127.0.0.1/jobs/active"))).toBe(false);
+    expect(isHistoryList(new URL("http://127.0.0.1/api/jobs-history"))).toBe(true);
+    expect(isHistoryList(new URL("http://127.0.0.1/api/jobs-history?limit=200"))).toBe(true);
+    expect(isHistoryList(new URL("http://127.0.0.1/api/jobs-history/4a136f3c"))).toBe(false);
+    expect(isHistoryList(new URL("http://127.0.0.1/api/jobs/active"))).toBe(false);
+    expect(isHistoryList(new URL("http://127.0.0.1/jobs-history"))).toBe(false);
   });
 
   const fakeRoute = (ok: boolean, body: unknown) => {
@@ -79,13 +80,13 @@ describe("the /jobs-history route", () => {
   });
 });
 
-describe("one job's detail, /jobs-history/<id>", () => {
+describe("one job's detail, /api/jobs-history/<id>", () => {
   test("matches one job's path and nothing else", () => {
-    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/seed-canceled"))).toBe(true);
-    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history"))).toBe(false);
-    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/"))).toBe(false);
-    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs-history/a/artifact"))).toBe(false);
-    expect(isHistoryEntry(new URL("http://127.0.0.1/jobs/seed-canceled"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/api/jobs-history/seed-canceled"))).toBe(true);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/api/jobs-history"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/api/jobs-history/"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/api/jobs-history/a/artifact"))).toBe(false);
+    expect(isHistoryEntry(new URL("http://127.0.0.1/api/jobs/seed-canceled"))).toBe(false);
   });
 
   test("pins the times and keeps the id and every other field", () => {
@@ -155,7 +156,7 @@ describe("pinHistoryRoute", () => {
     await pinHistoryRoute(context);
     expect(routes.map(([, handler]) => handler)).toEqual([fulfillPinned, fulfillPinnedEntry]);
     const [list, entry] = routes.map(([match]) => match);
-    expect(list(new URL("http://127.0.0.1/jobs-history"))).toBe(true);
-    expect(entry(new URL("http://127.0.0.1/jobs-history/seed-failed"))).toBe(true);
+    expect(list(new URL("http://127.0.0.1/api/jobs-history"))).toBe(true);
+    expect(entry(new URL("http://127.0.0.1/api/jobs-history/seed-failed"))).toBe(true);
   });
 });

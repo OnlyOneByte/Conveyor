@@ -186,7 +186,7 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 
 This applies only to the default Redis queue, and only if the job queue was paused. Conveyor never pauses it itself, so a pause comes from someone running `pause()` or a BullMQ admin tool by hand.
 
-Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
+Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/api/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
 
 Check before upgrading. This prints `1` when the queue is paused and nothing when it isn't:
 
@@ -268,7 +268,7 @@ The worker talks to printers over your network from the Compose bridge network. 
 
 ## Routing in the Caddyfile
 
-Caddy sends the API namespaces (`/jobs*`, `/generators*`, `/uploads*`, `/auth*`, `/jobs-history*`, `/catalog*`) and the exact path `/health` to `api`, and everything else to `web`. `https://localhost/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. A page route must never share a prefix with an API namespace: when `/admin` and `/jobs` pages did, loading them directly returned 404. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
+Caddy sends everything under `/api/` to `api` and strips the prefix (`handle_path`), so `/api/jobs/active` reaches the API's own `/jobs/active`. Everything else goes to `web`, so pages such as `/jobs` and `/jobs/<id>` load directly. `https://localhost/api/health` answering `{"ok":true}` means Caddy, its certificate and the API are all up; the `compose` CI job waits on it. Anything that calls the API through Caddy, such as a script or a health probe, adds `/api` in front of the path: `curl https://localhost/api/health`. To get a public certificate, replace `localhost` with your domain and add a global options block with your email at the top of the file:
 
 ```
 {
