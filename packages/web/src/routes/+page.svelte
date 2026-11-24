@@ -143,8 +143,8 @@
           ? { id: "passthrough", params: { uploadId, filename: uploadName } }
           : { id: selectedGen!.id, params };
       const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
-      jobId = res.jobId;
       await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
+      jobId = res.jobId;
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,

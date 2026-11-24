@@ -1,5 +1,6 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
+import { liveScenes } from "./scenes-live.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
@@ -96,6 +97,7 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   ...receiptScenes,
+  ...liveScenes,
   {
     name: "monitor",
     route: "/monitor",
