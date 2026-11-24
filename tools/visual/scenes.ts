@@ -207,7 +207,7 @@ export const scenes: Scene[] = [
     ready: "text=Primitives",
     record: true,
     steps: keys(
-      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
+      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
       ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
     ),
   },
