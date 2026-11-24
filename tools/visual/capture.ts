@@ -6,7 +6,7 @@ import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
-import { pinHistoryRoute } from "./history.ts";
+import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
@@ -146,6 +146,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     colorScheme,
   });
   await pinHistoryRoute(context);
+  await context.clock.setFixedTime(CAPTURE_NOW);
   if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;

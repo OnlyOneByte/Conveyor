@@ -2,6 +2,8 @@ import type { Route } from "playwright";
 
 export const HISTORY_EPOCH = Date.UTC(2026, 0, 1, 12, 0, 0);
 
+export const CAPTURE_NOW = HISTORY_EPOCH + 60 * 60_000;
+
 const TIME_FIELDS = ["createdAt", "updatedAt"] as const;
 
 function pinTimes(entry: object, at: number): Record<string, unknown> {
