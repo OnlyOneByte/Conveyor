@@ -14,7 +14,7 @@ const isNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
 const isCount = (value: unknown): value is number =>
-  isNumber(value) && Number.isInteger(value) && value >= 0;
+  Number.isSafeInteger(value) && Number(value) >= 0;
 
 const isState = (value: unknown): value is JobState => JOB_STATES.some((s) => s === value);
 

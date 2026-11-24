@@ -72,6 +72,13 @@ describe("the Zod-free status parser agrees with the Zod one", () => {
     ["not json", "{"],
     ["empty", ""],
     ["missing", null],
+    ["an infinite at", '{"jobId":"j1","state":"done","at":1e999}'],
+    ["an infinite progress", '{"jobId":"j1","state":"done","at":1,"progress":-1e999}'],
+    [
+      "a byte count above 2^53",
+      '{"jobId":"j1","state":"done","at":1,"bytesSent":9007199254740993}',
+    ],
+    ["a layer count of 1e21", '{"jobId":"j1","state":"done","at":1,"print":{"layers":1e21}}'],
   ])("rejects %s input", (_name, raw) => {
     expect(full(raw)).toBeUndefined();
     expect(lite(raw)).toBeUndefined();

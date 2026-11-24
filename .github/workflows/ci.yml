@@ -138,7 +138,7 @@ jobs:
       - name: Build web
         working-directory: packages/web
         run: bunx vite build
-      - name: No Zod in the layout bundle
+      - name: No Zod in what every page loads
         run: bun scripts/checks/layout-bundle.ts packages/web/.svelte-kit/output/client
 
   test:

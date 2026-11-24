@@ -162,7 +162,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 |---|---|
 | `lint` | `bun run lint && bun run check:casts`; after removing a cast, run `bun run check:casts:update` and commit `scripts/checks/casts/baseline.json` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
-| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in the layout's import closure) |
+| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in anything every page loads: the layout node and the app and start entries, with their imports) |
 | `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order over an `LC_ALL=C`-sorted file list (the log prints the seed, the commit, how to check it out and the rerun command, not the file list itself); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
 | `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |
