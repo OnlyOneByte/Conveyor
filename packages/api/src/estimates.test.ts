@@ -93,4 +93,22 @@ describe("when a queued job will start printing", () => {
     expect(result.elsewhere?.startsAt).toBe(NOW + 30_000);
     expect(result.busy).toBeUndefined();
   });
+
+  test("looks up typical durations once per generator and printer pair", () => {
+    const asked: string[] = [];
+    const typical = (j: ActiveJob) => {
+      asked.push(`${j.generatorId}@${j.printerId}`);
+      return TYPICAL;
+    };
+    const jobs = [
+      job("a", {}),
+      job("b", {}),
+      job("c", {}, { printerId: "p2" }),
+      job("d", {}, { generatorId: "g2" }),
+      job("e", {}, { printerId: "p2" }),
+    ];
+    const result = estimates(jobs, typical);
+    expect(asked).toEqual(["gridfinity@p1", "gridfinity@p2", "g2@p1"]);
+    expect(Object.values(result).map((e) => e?.typicalMs)).toEqual(Array(5).fill(TYPICAL));
+  });
 });

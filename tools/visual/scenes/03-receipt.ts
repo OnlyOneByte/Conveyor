@@ -1,15 +1,17 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene } from "../scene.ts";
 
-export const receiptScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "job-detail",
     route: "/history/seed-canceled",
+    visits: ["/jobs/seed-canceled"],
     ready: "text=Print again",
     steps: [{ wait: 800 }],
   },
   {
     name: "job-detail-failed",
     route: "/history/seed-failed",
+    visits: ["/jobs/seed-failed"],
     ready: "text=didn't finish",
     steps: [{ wait: 800 }],
   },
@@ -53,7 +55,7 @@ export const receiptScenes: Scene[] = [
         },
       },
       { follow: "/jobs/seed-failed" },
-      { waitFor: "text=Slicing didn't finish" },
+      { waitFor: "text=doesn't fit the printer's bed" },
       { wait: 1200 },
     ],
   },
@@ -72,6 +74,7 @@ export const receiptScenes: Scene[] = [
   {
     name: "retry-link",
     route: "/jobs/seed-failed",
+    visits: ["/", "/jobs/seed-printed"],
     ready: "text=didn't finish",
     steps: [
       {

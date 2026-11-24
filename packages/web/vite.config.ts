@@ -1,7 +1,9 @@
 import adapter from "@sveltejs/adapter-node";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-import { defineConfig } from "vite";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { defineConfig, type Plugin } from "vite";
 
 const API = process.env.CONVEYOR_API_TARGET ?? "http://127.0.0.1:3000";
 
@@ -10,8 +12,23 @@ const ALLOWED_HOSTS = (process.env.CONVEYOR_DEV_ALLOWED_HOSTS ?? "")
   .map((h) => h.trim())
   .filter(Boolean);
 
+const chunkModules = (): Plugin => ({
+  name: "conveyor:chunk-modules",
+  apply: "build",
+  writeBundle(options, bundle) {
+    if (!options.dir?.endsWith(join("output", "client")) || "service-worker.js" in bundle) return;
+    const modules = Object.fromEntries(
+      Object.values(bundle).flatMap((chunk) =>
+        chunk.type === "chunk" ? [[chunk.fileName, Object.keys(chunk.modules)]] : [],
+      ),
+    );
+    writeFileSync(join(options.dir, "..", "chunk-modules.json"), JSON.stringify(modules));
+  },
+});
+
 export default defineConfig({
   plugins: [
+    chunkModules(),
     sveltekit({
       preprocess: vitePreprocess(),
       adapter: adapter(),
