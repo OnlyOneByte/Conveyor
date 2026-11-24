@@ -152,7 +152,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     colorScheme,
   });
   await pinHistoryRoute(context);
-  await context.clock.setFixedTime(CAPTURE_NOW);
+  await context.clock.setSystemTime(CAPTURE_NOW);
   if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;

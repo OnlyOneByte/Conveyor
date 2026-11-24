@@ -10,4 +10,9 @@ describe("ago", () => {
       "just now", "1m ago", "1m ago", "59m ago", "1h ago", "1h ago", "23h ago", "1d ago", "1d ago",
     ]);
   });
+
+  test("rounds a part second to the nearest second before flooring", () => {
+    expect(ago(NOW - 59_400, NOW)).toBe("just now");
+    expect(ago(NOW - 59_600, NOW)).toBe("1m ago");
+  });
 });
