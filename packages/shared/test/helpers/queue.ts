@@ -49,14 +49,30 @@ export function queueHarness(): QueueHarness {
 export async function holdWriteLock(
   path: string,
   sqlWhileHeld = "SELECT 1",
-): Promise<{ exited: Promise<number> }> {
+): Promise<{ exited: Promise<number>; releasedAt: Promise<number> }> {
   const script = `const db = new (require("bun:sqlite").Database)(process.env.DB_FILE);
     db.exec("BEGIN IMMEDIATE"); console.log("locked"); Bun.sleepSync(300);
-    db.exec(process.env.SQL_WHILE_HELD); db.exec("COMMIT");`;
+    db.exec(process.env.SQL_WHILE_HELD); console.log(Date.now()); db.exec("COMMIT");`;
   const holder = Bun.spawn([process.execPath, "-e", script], {
     env: { ...process.env, DB_FILE: path, SQL_WHILE_HELD: sqlWhileHeld },
     stdout: "pipe",
   });
-  await holder.stdout.getReader().read();
-  return { exited: holder.exited };
+  const reader = holder.stdout.getReader();
+  const decoder = new TextDecoder();
+  let seen = "";
+  while (!seen.includes("locked\n")) {
+    const { done, value } = await reader.read();
+    if (done) throw new Error(`lock holder exited before locking: ${seen}`);
+    seen += decoder.decode(value);
+  }
+  const releasedAt = (async () => {
+    for (;;) {
+      const line = seen.split("\n")[1];
+      if (line && /^\d+$/.test(line)) return Number(line);
+      const { done, value } = await reader.read();
+      if (done) throw new Error(`lock holder exited without a release time: ${seen}`);
+      seen += decoder.decode(value);
+    }
+  })();
+  return { exited: holder.exited, releasedAt };
 }

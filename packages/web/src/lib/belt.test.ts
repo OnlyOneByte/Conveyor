@@ -59,7 +59,7 @@ describe("the belt's live feed", () => {
     state.active = [view("a", "printing", { progress: 0.4 }), view("b", "queued", { generator: undefined })];
     await belt.poll();
     expect(shown.at(-1)).toEqual([
-      { id: "a", name: "Gridfinity Bin 2×3 · 6u", state: "printing", progress: 0.4, printer: "Voron 2.4" },
+      { id: "a", name: "Gridfinity Bin 2×3 · 6u", state: "printing", progress: 0.4, printer: "Voron 2.4", request: { generator: { id: "gridfinity", params: { gridX: 2, gridY: 3, heightUnits: 6 } }, printerId: "voron", profileId: "pla" } },
       { id: "b", name: "Job", state: "queued", printer: "Voron 2.4" },
     ]);
     expect(told).toEqual([]);
@@ -126,6 +126,16 @@ describe("the belt's live feed", () => {
     await belt.poll();
     belt.stop();
     expect(sockets.get("b")?.closed).toBe(true);
+  });
+
+  test("a chip keeps its earlier request when a later active-jobs answer lacks one", async () => {
+    const { state, shown, belt } = rig();
+    state.active = [view("a", "queued")];
+    await belt.poll();
+    const request = shown.at(-1)?.[0]?.request;
+    state.active = [view("a", "queued", { profileId: undefined, generator: undefined })];
+    await belt.poll();
+    expect([request, shown.at(-1)?.[0]?.request]).toEqual([{ generator: { id: "gridfinity", params: { gridX: 2, gridY: 3, heightUnits: 6 } }, printerId: "voron", profileId: "pla" }, request]);
   });
 
   test("a status event keeps the name and printer it had", () => {

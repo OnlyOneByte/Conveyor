@@ -32,16 +32,24 @@ describe("the sqlite queue worker", () => {
     db.exec("PRAGMA busy_timeout = 0");
     enqueue("a");
     const holder = new Database(join(dir, "conveyor.db"));
+    let clockReads = 0;
+    const now = () => {
+      clockReads++;
+      return Date.now();
+    };
+    let firstUntil = 0;
     start(
       {
         generate: async () => {
+          firstUntil = Number(row("a").lease_until);
           holder.exec("BEGIN IMMEDIATE");
-          await Bun.sleep(1700);
+          const before = clockReads;
+          await until(() => clockReads > before || Date.now() > firstUntil, 10_000);
           holder.exec("COMMIT");
-          await Bun.sleep(700);
+          await until(() => Date.now() > firstUntil + 100, 10_000);
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 2000 }, renewEvery: 100 },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 2000, now }, renewEvery: 100 },
     );
     await until(() => row("a").state === "done", 10_000);
     holder.close();
