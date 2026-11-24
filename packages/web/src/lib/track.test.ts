@@ -111,6 +111,8 @@ describe("collision and merge", () => {
     const groups = merge(chips, RAIL, [], wide);
     expect(ids(groups)).toEqual([["c", "d", "e"]]);
     expect(groups[0]?.width).toBe(200);
+    const near = merge([{ id: "c", x: 200, width: W }, { id: "d", x: 378, width: W }, { id: "e", x: 384, width: W }], RAIL, [], wide);
+    expect(ids(near)).toEqual([["c", "d", "e"]]);
   });
 
   test("mixed widths: a group is as wide as its widest member, and a wide group clamps at the right end", () => {
