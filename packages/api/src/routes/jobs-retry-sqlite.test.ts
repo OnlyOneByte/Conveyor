@@ -81,15 +81,16 @@ describe("retrying a failed job on the SQLite queue", () => {
     const waiting = job("queued");
     const before = count();
     const answers = [];
-    for (const retryOf of ["nope", waiting, 5, ""])
+    for (const retryOf of ["nope", waiting, 5, "", "x".repeat(201)])
       answers.push(await submit({ ...request, retryOf }));
     expect(answers.slice(0, 2)).toEqual([
       { status: 400, body: { error: "retryOf: unknown job nope" } },
       { status: 400, body: { error: `retryOf: job ${waiting} is queued, not failed` } },
     ]);
-    expect(answers.slice(2).map((a) => [a.status, a.body.error?.startsWith("retryOf")])).toEqual([
-      [400, true],
-      [400, true],
+    expect(answers.slice(2).map((a) => [a.status, a.body.error])).toEqual([
+      [400, "retryOf: Invalid input: expected string, received number"],
+      [400, "retryOf: Too small: expected string to have >=1 characters"],
+      [400, "retryOf: Too big: expected string to have <=200 characters"],
     ]);
     expect(count()).toBe(before);
   });

@@ -74,10 +74,9 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
         .parse(await (await fetch(`${base}/jobs/needs-you`)).json())
         .map((j) => j.id);
     expect(await listed()).toEqual([failed]);
-    expect([(await post({ ...request, retryOf: failed })).status, await listed()]).toEqual([
-      202,
-      [],
-    ]);
+    const { status, jobId } = await post({ ...request, retryOf: failed });
+    const row = openDb().query("SELECT retried_by FROM jobs WHERE id = ?").get(failed);
+    expect([status, await listed(), row]).toEqual([202, [], { retried_by: jobId }]);
   });
 
   test("of a double retry, sent in turn or at once, one is queued and the rest are 409s", async () => {
