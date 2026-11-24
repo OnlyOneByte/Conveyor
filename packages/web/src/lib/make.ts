@@ -1,8 +1,14 @@
 import type { FormUiHints } from "@conveyor/shared";
 
-export function printerStatus(id: string, busy: Set<string>, unreachable: Set<string>): string {
+export function printerStatus(
+  id: string,
+  busy: Set<string>,
+  unreachable: Set<string>,
+  answered: Set<string>,
+): string {
   if (unreachable.has(id)) return "Not reachable";
-  return busy.has(id) ? "Busy" : "Ready";
+  if (busy.has(id)) return "Busy";
+  return answered.has(id) ? "Ready" : "";
 }
 
 export function measurements(params: Record<string, unknown>, ui: FormUiHints | null): string {

@@ -106,7 +106,7 @@
                 if (e.key === "Enter") settle(key, prop, e.currentTarget);
               }}
             />
-            {#if ui?.unitMm?.[key] !== undefined}<em>u</em>{/if}
+            {#if ui?.unitMm?.[key] !== undefined}<em>u · {cur[key] * (ui.unitMm[key] ?? 0)} mm</em>{/if}
           </span>
           <button
             type="button"
@@ -167,7 +167,7 @@
     color: var(--text); -moz-appearance: textfield; appearance: textfield; }
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; }
+  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 
   .stack1 { display: flex; flex-direction: column; gap: 0.3rem; width: 100%; }
   .stack1 label { font-size: 0.85rem; color: var(--muted); }

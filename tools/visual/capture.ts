@@ -152,6 +152,17 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
   }
 }
 
+const missed = new Set<string>();
+
+async function waitReady(page: Page, { route, ready }: Scene): Promise<void> {
+  const key = `${route} ${ready}`;
+  const found = page.locator(ready).first();
+  await found.waitFor({ timeout: missed.has(key) ? 2000 : 30000 }).catch((err) => {
+    missed.add(key);
+    throw err;
+  });
+}
+
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
   const context = await browser.newContext({
@@ -167,7 +178,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   let sampler: Sampler | undefined;
   try {
     await page.goto(new URL(scene.route, base).toString(), { waitUntil: "load" });
-    await page.locator(scene.ready).first().waitFor({ timeout: 30000 });
+    await waitReady(page, scene);
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
     const mismatch = await titleMismatch(page);

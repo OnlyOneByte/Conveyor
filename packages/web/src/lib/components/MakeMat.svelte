@@ -34,5 +34,5 @@
     padding: var(--s4) var(--s5); border-radius: var(--r-card);
     background: var(--paper); text-align: center;
   }
-  @media (max-width: 759px) { .mat { position: relative; top: 0; height: 250px; } }
+  @media (max-width: 759px) { .mat { position: relative; top: 0; height: 180px; } }
 </style>

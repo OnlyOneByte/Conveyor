@@ -123,3 +123,12 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
 
   return { poll, stop };
 }
+
+const JOB_SENT = "conveyor:job-sent";
+
+export const jobSent = () => dispatchEvent(new Event(JOB_SENT));
+
+export function onJobSent(run: () => void): () => void {
+  addEventListener(JOB_SENT, run);
+  return () => removeEventListener(JOB_SENT, run);
+}

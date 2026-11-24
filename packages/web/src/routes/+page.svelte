@@ -4,7 +4,7 @@
   import { page } from "$app/state";
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
-  import { titled } from "#lib/belt.js";
+  import { jobSent, titled } from "#lib/belt.js";
   import JobStatus from "#lib/components/JobStatus.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
@@ -25,6 +25,8 @@
 
   const UPLOAD = "upload";
   const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  const upFailed = (e: unknown) =>
+    e instanceof TypeError ? "check your connection and try again." : message(e);
   const SENT_MS = 2500;
 
   $: generators = data.generators ?? [];
@@ -86,7 +88,7 @@
     uploading = true;
     uploadId = await uploadStl(chosen).then(
       (res) => res.uploadId,
-      (e: unknown) => ((uploadError = `Couldn't upload ${chosen.name}: ${message(e)}`), null),
+      (e: unknown) => ((uploadError = `Couldn't upload ${chosen.name}: ${upFailed(e)}`), null),
     );
     uploading = false;
   }
@@ -99,6 +101,7 @@
   $: jobId = data.initialJobId ?? null;
   let busy = false;
   let sent = false;
+  let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
 
@@ -117,13 +120,16 @@
       : { id: tab, params };
     try {
       const res = await sendJob({ generator, printerId, profileId }, retryOf);
-      await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
+      const to = `/?job=${encodeURIComponent(res.jobId)}`;
+      await goto(to, { replace: true, reset: false });
       jobId = res.jobId;
       const targetName = `${printer.name} · ${profile.name}`;
       const submittedAt = Date.now();
       const { id } = generator;
       rememberJob({ jobId: res.jobId, targetName, generatorId: id, submittedAt, state: "queued" });
       announce(`${name} sent to ${printer.name}.`);
+      last = { id: res.jobId, printer: printer.name };
+      jobSent();
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
@@ -141,55 +147,57 @@
 <section class="make" aria-labelledby="make-title">
   <MakeMat preview={gen?.preview?.module === "gridfinity"} {params} {file} {upload} />
   <form class="order" on:submit|preventDefault={print}>
-    <h1 id="make-title">What are we making?</h1>
-    {#if generators.length}
-      <SourceTabs {tabs} bind:value={tab} panel="make-source" />
-      <div id="make-source" role="tabpanel" aria-labelledby="tab-{tab}" class="questions">
-        {#if upload}
-          <section>
-            <h2>Which file?</h2>
-            <UploadDrop
-              name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
-              error={uploadError} on:file={choose} on:clear={clear}
-            />
-          </section>
-        {:else if gen}
-          {#key gen.id}
-            <SchemaForm
-              schema={gen.paramSchema} ui={gen.ui ?? null} value={params}
-              title="How big?" moreTitle="What's inside?" on:change={(e) => (params = e.detail)}
-            />
-          {/key}
-        {/if}
-      </div>
-    {:else}
-      <p class="note">
-        Conveyor can't reach its server right now. Check that the api service is running.
-      </p>
-    {/if}
-    <section>
-      <h2>Where should it print?</h2>
-      {#if eligible.length}
-        <PrintAt
-          printers={eligible} profiles={compatible} hidden={data.printers.length - eligible.length}
-          bind:printerId bind:profileId
-        />
+    <div class="fields">
+      <h1 id="make-title">What are we making?</h1>
+      {#if generators.length}
+        <SourceTabs {tabs} bind:value={tab} panel="make-source" />
+        <div id="make-source" role="tabpanel" aria-labelledby="tab-{tab}" class="questions">
+          {#if upload}
+            <section>
+              <h2>Which file?</h2>
+              <UploadDrop
+                name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
+                error={uploadError} on:file={choose} on:clear={clear}
+              />
+            </section>
+          {:else if gen}
+            {#key gen.id}
+              <SchemaForm
+                schema={gen.paramSchema} ui={gen.ui ?? null} value={params}
+                title="How big?" moreTitle="What's inside?" on:change={(e) => (params = e.detail)}
+              />
+            {/key}
+          {/if}
+        </div>
       {:else}
-        <p class="note">No printer can print this yet. Add one in Settings.</p>
+        <p class="note">
+          Conveyor can't reach its server right now. Check that the api service is running.
+        </p>
       {/if}
-    </section>
-    {#if error}
-      <p class="err" role="alert">
-        {error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}
-      </p>
-    {/if}
-    {#if jobId}{#key jobId}
-      <section class="job">
-        <h3>Job</h3>
-        <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
+      <section id="make-where" class="where" tabindex="-1">
+        <h2>Where should it print?</h2>
+        {#if eligible.length}
+          <PrintAt
+            printers={eligible} profiles={compatible}
+            hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
+          />
+        {:else}
+          <p class="note">No printer can print this yet. Add one in Settings.</p>
+        {/if}
       </section>
-    {/key}{/if}
-    <PrintDock {summary} {detail} {ready} {busy} {sent} />
+      {#if error}
+        <p class="err" role="alert">
+          {error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}
+        </p>
+      {/if}
+      {#if jobId}{#key jobId}
+        <section class="job">
+          <h3>Job</h3>
+          <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
+        </section>
+      {/key}{/if}
+    </div>
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} />
   </form>
 </section>
 
@@ -198,7 +206,9 @@
     display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     gap: 28px; align-items: start;
   }
-  .order { display: flex; flex-direction: column; gap: var(--s5); min-width: 0; }
+  .order { min-width: 0; }
+  .fields { display: flex; flex-direction: column; gap: var(--s5); }
+  .where:focus { outline: none; }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }
   h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }
@@ -208,6 +218,13 @@
   .job {
     padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card);
     background: var(--paper);
+  }
+  @media (min-width: 1200px) {
+    .make { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
+    .fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
+    .fields > :global(*) { grid-column: 1 / -1; }
+    .fields > .questions { grid-column: 1; }
+    .fields > .where { grid-column: 2; grid-row: 3; }
   }
   @media (max-width: 759px) {
     .make { grid-template-columns: minmax(0, 1fr); gap: 18px; }

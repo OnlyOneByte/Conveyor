@@ -5,7 +5,7 @@
   import { page } from "$app/state";
   import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
-  import { createBelt, POLL_MS } from "#lib/belt.js";
+  import { createBelt, onJobSent, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
@@ -71,6 +71,7 @@
     };
   });
 
+  onMount(() => onJobSent(() => (tick(), refreshEnds())));
   async function signOut() {
     await logout();
     await invalidateAll();

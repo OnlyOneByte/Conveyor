@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import {
     type CatalogPrinter, type CatalogProfile, fetchActiveJobs, fetchPrinterReachable,
   } from "#lib/api.js";
@@ -13,28 +12,42 @@
 
   let busy = new Set<string>();
   let unreachable = new Set<string>();
+  let answered = new Set<string>();
+  const asked = new Set<string>();
 
-  onMount(async () => {
-    const active = await fetchActiveJobs().catch(() => []);
-    busy = new Set(active.flatMap((job) => (job.printerId ? [job.printerId] : [])));
-    const checks = printers.map(async ({ id }) => {
-      const answer = await fetchPrinterReachable(id).catch(() => null);
-      if (answer && !answer.reachable) unreachable = new Set([...unreachable, id]);
-    });
-    await Promise.all(checks);
-  });
+  fetchActiveJobs().then(
+    (active) => (busy = new Set(active.flatMap((job) => (job.printerId ? [job.printerId] : [])))),
+    () => {},
+  );
+
+  async function probe(id: string) {
+    asked.add(id);
+    const answer = await fetchPrinterReachable(id).catch(() => null);
+    if (!answer) return;
+    answered = new Set([...answered, id]);
+    if (!answer.reachable) unreachable = new Set([...unreachable, id]);
+  }
+
+  $: for (const { id } of printers) if (!asked.has(id)) void probe(id);
 </script>
 
 <fieldset>
   <legend class="label">Printer</legend>
   <div class="pills">
     {#each printers as printer (printer.id)}
+      {@const status = printerStatus(printer.id, busy, unreachable, answered)}
       <label class="pill">
         <input type="radio" name="printer" value={printer.id} bind:group={printerId} />
-        {printer.name}<span>{printerStatus(printer.id, busy, unreachable)}</span>
+        {printer.name}{#if status}<span><span class="sr">, </span>{status}</span>{/if}
       </label>
     {/each}
   </div>
+  {#if unreachable.has(printerId)}
+    <p class="warn" role="status">
+      {printers.find((p) => p.id === printerId)?.name} didn't answer just now. A job sent now
+      stops at Send to printer and waits in Needs you, ready to retry.
+    </p>
+  {/if}
   {#if hidden}<p class="note">{hidden} more can't print this kind of job.</p>{/if}
 </fieldset>
 
@@ -71,7 +84,9 @@
   .pill:has(:checked) { background: var(--ink); border-color: var(--ink); color: var(--bg); }
   .pill:has(:checked) span { color: var(--bg); opacity: 0.85; }
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
+  .warn { margin: 0; color: var(--err); font-weight: 600; }
   @media (pointer: coarse) { .pill { min-height: var(--tap); } }
 </style>

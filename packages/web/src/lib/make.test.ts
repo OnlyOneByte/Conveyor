@@ -24,14 +24,14 @@ describe("measurements", () => {
 });
 
 describe("printerStatus", () => {
-  test("says Not reachable before Busy, and Ready otherwise", () => {
+  test("says Not reachable before Busy, Ready only once a probe answered, and nothing before", () => {
     const busy = new Set(["voron", "ender"]);
     const unreachable = new Set(["ender"]);
-    expect(["voron", "ender", "prusa"].map((id) => printerStatus(id, busy, unreachable))).toEqual([
-      "Busy",
-      "Not reachable",
-      "Ready",
-    ]);
+    const answered = new Set(["voron", "ender", "prusa"]);
+    const status = (id: string, heard = answered) => printerStatus(id, busy, unreachable, heard);
+    expect(["voron", "ender", "prusa"].map((id) => status(id))).toEqual(["Busy", "Not reachable", "Ready"]);
+    expect(status("prusa", new Set())).toBe("");
+    expect(status("voron", new Set())).toBe("Busy");
   });
 });
 
