@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { ago } from "#lib/ago.js";
   import { fetchJobSnapshot } from "#lib/api.js";
   import { recentJobs, updateJobState, type RecentJob } from "#lib/recent-jobs.js";
 
@@ -22,14 +23,6 @@
         }),
     );
   });
-
-  function relTime(ms: number): string {
-    const s = Math.round((Date.now() - ms) / 1000);
-    if (s < 60) return "just now";
-    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-    return `${Math.floor(s / 86400)}d ago`;
-  }
 
   function stateClass(state: RecentJob["state"]): string {
     if (state === "done") return "done";
@@ -55,7 +48,7 @@
             <span class="gen">{j.generatorId}</span>
             <span class="muted">{j.targetName}</span>
           </span>
-          <span class="when muted">{relTime(j.submittedAt)}</span>
+          <span class="when muted">{ago(j.submittedAt, Date.now())}</span>
           <span class="go muted">{isSettled(j.state) ? "details →" : "watch →"}</span>
         </a>
       </li>

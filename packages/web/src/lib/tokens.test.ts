@@ -31,6 +31,23 @@ function luminance([L, C, h]: [number, number, number]): number {
 
 const contrast = (x: number, y: number) => (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 
+describe("--faint", () => {
+  for (const selector of ['[data-theme="light"]', '[data-theme="dark"]']) {
+    test(`reaches 4.5:1 as placeholder text on every field surface in ${selector}`, () => {
+      const block = themeBlock(selector);
+      const text = luminance(token(block, "--faint"));
+      for (const surface of ["--bg", "--paper", "--sunk"]) {
+        expect(contrast(text, luminance(token(block, surface)))).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+});
+
+test("every placeholder uses --faint", () => {
+  const app = readFileSync(join(import.meta.dir, "styles/app.css"), "utf8");
+  expect(app).toContain("::placeholder { color: var(--faint); opacity: 1; }");
+});
+
 describe("--field-line", () => {
   for (const selector of ['[data-theme="light"]', '[data-theme="dark"]']) {
     test(`reaches 3:1 against every surface in ${selector}`, () => {
