@@ -2,6 +2,7 @@ import type { Politeness } from "./announce";
 import { API, type JobHistoryEntry } from "./api";
 import { trackJob } from "./belt";
 import type { Catalog } from "./catalog";
+import { type Retried, retryJob } from "./retry";
 import { shortName, type TrackJob } from "./track";
 
 export const ENDS_MS = 10000;
@@ -12,7 +13,8 @@ export interface EndsFeed {
   history(): Promise<JobHistoryEntry[]>;
   needsYou(): Promise<JobHistoryEntry[]>;
   entry(id: string): Promise<JobHistoryEntry | null>;
-  submit(body: Request & { retryOf?: string }): Promise<unknown>;
+  submit(body: Request): Promise<unknown>;
+  retry(failed: JobHistoryEntry): Promise<Retried>;
   dismiss(id: string): Promise<unknown>;
   cancel(id: string): Promise<unknown>;
   catalog(): Promise<Catalog>;
@@ -56,8 +58,9 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, now = () => new Date()) {
     } else if (action === "Print again") await again(job);
     else if (action === "Pick printer" && failed) ui.pick({ ...failed.request, printerId: "", profileId: "" });
     else if (action === "Retry" && failed) {
-      await feed.submit({ ...failed.request, retryOf: job.id });
-      ui.say(`Retrying ${shortName(job.name)}.`, "polite");
+      const retried = await feed.retry(failed);
+      if (!retried.ok && retried.status !== 409) throw new Error(retried.error);
+      ui.say(retried.ok ? `Retrying ${shortName(job.name)}.` : `${shortName(job.name)} is already being retried.`, "polite");
     } else if (action === "Dismiss") await feed.dismiss(job.id);
     else return;
     if (action !== "Cancel" && action !== "Pick printer") await refresh().catch(() => {});
@@ -82,6 +85,7 @@ export const http = {
     if (!r.ok) throw new Error(`GET /jobs/needs-you ${r.status}`);
     return r.json();
   },
-  submit: (body: Request & { retryOf?: string }) => send("/jobs", body),
+  submit: (body: Request) => send("/jobs", body),
+  retry: (failed: JobHistoryEntry) => retryJob(failed),
   dismiss: (id: string) => send(`/jobs/${encodeURIComponent(id)}/dismiss`),
 };

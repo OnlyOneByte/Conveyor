@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Politeness } from "./announce";
 import type { JobHistoryEntry } from "./api";
 import { createEnds, ENDS_MS, type EndsFeed, finishedToday } from "./belt-ends";
+import type { Retried } from "./retry";
 import type { TrackJob } from "./track";
 
 const NOW = new Date(2026, 10, 24, 15, 0);
@@ -14,7 +15,7 @@ const catalog = {
 };
 const job: TrackJob = { id: "f1", name: "Gridfinity Bin 2 × 3", state: "failed", printer: "Voron 2.4" };
 
-function rig(refuse: string[] = []) {
+function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }) {
   const calls: string[] = [];
   const said: [string, Politeness][] = [];
   const shown: [number, TrackJob[]][] = [];
@@ -30,6 +31,7 @@ function rig(refuse: string[] = []) {
     needsYou: async () => [entry("f1", "failed", at(9), { error: { stage: "transport", reason: "the printer didn't answer" } })],
     entry: async (id) => records.get(id) ?? null,
     submit: call("submit"),
+    retry: async (failed) => (await call("retry")(failed.id), retried),
     dismiss: call("dismiss"),
     cancel: call("cancel"),
     catalog: async () => catalog,
@@ -51,16 +53,19 @@ describe("the belt's end states", () => {
     expect(shown).toEqual([[1, [{ id: "f1", name: "Gridfinity Bin 2 × 3", state: "failed", printer: "Voron 2.4", reason: "the printer didn't answer" }]]]);
   });
 
-  test("Retry sends the failed request with retryOf, says so, and refreshes the tray", async () => {
+  test("Retry hands the failed job to retryJob, says so, and refreshes the tray; a 409 says it's already being retried", async () => {
     const { calls, said, shown, ends } = rig();
     await ends.refresh();
     await ends.act(job, "Retry");
-    expect(calls).toEqual([`submit ${JSON.stringify({ ...request, retryOf: "f1" })}`]);
-    expect([said, shown.length]).toEqual([[["Retrying Bin 2 × 3.", "polite"]], 2]);
+    expect([calls, said, shown.length]).toEqual([['retry "f1"'], [["Retrying Bin 2 × 3.", "polite"]], 2]);
+    const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 is already being retried" });
+    await taken.ends.refresh();
+    await taken.ends.act(job, "Retry");
+    expect([taken.said, taken.shown.length]).toEqual([[["Bin 2 × 3 is already being retried.", "polite"]], 2]);
   });
 
   test("a refused retry is announced, and Dismiss and Pick printer do what they say", async () => {
-    const { calls, said, picked, ends } = rig(["submit"]);
+    const { calls, said, picked, ends } = rig([], { ok: false, status: 500, error: "down" });
     await ends.refresh();
     await ends.act(job, "Retry");
     await ends.act(job, "Dismiss");
