@@ -135,6 +135,11 @@ jobs:
       - name: Typecheck the service worker
         working-directory: packages/web
         run: bunx tsc -p src/service-worker/tsconfig.json --noEmit
+      - name: Build web
+        working-directory: packages/web
+        run: bunx vite build
+      - name: No Zod in what every page loads
+        run: bun scripts/checks/layout-bundle.ts packages/web/.svelte-kit/output/client
 
   test:
     name: test

@@ -1,3 +1,4 @@
+import { scrollTo } from "../scroll.ts";
 import { type StepRunner, wrongKind } from "../step.ts";
 
 declare module "../step.ts" {
@@ -10,6 +11,6 @@ export const step: StepRunner = {
   kind: "scroll",
   run: async (page, step) => {
     if (!("scroll" in step)) throw wrongKind("scroll", step);
-    await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
+    await scrollTo(page, step.scroll);
   },
 };

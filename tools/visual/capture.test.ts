@@ -23,7 +23,7 @@ setTimeout(() => process.exit(0), ${ORPHANED_API_EXIT_MS});
 await Bun.write(\`\${process.env.VISUAL_TEST_MARKERS}/api.pid\`, String(process.pid));
 `;
 
-const NO_OP_DB = `export const openDb = () => ({ close() {} });
+const NO_OP_DB = `export const openDb = () => ({ close() {}, prepare: () => ({ run() {} }) });
 export const dbRecordJob = () => {};
 `;
 
