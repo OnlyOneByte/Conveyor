@@ -71,7 +71,7 @@ const signIn = (wrong) => `<form class="card" onsubmit="return false" aria-label
 </form>`;
 const notFound = () => `<section class="nf" aria-labelledby="h1"><span class="code">404</span><h1 id="h1">Page not found</h1><p>There's nothing at <code>/jobs/old-link</code>. It may have moved, or the link is mistyped.</p><div class="acts"><a class="btn pri" href="#signin">Go to Make</a><a class="btn" href="#signin">See your jobs</a></div></section>`;
 const failed = () => `<section class="nf" aria-labelledby="h1"><span class="code">Error 500</span><h1 id="h1">Something went wrong</h1><p>Conveyor couldn't load this page. Try again; if it keeps happening, check that Conveyor is running.</p><div class="acts"><a class="btn pri" href="#error">Try again</a><a class="btn" href="#signin">Go to Make</a></div></section>`;
-const SCREENS = { signin: [() => signIn(false), "Sign in to Conveyor", false], wrong: [() => signIn(true), "Sign in to Conveyor", false], notfound: [notFound, "Page not found", true], error: [failed, "Something went wrong", true] };
+const SCREENS = { signin: [() => signIn(false), "Sign in", false], wrong: [() => signIn(true), "Sign in", false], notfound: [notFound, "Page not found", true], error: [failed, "Something went wrong", true] };
 function route() {
   const [html, title, nav] = SCREENS[location.hash.slice(1)] || SCREENS.signin;
   document.getElementById("main").innerHTML = html();

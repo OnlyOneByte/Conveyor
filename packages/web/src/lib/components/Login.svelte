@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, tick } from "svelte";
-  import { LoginError, login } from "#lib/api.js";
+  import { LoginError, login } from "#lib/login.js";
 
   const dispatch = createEventDispatcher<{ authed: Record<string, never> }>();
 
@@ -39,7 +39,7 @@
   }
 </script>
 
-<svelte:head><title>Sign in to Conveyor · Conveyor</title></svelte:head>
+<svelte:head><title>Sign in · Conveyor</title></svelte:head>
 
 <div class="gate">
   <form class="card" on:submit|preventDefault={submit} aria-labelledby="signin-title">

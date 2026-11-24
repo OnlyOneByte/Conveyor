@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { LoginError, login } from "./api.js";
+import { LoginError, login } from "./login.js";
 
 const realFetch = globalThis.fetch;
 const answer = (response: Response) => {

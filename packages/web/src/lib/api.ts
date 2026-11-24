@@ -118,20 +118,6 @@ export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<Au
   return r.json();
 }
 
-export class LoginError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }
-const errorText = (body: unknown): string | undefined => (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string" ? body.error : undefined);
-export async function login(password: string): Promise<void> {
-  const r = await fetch("/auth/login", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
-  if (!r.ok) {
-    const body: unknown = await r.json().catch(() => undefined);
-    throw new LoginError(errorText(body) ?? `login failed (${r.status})`, r.status);
-  }
-}
-
 export async function logout(): Promise<void> {
   await fetch("/auth/logout", { method: "POST" });
 }
