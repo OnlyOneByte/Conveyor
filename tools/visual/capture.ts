@@ -64,6 +64,10 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
+  else if ("fulfill" in step)
+    await page.route(step.fulfill, (route) =>
+      route.fulfill({ status: step.status, json: step.json }),
+    );
   else await page.waitForTimeout(step.wait);
 }
 

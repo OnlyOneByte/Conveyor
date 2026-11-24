@@ -11,6 +11,7 @@ export type Step =
   | { scroll: string }
   | { waitFor: string; timeout?: number; warn?: string }
   | { wait: number }
+  | { fulfill: string; status: number; json: unknown }
   | { hits: string; viewports: readonly Viewport[] };
 
 export interface Scene {

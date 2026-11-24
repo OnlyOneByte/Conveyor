@@ -121,7 +121,7 @@
   }
 
   let submitting = false;
-  let jobId: string | null = data.initialJobId ?? null;
+  $: jobId = data.initialJobId ?? null;
   let error: string | null = null;
   let retried: string | null = null;
 
