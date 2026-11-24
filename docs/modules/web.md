@@ -17,9 +17,10 @@ submit it themselves.
   eligibility filters then fall back to a valid default, and the user picks again.
 - **`retryOf`.** Pick printer stashes the failure's id in the payload's `retryOf` field, and preselects a printer
   other than the one that failed (the first in the catalog that takes the job's generator), leaving the profile
-  for Make to default. `linkedRetry` keeps `retryOf` only while Make still generates with the stashed
-  generator. Switching to Upload or to another generator drops the link, so an unrelated print can't spend the
-  failure's retry and clear it from Needs you. Make forgets the handoff after one submit attempt, whatever its
+  for Make to default. `linkedRetry` sends `retryOf` only while Make generates with the stashed
+  generator. While Make is on Upload or another generator, the link is suspended, so an unrelated print can't
+  spend the failure's retry and clear it from Needs you. Switching back to the stashed generator restores it,
+  since that print is a retry of the same failure. Make forgets the handoff after one submit attempt, whatever its
   result.
   - **One send path:** with `retryOf`, Make's Print goes through `sendJob`, which calls `retryJob` (`lib/retry.ts`)
     like the tray's Retry. Without it, `sendJob` calls `submitJob`.
