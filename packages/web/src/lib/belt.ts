@@ -34,7 +34,7 @@ export interface Feed {
 export const titled = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
 const settled = (job: TrackJob) => job.state === "done" || job.state === "failed" || job.state === "canceled";
 
-function named(generator: NonNullable<Status["generator"]>, catalog: Catalog | null) {
+export function named(generator: NonNullable<Status["generator"]>, catalog: Catalog | null) {
   const known = catalog?.generators.find((g) => g.id === generator.id);
   return jobName(known?.name ?? titled(generator.id), generator.params, known?.paramSchema ?? null, known?.ui ?? null);
 }
