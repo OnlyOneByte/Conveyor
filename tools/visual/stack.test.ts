@@ -67,7 +67,7 @@ describe("redisContainer", () => {
 
 interface FakeStack {
   deps: StackDeps;
-  children: { name: string; signals: string[] }[];
+  children: { name: string; cmd: string[]; signals: string[] }[];
   dockerCalls: string[][];
   dataDirs: string[];
   seeded: { root: string; dbPath: string; spawnedBefore: number }[];
@@ -126,7 +126,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
         const name = cmd.includes("vite") ? nameOf(cmd) : (cwd.split("/").at(-1) ?? "");
         fake.dataDirs.push(env.DATA_DIR ?? "");
         fake.listenersAtSpawn.push(EXIT_TRIGGERS.map((t) => emitter.listenerCount(t)));
-        const record = { name, signals: [] as string[] };
+        const record = { name, cmd, signals: [] as string[] };
         fake.children.push(record);
         const { promise, resolve } = Promise.withResolvers<number>();
         const port = name === "api" ? env.PORT : cmd[cmd.indexOf("--port") + 1];
@@ -164,6 +164,7 @@ describe("bootStack teardown wiring", () => {
     const fake = fakeStack({ apiExitCode: null, dockerRmExitCode: 0 });
     const stack = await bootStack("/repo", () => {}, fake.deps);
     expect(fake.children.map((c) => c.name)).toEqual(["api", "worker", "build", "web"]);
+    expect(fake.children.find((c) => c.name === "worker")?.cmd).toEqual(["bun", "src/main.ts"]);
     expect(fake.listenersAtSpawn[0]).toEqual([1, 1, 1, 1]);
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(true);
     expect(fake.seeded).toEqual([
