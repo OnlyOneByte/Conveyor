@@ -22,7 +22,7 @@ export const receiptScenes: Scene[] = [
   {
     name: "receipt-failed",
     route: "/jobs/seed-failed",
-    ready: "text=Retry",
+    ready: "text=didn't finish",
     steps: [{ wait: 1200 }],
   },
   {

@@ -2,6 +2,7 @@
   import { Canvas } from "@threlte/core";
   import { ACESFilmicToneMapping } from "three";
   import { goto } from "$app/navigation";
+  import { titled } from "#lib/belt.js";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
@@ -19,13 +20,14 @@
   $: params = job?.request.generator.params;
   $: schema = gen?.paramSchema ?? null;
   $: rows = job ? settingRows(params, schema, gen?.ui ?? null) : [];
-  $: name = job ? jobName(gen?.name ?? "Job", params, schema, gen?.ui ?? null) : "";
+  $: fallback = job ? titled(job.request.generator.id) : "";
+  $: name = job ? jobName(gen?.name ?? fallback, params, schema, gen?.ui ?? null) : "";
   $: title = name || (data.live ? "This job is still running" : "We can't find that job");
   $: state = job?.state === "done" || job?.state === "failed" || job?.state === "canceled"
     ? job.state
     : null;
   $: failure = job?.error ? failureText(job.error.stage, job.error.reason) : null;
-  $: rerunnable = !!job && job.request.generator.id !== "passthrough"
+  $: rerunnable = !!job && job.state !== "failed" && job.request.generator.id !== "passthrough"
     && !!job.request.printerId && !!job.request.profileId;
   $: when = job
     ? new Date(job.updatedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
@@ -69,7 +71,7 @@
     {#if rerunnable}
       <div class="acts">
         <button class="btn primary" type="button" on:click={again}>
-          {state === "failed" ? "Retry" : "Print again"}
+          Print again
         </button>
       </div>
     {/if}

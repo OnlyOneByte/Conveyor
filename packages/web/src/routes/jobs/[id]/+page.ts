@@ -1,9 +1,9 @@
 import {
+  API,
   fetchCatalogPrinters,
   fetchCatalogProfiles,
   fetchGenerators,
   fetchJobHistoryEntry,
-  fetchJobSnapshot,
   signedIn,
 } from "#lib/api.js";
 import type { PageLoad } from "./$types";
@@ -17,9 +17,9 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
     fetchCatalogPrinters(fetch).catch(() => []),
     fetchCatalogProfiles(fetch).catch(() => []),
   ]);
-  if (!job) {
-    const live = (await fetchJobSnapshot(params.id).catch(() => null)) !== null;
-    return { ...empty, live };
+  if (!job || !["done", "failed", "canceled"].includes(job.state)) {
+    const snapshot = await fetch(`${API}/jobs/${encodeURIComponent(params.id)}`).catch(() => null);
+    return { ...empty, live: !!job || snapshot?.ok === true };
   }
   const { generator, printerId, profileId } = job.request;
   return {
