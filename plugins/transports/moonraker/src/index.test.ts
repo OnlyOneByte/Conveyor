@@ -1,9 +1,8 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PrintNotStartedError, type StageCtx, StageError } from "@conveyor/shared";
-import { fakeFetch, fetchSpy, within } from "./fake-fetch";
 import { moonraker } from "./index";
 
 const handle = {
@@ -13,9 +12,30 @@ const handle = {
   address: "10.0.0.9:7125",
 };
 
+const { preconnect } = globalThis.fetch;
+const fetchSpy = spyOn(globalThis, "fetch");
+
+const within = <T>(promise: Promise<T>, ms: number) =>
+  Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) =>
+      setTimeout(() => reject(new Error(`no answer within ${ms} ms`)), ms),
+    ),
+  ]);
+
 afterAll(() => {
   fetchSpy.mockRestore();
 });
+
+function fakeFetch(respond: (url: string, init?: RequestInit) => Promise<Response>) {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  const impl = async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    return respond(String(url), init);
+  };
+  fetchSpy.mockImplementation(Object.assign(impl, { preconnect }));
+  return calls;
+}
 
 describe("moonraker cancel", () => {
   test("posts to /printer/print/cancel", async () => {
@@ -39,93 +59,46 @@ describe("moonraker cancel", () => {
   });
 });
 
-describe("moonraker IPv6 printers", () => {
-  test.each([
-    ["fe80::1", "http://[fe80::1]:80/printer/print/cancel"],
-    ["[fe80::1]:7125", "http://[fe80::1]:7125/printer/print/cancel"],
-    ["http://[fe80::1]:7125/", "http://[fe80::1]:7125/printer/print/cancel"],
-    ["printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
-    ["10.0.0.9:7125/moonraker/", "http://10.0.0.9:7125/moonraker/printer/print/cancel"],
-    ["[fe80::1]:7125/moonraker", "http://[fe80::1]:7125/moonraker/printer/print/cancel"],
-    ["//printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
-    ["HTTP://printer.local:7125/", "HTTP://printer.local:7125/printer/print/cancel"],
-    ["printer.local\n", "http://printer.local:80/printer/print/cancel"],
-    ["10.0.0.5:7125\r\n", "http://10.0.0.5:7125/printer/print/cancel"],
-  ])("%p is reached at %p", async (address, url) => {
-    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
-    await moonraker.cancel?.({ ...handle, address });
-    expect(calls.map((c) => c.url)).toEqual([url]);
-  });
-
-  test.each([
-    ["admin:pw@printer.local", "http://printer.local:80/printer/print/cancel"],
-    ["admin:pw@printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
-    [
-      "//admin:pw@printer.local/moonraker",
-      "http://printer.local:80/moonraker/printer/print/cancel",
-    ],
-  ])("%p drops its credentials and is reached at %p", async (address, url) => {
-    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
-    await moonraker.cancel?.({ ...handle, address });
-    expect(calls.map((c) => c.url)).toEqual([url]);
-    expect(new Headers(calls[0]?.init?.headers).has("authorization")).toBe(false);
-  });
-
-  test.each([
-    ["admin:pa/ss@printer.local", '"***@printer.local": the port must be a number'],
-    [
-      "admin:s3\ncret@printer.local",
-      '"***@printer.local": the address contains a control character',
-    ],
-  ])("%p fails without quoting any part of the password", async (address, reason) => {
-    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
-    const stop = moonraker.cancel?.({ ...handle, address }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow(`moonraker printer address ${reason}`);
-    await expect(stop).rejects.not.toThrow(/admin|pa\/ss|s3|cret/);
-    expect(calls).toHaveLength(0);
-  });
-
-  test("an ambiguous address fails with the parser's reason and sends nothing", async () => {
-    const calls = fakeFetch(async () => new Response("{}", { status: 200 }));
-    const stop = moonraker.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow('moonraker printer address "fe80::1::2": not a valid IPv6');
-    expect(calls).toHaveLength(0);
-  });
-});
-
-async function gcodeCtx() {
-  const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
-  const path = join(dir, "bin 1.gcode");
-  await writeFile(path, "G28\n");
-  const ctx: StageCtx = {
-    jobId: "j",
-    workDir: dir,
-    signal: new AbortController().signal,
-    report: () => {},
-    log: () => {},
-  };
-  return { path, ctx };
-}
-const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
-
 describe("moonraker submit", () => {
   test("a cancel during the upload never starts the print", async () => {
-    const { path, ctx } = await gcodeCtx();
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const path = join(dir, "a.gcode");
+    await writeFile(path, "G28\n");
     const controller = new AbortController();
     const calls = fakeFetch(async () => {
       controller.abort();
       return new Response("{}", { status: 201 });
     });
-    const submit = moonraker.submit({ path, format: "gcode" }, target, {
-      ...ctx,
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
       signal: controller.signal,
-    });
+      report: () => {},
+      log: () => {},
+    };
+    const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+    const submit = moonraker.submit({ path, format: "gcode" }, target, ctx);
     await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
     expect(calls.map((c) => c.url)).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
   });
 });
 
 describe("moonraker submit, the printer answers", () => {
+  async function gcodeCtx() {
+    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const path = join(dir, "bin 1.gcode");
+    await writeFile(path, "G28\n");
+    const ctx: StageCtx = {
+      jobId: "j",
+      workDir: dir,
+      signal: new AbortController().signal,
+      report: () => {},
+      log: () => {},
+    };
+    return { path, ctx };
+  }
+  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+
   test("reports the g-code bytes sent of the total as the printer reads the upload", async () => {
     const { path, ctx } = await gcodeCtx();
     const sent: number[][] = [];

@@ -9,7 +9,6 @@ describe("parseAddress accepts", () => {
     ["[fe80::1]", "elegoo", "fe80::1", 3030],
     ["fe80::1", "elegoo", "fe80::1", 3030],
     ["::1", "moonraker", "::1", 80],
-    ["fe80::1%eth0", "elegoo", "fe80::1%eth0", 3030],
     ["2001:db8::8a2e:370:7334", "moonraker", "2001:db8::8a2e:370:7334", 80],
     ["10.0.0.5", "elegoo", "10.0.0.5", 3030],
     ["10.0.0.5:7125", "elegoo", "10.0.0.5", 7125],
@@ -43,6 +42,10 @@ describe("parseAddress rejects", () => {
     ["10.0.0.256", "not a valid IPv4 address"],
     ["printer local", "not an IPv4 address, IPv6 address or hostname"],
     ["http://", "not a valid URL"],
+    [
+      "fe80::1%eth0",
+      "IPv6 zone IDs such as %eth0 can't be used in a printer URL; give the address without the zone",
+    ],
   ])("%p with %p", (address, why) => {
     expect(parseAddress(address, "elegoo")).toEqual({
       kind: "invalid",

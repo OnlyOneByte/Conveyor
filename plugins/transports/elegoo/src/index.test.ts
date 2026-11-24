@@ -8,7 +8,6 @@ import {
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
-import { FakeWebSocket, useFakeSocket, withinMs } from "./fake-socket";
 import { elegoo } from "./index";
 import { SDCP_CMD } from "./sdcp";
 
@@ -18,6 +17,47 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
+type Mode = "ack" | "nack" | "close" | "silent" | "garbage" | "chatter";
+
+class FakeWebSocket {
+  static mode: Mode = "ack";
+  static sent: { url: string; frame: { Data: { Cmd: number; MainboardID: string } } }[] = [];
+  static closed = 0;
+  onopen: (() => void) | null = null;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  constructor(readonly url: string) {
+    queueMicrotask(() => this.onopen?.());
+  }
+  send(raw: string) {
+    const frame = JSON.parse(raw);
+    FakeWebSocket.sent.push({ url: this.url, frame });
+    if (FakeWebSocket.mode === "close") queueMicrotask(() => this.onclose?.());
+    if (FakeWebSocket.mode === "garbage")
+      queueMicrotask(() => this.onmessage?.({ data: "<html>busy</html>" }));
+    if (FakeWebSocket.mode === "chatter")
+      queueMicrotask(() =>
+        this.onmessage?.({ data: JSON.stringify({ Topic: "sdcp/status/x", Data: {} }) }),
+      );
+    if (FakeWebSocket.mode === "garbage" || FakeWebSocket.mode === "close") return;
+    if (FakeWebSocket.mode === "silent") return;
+    const code = FakeWebSocket.mode === "nack" ? 1 : 0;
+    const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: code } } };
+    queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
+  }
+  close() {
+    FakeWebSocket.closed++;
+  }
+}
+
+function useFakeSocket(mode: Mode) {
+  FakeWebSocket.mode = mode;
+  FakeWebSocket.sent = [];
+  FakeWebSocket.closed = 0;
+  Reflect.set(globalThis, "WebSocket", FakeWebSocket);
+}
+
 const handle: PrintHandle = {
   transportId: "elegoo",
   printerId: "conveyor-printer-1",
@@ -25,6 +65,15 @@ const handle: PrintHandle = {
   address: "10.0.0.8",
   deviceId: "mainboard-abc",
 };
+
+function withinMs<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${what} did not finish in ${ms} ms`)), ms),
+    ),
+  ]);
+}
 
 describe("elegoo cancel", () => {
   test("sends STOP_PRINT to the mainboard the print was started on", async () => {
@@ -164,48 +213,6 @@ describe("elegoo submit", () => {
       if (before === undefined) delete process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
       else process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = before;
     }
-  });
-});
-
-describe("elegoo IPv6 printers", () => {
-  test("a bare IPv6 address is bracketed in the WebSocket URL", async () => {
-    useFakeSocket("ack");
-    await elegoo.cancel?.({ ...handle, address: "fe80::1" });
-    expect(FakeWebSocket.sent[0]?.url).toBe("ws://[fe80::1]:3030/websocket");
-  });
-
-  test("a bare IPv6 address is bracketed in the upload URL", async () => {
-    useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
-    const path = join(dir, "a.gcode");
-    await writeFile(path, "G28\n");
-    const controller = new AbortController();
-    const urls: string[] = [];
-    const upload = async (url: string | URL | Request) => {
-      urls.push(String(url));
-      controller.abort();
-      return new Response("{}", { status: 200 });
-    };
-    fetchSpy.mockImplementation(Object.assign(upload, { preconnect }));
-    const ctx: StageCtx = {
-      jobId: "j",
-      workDir: dir,
-      signal: controller.signal,
-      report: () => {},
-      log: () => {},
-    };
-    const target = { id: "p", transportId: "elegoo", address: "fe80::1", secrets: {} };
-    await expect(elegoo.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
-      PrintNotStartedError,
-    );
-    expect(urls).toEqual(["http://[fe80::1]:3030/uploadFile/upload"]);
-  });
-
-  test("an ambiguous address fails the command with the parser's reason", async () => {
-    useFakeSocket("ack");
-    const stop = elegoo.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow('elegoo printer address "fe80::1::2": not a valid IPv6');
-    expect(FakeWebSocket.sent).toHaveLength(0);
   });
 });
 

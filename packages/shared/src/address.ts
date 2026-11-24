@@ -14,6 +14,8 @@ const BRACKETED = /^\[([^\]]*)\](?::(.*))?$/;
 const HOSTNAME =
   /^(?=.{1,253}\.?$)[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)*\.?$/i;
 const PORT_RANGE = "the port must be a number from 1 to 65535";
+const ZONE_ID =
+  "IPv6 zone IDs such as %eth0 can't be used in a printer URL; give the address without the zone";
 
 function redactAddress(text: string): string {
   return text.replace(USERINFO, "$1***@");
@@ -48,6 +50,7 @@ function parseBracketed(text: string, defaultPort: number): Parsed | Problem {
   const match = text.match(BRACKETED);
   const host = match?.[1] ?? "";
   if (!isIPv6(host)) return problem("brackets must hold an IPv6 address, as in [fe80::1]:3030");
+  if (host.includes("%")) return problem(ZONE_ID);
   const portText = match?.[2];
   if (portText === undefined) return { kind: "parsed", host, port: defaultPort };
   return withPort(host, portText);
@@ -66,7 +69,10 @@ function parseText(text: string, defaultPort: number): Parsed | Problem {
   if (!text) return problem("the address is empty");
   if (SCHEME.test(text)) return parseUrl(text, defaultPort);
   if (text.startsWith("[")) return parseBracketed(text, defaultPort);
-  if (isIPv6(text)) return { kind: "parsed", host: text, port: defaultPort };
+  if (isIPv6(text))
+    return text.includes("%")
+      ? problem(ZONE_ID)
+      : { kind: "parsed", host: text, port: defaultPort };
   if (text.indexOf(":") !== text.lastIndexOf(":"))
     return problem("not a valid IPv6 address; to give a port, write it as [fe80::1]:3030");
   return parseHost(text, defaultPort);

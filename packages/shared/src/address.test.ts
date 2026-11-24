@@ -54,6 +54,16 @@ describe("parseHostPort", () => {
     expect(parseHostPort(address, 3030)).toEqual({ kind: "invalid", reason });
   });
 
+  test.each(["fe80::1%eth0", "[fe80::1%eth0]", "[fe80::1%eth0]:7125"])(
+    "rejects the zone ID in %p, which no printer URL can hold",
+    (address) => {
+      expect(parseHostPort(address, 3030)).toEqual({
+        kind: "invalid",
+        reason: `${JSON.stringify(address)}: IPv6 zone IDs such as %eth0 can't be used in a printer URL; give the address without the zone`,
+      });
+    },
+  );
+
   test("a reason quotes the full address it is given, redacted, instead of the host part", () => {
     expect(parseHostPort("admin:pa", 80, "admin:pa/ss@printer.local")).toEqual({
       kind: "invalid",

@@ -19,7 +19,7 @@ it.
   - a URL, `http(s)://host:port/path`, including `http://[fe80::1]:7125/`;
   - an IPv4 address or hostname, with or without `:port`;
   - a bracketed IPv6 address, with or without `:port` (`[fe80::1]:3030`, `[fe80::1]`);
-  - a bare IPv6 address, zone included (`fe80::1`, `fe80::1%eth0`).
+  - a bare IPv6 address (`fe80::1`).
 - A bare IPv6 address never carries a port: `fe80::1:3030` is the IPv6 address `fe80::1:3030`, so a port
   needs brackets.
 - Hostnames:
@@ -31,6 +31,8 @@ it.
   - an empty address;
   - more than one colon without brackets that isn't a valid IPv6 address (`fe80::1::2`, `10.0.0.5:3030:1`);
   - brackets that don't hold an IPv6 address (`[10.0.0.5]:3030`);
+  - an IPv6 zone ID, bare or bracketed (`fe80::1%eth0`, `[fe80::1%eth0]:7125`), because no WHATWG URL can
+    hold one, so every transport URL built from it would fail;
   - a port outside 1–65535, or one that isn't a number;
   - a dotted number that isn't IPv4 (`10.0.0.256`);
   - a host with characters a hostname can't have;
