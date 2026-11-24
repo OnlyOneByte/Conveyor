@@ -1,5 +1,6 @@
 import type { Viewport } from "./hits.ts";
 import { REACH, toastOnMake } from "./reach.ts";
+import { receiptScenes } from "./scenes-receipt.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
@@ -91,18 +92,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 800 }],
   },
-  {
-    name: "job-detail",
-    route: "/history/seed-canceled",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
-  {
-    name: "job-detail-failed",
-    route: "/history/seed-failed",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
+  ...receiptScenes,
   {
     name: "monitor",
     route: "/monitor",

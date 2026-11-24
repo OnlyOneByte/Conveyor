@@ -11,7 +11,7 @@ export interface SettingRow {
   value: string;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 function orderedKeys(
@@ -68,4 +68,13 @@ export function jobName(
     return only !== undefined && ui.unitMm?.[only] !== undefined ? [`${values[0]}u`] : [];
   });
   return sizes.length ? `${generatorName} ${sizes.join(" · ")}` : generatorName;
+}
+
+export function duration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest ? `${Math.floor(minutes / 60)} h ${rest} min` : `${minutes / 60} h`;
 }

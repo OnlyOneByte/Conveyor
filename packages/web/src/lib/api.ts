@@ -152,13 +152,13 @@ export interface PrusaProfileContent {
 }
 export interface JobHistoryEntry {
   id: string;
-  /** printerId/profileId may be "" on a job migrated from a deleted station */
   request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
   state: JobState;
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
+  filament?: { grams?: number; metres?: number };
   createdAt: number;
   updatedAt: number;
 }
