@@ -198,6 +198,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
     is stored.
   - A printer whose stored secrets don't decrypt can't be patched: the write answers `409` and changes
     nothing. Delete the printer and add it again.
+  - Removing a key takes its name, and reads never return names, so nothing clears keys you don't know about.
+    To start over with no secrets, delete the printer and add it again.
+  - Merging happens inside one `IMMEDIATE` transaction, so concurrent writes to the same printer each keep
+    their keys; `printer-secrets-concurrency.test.ts` runs eight writer processes against one database.
 - `allowedGenerators`: omit it for no restriction; `[]` allows nothing.
 - Every catalog write is parsed by the schemas in `catalog-validation.ts` and the content schemas in
   `routes/catalog-content.ts`. A rejected write answers `400 { error }` naming each field, e.g.
