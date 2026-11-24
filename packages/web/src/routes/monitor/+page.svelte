@@ -118,10 +118,10 @@
   }
 </script>
 
+<svelte:head><title>Monitor · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Monitor</h1>
-    <a href="/" class="navlink">← Back to app</a>
   </div>
 
   <!-- ── Active jobs ─────────────────────────────────────────────────────── -->
@@ -146,7 +146,7 @@
           {@const elapsed = currentStageElapsed(j)}
           <li>
             <div class="jobmain">
-              <a class="mono jobid" href={`/history/${j.jobId}`} title="Open job details">{j.jobId.slice(0, 8)}</a>
+              <a class="mono jobid" href={`/jobs/${j.jobId}`} title="Open job details">{j.jobId.slice(0, 8)}</a>
               <span class="state {j.state}">{stageLabel(j)}</span>
               {#if elapsed !== null}<span class="muted elapsed">{fmtDuration(elapsed)} in stage</span>{/if}
               {#if j.state === "printing" && j.progress != null}
@@ -226,7 +226,6 @@
   h1 { margin: 0; }
   h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
   .secthead { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .navlink { color: var(--live); text-decoration: none; }
   .inlink { color: var(--live); text-decoration: none; }
   .inlink:hover { text-decoration: underline; }
   .live { font-size: 0.72rem; color: var(--ok); letter-spacing: 0.02em; }

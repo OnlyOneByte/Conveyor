@@ -11,7 +11,7 @@ import {
 } from "@conveyor/shared";
 import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
 import { SDCP_CMD } from "./sdcp.js";
-import { sendCommand, streamStatus, WS_PORT } from "./socket.js";
+import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
@@ -96,7 +96,7 @@ async function uploadGcode(address: string, path: string, ctx: StageCtx): Promis
   const upload = multipartFileUpload({ field: "File", path, filename }, (sent, total) =>
     ctx.reportUpload?.(sent, total),
   );
-  const url = `http://${address}:${WS_PORT}/uploadFile/upload`;
+  const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
   const signal = uploadSignal(ctx.signal);
   const init = { method: "POST", body: upload.body, headers: upload.headers, signal };
   const res = await fetch(url, init).catch((e) => {

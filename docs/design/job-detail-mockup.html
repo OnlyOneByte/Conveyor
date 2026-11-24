@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Job detail mockup · Conveyor</title>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(https://cdn.jsdelivr.net/fontsource/fonts/bricolage-grotesque:vf@5.3.0/latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"DM Mono";src:url(https://cdn.jsdelivr.net/fontsource/fonts/dm-mono@5.3.0/latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+:root{--display:"Bricolage Grotesque",system-ui,sans-serif;--mono:"DM Mono",ui-monospace,monospace;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--r-chip:16px;--r-control:13px;--r-card:18px;--r-panel:26px}
+:root[data-theme=light]{--bg:oklch(.952 .016 85);--paper:oklch(.992 .006 85);--sunk:oklch(.93 .016 85);--ink:oklch(.22 .02 55);--muted:oklch(.45 .02 60);--faint:oklch(.5 .02 65);--line:oklch(.22 .02 55/.13);--line-2:oklch(.22 .02 55/.24);--field-line:oklch(.58 .02 60);--accent:oklch(.68 .19 45);--accent-ink:oklch(.2 .03 45);--focus:oklch(.52 .17 42);--live:oklch(.52 .18 42);--ok:oklch(.48 .13 150);--err:oklch(.5 .2 28);--err-soft:oklch(.5 .2 28/.1);--off:oklch(.5 .01 60);--mat:oklch(.44 .075 168);--mat-line:oklch(.62 .07 168);--model:oklch(.82 .09 175);--lift:0 1px 2px oklch(.22 .02 55/.12)}
+:root[data-theme=dark]{--bg:oklch(.19 .01 60);--paper:oklch(.25 .012 60);--sunk:oklch(.215 .011 60);--ink:oklch(.95 .012 85);--muted:oklch(.78 .015 80);--faint:oklch(.7 .015 75);--line:oklch(.95 .01 85/.1);--line-2:oklch(.95 .01 85/.2);--field-line:oklch(.6 .015 75);--accent:oklch(.74 .17 50);--accent-ink:oklch(.18 .02 50);--focus:oklch(.74 .17 50);--live:oklch(.77 .16 52);--ok:oklch(.78 .14 150);--err:oklch(.74 .16 28);--err-soft:oklch(.74 .16 28/.12);--off:oklch(.68 .01 60);--mat:oklch(.31 .055 168);--mat-line:oklch(.42 .05 168);--model:oklch(.78 .08 175);--lift:0 1px 2px oklch(0 0 0/.4)}
+*{box-sizing:border-box;margin:0}
+body{font:15px/1.45 var(--display);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.shell{max-width:90rem;margin:0 auto;padding:0 var(--s6) var(--s6)}
+.top{display:flex;align-items:center;gap:var(--s5);min-height:60px}
+.word{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.word i{display:flex;gap:3px}.word i b{width:7px;height:18px;border-radius:3px;background:var(--accent);transform:skewX(-14deg)}.word i b:nth-child(2){opacity:.6}.word i b:nth-child(3){opacity:.3}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:15px;background:var(--sunk);border:1px solid var(--line)}
+.tabs a{position:relative;display:flex;align-items:center;min-height:38px;padding:0 var(--s4);border-radius:11px;font-weight:600;color:var(--muted);text-decoration:none}
+.tabs a[aria-current]{background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+.tabs a[aria-current]::after{content:"";position:absolute;inset:auto var(--s3) 3px;height:3px;border-radius:2px;background:var(--live)}
+.sp{flex:1}
+.ghost{min-height:40px;padding:0 var(--s3);border:0;border-radius:var(--r-control);background:none;color:var(--ink);font:700 14px var(--display)}
+.rail{height:40px;margin:var(--s1) 0 var(--s4);border-radius:var(--r-control);border:1.5px dashed var(--line-2);display:flex;align-items:center;justify-content:center;font:500 12px var(--mono);color:var(--faint)}
+.crumb{font-weight:600;color:var(--muted);text-decoration:none}
+.crumb:hover{color:var(--ink)}
+.head{display:flex;align-items:flex-start;gap:var(--s4);flex-wrap:wrap;margin:var(--s2) 0 var(--s5)}
+.head .t{flex:1;min-width:260px;display:flex;flex-direction:column;gap:var(--s2)}
+h1{font-size:36px;line-height:1.05;font-weight:800;letter-spacing:-.04em}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3);color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:99px;border:1.5px solid currentColor;font:700 13px var(--display)}
+.pill svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.pill.done{color:var(--ok)}.pill.failed{color:var(--err)}.pill.canceled{color:var(--off)}.pill.live{color:var(--live)}.pill.queued{color:var(--muted)}
+.acts{display:flex;gap:var(--s2);flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:var(--s2);min-height:44px;padding:0 var(--s4);border-radius:var(--r-control);border:1.5px solid var(--field-line);background:var(--paper);color:var(--ink);font:700 15px var(--display);text-decoration:none}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:800}
+.btn.danger{color:var(--err);border-color:var(--err)}
+.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:var(--s5);align-items:start}
+.mat{position:relative;aspect-ratio:4/3;border-radius:var(--r-panel);background:linear-gradient(color-mix(in oklch,var(--mat-line) 45%,transparent) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(90deg,color-mix(in oklch,var(--mat-line) 45%,transparent) 1px,transparent 1px) 0 0/24px 24px,var(--mat);overflow:hidden;display:grid;place-items:center;box-shadow:var(--lift)}
+.mat svg{position:relative;width:52%}
+.mat .tag{position:absolute;left:var(--s4);bottom:var(--s4);padding:4px 10px;border-radius:99px;background:var(--paper);color:var(--ink);font:500 12px var(--mono)}
+.receipt{position:relative;padding:var(--s5);border-radius:var(--r-card);background:var(--paper);border:1px solid var(--line);box-shadow:var(--lift);display:flex;flex-direction:column;gap:var(--s5)}
+.receipt::before{content:"";position:absolute;left:var(--s5);right:var(--s5);top:-1px;border-top:2px dashed var(--line-2)}
+.receipt h2{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:var(--s2)}
+dl.rows{display:grid;grid-template-columns:1fr auto;gap:6px var(--s4)}
+dl.rows dt{color:var(--muted)}
+dl.rows dd{font:500 14px var(--mono);text-align:right}
+dl.rows .total{border-top:1.5px dashed var(--line-2);padding-top:6px;font-weight:700;color:var(--ink)}
+.files{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.idrow{display:flex;align-items:center;gap:var(--s3);color:var(--muted)}
+.idrow code{font:500 13px var(--mono);color:var(--muted)}
+.why{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s4);border-radius:var(--r-card);background:var(--err-soft);border:1.5px solid var(--err);margin-bottom:var(--s5)}
+.why svg{width:22px;height:22px;flex:none;fill:none;stroke:var(--err);stroke-width:2;stroke-linecap:round}
+.why strong{display:block;color:var(--err);font-size:17px}
+.why p{color:var(--ink)}
+details{color:var(--muted)}
+details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+details pre{margin-top:var(--s2);padding:var(--s3);border-radius:10px;background:var(--sunk);font:500 12px var(--mono);white-space:pre-wrap;color:var(--ink)}
+.live{display:flex;flex-direction:column;gap:var(--s5)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2);list-style:none;padding:0}
+.steps li{display:flex;flex-direction:column;gap:6px;font-weight:600;color:var(--muted)}
+.steps li::before{content:"";height:6px;border-radius:3px;background:var(--field-line)}
+.steps li.past::before{background:var(--ok)}
+.steps li.past::after{content:"✓ done";font:500 12px var(--mono);color:var(--ok)}
+.steps li.now::after{content:"now";font:500 12px var(--mono);color:var(--live)}
+.steps li.now{color:var(--ink)}
+.steps li.now::before{background:var(--live)}
+.bar{height:14px;border-radius:7px;background:var(--sunk);border:1px solid var(--field-line);overflow:hidden}
+.bar i{display:block;height:100%;width:64%;background:var(--live)}
+.big{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.big b{font:800 44px var(--display);letter-spacing:-.04em}
+.big span{color:var(--muted)}
+.nf{max-width:520px;display:flex;flex-direction:column;gap:var(--s4);padding:10vh 0}
+@media (max-width:759px){
+.shell{padding:0 var(--s4) 110px}
+.top{gap:var(--s2);min-height:54px}.word{font-size:20px}
+.tabs{position:fixed;z-index:3;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);border-radius:0;border-width:1px 0 0;border-color:var(--line-2);background:var(--paper);padding:var(--s2) 10px}
+.tabs a{justify-content:center;min-height:56px}
+.tabs a[aria-current]{background:var(--sunk);box-shadow:none}
+.tabs a[aria-current]::after{inset:0 30% auto}
+h1{font-size:30px}
+.grid{grid-template-columns:1fr}
+.head .acts{width:100%}.head .acts .btn{flex:1;justify-content:center}
+.steps{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+  <a class="word" href="#printed"><i aria-hidden="true"><b></b><b></b><b></b></i>conveyor</a>
+  <nav class="tabs" aria-label="Main"><a href="#printed">Make</a><a href="#printed" aria-current="page">Jobs</a><a href="#printed">Printers</a></nav>
+  <span class="sp"></span>
+  <button class="ghost" type="button">Sign out</button>
+</header>
+<div class="rail" aria-hidden="true">Track rail slot (#328)</div>
+<main id="main" tabindex="-1"></main>
+</div>
+<template id="model"><svg viewBox="0 0 200 140" aria-hidden="true"><path d="M30 60 100 28l70 32v46l-70 32-70-32Z" fill="var(--model)" opacity=".9"/><path d="M30 60l70 32 70-32M100 92v46" fill="none" stroke="var(--mat)" stroke-width="2"/><path d="M48 66l52 24 52-24" fill="none" stroke="var(--mat)" stroke-width="1.5" opacity=".6"/></svg></template>
+<script>
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get("theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+const ICON = {
+  done: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>',
+  failed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v6M12 17v.5"/></svg>',
+  canceled: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>',
+  again: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>',
+};
+const model = document.getElementById("model").innerHTML;
+const crumb = '<a class="crumb" href="#printed">← Jobs</a>';
+const meta = (when) => `<span>Voron 2.4 · PLA 0.2 mm</span><span>${when}</span>`;
+const settings = `<section><h2>Settings</h2><dl class="rows"><dt>Width in 42mm units</dt><dd>2 u · 84 mm</dd><dt>Depth in 42mm units</dt><dd>3 u · 126 mm</dd><dt>Height in 7mm units</dt><dd>6 u · 42 mm</dd><dt>Compartments across</dt><dd>2</dd><dt>Magnet holes in base</dt><dd>Yes</dd></dl></section>`;
+const times = (rows) => `<section><h2>Stage times</h2><dl class="rows">${rows}</dl></section>`;
+const fullTimes = times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>41 s</dd><dt>Send to printer</dt><dd>1 h 12 min</dd><dt class="total">Took</dt><dd class="total">1 h 13 min</dd>');
+const filament = '<section><h2>Filament</h2><dl class="rows"><dt>Used</dt><dd>12.4 g · 4.1 m</dd></dl></section>';
+const files = `<section><h2>Files</h2><div class="files"><a class="btn" href="#printed" download>${ICON.down}Model (STL)</a><a class="btn" href="#printed" download>${ICON.down}G-code</a></div></section>`;
+const id = '<div class="idrow"><span>Job ID</span><button class="btn" type="button">Copy job ID</button></div>';
+const head = (pill, when, acts) => `${crumb}<div class="head"><div class="t"><h1 id="title">Gridfinity Bin 2×3 · 6u</h1><div class="meta">${pill}${meta(when)}</div></div><div class="acts">${acts}</div></div>`;
+const receipt = (body) => `<div class="grid"><div class="mat">${model}<span class="tag">84 × 126 × 42 mm</span></div><div class="receipt">${body}</div></div>`;
+const S = {
+  printed: () => head(`<span class="pill done">${ICON.done}Printed</span>`, "Finished today at 12:04", `<a class="btn pri" href="#printed">${ICON.again}Print again</a>`) + receipt(settings + fullTimes + filament + files + id),
+  failed: () => head(`<span class="pill failed">${ICON.failed}Failed</span>`, "Stopped today at 11:20", `<a class="btn pri" href="#failed">${ICON.again}Retry</a>`) +
+    `<div class="why" role="note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3ZM12 10v4M12 17v.5"/></svg><div><strong>Slicing didn't finish</strong><p>The model doesn't fit the printer's bed. Make it smaller, or pick a bigger printer.</p></div></div>` +
+    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>3 s</dd>') + `<details><summary>Details</summary><pre>slicer: xvfb-run exited 1: Found Object model.stl partly inside, can not be sliced.</pre></details>` + id),
+  canceled: () => head(`<span class="pill canceled">${ICON.canceled}Canceled</span>`, "Canceled today at 10:51", `<a class="btn pri" href="#canceled">${ICON.again}Print again</a>`) +
+    receipt(settings + times('<dt>Model</dt><dd>2 s</dd><dt>Slice</dt><dd>40 s</dd><dt>Send to printer</dt><dd>2 s</dd>') + files.replace(/<a class="btn" href="#printed" download>[^]*?G-code<\/a>/, "") + id),
+  printing: () => head('<span class="pill live">Printing · 64%</span>', "Started today at 12:31", '<button class="btn danger" type="button">Cancel print</button>') +
+    receipt(`<section class="live"><h2>Progress</h2><ol class="steps"><li class="past">Model</li><li class="past">Slice</li><li class="past">Send</li><li class="now" aria-current="step">Print</li></ol><div class="big"><b>64%</b><span>Layer 112 of 175 · 38 min left · done at 13:42</span></div><div class="bar" role="progressbar" aria-label="Print progress" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100"><i></i></div></section>` + settings + id),
+  queued: () => head('<span class="pill queued">Waiting</span>', "Added today at 12:40", '<button class="btn danger" type="button">Cancel</button>') +
+    receipt(`<section class="live"><h2>Progress</h2><div class="big"><b>2nd</b><span>in line for the Voron 2.4</span></div><ol class="steps"><li>Model</li><li>Slice</li><li>Send</li><li>Print</li></ol></section>` + settings + id),
+  notfound: () => `<section class="nf" aria-labelledby="title"><h1 id="title">We can't find that job</h1><p class="meta">It may have been removed, or the link is mistyped.</p><div class="acts"><a class="btn pri" href="#printed">See your jobs</a><a class="btn" href="#printed">Go to Make</a></div></section>`,
+};
+function show() {
+  const state = location.hash.slice(1) || "printed";
+  document.getElementById("main").innerHTML = (S[state] ?? S.printed)();
+  document.title = `${document.getElementById("title").textContent} · Conveyor`;
+}
+addEventListener("hashchange", show);
+show();
+</script>
+</body>
+</html>

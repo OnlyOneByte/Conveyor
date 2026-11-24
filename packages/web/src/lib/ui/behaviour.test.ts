@@ -32,7 +32,7 @@ describe("menu keys", () => {
 
 describe("dialog focus trap", () => {
   test("wraps over every tabbable kind, minus disabled controls and tabindex -1", () => {
-    const kinds = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
+    const kinds = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
     expect(TABBABLE).toBe(kinds);
   });
 
@@ -82,6 +82,24 @@ describe("toasts", () => {
     expect(get(toasts)).toHaveLength(1);
     clock.tick(1);
     expect(get(toasts)).toEqual([]);
+  });
+
+  test("pause and resume more than once, keeping the time left each time", () => {
+    const clock = fakeClock();
+    const toasts = createToasts(clock);
+    const id = toasts.show("one");
+    clock.tick(1000);
+    toasts.hold(id, "focus");
+    clock.tick(30_000);
+    toasts.release(id, "focus");
+    clock.tick(2000);
+    toasts.hold(id, "pointer");
+    clock.tick(30_000);
+    toasts.release(id, "pointer");
+    clock.tick(2999);
+    expect([get(toasts).length, clock.pending()]).toEqual([1, 1]);
+    clock.tick(1);
+    expect([get(toasts).length, clock.pending()]).toEqual([0, 0]);
   });
 
   test("dismissing one leaves the others and stops its timer", () => {

@@ -1,4 +1,3 @@
-// Thin client over the Conveyor API. Same-origin in prod (Caddy), proxied in dev (vite).
 import type {
   FormUiHints,
   JobState,
@@ -7,6 +6,8 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
+
+export const API = "/api";
 
 export interface GeneratorSummary {
   id: string;
@@ -31,7 +32,7 @@ export interface JobStatusEvent {
 }
 
 export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<GeneratorSummary[]> {
-  const r = await fetchFn("/generators");
+  const r = await fetchFn(`${API}/generators`);
   if (!r.ok) throw new Error(`GET /generators ${r.status}`);
   return r.json();
 }
@@ -46,7 +47,7 @@ interface UploadResult {
 export async function uploadStl(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file, file.name);
-  const r = await fetch("/uploads", { method: "POST", body: form });
+  const r = await fetch(`${API}/uploads`, { method: "POST", body: form });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? `POST /uploads ${r.status}`);
@@ -57,7 +58,7 @@ export async function uploadStl(file: File): Promise<UploadResult> {
 export async function submitJob(
   body: { generator: { id: string; params: unknown }; printerId: string; profileId: string },
 ): Promise<{ jobId: string }> {
-  const r = await fetch("/jobs", {
+  const r = await fetch(`${API}/jobs`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -69,29 +70,26 @@ export async function submitJob(
   return r.json();
 }
 
-/** Open the job status WebSocket. Caller handles events + close. */
 export function openJobSocket(jobId: string): WebSocket {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  return new WebSocket(`${proto}://${location.host}/jobs/${jobId}/ws`);
+  return new WebSocket(`${proto}://${location.host}${API}/jobs/${jobId}/ws`);
 }
 
 export async function fetchJobSnapshot(jobId: string): Promise<JobStatusEvent | null> {
-  const r = await fetch(`/jobs/${jobId}`);
+  const r = await fetch(`${API}/jobs/${jobId}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GET /jobs/${jobId} ${r.status}`);
   return r.json();
 }
 
-/** In-flight jobs (the worker's active set → each live snapshot), newest-first. */
 export async function fetchActiveJobs(fetchFn: typeof fetch = fetch): Promise<JobStatusEvent[]> {
-  const r = await fetchFn("/jobs/active");
+  const r = await fetchFn(`${API}/jobs/active`);
   if (!r.ok) throw new Error(`GET /jobs/active ${r.status}`);
   return r.json();
 }
 
-/** Cancel a running/queued job (best-effort; the worker observes it cooperatively). */
 export async function cancelJob(jobId: string): Promise<void> {
-  const r = await fetch(`/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
+  const r = await fetch(`${API}/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
   if (!r.ok) throw new Error(`POST /jobs/${jobId}/cancel ${r.status}`);
 }
 
@@ -103,37 +101,24 @@ export interface PrinterReachable {
   reason?: string;
 }
 
-/** TCP-connect liveness probe for one printer. */
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
-  getJson<PrinterReachable>(`/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
+  getJson<PrinterReachable>(`${API}/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
-// ─── Auth ───────────────────────────────────────────────────────────────────
-// One tier: holding the password grants the whole app. No roles.
 export interface AuthStatus {
   authEnabled: boolean;
   authenticated: boolean;
 }
 
+export const signedIn = (status: AuthStatus): boolean => !status.authEnabled || status.authenticated;
+
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
-  const r = await fetchFn("/auth/status");
+  const r = await fetchFn(`${API}/auth/status`);
   if (!r.ok) throw new Error(`GET /auth/status ${r.status}`);
   return r.json();
 }
 
-export async function login(password: string): Promise<void> {
-  const r = await fetch("/auth/login", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `login failed (${r.status})`);
-  }
-}
-
 export async function logout(): Promise<void> {
-  await fetch("/auth/logout", { method: "POST" });
+  await fetch(`${API}/auth/logout`, { method: "POST" });
 }
 
 // ─── Catalog (printers / profiles) ──────────────────────────────────────────
@@ -167,13 +152,13 @@ export interface PrusaProfileContent {
 }
 export interface JobHistoryEntry {
   id: string;
-  /** printerId/profileId may be "" on a job migrated from a deleted station */
   request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
   state: JobState;
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
+  filament?: { grams?: number; metres?: number };
   createdAt: number;
   updatedAt: number;
 }
@@ -196,7 +181,7 @@ async function putJson(path: string, body: unknown): Promise<void> {
   }
 }
 
-export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>("/catalog/printers", f);
+export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>(`${API}/catalog/printers`, f);
 export interface CatalogTransport {
   id: string;
   name: string;
@@ -204,14 +189,14 @@ export interface CatalogTransport {
 }
 
 export const fetchCatalogTransports = (f?: typeof fetch) =>
-  getJson<CatalogTransport[]>("/catalog/transports", f);
-export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>("/catalog/profiles", f);
+  getJson<CatalogTransport[]>(`${API}/catalog/transports`, f);
+export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
 
 export async function fetchOrcaProfileContent(
   id: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<OrcaProfileContent> {
-  const path = `/catalog/profiles/${encodeURIComponent(id)}/content`;
+  const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
   const r = await fetchFn(path);
   if (!r.ok) {
     const body = (await r.json().catch(() => ({}))) as { error?: unknown };
@@ -221,7 +206,7 @@ export async function fetchOrcaProfileContent(
 }
 
 export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocuments) =>
-  putJson(`/catalog/profiles/${encodeURIComponent(id)}/content`, {
+  putJson(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`, {
     format: "orca-json",
     documents,
   });
@@ -230,7 +215,7 @@ export async function fetchPrusaProfileContent(
   id: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<PrusaProfileContent> {
-  const path = `/catalog/profiles/${encodeURIComponent(id)}/content`;
+  const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
   const r = await fetchFn(path);
   if (!r.ok) {
     const body = (await r.json().catch(() => ({}))) as { error?: unknown };
@@ -240,12 +225,12 @@ export async function fetchPrusaProfileContent(
 }
 
 export const savePrusaProfileContent = (id: string, document: PrusaProfileDocument) =>
-  putJson(`/catalog/profiles/${encodeURIComponent(id)}/content`, {
+  putJson(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`, {
     format: "prusa-ini",
     document,
   });
 
-export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>("/jobs-history?limit=200", f);
+export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
 
 /**
  * One settled job, or null when there is no such record. Deliberately NOT getJson():
@@ -257,7 +242,7 @@ export async function fetchJobHistoryEntry(
   id: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<JobHistoryEntry | null> {
-  const path = `/jobs-history/${encodeURIComponent(id)}`;
+  const path = `${API}/jobs-history/${encodeURIComponent(id)}`;
   const r = await fetchFn(path);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
@@ -265,8 +250,8 @@ export async function fetchJobHistoryEntry(
 }
 
 export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
-  putJson("/catalog/printers", p);
-export const saveProfile = (p: CatalogProfile) => putJson("/catalog/profiles", p);
+  putJson(`${API}/catalog/printers`, p);
+export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
 
 /**
  * DELETE that surfaces the server's message instead of flattening it to a status code,
@@ -285,12 +270,14 @@ async function del(path: string): Promise<void> {
   throw new Error(detail || `DELETE ${path} ${r.status}`);
 }
 
-export const deletePrinter = (id: string) => del(`/catalog/printers/${encodeURIComponent(id)}`);
-export const deleteProfile = (id: string) => del(`/catalog/profiles/${encodeURIComponent(id)}`);
+export const deletePrinter = (id: string) =>
+  del(`${API}/catalog/printers/${encodeURIComponent(id)}`);
+export const deleteProfile = (id: string) =>
+  del(`${API}/catalog/profiles/${encodeURIComponent(id)}`);
 
 export const resetOrcaProfileContent = (id: string) =>
-  del(`/catalog/profiles/${encodeURIComponent(id)}/content`);
+  del(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`);
 
 /** The reset DELETE is format-agnostic (same URL); Prusa reuses it under a clear name. */
 export const resetPrusaProfileContent = (id: string) =>
-  del(`/catalog/profiles/${encodeURIComponent(id)}/content`);
+  del(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`);

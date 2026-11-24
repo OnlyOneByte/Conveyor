@@ -2,9 +2,12 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
+import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
+import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
+import { assertHits, titleMismatch } from "./hits.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -61,6 +64,15 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("scroll" in step)
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
+  else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
+  else if ("follow" in step) await follow(page, step.follow);
+  else if ("fulfill" in step)
+    await page.route(step.fulfill, (route) =>
+      step.method && route.request().method() !== step.method
+        ? route.fallback()
+        : route.fulfill({ status: step.status, json: step.json }),
+    );
+  else if ("history" in step) await (step.history === "back" ? page.goBack() : page.goForward());
   else await page.waitForTimeout(step.wait);
 }
 
@@ -134,6 +146,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     colorScheme,
   });
   await pinHistoryRoute(context);
+  if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
   let sampler: Sampler | undefined;
   try {
@@ -141,6 +154,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     await page.locator(scene.ready).first().waitFor({ timeout: 30000 });
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
+    const mismatch = await titleMismatch(page);
+    if (mismatch) throw new Error(mismatch);
   } catch (err) {
     result.error = messageOf(err);
   }

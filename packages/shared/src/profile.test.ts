@@ -98,6 +98,41 @@ describe("validateOrcaProfileDocuments key allowlist", () => {
   });
 });
 
+describe("validateOrcaProfileDocuments document checks", () => {
+  const refusal = (process: string) => {
+    try {
+      validateOrcaProfileDocuments({ ...orcaDocuments({}), process });
+    } catch (error) {
+      if (error instanceof OrcaProfileValidationError) return error.message;
+      throw error;
+    }
+    return null;
+  };
+
+  test.each([
+    ["an array", "[]", "process.json must contain a JSON object"],
+    ["null", "null", "process.json must contain a JSON object"],
+    ["a string", '"process"', "process.json must contain a JSON object"],
+    [
+      "another document's type",
+      '{"type":"machine"}',
+      'process.json has type "machine"; expected "process"',
+    ],
+  ])("refuses %s", (_label, process, message) => {
+    expect(refusal(process)).toBe(message);
+  });
+
+  test("names the document whose JSON does not parse", () => {
+    expect(refusal("{not json")).toStartWith("process.json: ");
+  });
+
+  test("refuses a document over 256 KiB before parsing it", () => {
+    expect(refusal(`{"type":"process","name":"${"x".repeat(256 * 1024)}"}`)).toBe(
+      "process.json exceeds the 256 KiB limit",
+    );
+  });
+});
+
 describe("bundled profiles", () => {
   const root = join(import.meta.dir, "..", "..", "..", "profiles");
 

@@ -36,12 +36,12 @@ sequenceDiagram
     PWA-->>PWA: rebuild preview geometry (sub-ms)
 
     U->>PWA: Print
-    PWA->>API: POST /jobs {generator,params,printerId,profileId}
+    PWA->>API: POST /api/jobs {generator,params,printerId,profileId}
     API->>API: resolve pair → {transport,slicer,profile,printer}
     API->>API: validateJob() capability check
     API->>R: enqueue job
     API-->>PWA: 202 {jobId}
-    PWA->>API: WS subscribe /jobs/{jobId}/ws
+    PWA->>API: WS subscribe /api/jobs/{jobId}/ws
     Note over API,R: API relays Redis pub/sub → WS frames
 
     R->>W: deliver job
@@ -99,7 +99,7 @@ sequenceDiagram
 
     rect rgb(225,235,245)
     Note over PWA,W: User cancels
-    PWA->>API: POST /jobs/{id}/cancel
+    PWA->>API: POST /api/jobs/{id}/cancel
     API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
     alt already done / failed / canceled
         API-->>PWA: 200 {state} (no-op, terminal states are final)
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## Notes
 
-- **State is the contract.** Every transition (`queued → generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /jobs/{id}` on reconnect).
+- **State is the contract.** Every transition (`queued → generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /api/jobs/{id}` on reconnect).
 - **Artifacts live on the shared `/data` volume.** Stages pass `Artifact{path,format}` handles, not bytes, so nothing large crosses a process boundary.
 - **Secrets never reach the client.** Printer API keys live in `PrinterTarget.secrets`, resolved server-side from the printer row; the PWA only ever knows a `printerId`, and reads of the catalog strip secrets to a `hasSecrets` flag.
 - **Capability check is pre-flight.** `validateJob()` runs in the API before enqueue, so an incompatible generator/slicer/transport combo fails fast with a 4xx instead of dying mid-pipeline.

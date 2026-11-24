@@ -1,3 +1,8 @@
+import type { Viewport } from "./hits.ts";
+import { REACH, toastOnMake } from "./reach.ts";
+import { receiptScenes } from "./scenes-receipt.ts";
+import { signedOutScenes } from "./scenes-signed-out.ts";
+
 export type Step =
   | { click: string }
   | { type: string; text: string }
@@ -5,7 +10,11 @@ export type Step =
   | { hover: string }
   | { scroll: string }
   | { waitFor: string; timeout?: number; warn?: string }
-  | { wait: number };
+  | { wait: number }
+  | { fulfill: string; method?: string; status: number; json: unknown }
+  | { follow: string }
+  | { history: "back" | "forward" }
+  | { hits: string; viewports: readonly Viewport[] };
 
 export interface Scene {
   name: string;
@@ -14,6 +23,7 @@ export interface Scene {
   steps?: Step[];
   record?: boolean;
   fullPage?: boolean;
+  signedOut?: boolean;
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -29,6 +39,18 @@ export const scenes: Scene[] = [
     route: "/",
     ready: "text=Configure",
     steps: [{ wait: 1500 }],
+  },
+  {
+    name: "nav-reach",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      ...toastOnMake,
+      {
+        hits: "nav[aria-label='Main'] a, .mobile-cta button, .toasts button",
+        viewports: REACH,
+      },
+    ],
   },
   {
     name: "upload-empty",
@@ -73,18 +95,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 800 }],
   },
-  {
-    name: "job-detail",
-    route: "/history/seed-canceled",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
-  {
-    name: "job-detail-failed",
-    route: "/history/seed-failed",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
+  ...receiptScenes,
   {
     name: "monitor",
     route: "/monitor",
@@ -98,6 +109,74 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   {
+    name: "command-menu",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
+  },
+  {
+    name: "shortcut-sheet",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ wait: 500 }, ...keys("?"), { click: "dialog[open] >> [role=switch]" }, { wait: 300 }],
+  },
+  {
+    name: "jobs-keys",
+    route: "/history",
+    ready: "a.jobid",
+    steps: [
+      { wait: 500 },
+      ...keys("j", "j"),
+      { waitFor: "tr:nth-child(2) a.jobid:focus", timeout: 5000 },
+    ],
+  },
+  {
+    name: "keyboard",
+    route: "/",
+    ready: "text=Configure",
+    record: true,
+    steps: [
+      { wait: 800 },
+      ...keys("Control+k", "j", "o", "b", "s", "Enter"),
+      { waitFor: "a.jobid" },
+      ...keys("j", "j", "j", "k", "?"),
+    ],
+  },
+  ...["0", "1", "3", "8", "20", "states"].map((jobs) => ({
+    name: `track-${jobs}`,
+    route: `/primitives/track?jobs=${jobs}`,
+    ready: "h1",
+    steps: [{ wait: 600 }],
+  })),
+  ...signedOutScenes,
+  {
+    name: "track-keys",
+    route: "/primitives/track?jobs=8",
+    ready: "h1",
+    record: true,
+    steps: [
+      { wait: 600 },
+      ...keys("Tab", "Enter", "Tab"),
+      { waitFor: "button.grp:focus", timeout: 5000 },
+      ...keys("ArrowRight", "ArrowRight"),
+      { waitFor: ".card li:nth-child(2) a:focus", timeout: 5000 },
+      ...keys("ArrowRight", "ArrowDown"),
+      { waitFor: ".card a.btn:focus", timeout: 5000 },
+      ...keys("Escape"),
+      { waitFor: "a.chip.s-printing:focus", timeout: 5000 },
+    ],
+  },
+  {
+    name: "track-card",
+    route: "/primitives/track?jobs=3",
+    ready: "h1",
+    steps: [
+      { hover: "a.chip.s-printing" },
+      { waitFor: ".card .btn", timeout: 5000 },
+      { wait: 300 },
+    ],
+  },
+  {
     name: "primitives",
     route: "/primitives",
     ready: "text=Primitives",
@@ -109,12 +188,45 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "toast-reach",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      ...toastOnMake,
+      {
+        hits: ".toasts button, .mobile-cta button, nav[aria-label='Main'] a",
+        viewports: REACH,
+      },
+    ],
+  },
+  {
+    name: "primitives-fields",
+    route: "/primitives",
+    ready: "text=Fields",
+    steps: [{ click: "text=Name" }, { wait: 400 }],
+  },
+  {
+    name: "primitives-dialog",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      { click: "button:has-text('Open dialog')" },
+      { waitFor: "dialog select:focus", timeout: 5000 },
+      ...keys("Tab"),
+      { waitFor: "dialog textarea:focus", timeout: 5000 },
+      ...keys("Tab", "Tab", "Tab"),
+      { waitFor: "dialog select:focus", timeout: 5000 },
+      ...keys("Shift+Tab"),
+      { waitFor: "dialog button:has-text('Cancel job'):focus", timeout: 5000 },
+    ],
+  },
+  {
     name: "primitives-keys",
     route: "/primitives",
     ready: "text=Primitives",
     record: true,
     steps: keys(
-      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
+      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
       ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
     ),
   },

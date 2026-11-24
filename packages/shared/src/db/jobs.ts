@@ -40,6 +40,7 @@ interface JobRow {
   filament_json: string | null;
   notes: string | null;
   dismissed_at: number | null;
+  retried_by: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -126,14 +127,59 @@ export function dbRecordJob(db: Database, job: SettledJob): void {
   );
 }
 
-export function dbListJobs(db: Database, limit = 50): Job[] {
-  return (
-    db
-      .query(
-        "SELECT * FROM jobs WHERE state IN ('done', 'failed', 'canceled') ORDER BY created_at DESC LIMIT ?",
-      )
-      .all(limit) as JobRow[]
-  ).map(rowToJob);
+export const HISTORY_STATES = ["done", "failed", "canceled"] as const;
+export type HistoryState = (typeof HISTORY_STATES)[number];
+export type HistoryCounts = Record<HistoryState, number>;
+
+export interface HistoryFilter {
+  printerId?: string;
+  since?: number;
+  until?: number;
+}
+
+export interface HistoryPage extends HistoryFilter {
+  limit: number;
+  state?: HistoryState;
+  before?: { updatedAt: number; id: string };
+}
+
+type SqlParam = string | number;
+
+function historyWhere(filter: Partial<HistoryPage>): { sql: string; params: SqlParam[] } {
+  const terms = ["state IN ('done', 'failed', 'canceled')"];
+  const params: SqlParam[] = [];
+  const add = (term: string, ...values: SqlParam[]) => {
+    terms.push(term);
+    params.push(...values);
+  };
+  if (filter.state) add("state = ?", filter.state);
+  if (filter.printerId !== undefined) add("printer_id = ?", filter.printerId);
+  if (filter.since !== undefined) add("updated_at >= ?", filter.since);
+  if (filter.until !== undefined) add("updated_at < ?", filter.until);
+  if (filter.before) add("(updated_at, id) < (?, ?)", filter.before.updatedAt, filter.before.id);
+  return { sql: terms.join(" AND "), params };
+}
+
+export function dbListJobs(db: Database, page: HistoryPage = { limit: 50 }): Job[] {
+  const { sql, params } = historyWhere(page);
+  return db
+    .query<JobRow, SqlParam[]>(
+      `SELECT * FROM jobs INDEXED BY idx_jobs_history WHERE ${sql} ORDER BY updated_at DESC, id DESC LIMIT ?`,
+    )
+    .all(...params, page.limit)
+    .map(rowToJob);
+}
+
+export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCounts {
+  const { sql, params } = historyWhere(filter);
+  const counts: HistoryCounts = { done: 0, failed: 0, canceled: 0 };
+  const rows = db
+    .query<{ state: HistoryState; n: number }, SqlParam[]>(
+      `SELECT state, COUNT(*) AS n FROM jobs WHERE ${sql} GROUP BY state`,
+    )
+    .all(...params);
+  for (const row of rows) counts[row.state] = row.n;
+  return counts;
 }
 
 export function dbGetJob(db: Database, id: string): Job | null {
@@ -160,10 +206,39 @@ export function dbDismissJob(db: Database, id: string, at: number): DismissResul
   return found ? { kind: "not-failed", state: found.state } : { kind: "unknown" };
 }
 
+export function dbRetryProblem(db: Database, id: string): string | null {
+  const row = db
+    .query<{ state: JobState }, [string]>("SELECT state FROM jobs WHERE id = ?")
+    .get(id);
+  if (!row) return `retryOf: unknown job ${id}`;
+  return row.state === "failed" ? null : `retryOf: job ${id} is ${row.state}, not failed`;
+}
+
+export function dbClaimRetry(db: Database, id: string, by: string): boolean {
+  return (
+    db
+      .query(
+        "UPDATE jobs SET retried_by = ? WHERE id = ? AND state = 'failed' AND retried_by IS NULL",
+      )
+      .run(by, id).changes === 1
+  );
+}
+
+export function dbRetriedBy(db: Database, id: string): string | null {
+  const row = db
+    .query<{ retried_by: string | null }, [string]>("SELECT retried_by FROM jobs WHERE id = ?")
+    .get(id);
+  return row?.retried_by ?? null;
+}
+
+export function dbReleaseRetry(db: Database, id: string, by: string): void {
+  db.query("UPDATE jobs SET retried_by = NULL WHERE id = ? AND retried_by = ?").run(id, by);
+}
+
 export function dbListNeedsYou(db: Database, limit = 50): Job[] {
   return db
     .query<JobRow, [number]>(
-      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL
+      `SELECT * FROM jobs WHERE state = 'failed' AND dismissed_at IS NULL AND retried_by IS NULL
         ORDER BY updated_at DESC, id DESC LIMIT ?`,
     )
     .all(limit)

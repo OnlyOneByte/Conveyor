@@ -36,6 +36,7 @@ function installFakes() {
     mget: spyOn(redis, "mget").mockImplementation(async (...keys) =>
       keys.flat().map((key) => store.get(String(key)) ?? null),
     ),
+    getJob: spyOn(jobQueue, "getJob").mockImplementation(async () => undefined),
     smembers: spyOn(redis, "smembers").mockImplementation(async () => [...active]),
     srem: spyOn(redis, "srem").mockImplementation(async (_key, ...members) => {
       for (const m of members.flat()) active.delete(String(m));

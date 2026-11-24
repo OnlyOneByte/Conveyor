@@ -126,6 +126,10 @@ export function migrate(db: Database): void {
     db.exec("ALTER TABLE jobs ADD COLUMN dismissed_at INTEGER");
   }
 
+  if (!columnsOf(db, "jobs").includes("retried_by")) {
+    db.exec("ALTER TABLE jobs ADD COLUMN retried_by TEXT");
+  }
+
   if (!columnsOf(db, "jobs").includes("notes")) {
     db.exec("ALTER TABLE jobs ADD COLUMN notes TEXT");
   }
@@ -136,6 +140,8 @@ export function migrate(db: Database): void {
   }
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs (state, run_after, created_at)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_jobs_lease ON jobs (state, lease_until)");
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_history ON jobs (updated_at DESC, id DESC)
+    WHERE state IN ('done', 'failed', 'canceled')`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_jobs_printer_live ON jobs (printer_id, state)
     WHERE state IN ('generating', 'slicing', 'transferring', 'printing')`);
 

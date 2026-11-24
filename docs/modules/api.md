@@ -4,6 +4,9 @@ The REST and WebSocket front door. It validates requests, serves the catalog and
 It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only in the worker
 ([ADR 0001](../adr/0001-plugin-isolation.md)).
 
+The routes on this page are the api's own paths. Browsers and scripts reach them through Caddy under `/api`, which
+Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from outside.
+
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
@@ -83,6 +86,13 @@ ordering, and `/jobs/:id` answers `404` for any id that is not a UUID.
 `GET /jobs/:id` returns the job's current snapshot. The PWA reads it when it opens a job's status, next to
 the WebSocket. The client does not reconnect a closed socket yet (#193).
 
+Both routes add what the job is to each snapshot: `printerId`, `profileId`, `generator` (`id` and `params`;
+an upload's `params` carry its `filename`) and `createdAt`, in epoch milliseconds. They come from the BullMQ
+job's data and `timestamp`, and are checked by `jobFieldsSchema` in `@conveyor/shared`. A job BullMQ no longer
+holds, a request that fails the schema, or a failed BullMQ read leaves those four fields out, logs, and still
+answers the snapshot, so the UI can label the job by its stage (#342). The four fields do not depend on
+estimates: `GET /jobs/active` adds them whether or not its estimates were left out.
+
 ## The Needs-you list (`registerNeedsYouRoutes` in `routes/job-common.ts`)
 
 Both queue modes register these, behind the same session check as every other job route. Both read the SQLite
@@ -90,20 +100,29 @@ Both queue modes register these, behind the same session check as every other jo
 
 | Route | Answer |
 | --- | --- |
-| `GET /jobs/needs-you` | failed jobs that are not dismissed, newest update first, at most 50, each as a history `Job` |
+| `GET /jobs/needs-you` | failed jobs that are neither dismissed nor retried, newest update first, at most 50, each as a history `Job` |
 | `POST /jobs/:id/dismiss` | `200 { ok, jobId, dismissedAt }` for a failed job; `409` naming the state for any other; `404` for an unknown id |
 
 Dismissing is idempotent: a second call answers with the first `dismissedAt`. A dismissed job stays `failed`
-and stays in `GET /jobs-history`, which returns its `dismissedAt`. A retried job is not linked to the failure
-it retries, so a retry does not take the failure off the list.
+and stays in `GET /jobs-history`, which returns its `dismissedAt`.
+
+A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
+queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
+`retryOf:`, and nothing is queued. `submitJob` (`routes/submit.ts`) then claims the failure in one `UPDATE`
+that sets `retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`). A lost claim answers `409
+{ error, retriedBy }` and queues nothing, so a double-clicked Retry prints once. `error` names `retryOf`, and
+`retriedBy` is the id of the retry that holds the claim (`dbRetriedBy`), or `null` if it can't be read. On Make,
+`sendJob` turns the 409 into `AlreadyRetried` ("This job was already retried."), and Make links to that retry
+with "See the retry" at `/jobs/<retriedBy>`. A queueing error clears the claim (`dbReleaseRetry`). A claimed
+failure leaves `GET /jobs/needs-you` at once, without a dismissal.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
 | Route | On the SQLite queue |
 | --- | --- |
 | `POST /jobs` | `parseSubmission`, then `enqueueJob`; `202 { jobId }`. `parseSubmission` (shared with the Redis route) answers `400 { error }` naming the field, e.g. `generator.params.gridX: ...`, for params the generator's schema or `validateRequest` rejects |
-| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot |
-| `GET /jobs/:id` | `readSnapshot`; 404 for an unknown id |
+| `GET /jobs/active` | every job not done, failed or canceled, newest update first, each as its snapshot plus `printerId`, `profileId`, `generator` and `createdAt` from the `jobs` row (`readJobFields`) |
+| `GET /jobs/:id` | `readSnapshot` plus the same four fields; 404 for an unknown id. A row whose fields fail `jobFieldsSchema`, or whose `params_json` does not parse, answers the snapshot alone and logs |
 | `POST /jobs/:id/cancel` | `requestCancel`: `200` with the state of a finished job, `200 canceled` for a queued one, `202 canceling` for one in flight, `404` for an unknown id |
 | `GET /jobs/:id/ws` | the snapshot as the first frame, then the event-log tail from the snapshot's cursor |
 
@@ -186,6 +205,18 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /jobs-history` and `GET /jobs-history/:id` show finished jobs only (done, failed, canceled); the detail
   route returns 404 for an in-flight or unknown id. On the Redis queue only finished jobs have a row; on the
   SQLite queue every job has one from the moment it is enqueued, so both routes filter by state.
+- `GET /jobs-history` lists newest-finished first (`updatedAt`, then `id`, both descending). Its query is
+  parsed with zod (`history-query.ts`), and a bad value is a 400 naming the field:
+  - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
+    200, as before.
+  - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
+    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
+    page.
+  - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
+    (`since` inclusive, `until` exclusive).
+- `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
+  for the filter pills. Both modes share these routes, since both keep finished jobs in the SQLite `jobs` table.
+  The static `counts` path wins over `/jobs-history/:id`; job ids are UUIDs, so none is called `counts`.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
   `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
   `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
@@ -259,26 +290,11 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 
 - Reachability is a TCP connect to `host:port`: the common denominator across transports, needing no
   transport-specific health call and no printer secret. It is a liveness signal, not "ready to print".
-- Accepted addresses:
-  - a URL, `http(s)://host:port/path`, including `http://[fe80::1]:7125/`;
-  - an IPv4 address or hostname, with or without `:port`;
-  - a bracketed IPv6 address, with or without `:port` (`[fe80::1]:3030`, `[fe80::1]`);
-  - a bare IPv6 address, zone included (`fe80::1`, `fe80::1%eth0`).
-- A bare IPv6 address never carries a port: `fe80::1:3030` is the IPv6 address `fe80::1:3030`, so a port needs
-  brackets.
-- Without a port, an `https` URL uses 443. Otherwise the transport default applies (Moonraker 80 for its HTTP
-  API, Elegoo 3030 for SDCP), then 80. IPv6 hosts are returned without brackets.
-- `parseAddress` never throws. It returns `{ kind: "parsed", host, port }`, or `{ kind: "invalid", reason }`
-  for anything ambiguous or malformed. That covers:
-  - an empty address;
-  - more than one colon without brackets that isn't a valid IPv6 address (`fe80::1::2`, `10.0.0.5:3030:1`);
-  - brackets that don't hold an IPv6 address (`[10.0.0.5]:3030`);
-  - a port outside 1–65535, or one that isn't a number;
-  - a dotted number that isn't IPv4 (`10.0.0.256`);
-  - a host with characters a hostname can't have;
-  - a URL that doesn't parse.
-- The reason quotes the address and says what to change. `probePrinter` reports it as
-  `unparseable address "<address>": <why>`.
+- `parseAddress(address, transportId)` is `parseHostPort` from `@conveyor/shared/address` with the transport's
+  default port: Moonraker 80 for its HTTP API, Elegoo 3030 for SDCP, otherwise 80. The accepted forms and the
+  rejection reasons are in [shared.md](shared.md#addressts). The transports parse addresses with the same
+  function, so the probe and the plugins agree on the host.
+- `probePrinter` reports an invalid address as `unparseable address "<address>": <why>`.
   `probePrinter` always resolves, with `latencyMs` on success and the socket error code or `timeout` as
   `reason` on failure.
 
@@ -288,8 +304,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
 prepared for a held printer until someone checks the printer and releases it.
 
-- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
-  namespace to the api.
+- It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
+  every API route.
 - The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold

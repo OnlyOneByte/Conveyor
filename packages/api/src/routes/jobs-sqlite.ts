@@ -1,19 +1,27 @@
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
 import {
   exhaustive,
   isTerminal,
   JOB_STREAM_CLOSE,
   type JobStatusEvent,
+  type JobView,
+  jobView,
   parseStatusEvent,
 } from "@conveyor/shared";
 import { dbTypicalStageMs, openDb } from "@conveyor/shared/db";
-import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
+import {
+  enqueueJob,
+  readJobFields,
+  readSnapshot,
+  requestCancel,
+  tailEvents,
+} from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import { submitJob } from "./submit.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
@@ -70,10 +78,24 @@ export async function registerJobRoutes(
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
-    const jobId = randomUUID();
-    enqueueJob(db, { id: jobId, request: submission.request });
-    return reply.code(202).send({ jobId });
+    const result = await submitJob(db, submission, (id, request) =>
+      enqueueJob(db, { id, request }),
+    );
+    return reply.code(result.code).send(result.body);
   });
+
+  const withFields = (snapshot: JobStatusEvent): JobView => {
+    let fields: unknown;
+    try {
+      fields = readJobFields(db, snapshot.jobId);
+    } catch (err) {
+      app.log.error({ err, jobId: snapshot.jobId }, "job request fields unreadable");
+      return snapshot;
+    }
+    const { view, complete } = jobView(snapshot, fields);
+    if (!complete) app.log.error({ jobId: snapshot.jobId }, "job request fields incomplete");
+    return view;
+  };
 
   app.get("/jobs/active", async () => {
     const jobs = db
@@ -104,13 +126,13 @@ export async function registerJobRoutes(
       typical: (job: ActiveJob) => dbTypicalStageMs(db, job),
       isHeld: held.has.bind(held),
     };
-    return withEstimates(jobs, inputs, tail.now());
+    return withEstimates(jobs, inputs, tail.now()).map(withFields);
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     const read = readSnapshot(db, req.params.id);
     if (!read) return reply.code(404).send({ error: "unknown job" });
-    return reply.send(read.snapshot);
+    return reply.send(withFields(read.snapshot));
   });
 
   registerArtifactRoute(app);

@@ -7,50 +7,25 @@
   import SchemaForm from "#lib/components/SchemaForm.svelte";
   import JobStatus from "#lib/components/JobStatus.svelte";
   import {
-    submitJob,
     uploadStl,
-    fetchGenerators,
-    fetchCatalogPrinters,
-    fetchCatalogProfiles,
-    fetchCatalogTransports,
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
-  import { takeRerun } from "#lib/rerun.js";
+  import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
-  // Seed from the loader, but refetch on mount: the +page.ts load runs before the
-  // layout's auth gate clears, so it can 401 to []. Refetching here (the page is
-  // only rendered post-auth) guarantees a populated catalog.
   let generators = data.generators ?? [];
   let printers: CatalogPrinter[] = data.printers ?? [];
   let profiles: CatalogProfile[] = data.profiles ?? [];
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    if (!(generators.length && printers.length && profiles.length)) {
-      const [g, pr, pf, tr] = await Promise.all([
-        fetchGenerators().catch(() => generators),
-        fetchCatalogPrinters().catch(() => printers),
-        fetchCatalogProfiles().catch(() => profiles),
-        fetchCatalogTransports().catch(() => transports),
-      ]);
-      generators = g;
-      printers = pr;
-      profiles = pf;
-      transports = tr;
-    }
-
-    // "Run again" handoff: the job-detail page stashed a prior job's request and sent
-    // us here with ?rerun=1. Apply it AFTER the catalog is loaded so these selections
-    // win over the reactive defaults (which only fill empty selections). The referenced
-    // ids may no longer exist (a deleted printer/profile) — set them anyway; the
-    // eligibility filters below fall back to a valid default and the user just re-picks.
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
@@ -58,13 +33,12 @@
         selectedGenId = r.generatorId;
         selectedPrinterId = r.printerId;
         selectedProfileId = r.profileId;
+        handoff = r;
         if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
       }
     }
   });
 
-  // Only generators with a config form / preview belong in the "Generate" dropdown.
-  // The passthrough generator is driven by the "Upload STL" tab, not picked here.
   $: pickableGenerators = generators.filter((g) => g.id !== "passthrough");
 
   // Source: generate from a generator, or upload an STL (passthrough generator).
@@ -72,9 +46,11 @@
   let source: Source = "generate";
 
   let selectedGenId = "";
+  let handoff: RerunPayload | null = null;
   let selectedPrinterId = "";
   let selectedProfileId = "";
   let params: Record<string, unknown> = {};
+  $: retryOf = linkedRetry(handoff, source, selectedGenId);
 
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
@@ -122,7 +98,7 @@
       error = "Please choose an .stl file.";
       return;
     }
-    error = null;
+    error = retried = null;
     uploadFile = f; // render the real mesh immediately (client-side)
     uploadName = f.name;
     uploading = true;
@@ -144,13 +120,10 @@
   }
 
   let submitting = false;
-  // ?job=<uuid> lets /history's per-browser strip hand a still-running job back to
-  // this live panel — job history only records TERMINAL jobs, so there is nowhere
-  // else to watch one in flight.
-  let jobId: string | null = data.initialJobId ?? null;
+  $: jobId = data.initialJobId ?? null;
   let error: string | null = null;
+  let retried: string | null = null;
 
-  // Can we submit? Generate needs a generator; Upload needs a finished upload.
   $: canPrint =
     !!selectedPrinterId &&
     !!selectedProfileId &&
@@ -162,20 +135,16 @@
     if (source === "generate" && !selectedGen) return;
     if (source === "upload" && !uploadId) return;
     submitting = true;
-    error = null;
+    error = retried = null;
     jobId = null;
     try {
       const generator =
         source === "upload"
           ? { id: "passthrough", params: { uploadId, filename: uploadName } }
           : { id: selectedGen!.id, params };
-      const res = await submitJob({
-        generator,
-        printerId: selectedPrinterId,
-        profileId: selectedProfileId,
-      });
+      const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       jobId = res.jobId;
-      // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
+      await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,
@@ -186,8 +155,10 @@
       });
     } catch (e) {
       error = (e as Error).message;
+      retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       submitting = false;
+      handoff = null;
     }
   }
 
@@ -237,6 +208,10 @@
     }
   }
 </script>
+
+<svelte:head><title>What are we making? · Conveyor</title></svelte:head>
+
+<h1 class="title">What are we making?</h1>
 
 <div class="layout">
   <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
@@ -408,15 +383,17 @@
       <button class="primary print desktop-print" on:click={print} disabled={!canPrint}>
         {submitting ? "Submitting…" : "Print"}
       </button>
-      {#if error}<p class="err">{error}</p>{/if}
+      {#if error}
+        <p class="err">{error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}</p>
+      {/if}
     </div>
 
-    {#if jobId}
+    {#if jobId}{#key jobId}
       <div class="card">
         <h3>Job</h3>
         <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
       </div>
-    {/if}
+    {/key}{/if}
 
     {#if generators.length === 0}
       <div class="card muted">
@@ -434,6 +411,7 @@
 </div>
 
 <style>
+  .title { margin: 0 0 var(--s4); }
   .layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.25rem; align-items: start; }
   /* Config panel on the left, viewport on the right (DOM order keeps viewport
      first so it stays on top when the layout collapses to one column). */
@@ -509,7 +487,7 @@
     .panel { order: 1; }
     .desktop-print { display: none; }
     .mobile-cta {
-      display: block; position: fixed; left: 0; right: 0; bottom: 0; padding: 0.7rem 1rem;
+      display: block; position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 0.7rem 1rem;
       background: linear-gradient(transparent, var(--bg) 35%); z-index: 30;
     }
     .mobile-cta button { width: 100%; font-size: 1.05rem; }

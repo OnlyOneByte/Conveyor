@@ -160,6 +160,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
+| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once, and cleared if queueing fails), so the failure leaves the Needs-you list |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |
@@ -197,7 +198,8 @@ SQLite mode `GET /jobs/:id` leaves it out and a client gets it from the next tai
 
 A row exists for every live login. Logout deletes it, and a login prunes the expired ones. See `docs/modules/api.md` § Auth.
 
-Indexes: `idx_jobs_created_at` (history), `idx_jobs_claim`, `idx_jobs_lease` and the partial
+Indexes: `idx_jobs_created_at`, the partial `idx_jobs_history` on `(updated_at DESC, id DESC)` for finished
+jobs (history pages; `dbListJobs` names it with `INDEXED BY`), `idx_jobs_claim`, `idx_jobs_lease` and the partial
 `idx_jobs_printer_live` (the queue), and `idx_job_events_job`. The schema itself is in
 `packages/shared/src/db/schema.sql.ts` and `db/migrate.ts`.
 
@@ -323,10 +325,10 @@ Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those 
 SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
 `/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
-home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
+home page's live panel (`/?job=<id>`) instead of its job page, `/jobs/<id>`. The old `/history/<id>`
+answers 308 with a Location of `/jobs/<id>`. It is the one route the web server renders, so scripts
+and crawlers get the redirect too, not just the browser.
 
-> The page routes (`/`, `/settings`, `/history`, `/history/<jobId>`) deliberately share **no prefix**
-> with any API namespace. A page at `/admin` or `/jobs` 404s on direct load, because the proxy and
-> Caddy forward those whole prefixes to the API. Note `/history` (page) vs `/jobs-history` (API) are
-> distinct on purpose. Both the vite proxy and Caddy match API namespaces by **prefix**, so
-> sub-paths like `/jobs-history/:id` and `/catalog/printers/:id` need no routing change.
+> The browser reaches the API under `/api/`: the vite proxy and Caddy strip that prefix, so the API's
+> own routes (`/jobs-history/:id`, `/catalog/printers/:id`) stay as written here. Every other path is a
+> page, so a page may use any name, `/jobs` included.
