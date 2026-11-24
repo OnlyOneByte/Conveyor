@@ -27,9 +27,10 @@ export function pinHistoryEntry(body: unknown): unknown {
   return pinTimes(body, HISTORY_EPOCH);
 }
 
-export const isHistoryList = (url: URL): boolean => url.pathname === "/jobs-history";
+export const isHistoryList = (url: URL): boolean => url.pathname === "/api/jobs-history";
 
-export const isHistoryEntry = (url: URL): boolean => /^\/jobs-history\/[^/]+$/.test(url.pathname);
+export const isHistoryEntry = (url: URL): boolean =>
+  /^\/api\/jobs-history\/[^/]+$/.test(url.pathname);
 
 interface Fetched {
   ok(): boolean;

@@ -1,3 +1,5 @@
+import { API } from "./api.js";
+
 export class LoginError extends Error {
   status: number;
 
@@ -13,7 +15,7 @@ function errorText(body: unknown): string | undefined {
 }
 
 export async function login(password: string): Promise<void> {
-  const r = await fetch("/auth/login", {
+  const r = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ password }),

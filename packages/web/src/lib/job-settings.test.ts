@@ -1,0 +1,72 @@
+import { describe, expect, test } from "bun:test";
+import type { FormUiHints } from "@conveyor/shared";
+import type { JsonSchema } from "./form-schema.js";
+import { jobName, settingRows } from "./job-settings.js";
+
+const schema: JsonSchema = {
+  $ref: "#/definitions/Bin",
+  definitions: {
+    Bin: {
+      type: "object",
+      properties: {
+        gridX: { type: "integer", description: "Width in 42mm units" },
+        gridY: { type: "integer", description: "Depth in 42mm units" },
+        divisionsX: { type: "integer", description: "Compartments across" },
+        magnetHoles: { type: "boolean", description: "Magnet holes in base" },
+      },
+    },
+  },
+};
+
+const ui: FormUiHints = {
+  groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" }],
+  advanced: {
+    title: "More options",
+    groups: [{ fields: ["magnetHoles", "divisionsX"], layout: "grid" }],
+  },
+  unitMm: { gridX: 42, gridY: 42 },
+};
+
+describe("settingRows", () => {
+  test("uses the form's labels, its order and its units", () => {
+    const params = { divisionsX: 2, magnetHoles: true, gridY: 3, gridX: 2 };
+    expect(settingRows(params, schema, ui)).toEqual([
+      { key: "gridX", label: "Width in 42mm units", value: "2 u · 84 mm" },
+      { key: "gridY", label: "Depth in 42mm units", value: "3 u · 126 mm" },
+      { key: "magnetHoles", label: "Magnet holes in base", value: "Yes" },
+      { key: "divisionsX", label: "Compartments across", value: "2" },
+    ]);
+  });
+
+  test("names a field the schema lacks from its key, and hides ids and nested values", () => {
+    const params = { lidStyle: "snap", uploadId: "0b1c…", extra: { a: 1 }, gridX: 1 };
+    expect(settingRows(params, schema, null)).toEqual([
+      { key: "gridX", label: "Width in 42mm units", value: "1" },
+      { key: "lidStyle", label: "Lid Style", value: "snap" },
+    ]);
+  });
+
+  test("returns nothing for params that are not an object", () => {
+    expect(settingRows(undefined, schema, ui)).toEqual([]);
+    expect(settingRows([1, 2], schema, ui)).toEqual([]);
+  });
+});
+
+describe("jobName", () => {
+  test("is the generator's name and the first group's size", () => {
+    expect(jobName("Gridfinity Bin", { gridX: 2, gridY: 3 }, schema, ui)).toBe(
+      "Gridfinity Bin 2 × 3",
+    );
+  });
+
+  test("is the file name for an uploaded model", () => {
+    expect(jobName("Upload", { uploadId: "x", filename: "bracket.stl" }, null, null)).toBe(
+      "bracket.stl",
+    );
+  });
+
+  test("falls back to the generator's name", () => {
+    expect(jobName("Gridfinity Bin", null, schema, ui)).toBe("Gridfinity Bin");
+    expect(jobName("Gridfinity Bin", { gridX: 2 }, schema, null)).toBe("Gridfinity Bin");
+  });
+});

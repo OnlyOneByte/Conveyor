@@ -41,7 +41,7 @@ falls back to `virtual_sdcard.progress` (both 0..1).
    (and store `apiKey` in the printer's secrets for the upload step).
 3. Unset `CONVEYOR_ENGINE_STUB`, submit a gridfinity job to the Garage Klipper printer,
    watch the WS stepper. Confirm progress advances and the job ends `done`.
-4. Mid-print, hit cancel (`POST /jobs/:id/cancel`) and confirm the printer stops and the
+4. Mid-print, hit cancel (`POST /api/jobs/:id/cancel`) and confirm the printer stops and the
    job goes `canceled`.
 
 Poll interval: `MOONRAKER_POLL_MS` (default 2000).

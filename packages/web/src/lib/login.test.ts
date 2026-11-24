@@ -2,8 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { LoginError, login } from "./login.js";
 
 const realFetch = globalThis.fetch;
+const called: string[] = [];
 const answer = (response: Response) => {
-  globalThis.fetch = Object.assign(async () => response, { preconnect: realFetch.preconnect });
+  const stub = async (url: string | URL | Request) => {
+    called.push(String(url));
+    return response;
+  };
+  globalThis.fetch = Object.assign(stub, { preconnect: realFetch.preconnect });
 };
 
 afterEach(() => {
@@ -27,5 +32,6 @@ describe("login", () => {
   test("resolves when the password is accepted", async () => {
     answer(new Response(null, { status: 204 }));
     expect(await login("right")).toBeUndefined();
+    expect(called.at(-1)).toBe("/api/auth/login");
   });
 });

@@ -4,6 +4,9 @@ The REST and WebSocket front door. It validates requests, serves the catalog and
 It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only in the worker
 ([ADR 0001](../adr/0001-plugin-isolation.md)).
 
+The routes on this page are the api's own paths. Browsers and scripts reach them through Caddy under `/api`, which
+Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from outside.
+
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
@@ -97,12 +100,18 @@ Both queue modes register these, behind the same session check as every other jo
 
 | Route | Answer |
 | --- | --- |
-| `GET /jobs/needs-you` | failed jobs that are not dismissed, newest update first, at most 50, each as a history `Job` |
+| `GET /jobs/needs-you` | failed jobs that are neither dismissed nor retried, newest update first, at most 50, each as a history `Job` |
 | `POST /jobs/:id/dismiss` | `200 { ok, jobId, dismissedAt }` for a failed job; `409` naming the state for any other; `404` for an unknown id |
 
 Dismissing is idempotent: a second call answers with the first `dismissedAt`. A dismissed job stays `failed`
-and stays in `GET /jobs-history`, which returns its `dismissedAt`. A retried job is not linked to the failure
-it retries, so a retry does not take the failure off the list.
+and stays in `GET /jobs-history`, which returns its `dismissedAt`.
+
+A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
+queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
+`retryOf:`, and nothing is queued. `submitJob` (`routes/submit.ts`) then claims the failure in one `UPDATE`
+that sets `retried_by` only while it is `failed` and unclaimed (`dbClaimRetry`); a lost claim answers `409
+{ error }` naming `retryOf` and queues nothing, so a double-clicked Retry prints once. A queueing error clears
+the claim (`dbReleaseRetry`). A claimed failure leaves `GET /jobs/needs-you` at once, without a dismissal.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 
@@ -307,8 +316,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
 prepared for a held printer until someone checks the printer and releases it.
 
-- It sits under `/catalog`, beside the other printer routes, because the Caddyfile already sends that
-  namespace to the api.
+- It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
+  every API route.
 - The body must be exactly `{ "confirm": true }`. Anything else is a `400`, so a stray or replayed request
   cannot release a hold.
 - `404` for an unknown printer, `409` when the printer has no hold, and `{ ok: true, printerId }` once the hold
