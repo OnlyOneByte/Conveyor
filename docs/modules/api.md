@@ -349,7 +349,8 @@ Every BullMQ call a request makes (`add`, `getJob`, `getJobs`, and the whole can
 `withinDeadline(..., QUEUE_DEADLINE_MS)`, which rejects with `QueueUnavailableError` when the queue gives no
 answer in time. BullMQ calls can't take `commandTimeout`: a timeout during BullMQ's first-connect version
 check would leave the `Queue` broken until a restart. `registerErrorReplies`, registered before any route,
-maps `QueueUnavailableError` and ioredis' three can't-reach messages (`Command timed out`,
+maps `QueueUnavailableError`, ioredis' `MaxRetriesPerRequestError` (matched by name, since ioredis doesn't
+export it) and its three can't-reach messages (`Command timed out`,
 `Connection is closed.`, the offline-queue refusal) to `503 { "error": "queue unavailable" }`. Any other 5xx
 becomes `500 { "error": "internal error" }` and the error is logged, never sent. A 4xx keeps Fastify's own
 reply.
@@ -363,14 +364,16 @@ enqueue error. `routes/redis-down-boot.test.ts` boots the api with Redis refused
 `routes/jobs-paused-redis.test.ts` pauses a real Redis across a submit (`CLIENT PAUSE WRITE`) and across
 the job reads (`CLIENT PAUSE ALL`, which `commandTimeout` answers). `routes/jobs-queue-deadline.test.ts` gives
 the routes a BullMQ queue that never answers and checks `GET /jobs/active`, `GET /jobs/:id`, cancel and
-deleting a printer all answer within the deadline. The cleanup runs only while `connection` is `ready`: when
-it isn't, the `add` was refused before it left, so there is nothing to drop. Each cleanup step that fails is
-logged with the job id (`abandoned job remove failed`, `abandoned job cancel flag failed`), since that job may
-still run. Skipping the cleanup while the connection is down is only safe because of
-`autoResendUnfulfilledCommands: false`: an `add` in flight when the connection drops is rejected, never re-sent
-after the reconnect, so the only late `add` left is one Redis already ran (the known limit below). No test
-drops a connection mid-`add`; the option is covered by review, not by a test.
-Known limit: if Redis runs the `add` and then dies before replying, the job can survive with no flag.
+deleting a printer all answer within the deadline. When `connection` isn't `ready`, the cleanup waits for it
+(`untilReady`, up to `DROP_WITHIN_MS`, 5 minutes) instead of skipping: an `add` whose reply was lost when the
+socket dropped may already have run, and `autoResendUnfulfilledCommands: false` only rules out a second copy
+being sent after the reconnect. A dropped command rejects with `MaxRetriesPerRequestError`, which is also a
+503. `routes/redis-restart-boot.test.ts` passes an `add` through a proxy, drops Redis' reply and the
+connection, and checks the job is gone and flagged once Redis is back. Each cleanup step that fails is
+logged with the job id (`abandoned job remove failed`, `abandoned job cancel flag failed`), and so is a
+connection that ends or stays down past the bound (`queue never came up to drop the job`), since that job may
+still run. Known limit: if the api stops before the connection comes back, a landed `add` survives with no
+flag.
 
 ## Image (`Dockerfile`)
 

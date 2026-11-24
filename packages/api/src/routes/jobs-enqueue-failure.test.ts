@@ -33,7 +33,6 @@ const request = {
 
 const fakes = {
   add: spyOn(jobQueue, "add").mockRejectedValue(new Error("Connection is closed.")),
-  ready: spyOn(jobQueue, "waitUntilReady").mockResolvedValue(undefined),
   remove: spyOn(jobQueue, "remove").mockResolvedValue(1),
   set: spyOn(connection, "set").mockResolvedValue("OK"),
 };
@@ -93,20 +92,34 @@ describe("POST /jobs when the enqueue fails", () => {
     logged.mockRestore();
   });
 
-  test("skips the cleanup when the queue connection is down, since the add never left", async () => {
+  test("waits for a reconnecting connection, then drops the job, since the add may have landed", async () => {
     connection.status = "reconnecting";
     expect((await submit()).statusCode).toBe(503);
-    await until(() => fakes.ready.mock.calls.length > 0);
-    await Bun.sleep(0);
+    await Bun.sleep(20);
     expect(fakes.remove).not.toHaveBeenCalled();
-    expect(fakes.set).not.toHaveBeenCalled();
+    connection.status = "ready";
+    connection.emit("ready");
+    await until(() => fakes.set.mock.calls.length > 0);
+    const jobId = fakes.add.mock.calls[0]?.[2]?.jobId ?? "";
+    expect(fakes.remove).toHaveBeenCalledWith(jobId);
+    expect(fakes.set).toHaveBeenCalledWith(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS);
   });
 
-  test("still answers 503 when the queue never comes up to drop the job", async () => {
-    fakes.ready.mockRejectedValueOnce(new Error("Connection is closed."));
+  test("answers 503 for a command cut off mid-flight", async () => {
+    fakes.add.mockRejectedValueOnce(
+      Object.assign(new Error("Reached the max retries per request limit (which is 0)."), {
+        name: "MaxRetriesPerRequestError",
+      }),
+    );
+    expect((await submit()).statusCode).toBe(503);
+  });
+
+  test("still answers 503 when the queue connection ends before it can drop the job", async () => {
+    connection.status = "reconnecting";
     const logged = spyOn(app.log, "error");
     const res = await submit();
     expect(res.statusCode).toBe(503);
+    connection.emit("end");
     await until(() => logged.mock.calls.length > 0);
     expect(logged.mock.calls[0]?.[1]).toBe("queue never came up to drop the job");
     logged.mockRestore();

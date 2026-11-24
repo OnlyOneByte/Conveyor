@@ -20,12 +20,13 @@ import { cancelJob } from "../cancel.js";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { connection, createSubscriber, jobQueue, QUEUE_DEADLINE_MS, redis } from "../queue.js";
-import { withinDeadline } from "../queue-reach.js";
+import { untilReady, withinDeadline } from "../queue-reach.js";
 import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 import { submitJob } from "./submit.js";
 
+export const DROP_WITHIN_MS = 5 * 60_000;
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 
 const reach = <T>(call: Promise<T>): Promise<T> => withinDeadline(call, QUEUE_DEADLINE_MS);
@@ -39,7 +40,6 @@ export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
 const reachableJobs: JobLookup = { getJob: (id) => reach(jobQueue.getJob(id)) };
 
 async function dropAbandoned(app: FastifyInstance, jobId: string): Promise<void> {
-  if (connection.status !== "ready") return;
   const [removed, flagged] = await Promise.allSettled([
     jobQueue.remove(jobId),
     connection.set(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS),
@@ -61,7 +61,7 @@ async function enqueue(app: FastifyInstance, jobId: string, request: JobRequest)
       { jobId },
       "enqueue failed; removing the job and flagging it canceled if it lands",
     );
-    void jobQueue.waitUntilReady().then(
+    void untilReady(connection, DROP_WITHIN_MS).then(
       () => dropAbandoned(app, jobId),
       (initErr: unknown) =>
         app.log.error({ err: initErr, jobId }, "queue never came up to drop the job"),
