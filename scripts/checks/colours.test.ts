@@ -64,6 +64,28 @@ describe("the raw colour check", () => {
     ]);
   });
 
+  test("still catches everything #351's property rule caught", () => {
+    expect(
+      hits([
+        ".a { border: red solid; }",
+        ".b { border: 2px red solid; }",
+        ".c { outline: red dashed 2px; }",
+        ".d { border-color: red transparent; }",
+        ".e { background: red url(a.png); }",
+      ]),
+    ).toEqual(["1: red", "2: red", "3: red", "4: red", "5: red"]);
+  });
+
+  test("finds a named colour passed to three.js set(), and counts each colour once", () => {
+    expect(
+      hits([
+        'material.color.set("teal"); m.color.set(`navy`);',
+        'cache.set("red", value); c.set(value); m.set("not a colour");',
+        ".a { border: 1px solid red; --x: red; }",
+      ]),
+    ).toEqual(["1: teal", "1: navy", "3: red", "3: red"]);
+  });
+
   test("leaves colour words in prose and method names alone", () => {
     expect(
       hits([
@@ -118,6 +140,7 @@ describe("the raw colour check", () => {
       "4: new THREE.Color(",
       "4: .setRGB(",
       "4: .setHex(",
+      "5: Color(",
       "5: new Color(",
       "5: .setHSL(",
       "5: .setStyle(",
