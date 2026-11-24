@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import { fetchJobHistory } from "#lib/api.js";
   import { loadCatalog } from "#lib/catalog.js";
-  import type { Command } from "#lib/commands.js";
+  import { type Command, jobCommands, printerCommands } from "#lib/commands.js";
   import { theme } from "#lib/preferences.js";
   import { jobKeys, shortcuts } from "#lib/app-shortcuts.js";
   import CommandMenu from "./CommandMenu.svelte";
@@ -27,11 +27,13 @@
   async function openMenu() {
     commands = actions;
     menu = true;
-    const [jobs, printers] = await Promise.allSettled([fetchJobHistory(), loadCatalog().then((c) => c.printers)]);
+    const [jobs, catalog] = await Promise.allSettled([fetchJobHistory(), loadCatalog()]);
+    const known = catalog.status === "fulfilled" ? catalog.value : null;
+    const recent = jobs.status === "fulfilled" ? jobs.value : [];
     commands = [
-      ...(jobs.status === "fulfilled" ? jobs.value.slice(0, 8) : []).map((j): Command => ({ group: "Jobs", label: `${j.request.generator.id} ${j.id.slice(0, 8)}`, hint: j.state, run: () => goto(`/history/${j.id}`) })),
+      ...jobCommands(recent, known, (id) => goto(`/history/${id}`)),
       ...actions,
-      ...(printers.status === "fulfilled" ? printers.value : []).map((p): Command => ({ group: "Printers", label: p.name, hint: p.transportId, run: () => goto("/settings") })),
+      ...printerCommands(known?.printers ?? [], () => goto("/settings")),
     ];
   }
 
