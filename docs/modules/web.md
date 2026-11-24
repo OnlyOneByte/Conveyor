@@ -62,3 +62,27 @@ in plain words.
 Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
 page's **More** menu links there. `/monitor` keeps its active-jobs list only.
 
+### Settings
+
+`/settings` has three panels: **Profiles**, **This browser** and **About**.
+
+- **Profiles** lists each profile by name with its facts (`profileFacts` in `profile-facts.ts`: material and
+  layer height read from the name, then firmware and slicer, like "PLA · 0.20 mm · Klipper · OrcaSlicer") and a
+  tag: Bundled, Added, and ", edited" when its content was changed. Bundled profiles have no Delete.
+- **Add profile** is a dialog with selects for the slicer (`GET /catalog/slicers`) and the firmware (every
+  transport's `acceptsFlavors`). The ID is `<slicer>/<slug of the name>`, and the folder follows the name until
+  you edit it. `profileErrors` checks the name, a free ID and a `/profiles/<bundle>` folder.
+- **Delete** asks in a dialog that names the profile. The toast after it offers **Undo**, which registers the
+  profile again and restores its edited content, read before the delete.
+- **This browser** holds the theme, the preview spin and the single-key shortcuts switch from
+  `preferences.ts`. **About** shows the release (kit's `version.name`, set from `CONVEYOR_VERSION` at build
+  time; release images pass the tag) and links to the source, docs, issues and license.
+
+`/settings/profiles/<id>` edits a profile's content in CodeMirror 6, loaded only on that route
+(`code-editor.ts`): JSON or INI highlighting, line numbers, and a lint mark on the line with the problem. Tab
+leaves the editor, so focus is never trapped. `profile-check.ts` runs the API's own validators from
+`@conveyor/shared` on every change and finds the line: the Lezer JSON parser locates a syntax error, and a
+refused setting is found by its key. The error shows above the editor in plain words, and Save stays disabled
+until it is fixed. Orca's three files are tabs, and a file with an error carries a dot. **Reset to original**
+and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves.
+

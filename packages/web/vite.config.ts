@@ -5,6 +5,8 @@ import { defineConfig } from "vite";
 
 const API = process.env.CONVEYOR_API_TARGET ?? "http://127.0.0.1:3000";
 
+const VERSION = process.env.CONVEYOR_VERSION;
+
 const ALLOWED_HOSTS = (process.env.CONVEYOR_DEV_ALLOWED_HOSTS ?? "")
   .split(",")
   .map((h) => h.trim())
@@ -15,6 +17,7 @@ export default defineConfig({
     sveltekit({
       preprocess: vitePreprocess(),
       adapter: adapter(),
+      ...(VERSION ? { version: { name: VERSION } } : {}),
       csp: {
         mode: "auto",
         directives: {
