@@ -87,15 +87,15 @@ jobs:
           if [ -d base ]; then (cd base && bun install --frozen-lockfile); fi
           (cd head/tools/visual && bun install --frozen-lockfile)
 
+      - name: Install Chromium
+        working-directory: head/tools/visual
+        run: bunx playwright install --with-deps chromium
+
       - name: Typecheck and test visual tooling
         working-directory: head/tools/visual
         run: |
           bun run typecheck
           bun test
-
-      - name: Install Chromium
-        working-directory: head/tools/visual
-        run: bunx playwright install --with-deps chromium
 
       - name: Pick the scenes this change reaches
         id: pick
