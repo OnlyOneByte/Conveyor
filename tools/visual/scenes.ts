@@ -118,6 +118,40 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }],
   },
   {
+    name: "command-menu",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
+  },
+  {
+    name: "shortcut-sheet",
+    route: "/",
+    ready: "text=Configure",
+    steps: [{ wait: 500 }, ...keys("?"), { click: "dialog[open] >> [role=switch]" }, { wait: 300 }],
+  },
+  {
+    name: "jobs-keys",
+    route: "/history",
+    ready: "a.jobid",
+    steps: [
+      { wait: 500 },
+      ...keys("j", "j"),
+      { waitFor: "tr:nth-child(2) a.jobid:focus", timeout: 5000 },
+    ],
+  },
+  {
+    name: "keyboard",
+    route: "/",
+    ready: "text=Configure",
+    record: true,
+    steps: [
+      { wait: 800 },
+      ...keys("Control+k", "j", "o", "b", "s", "Enter"),
+      { waitFor: "a.jobid" },
+      ...keys("j", "j", "j", "k", "?"),
+    ],
+  },
+  {
     name: "primitives",
     route: "/primitives",
     ready: "text=Primitives",
@@ -173,7 +207,7 @@ export const scenes: Scene[] = [
     ready: "text=Primitives",
     record: true,
     steps: keys(
-      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
+      ...["Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Enter", "Tab", "Escape"],
       ...["Tab", "Enter", "ArrowDown", "ArrowDown", "Escape"],
     ),
   },
