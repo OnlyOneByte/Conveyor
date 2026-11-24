@@ -214,8 +214,18 @@ export function dbRetryProblem(db: Database, id: string): string | null {
   return row.state === "failed" ? null : `retryOf: job ${id} is ${row.state}, not failed`;
 }
 
-export function dbMarkRetried(db: Database, id: string, by: string): void {
-  db.query("UPDATE jobs SET retried_by = ? WHERE id = ? AND state = 'failed'").run(by, id);
+export function dbClaimRetry(db: Database, id: string, by: string): boolean {
+  return (
+    db
+      .query(
+        "UPDATE jobs SET retried_by = ? WHERE id = ? AND state = 'failed' AND retried_by IS NULL",
+      )
+      .run(by, id).changes === 1
+  );
+}
+
+export function dbReleaseRetry(db: Database, id: string, by: string): void {
+  db.query("UPDATE jobs SET retried_by = NULL WHERE id = ? AND retried_by = ?").run(id, by);
 }
 
 export function dbListNeedsYou(db: Database, limit = 50): Job[] {

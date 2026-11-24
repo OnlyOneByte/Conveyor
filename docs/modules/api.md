@@ -105,9 +105,13 @@ and stays in `GET /jobs-history`, which returns its `dismissedAt`.
 
 A retry is a `POST /jobs` with `retryOf: <jobId>` naming the failure. `parseSubmission` checks it on both
 queues (`dbRetryProblem`): an unknown job or one that isn't `failed` answers `400 { error }` starting with
-`retryOf:`, and nothing is queued. Once the retry is queued, the route sets the failed row's `retried_by` to
-the new job's id (`dbMarkRetried`), so the failure leaves `GET /jobs/needs-you` at once, whatever happens to
-the retry, and without a dismissal. A `POST /jobs` without `retryOf` is unchanged.
+`retryOf:`, and nothing is queued. `submitJob` then claims the failure before queueing: one `UPDATE` sets
+its `retried_by` to the new job's id only while it is still `failed` with no `retried_by` (`dbClaimRetry`).
+When no row changes, the failure is already being retried, so the route answers `409 { error }` naming
+`retryOf` and queues nothing; a double-clicked Retry prints once. If queueing then throws, the claim is
+cleared (`dbReleaseRetry`) so the failure can be retried again. A claimed failure leaves `GET /jobs/needs-you`
+at once, whatever happens to the retry, and without a dismissal. A `POST /jobs` without `retryOf` is
+unchanged.
 
 ## Job routes on the SQLite queue (`routes/jobs-sqlite.ts`)
 

@@ -1,5 +1,4 @@
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
 import {
   exhaustive,
   isTerminal,
@@ -9,7 +8,7 @@ import {
   jobView,
   parseStatusEvent,
 } from "@conveyor/shared";
-import { dbMarkRetried, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import {
   enqueueJob,
   readJobFields,
@@ -21,7 +20,12 @@ import type { FastifyInstance } from "fastify";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
-import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import {
+  parseSubmission,
+  registerArtifactRoute,
+  registerNeedsYouRoutes,
+  submitJob,
+} from "./job-common.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
@@ -78,10 +82,10 @@ export async function registerJobRoutes(
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
-    const jobId = randomUUID();
-    enqueueJob(db, { id: jobId, request: submission.request });
-    if (submission.retryOf) dbMarkRetried(db, submission.retryOf, jobId);
-    return reply.code(202).send({ jobId });
+    const result = await submitJob(db, submission, (id, request) =>
+      enqueueJob(db, { id, request }),
+    );
+    return reply.code(result.code).send(result.body);
   });
 
   const withFields = (snapshot: JobStatusEvent): JobView => {

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   ACTIVE_JOBS_KEY,
   CANCEL_TTL_SECONDS,
@@ -14,7 +13,7 @@ import {
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbMarkRetried, dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
@@ -22,7 +21,12 @@ import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
 import { jobQueue, redis } from "../queue.js";
 import { createStatusHub } from "../status-hub.js";
-import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import {
+  parseSubmission,
+  registerArtifactRoute,
+  registerNeedsYouRoutes,
+  submitJob,
+} from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
@@ -55,10 +59,10 @@ export async function registerJobRoutes(
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
 
-    const jobId = randomUUID();
-    await jobQueue.add("job", submission.request, { jobId });
-    if (submission.retryOf) dbMarkRetried(openDb(), submission.retryOf, jobId);
-    return reply.code(202).send({ jobId });
+    const result = await submitJob(openDb(), submission, (jobId, request) =>
+      jobQueue.add("job", request, { jobId }),
+    );
+    return reply.code(result.code).send(result.body);
   });
 
   const withFields = async (snapshot: JobStatusEvent): Promise<JobView> => {

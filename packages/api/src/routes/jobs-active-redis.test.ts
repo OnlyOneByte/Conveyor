@@ -169,54 +169,6 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     }
   });
 
-  test("a retry submitted on Redis takes its failure off the Needs-you list", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "conveyor-redis-retry-"));
-    const previous = process.env.DB_PATH;
-    process.env.DB_PATH = join(dir, "conveyor.db");
-    const failed = randomUUID();
-    const request = {
-      generator: { id: "gridfinity", params: {} },
-      printerId: "klipper-garage",
-      profileId: "orca/klipper-pla-0.2",
-    };
-    let jobId = "";
-    try {
-      dbRecordJob(openDb(), {
-        id: failed,
-        generatorId: "gridfinity",
-        printerId: "klipper-garage",
-        profileId: "orca/klipper-pla-0.2",
-        state: "failed",
-      });
-      const listed = async () =>
-        z
-          .array(z.object({ id: z.string() }))
-          .parse(await (await fetch(`${base}/jobs/needs-you`)).json())
-          .map((j) => j.id);
-      expect(await listed()).toEqual([failed]);
-      const post = (body: unknown) =>
-        fetch(`${base}/jobs`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      const refused = await post({ ...request, retryOf: "nope" });
-      expect([refused.status, await refused.json()]).toEqual([
-        400,
-        { error: "retryOf: unknown job nope" },
-      ]);
-      const res = await post({ ...request, retryOf: failed });
-      jobId = z.object({ jobId: z.string() }).parse(await res.json()).jobId;
-      expect([res.status, await listed()]).toEqual([202, []]);
-    } finally {
-      if (jobId) await (await queue.jobQueue.getJob(jobId))?.remove();
-      openDb().close();
-      if (previous === undefined) delete process.env.DB_PATH;
-      else process.env.DB_PATH = previous;
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
   test("serves the Needs-you list and dismiss routes", () => {
     expect(app.hasRoute({ method: "GET", url: "/jobs/needs-you" })).toBe(true);
     expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);

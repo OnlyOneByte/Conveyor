@@ -4,7 +4,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { JobState } from "../job";
-import { dbListNeedsYou, dbMarkRetried, dbRecordJob, dbRetryProblem, openDb } from "./index";
+import {
+  dbClaimRetry,
+  dbListNeedsYou,
+  dbRecordJob,
+  dbReleaseRetry,
+  dbRetryProblem,
+  openDb,
+} from "./index";
 
 const dirs: string[] = [];
 
@@ -40,18 +47,33 @@ describe("retrying a failed job", () => {
 
   test("a retried failure leaves the Needs-you list; other failures stay", () => {
     const db = jobs(["broke", "failed"], ["also-broke", "failed"]);
-    dbMarkRetried(db, "broke", "retry-1");
+    expect(dbClaimRetry(db, "broke", "retry-1")).toBe(true);
     expect(needsYou(db)).toEqual(["also-broke"]);
     const row = db.query("SELECT retried_by FROM jobs WHERE id = 'broke'").get();
     expect(row).toEqual({ retried_by: "retry-1" });
   });
 
-  test("marking a job that isn't failed changes nothing", () => {
+  test("a job that isn't failed can't be claimed", () => {
     const db = jobs(["fine", "done"]);
-    dbMarkRetried(db, "fine", "retry-1");
-    dbMarkRetried(db, "nope", "retry-2");
+    expect([dbClaimRetry(db, "fine", "retry-1"), dbClaimRetry(db, "nope", "retry-2")]).toEqual([
+      false,
+      false,
+    ]);
     expect(db.query("SELECT id, retried_by FROM jobs").all()).toEqual([
       { id: "fine", retried_by: null },
     ]);
+  });
+
+  test("a failure is claimed once; only its claimant can release it", () => {
+    const db = jobs(["broke", "failed"]);
+    expect([dbClaimRetry(db, "broke", "retry-1"), dbClaimRetry(db, "broke", "retry-2")]).toEqual([
+      true,
+      false,
+    ]);
+    dbReleaseRetry(db, "broke", "retry-2");
+    expect(needsYou(db)).toEqual([]);
+    dbReleaseRetry(db, "broke", "retry-1");
+    expect(needsYou(db)).toEqual(["broke"]);
+    expect(dbClaimRetry(db, "broke", "retry-3")).toBe(true);
   });
 });
