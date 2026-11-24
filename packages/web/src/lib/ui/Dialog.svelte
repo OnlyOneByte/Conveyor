@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { rememberFocus, uid, wrapTab } from "./behaviour";
+  import { rememberFocus, TABBABLE, uid, wrapTab } from "./behaviour";
 
   export let title: string;
   export let open = false;
@@ -22,7 +22,7 @@
 
   function trap(event: KeyboardEvent) {
     if (event.key !== "Tab") return;
-    const all = [...dialog.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), a[href]")];
+    const all = [...dialog.querySelectorAll<HTMLElement>(TABBABLE)];
     const to = wrapTab(event.shiftKey, all.findIndex((el) => el === document.activeElement), all.length);
     if (to === null) return;
     event.preventDefault();

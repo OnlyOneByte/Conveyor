@@ -20,9 +20,8 @@
     const all = entries();
     const to = nextIndex(event.key, all.findIndex((el) => el === document.activeElement), all.length);
     if (to !== null) all[to]?.focus();
-    else if (!closesOn(event.key)) return;
-    else menu.hidePopover();
-    event.preventDefault();
+    else if (closesOn(event.key)) menu.hidePopover();
+    if (to !== null || event.key === "Escape") event.preventDefault();
   }
 
   function choose(run: () => void) {

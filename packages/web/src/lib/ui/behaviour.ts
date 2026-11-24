@@ -17,7 +17,9 @@ export function nextIndex(key: string, current: number, count: number): number |
   return null;
 }
 
-export const closesOn = (key: string) => key === "Escape";
+export const closesOn = (key: string) => key === "Escape" || key === "Tab";
+
+export const TABBABLE = `a[href], ${["button", "input", "select", "textarea"].map((tag) => `${tag}:not(:disabled)`).join(", ")}, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])`;
 
 export function wrapTab(back: boolean, at: number, count: number): number | null {
   if (count === 0) return null;
@@ -34,17 +36,39 @@ export interface Toast {
 
 export const TOAST_MS = 6000;
 
-export function createToasts(after: (run: () => void, ms: number) => unknown = setTimeout) {
+type Hold = "focus" | "pointer";
+type Timer = { after: (run: () => void, ms: number) => () => void; now: () => number };
+
+const realTimer: Timer = { after: (run, ms) => { const handle = setTimeout(run, ms); return () => clearTimeout(handle); }, now: () => Date.now() };
+
+export function createToasts({ after, now }: Timer = realTimer) {
   const { subscribe, update } = writable<Toast[]>([]);
+  const live = new Map<number, { left: number; since: number; holds: Set<Hold>; stop: () => void }>();
   let last = 0;
-  const dismiss = (id: number) => update((all) => all.filter((t) => t.id !== id));
+  const dismiss = (id: number) => {
+    live.get(id)?.stop();
+    live.delete(id);
+    update((all) => all.filter((t) => t.id !== id));
+  };
+  const run = (id: number, left: number) => ({ since: now(), stop: after(() => dismiss(id), left) });
   const show = (text: string, action?: Toast["action"]) => {
     const id = ++last;
     update((all) => [...all, { id, text, action }]);
-    after(() => dismiss(id), TOAST_MS);
+    live.set(id, { left: TOAST_MS, holds: new Set(), ...run(id, TOAST_MS) });
     return id;
   };
-  return { subscribe, show, dismiss };
+  const hold = (id: number, why: Hold) => {
+    const toast = live.get(id);
+    if (!toast || toast.holds.has(why)) return;
+    if (toast.holds.size === 0) { toast.stop(); toast.left -= now() - toast.since; }
+    toast.holds.add(why);
+  };
+  const release = (id: number, why: Hold) => {
+    const toast = live.get(id);
+    if (!toast?.holds.delete(why) || toast.holds.size > 0) return;
+    Object.assign(toast, run(id, toast.left));
+  };
+  return { subscribe, show, dismiss, hold, release };
 }
 
 export const toasts = createToasts();

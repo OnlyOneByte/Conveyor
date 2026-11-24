@@ -4,7 +4,15 @@
 
 <div class="toasts" role="status">
   {#each $toasts as toast (toast.id)}
-    <div class="toast">
+    <div
+      class="toast"
+      role="group"
+      aria-label={toast.text}
+      on:focusin={() => toasts.hold(toast.id, "focus")}
+      on:focusout={(e) => e.currentTarget.contains(e.relatedTarget instanceof Node ? e.relatedTarget : null) || toasts.release(toast.id, "focus")}
+      on:pointerenter={() => toasts.hold(toast.id, "pointer")}
+      on:pointerleave={() => toasts.release(toast.id, "pointer")}
+    >
       <span>{toast.text}</span>
       {#if toast.action}
         {@const action = toast.action}

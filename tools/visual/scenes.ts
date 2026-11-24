@@ -103,9 +103,9 @@ export const scenes: Scene[] = [
     ready: "text=Primitives",
     steps: [
       { click: "button:has-text('Show a toast')" },
-      { click: "text=Name" },
       { hover: "button:has-text('Secondary')" },
-      { wait: 400 },
+      ...keys("Tab", "Tab", "Tab", "Tab", "Tab"),
+      { wait: 6500 },
     ],
   },
   {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { get } from "svelte/store";
-import { closesOn, createToasts, nextIndex, rememberFocus, TOAST_MS, wrapTab } from "./behaviour";
+import { closesOn, createToasts, nextIndex, rememberFocus, TABBABLE, TOAST_MS, wrapTab } from "./behaviour";
 
 describe("focus return", () => {
   test("focuses the element that was active when the surface opened", () => {
@@ -25,12 +25,17 @@ describe("menu keys", () => {
     expect([nextIndex("a", 0, 3), nextIndex("ArrowDown", 0, 0)]).toEqual([null, null]);
   });
 
-  test("closes on Escape only", () => {
-    expect([closesOn("Escape"), closesOn("Enter"), closesOn("Tab")]).toEqual([true, false, false]);
+  test("closes on Escape and on Tab", () => {
+    expect([closesOn("Escape"), closesOn("Tab"), closesOn("Enter")]).toEqual([true, true, false]);
   });
 });
 
 describe("dialog focus trap", () => {
+  test("wraps over every tabbable kind, minus disabled controls and tabindex -1", () => {
+    const kinds = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
+    expect(TABBABLE).toBe(kinds);
+  });
+
   test("Tab from the last control goes to the first, Shift+Tab from the first to the last", () => {
     expect([wrapTab(false, 2, 3), wrapTab(true, 0, 3), wrapTab(false, -1, 3)]).toEqual([0, 2, 0]);
   });
@@ -40,25 +45,53 @@ describe("dialog focus trap", () => {
   });
 });
 
+const fakeClock = () => {
+  let at = 0;
+  const timers = new Set<{ due: number; run: () => void }>();
+  const after = (run: () => void, ms: number) => { const timer = { due: at + ms, run }; timers.add(timer); return () => timers.delete(timer); };
+  const tick = (ms: number) => { at += ms; for (const timer of [...timers]) if (timer.due <= at && timers.delete(timer)) timer.run(); };
+  return { after, now: () => at, tick, pending: () => timers.size };
+};
+
 describe("toasts", () => {
-  test("show a toast, then dismiss it after the toast time", () => {
-    const pending: [() => void, number][] = [];
-    const toasts = createToasts((run, ms) => pending.push([run, ms]));
+  test("stay for exactly 6 s, then go", () => {
+    const clock = fakeClock();
+    const toasts = createToasts(clock);
     const run = () => {};
     const id = toasts.show("Canceled Bin 2×1", { label: "Print again", run });
+    expect(TOAST_MS).toBe(6000);
     expect(get(toasts)).toEqual([{ id, text: "Canceled Bin 2×1", action: { label: "Print again", run } }]);
-    expect(pending.map(([, ms]) => ms)).toEqual([TOAST_MS]);
-    pending[0]?.[0]();
+    clock.tick(5999);
+    expect(get(toasts)).toHaveLength(1);
+    clock.tick(1);
     expect(get(toasts)).toEqual([]);
   });
 
-  test("dismissing one leaves the others, and a late timer is harmless", () => {
-    const pending: (() => void)[] = [];
-    const toasts = createToasts((run) => pending.push(run));
+  test("pause while focused or pointed at, and resume with the time that was left", () => {
+    const clock = fakeClock();
+    const toasts = createToasts(clock);
+    const id = toasts.show("one");
+    clock.tick(4000);
+    toasts.hold(id, "focus");
+    toasts.hold(id, "pointer");
+    clock.tick(60_000);
+    toasts.release(id, "pointer");
+    clock.tick(60_000);
+    expect(get(toasts)).toHaveLength(1);
+    toasts.release(id, "focus");
+    clock.tick(1999);
+    expect(get(toasts)).toHaveLength(1);
+    clock.tick(1);
+    expect(get(toasts)).toEqual([]);
+  });
+
+  test("dismissing one leaves the others and stops its timer", () => {
+    const clock = fakeClock();
+    const toasts = createToasts(clock);
     const first = toasts.show("one");
     toasts.show("two");
     toasts.dismiss(first);
-    pending[0]?.();
-    expect(get(toasts).map((t) => t.text)).toEqual(["two"]);
+    toasts.release(first, "focus");
+    expect([get(toasts).map((t) => t.text), clock.pending()]).toEqual([["two"], 1]);
   });
 });
