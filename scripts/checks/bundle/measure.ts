@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { gzipSync } from "node:zlib";
 import { precached } from "../../../packages/web/src/service-worker/precache";
 
-interface Chunk {
+export interface Chunk {
   file: string;
   isEntry?: boolean;
   imports?: string[];
@@ -15,7 +15,33 @@ export interface Sizes {
   gzip: number;
 }
 
-export const THREE_MARKER = "THREE.WebGLRenderer";
+export const THREE_MARKERS = ["__THREE__", "THREE.WebGLRenderer"];
+
+const isStrings = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
+function isChunk(value: unknown): value is Chunk {
+  if (typeof value !== "object" || value === null) return false;
+  const chunk: Record<string, unknown> = { ...value };
+  return (
+    typeof chunk.file === "string" &&
+    (chunk.isEntry === undefined || typeof chunk.isEntry === "boolean") &&
+    (chunk.imports === undefined || isStrings(chunk.imports)) &&
+    (chunk.dynamicImports === undefined || isStrings(chunk.dynamicImports))
+  );
+}
+
+export function parseManifest(text: string): Record<string, Chunk> {
+  const value: unknown = JSON.parse(text);
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("the Vite client manifest isn't an object");
+  const manifest: Record<string, Chunk> = {};
+  for (const [key, chunk] of Object.entries(value)) {
+    if (!isChunk(chunk)) throw new Error(`the Vite client manifest's entry ${key} isn't a chunk`);
+    manifest[key] = chunk;
+  }
+  return manifest;
+}
 
 const gzipOf = (bytes: Buffer) => gzipSync(bytes, { level: 9 }).length;
 
@@ -30,18 +56,20 @@ function sizeOf(client: string, files: Iterable<string>): Sizes {
   return { raw, gzip };
 }
 
+const PAGE = /page: \{ layouts: \[([^\]]*)\], errors: \[[^\]]*\], leaf: (\d+) \}/;
+
 export function routeNodes(serverManifest: string): Map<string, number[]> {
   const routes = new Map<string, number[]>();
-  const pattern =
-    /id: "([^"]+)"[\s\S]*?page: \{ layouts: \[([^\]]*)\], errors: \[[^\]]*\], leaf: (\d+) \}/g;
-  for (const [, id, layouts, leaf] of serverManifest.matchAll(pattern)) {
-    if (!id || leaf === undefined) continue;
-    const nodes = (layouts ?? "")
+  for (const segment of serverManifest.split(/(?=\{\s*id: ")/)) {
+    const id = /^\{\s*id: "([^"]+)"/.exec(segment)?.[1];
+    const page = PAGE.exec(segment);
+    if (!id || !page) continue;
+    const nodes = (page[1] ?? "")
       .split(",")
       .map((n) => n.trim())
       .filter(Boolean)
       .map(Number);
-    routes.set(id, [...nodes, Number(leaf)]);
+    routes.set(id, [...nodes, Number(page[2])]);
   }
   return routes;
 }
@@ -61,11 +89,13 @@ export function closure(manifest: Record<string, Chunk>, keys: string[]): Set<st
   return files;
 }
 
+export const routesOf = (output: string): string[] => [
+  ...routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).keys(),
+];
+
 export function initialJs(output: string, route: string): Sizes & { three: boolean } {
   const client = join(output, "client");
-  const manifest: Record<string, Chunk> = JSON.parse(
-    readFileSync(join(client, ".vite/manifest.json"), "utf8"),
-  );
+  const manifest = parseManifest(readFileSync(join(client, ".vite/manifest.json"), "utf8"));
   const nodes = routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).get(route);
   if (!nodes) throw new Error(`no route ${route} in the server manifest`);
   const keys = Object.keys(manifest);
@@ -76,9 +106,10 @@ export function initialJs(output: string, route: string): Sizes & { three: boole
     return key;
   });
   const files = closure(manifest, [...entries, ...leaves]);
-  const three = [...files].some((file) =>
-    readFileSync(join(client, file), "utf8").includes(THREE_MARKER),
-  );
+  const three = [...files].some((file) => {
+    const code = readFileSync(join(client, file), "utf8");
+    return THREE_MARKERS.some((marker) => code.includes(marker));
+  });
   return { ...sizeOf(client, files), three };
 }
 
@@ -89,7 +120,15 @@ function walk(dir: string): string[] {
   });
 }
 
-export function precache(output: string, staticDir: string): Sizes & { files: number } {
+export const missingCode = (immutable: string[], kept: string[]): string[] => {
+  const list = new Set(kept);
+  return immutable.filter((path) => /\.(js|css)$/.test(path) && !list.has(path));
+};
+
+export function precache(
+  output: string,
+  staticDir: string,
+): Sizes & { files: number; missing: string[] } {
   const client = join(output, "client");
   const immutable = walk(join(client, "_app/immutable")).map((path) => relative(client, path));
   const assets = walk(staticDir).map((path) => relative(staticDir, path));
@@ -102,5 +141,10 @@ export function precache(output: string, staticDir: string): Sizes & { files: nu
     staticDir,
     list.filter((path) => !path.startsWith("_app/")),
   );
-  return { raw: sizes.raw + statics.raw, gzip: sizes.gzip + statics.gzip, files: list.length };
+  return {
+    raw: sizes.raw + statics.raw,
+    gzip: sizes.gzip + statics.gzip,
+    files: list.length,
+    missing: missingCode(immutable, list),
+  };
 }

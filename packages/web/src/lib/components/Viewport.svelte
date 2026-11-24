@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { announce } from "#lib/announce.js";
   import type ViewportCanvas from "./ViewportCanvas.svelte";
 
   export let params: Record<string, unknown> = {};
@@ -11,7 +12,10 @@
   onMount(() => {
     import("./ViewportCanvas.svelte").then(
       (module) => (canvas = module.default),
-      () => (failed = true),
+      () => {
+        failed = true;
+        void announce("The 3D preview didn't load. Reload the page to try again.");
+      },
     );
   });
 </script>
@@ -19,7 +23,7 @@
 {#if canvas}
   <svelte:component this={canvas} {params} {file} />
 {:else}
-  <div class="placeholder" role="status">
+  <div class="placeholder">
     <span class="cube" aria-hidden="true"></span>
     <span class="note">{failed ? "The 3D preview didn't load. Reload the page to try again." : "Loading the 3D preview…"}</span>
   </div>

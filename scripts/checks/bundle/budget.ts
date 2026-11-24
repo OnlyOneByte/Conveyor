@@ -10,7 +10,33 @@ export interface Budget {
 
 export interface Measured {
   initialJs: Record<string, Sizes & { three: boolean }>;
-  precache: Sizes;
+  precache: Sizes & { missing: string[] };
+}
+
+const isSize = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const recordOf = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? { ...value } : null;
+
+export function parseBudget(text: string): Budget | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const budget = recordOf(value);
+  const limits = recordOf(budget?.initialJsGzip);
+  const precache = recordOf(budget?.precache);
+  if (!limits || !precache) return null;
+  const initialJsGzip: Record<string, number> = {};
+  for (const [route, limit] of Object.entries(limits)) {
+    if (!isSize(limit)) return null;
+    initialJsGzip[route] = limit;
+  }
+  const { raw, gzip } = precache;
+  return isSize(raw) && isSize(gzip) ? { initialJsGzip, precache: { raw, gzip } } : null;
 }
 
 const SIZE_KEYS: (keyof Sizes)[] = ["raw", "gzip"];
@@ -28,6 +54,10 @@ export function budgetErrors(measured: Measured, budget: Budget): string[] {
     if (limit !== undefined && sizes.gzip > limit)
       errors.push(`${route}: initial JS is ${kb(sizes.gzip)} gzip, over the ${kb(limit)} budget`);
   }
+  for (const path of measured.precache.missing)
+    errors.push(
+      `service-worker precache leaves out ${path}; the app needs every immutable .js and .css offline`,
+    );
   for (const key of SIZE_KEYS) {
     const limit = Math.floor(budget.precache[key] * PRECACHE_GROWTH);
     if (measured.precache[key] > limit)
