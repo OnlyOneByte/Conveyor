@@ -22,7 +22,7 @@
 
   function trap(event: KeyboardEvent) {
     if (event.key !== "Tab") return;
-    const all = [...dialog.querySelectorAll<HTMLElement>(TABBABLE)];
+    const all = [...dialog.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => el.checkVisibility() && !el.closest("[inert]"));
     const to = wrapTab(event.shiftKey, all.findIndex((el) => el === document.activeElement), all.length);
     if (to === null) return;
     event.preventDefault();
