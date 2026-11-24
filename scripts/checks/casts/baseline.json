@@ -29,7 +29,6 @@
     "packages/web/src/lib/preferences.test.ts": 3,
     "packages/web/src/lib/recent-jobs.ts": 1,
     "packages/web/src/lib/rerun.ts": 1,
-    "packages/web/src/routes/+page.svelte": 3,
     "packages/web/src/routes/history/+page.svelte": 1,
     "packages/web/src/routes/monitor/+page.svelte": 2,
     "packages/web/src/routes/settings/+page.svelte": 15,
