@@ -18,10 +18,9 @@ CONVEYOR_ENGINE_STUB=1 bun run dev:worker
 CONVEYOR_ENGINE_STUB=1 bun run dev:api
 ```
 
-The web dev server (`vite dev` in `packages/web`) proxies the API paths (`/jobs` with its WebSocket,
-`/generators`, `/uploads`, `/auth`, `/jobs-history` and `/catalog`) to the api, so the PWA only ever calls its
-own origin. A page route never shares a prefix with an API path: `/admin` and `/jobs` pages both 404ed on a
-direct load when they did. Two variables tune it:
+The web dev server (`vite dev` in `packages/web`) proxies `/api/`, WebSocket included, to the api and strips
+the prefix, the same as Caddy, so the PWA only ever calls its own origin. Every API call in the PWA goes
+through the `API` base in `lib/api.ts`, and every other path is a page. Two variables tune it:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
@@ -257,7 +256,7 @@ it goes to review:
    1. On `main` (the old tag), start the stack, then stop the worker so a job stays queued:
       `docker compose up -d` and `docker compose stop worker`.
    2. Seed a probe key and a queued job. Run `docker compose exec redis redis-cli SET conveyor:upgrade-probe 1`,
-      log in, submit a job with `POST /jobs`, and note its `jobId`.
+      log in, submit a job with `POST /api/jobs`, and note its `jobId`.
    3. Flush and record: `docker compose exec redis redis-cli SAVE`, then
       `docker compose exec redis redis-cli DBSIZE`. Note the count.
    4. `docker compose stop redis`, check out the PR branch (the new tag), then `docker compose up -d redis`
@@ -269,7 +268,7 @@ it goes to review:
       - The queued job survived: `redis-cli EXISTS bull:conveyor-jobs:<jobId>` returns `1`, and
         `redis-cli LPOS bull:conveyor-jobs:wait <jobId>` returns a number, not `(nil)`.
 
-   Check the job in Redis, not through `GET /jobs/active`. That route lists only jobs the worker has reported
+   Check the job in Redis, not through `GET /api/jobs/active`. That route lists only jobs the worker has reported
    on, so with the worker stopped it is empty on the old Redis too. Put the four results in the PR's How
    verified section.
 
@@ -283,7 +282,7 @@ away.
 
 The web image builds the SvelteKit PWA with Bun and serves the `adapter-node` output with Node. Every Dockerfile copies the `package.json` of every workspace member before `bun install --frozen-lockfile`, even the members that image never imports (the web image copies the worker's and every plugin's). `--frozen-lockfile` checks the whole workspace graph against `bun.lock`, and a missing manifest makes bun report `lockfile had changes` and abort. A new workspace package needs a `COPY` line in all three Dockerfiles.
 
-The PWA's service worker, `packages/web/src/service-worker/index.ts` (with its own `tsconfig.json` extending `$app/tsconfig/service-worker`), is a minimal offline app-shell cache. On install it precaches the build's immutable assets and the `static` files (`immutable` and `assets` from `$app/manifest`, under a cache named after `version` from `$app/env`), and answers those paths cache-first. It never caches API or websocket traffic. Only the precached paths are cached at all, but it also skips every API namespace (`/jobs`, which covers `/jobs-history` by prefix, `/catalog`, `/generators`, `/uploads` and `/auth`), so a catalog path added to the precache by mistake can't serve a stale catalog. Keep that list in step with the API's namespaces.
+The PWA's service worker, `packages/web/src/service-worker/index.ts` (with its own `tsconfig.json` extending `$app/tsconfig/service-worker`), is a minimal offline app-shell cache. On install it precaches the build's immutable assets and the `static` files (`immutable` and `assets` from `$app/manifest`, under a cache named after `version` from `$app/env`), and answers those paths cache-first. It never caches API or websocket traffic. Only the precached paths are cached at all, but it also skips everything under `/api/`, so an API path added to the precache by mistake can't serve a stale catalog.
 
 ## Releases
 
