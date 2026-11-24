@@ -16,9 +16,10 @@ test("the transport target carries the decrypted secrets", () => {
 });
 
 test("secrets that do not decrypt fail the transport stage without leaking them", () => {
-  db.exec(`UPDATE printers SET secrets_json = '{"apiKey":"plain-key"}' WHERE id = 'p-secret'`);
-  expect(() => resolvePrinterTarget(db, "p-secret")).toThrow(
-    "printer p-secret has stored secrets that cannot be decrypted",
+  dbUpsertPrinter(db, { ...printer, id: "p-plain", secrets: { apiKey: "moonraker-key" } });
+  db.exec(`UPDATE printers SET secrets_json = '{"apiKey":"plain-key"}' WHERE id = 'p-plain'`);
+  expect(() => resolvePrinterTarget(db, "p-plain")).toThrow(
+    "printer p-plain has stored secrets that cannot be decrypted",
   );
 });
 
