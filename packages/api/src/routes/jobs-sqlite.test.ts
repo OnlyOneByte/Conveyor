@@ -4,14 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@conveyor/shared/db";
-import {
-  claimJob,
-  enqueueJob,
-  type Lease,
-  markSubmitted,
-  takePrinterSlot,
-  writeStatus,
-} from "@conveyor/shared/queue";
+import { claimJob, enqueueJob, type Lease, writeStatus } from "@conveyor/shared/queue";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerCatalogRoutes } from "./catalog.js";
@@ -109,46 +102,34 @@ describe("job routes on the sqlite queue", () => {
     expect((await inject("GET", `/jobs-history/${live}`)).statusCode).toBe(404);
   });
 
-  test("GET /jobs/active adds typical durations and a rough start from history and the print's time left", async () => {
+  test("GET /jobs/active adds typical durations and a rough start from the print's time left", async () => {
     db.query("DELETE FROM jobs").run();
-    for (let i = 0; i < 3; i++) {
-      const done = queued();
+    const timings = JSON.stringify([{ stage: "slicer", enteredAt: 0, durationMs: 2_000 }]);
+    for (let i = 0; i < 3; i++)
       db.query("UPDATE jobs SET state = 'done', timings_json = ? WHERE id = ?").run(
-        JSON.stringify([
-          { stage: "generator", enteredAt: 0, durationMs: 1_000 },
-          { stage: "slicer", enteredAt: 1, durationMs: 2_000 },
-          { stage: "transport", enteredAt: 2, durationMs: 60_000 },
-        ]),
-        done,
+        timings,
+        queued(),
       );
-    }
-    const lease = claimed();
-    db.query("UPDATE printers SET hold_job_id = NULL, hold_reason = NULL").run();
-    writeStatus(db, lease, { state: "slicing", stage: "slicer" });
-    expect(takePrinterSlot(db, lease)).toBe("taken");
-    markSubmitted(db, lease, {
-      transportId: "moonraker",
-      printerId: "klipper-garage",
-      ref: "m.gcode",
+    const running = queued();
+    const at = Date.now();
+    db.query(
+      "UPDATE jobs SET state = 'printing', stage = 'transport', updated_at = ? WHERE id = ?",
+    ).run(at, running);
+    const print = JSON.stringify({
+      jobId: running,
+      state: "printing",
+      at,
+      print: { secondsLeft: 600 },
     });
-    expect(
-      writeStatus(db, lease, {
-        state: "printing",
-        stage: "transport",
-        print: { secondsLeft: 120 },
-      }),
-    ).toBe(true);
+    db.query("INSERT INTO job_events (job_id, event, at) VALUES (?, ?, ?)").run(running, print, at);
     const waiting = queued();
     const active = (await inject("GET", "/jobs/active")).json<
-      { jobId: string; estimate?: { typicalMs?: unknown; startsAt?: number } }[]
+      { jobId: string; estimate?: unknown }[]
     >();
-    const typicalMs = { generator: 1_000, slicer: 2_000, transport: 60_000 };
-    const running = active.find((j) => j.jobId === lease.jobId);
-    const next = active.find((j) => j.jobId === waiting);
-    expect(running?.estimate).toEqual({ typicalMs });
-    expect(next?.estimate?.typicalMs).toEqual(typicalMs);
-    expect(next?.estimate?.startsAt).toBeGreaterThan(Date.now() + 100_000);
-    expect(next?.estimate?.startsAt).toBeLessThanOrEqual(Date.now() + 120_000);
+    expect(Object.fromEntries(active.map((j) => [j.jobId, j.estimate]))).toEqual({
+      [running]: { typicalMs: { slicer: 2_000 } },
+      [waiting]: { typicalMs: { slicer: 2_000 }, startsAt: at + 600_000 },
+    });
   });
 
   test("POST /jobs/:id/cancel answers 200, 202 or 404 by the job's state", async () => {

@@ -74,22 +74,13 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     process.env.DB_PATH = join(dir, "conveyor.db");
     const jobId = randomUUID();
     mine.add(jobId);
+    const settled = { generatorId: "gridfinity", printerId: "estimate-printer", profileId: "prof" };
+    const timings = [{ stage: "slicer" as const, enteredAt: 0, durationMs: 4_000 }];
     try {
-      for (let i = 0; i < 3; i++)
-        dbRecordJob(openDb(), {
-          id: `${jobId}-history-${i}`,
-          generatorId: "gridfinity",
-          printerId: "estimate-printer",
-          profileId: "prof",
-          state: "done",
-          timings: [{ stage: "slicer", enteredAt: 0, durationMs: 4_000 }],
-        });
+      for (const i of [1, 2, 3])
+        dbRecordJob(openDb(), { ...settled, id: `${jobId}-${i}`, state: "done", timings });
       const { jobQueue } = await import("../queue.js");
-      const request = {
-        generator: { id: "gridfinity", params: {} },
-        printerId: "estimate-printer",
-        profileId: "prof",
-      };
+      const request = { ...settled, generator: { id: "gridfinity", params: {} } };
       await jobQueue.add("job", request, { jobId });
       await publishStatus(redis, { jobId, state: "queued", at: 40 });
       const listed = z

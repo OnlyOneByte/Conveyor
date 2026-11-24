@@ -18,12 +18,12 @@ import { parseSubmission, registerArtifactRoute } from "./job-common.js";
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
 
-interface ActiveRow {
+type ActiveRow = {
   id: string;
   printer_id: string | null;
   generator_id: string;
   created_at: number;
-}
+};
 
 function latestPrint(db: Database, jobId: string): JobStatusEvent["print"] {
   const row = db
@@ -86,15 +86,9 @@ export async function registerJobRoutes(
       .flatMap((row): ActiveJob[] => {
         try {
           const snapshot = readSnapshot(db, row.id)?.snapshot;
-          if (!snapshot) return [];
-          return [
-            {
-              event: { ...snapshot, print: latestPrint(db, row.id) },
-              printerId: row.printer_id ?? "",
-              generatorId: row.generator_id,
-              createdAt: row.created_at,
-            },
-          ];
+          const { printer_id, generator_id: generatorId, created_at: createdAt } = row;
+          const event = snapshot && { ...snapshot, print: latestPrint(db, row.id) };
+          return event ? [{ event, printerId: printer_id ?? "", generatorId, createdAt }] : [];
         } catch (err) {
           app.log.error({ err, jobId: row.id }, "unreadable job skipped in /jobs/active");
           return [];

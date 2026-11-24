@@ -6,27 +6,13 @@ import { type ActiveJob, withEstimates } from "./estimates";
 const NOW = 1_000_000;
 const TYPICAL: StageDurations = { generator: 10_000, slicer: 20_000, transport: 300_000 };
 
-function job(
-  jobId: string,
-  event: Partial<JobStatusEvent>,
-  extra: Partial<ActiveJob> = {},
-): ActiveJob {
-  return {
-    event: { jobId, state: "queued", at: NOW, ...event },
-    printerId: "p1",
-    generatorId: "gridfinity",
-    createdAt: 0,
-    ...extra,
-  };
-}
+const job = (jobId: string, event: Partial<JobStatusEvent>, extra: Partial<ActiveJob> = {}) => ({
+  ...{ event: { jobId, state: "queued" as const, at: NOW, ...event }, printerId: "p1" },
+  ...{ generatorId: "gridfinity", createdAt: 0, ...extra },
+});
 
-const estimates = (jobs: ActiveJob[], lookup: (job: ActiveJob) => StageDurations = () => TYPICAL) =>
-  Object.fromEntries(
-    withEstimates(jobs, lookup, NOW).map((e) => [
-      e.jobId,
-      "estimate" in e ? e.estimate : undefined,
-    ]),
-  );
+const estimates = (jobs: ActiveJob[], lookup = (_: ActiveJob): StageDurations => TYPICAL) =>
+  Object.fromEntries(withEstimates(jobs, lookup, NOW).map((e) => [e.jobId, e.estimate]));
 
 describe("rough start times", () => {
   test("queue behind the printing job's time left, then each job ahead's typical total", () => {

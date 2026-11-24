@@ -7,11 +7,9 @@ export const MIN_TYPICAL_SAMPLES = 3;
 
 export type StageDurations = Partial<Record<Stage, number>>;
 
+const stageSchema = z.enum(["generator", "slicer", "transport"]);
 const timingsSchema = z.array(
-  z.object({
-    stage: z.enum(["generator", "slicer", "transport"]),
-    durationMs: z.number().nonnegative().optional(),
-  }),
+  z.object({ stage: stageSchema, durationMs: z.number().nonnegative() }),
 );
 
 function median(values: number[]): number {
@@ -19,14 +17,6 @@ function median(values: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   const middle = sorted[mid] ?? 0;
   return sorted.length % 2 === 1 ? middle : Math.round(((sorted[mid - 1] ?? 0) + middle) / 2);
-}
-
-function durationsOf(json: string): { stage: Stage; durationMs?: number }[] {
-  try {
-    return timingsSchema.parse(JSON.parse(json));
-  } catch {
-    return [];
-  }
 }
 
 export function dbTypicalStageMs(
@@ -43,10 +33,9 @@ export function dbTypicalStageMs(
     .all(job.generatorId, job.printerId, sample);
   const seen = new Map<Stage, number[]>();
   for (const row of rows) {
-    for (const { stage, durationMs } of durationsOf(row.timings_json)) {
-      if (durationMs === undefined) continue;
+    const timings = timingsSchema.safeParse(JSON.parse(row.timings_json));
+    for (const { stage, durationMs } of timings.data ?? [])
       seen.set(stage, [...(seen.get(stage) ?? []), durationMs]);
-    }
   }
   const typical: StageDurations = {};
   for (const [stage, values] of seen) {

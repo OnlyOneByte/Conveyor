@@ -8,12 +8,7 @@ export interface ActiveJob {
   createdAt: number;
 }
 
-export interface JobEstimate {
-  typicalMs?: StageDurations;
-  startsAt?: number;
-}
-
-export type TypicalLookup = (job: ActiveJob) => StageDurations;
+export type JobEstimate = { typicalMs?: StageDurations; startsAt?: number };
 
 const STAGE_ORDER: readonly Stage[] = ["generator", "slicer", "transport"];
 
@@ -27,65 +22,49 @@ function sumFrom(typical: StageDurations, first: number): number | undefined {
   return sum;
 }
 
-function remainingMs(job: ActiveJob, typical: StageDurations, now: number): number | undefined {
-  const { event } = job;
-  if (event.state === "printing") {
-    const left = event.print?.secondsLeft;
+function remainingMs({ event }: ActiveJob, typical: StageDurations, now: number) {
+  const left = event.print?.secondsLeft;
+  if (event.state === "printing")
     return left === undefined ? undefined : event.at + left * 1000 - now;
-  }
-  if (event.state === "queued") return sumFrom(typical, 0);
-  return sumFrom(typical, Math.max(0, STAGE_ORDER.indexOf(event.stage ?? "generator")));
+  const stage = event.state === "queued" ? "generator" : (event.stage ?? "generator");
+  return sumFrom(typical, STAGE_ORDER.indexOf(stage));
 }
 
 function startTimes(jobs: ActiveJob[], typical: Map<ActiveJob, StageDurations>, now: number) {
   const starts = new Map<ActiveJob, number>();
-  const queued = jobs
-    .filter((job) => job.event.state === "queued")
-    .sort((a, b) => a.createdAt - b.createdAt || a.event.jobId.localeCompare(b.event.jobId));
-  let waitMs: number | undefined = 0;
-  for (const running of jobs.filter((job) => job.event.state !== "queued")) {
-    const left = remainingMs(running, typical.get(running) ?? {}, now);
-    waitMs = waitMs === undefined || left === undefined ? undefined : Math.max(waitMs, left);
-  }
-  for (const job of queued) {
-    if (waitMs === undefined) break;
-    starts.set(job, now + waitMs);
-    const own = remainingMs(job, typical.get(job) ?? {}, now);
-    waitMs = own === undefined ? undefined : waitMs + own;
+  for (const group of Map.groupBy(jobs, (job) => job.printerId).values()) {
+    let waitMs: number | undefined = 0;
+    for (const running of group.filter((job) => job.event.state !== "queued")) {
+      const left = remainingMs(running, typical.get(running) ?? {}, now);
+      waitMs = waitMs === undefined || left === undefined ? undefined : Math.max(waitMs, left);
+    }
+    const queued = group
+      .filter((job) => job.event.state === "queued")
+      .sort((a, b) => a.createdAt - b.createdAt || a.event.jobId.localeCompare(b.event.jobId));
+    for (const job of queued) {
+      if (waitMs === undefined) break;
+      starts.set(job, now + waitMs);
+      const own = remainingMs(job, typical.get(job) ?? {}, now);
+      waitMs = own === undefined ? undefined : waitMs + own;
+    }
   }
   return starts;
 }
 
-export function estimateActive(
-  jobs: ActiveJob[],
-  lookup: TypicalLookup,
-  now: number,
-): Map<ActiveJob, JobEstimate> {
-  const typical = new Map(jobs.map((job) => [job, lookup(job)] as const));
-  const byPrinter = Map.groupBy(jobs, (job) => job.printerId);
-  const estimates = new Map<ActiveJob, JobEstimate>();
-  for (const group of byPrinter.values()) {
-    const starts = startTimes(group, typical, now);
-    for (const job of group) {
-      const estimate: JobEstimate = {};
-      const typicalMs = typical.get(job) ?? {};
-      if (Object.keys(typicalMs).length > 0) estimate.typicalMs = typicalMs;
-      const startsAt = starts.get(job);
-      if (startsAt !== undefined) estimate.startsAt = startsAt;
-      if (Object.keys(estimate).length > 0) estimates.set(job, estimate);
-    }
-  }
-  return estimates;
-}
-
 export function withEstimates(
   jobs: ActiveJob[],
-  lookup: TypicalLookup,
+  lookup: (job: ActiveJob) => StageDurations,
   now: number,
 ): (JobStatusEvent & { estimate?: JobEstimate })[] {
-  const estimates = estimateActive(jobs, lookup, now);
+  const typical = new Map(jobs.map((job) => [job, lookup(job)] as const));
+  const starts = startTimes(jobs, typical, now);
   return jobs.map((job) => {
-    const estimate = estimates.get(job);
-    return estimate ? { ...job.event, estimate } : job.event;
+    const typicalMs = typical.get(job) ?? {};
+    const startsAt = starts.get(job);
+    const estimate: JobEstimate = {
+      ...(Object.keys(typicalMs).length > 0 && { typicalMs }),
+      ...(startsAt !== undefined && { startsAt }),
+    };
+    return Object.keys(estimate).length > 0 ? { ...job.event, estimate } : job.event;
   });
 }

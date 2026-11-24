@@ -57,24 +57,16 @@ subscriber made ioredis send its ready check after the first `SUBSCRIBE`, which 
 
 ## Estimates on `GET /jobs/active` (`estimates.ts`)
 
-In both modes each active job can carry `estimate: { typicalMs?, startsAt? }`. A job with neither has no
-`estimate`.
+In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; with neither, there is no `estimate`.
 
-- `typicalMs` is the median `durationMs` of each stage (`generator`, `slicer`, `transport`) over the last 20
-  `done` jobs with the same generator and printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is
-  left out. `transport` covers the upload and the print together.
-- `startsAt` (epoch ms) is a rough start for a `queued` job. Each printer's queue is walked in `createdAt`
-  order:
-  - The wait starts with the longest of that printer's running jobs. A `printing` job counts its
-    `print.secondsLeft` from the event's `at`. A job in an earlier stage counts the typical durations of its
-    stage and the ones after it.
-  - Each queued job ahead then adds its typical total.
-  - With nothing running, the first queued job starts now.
-  - As soon as one of these is unknown (no `secondsLeft`, or a stage without a median), the jobs behind it
-    get no `startsAt`.
-- On the SQLite queue a running job's `print` comes from its latest event. On Redis the printer and generator
-  come from the BullMQ job's data. There, if reading them or the history fails, the answer leaves the
-  estimates out and logs a warning.
+- `typicalMs`: the median `durationMs` of each stage over the last 20 `done` jobs with the same generator and
+  printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is left out. `transport` covers the upload and
+  the print together.
+- `startsAt` (epoch ms), for a `queued` job: each printer's queue is walked in `createdAt` order. The wait starts
+  at the longest running job's time left: a `printing` job's `print.secondsLeft` from its event's `at`, or the
+  typical durations of a job's current and later stages. Each queued job ahead then adds its typical total.
+  With nothing running, the first queued job starts now. Once a step is unknown, the jobs behind it get none.
+- On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
 
 ## Job routes on the Redis queue (`routes/jobs.ts`)
 
