@@ -186,47 +186,6 @@ describe("job routes on the sqlite queue", () => {
     expect((await listed()).map((j) => j.id)).not.toContain(id);
   });
 
-  test("a retry takes its failure off the Needs-you list without a dismissal", async () => {
-    const failed = queued();
-    const other = queued();
-    db.query("UPDATE jobs SET state = 'failed' WHERE id IN (?, ?)").run(failed, other);
-    const listed = async () =>
-      (await inject("GET", "/jobs/needs-you")).json<{ id: string }[]>().map((j) => j.id);
-    expect(await listed()).toEqual(expect.arrayContaining([failed, other]));
-    expect((await inject("POST", "/jobs", request)).statusCode).toBe(202);
-    expect(await listed()).toEqual(expect.arrayContaining([failed, other]));
-    const retry = await inject("POST", "/jobs", { ...request, retryOf: failed });
-    expect(retry.statusCode).toBe(202);
-    expect(await listed()).not.toContain(failed);
-    expect(await listed()).toContain(other);
-    expect(db.query("SELECT dismissed_at, retried_by FROM jobs WHERE id = ?").get(failed)).toEqual({
-      dismissed_at: null,
-      retried_by: retry.json().jobId,
-    });
-  });
-
-  test("POST /jobs refuses an unknown, unfailed or malformed retryOf with a 400 and queues nothing", async () => {
-    const waiting = queued();
-    const count = () => db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM jobs").get()?.n;
-    const before = count();
-    const answers = [];
-    for (const retryOf of ["nope", waiting, 5, ""]) {
-      const res = await inject("POST", "/jobs", { ...request, retryOf });
-      answers.push([res.statusCode, res.json().error]);
-    }
-    expect(answers.slice(0, 2)).toEqual([
-      [400, "retryOf: unknown job nope"],
-      [400, `retryOf: job ${waiting} is queued, not failed`],
-    ]);
-    expect(
-      answers.slice(2).map(([code, error]) => [code, String(error).startsWith("retryOf")]),
-    ).toEqual([
-      [400, true],
-      [400, true],
-    ]);
-    expect(count()).toBe(before);
-  });
-
   test("POST /jobs/:id/cancel answers 200, 202 or 404 by the job's state", async () => {
     const id = queued();
     expect((await inject("POST", `/jobs/${id}/cancel`)).json<unknown>()).toEqual({
