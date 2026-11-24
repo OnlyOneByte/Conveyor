@@ -113,6 +113,29 @@ for (const mode of modes) {
         });
         expect(rawRow(printer.id)).toBe(before);
       });
+
+      test("a write with secrets to a printer whose stored secrets don't decrypt answers 409 and changes nothing", async () => {
+        const printer = newPrinter();
+        expect((await put({ ...printer, secrets: { apiKey: "hunter2" } })).status).toBe(200);
+        const db = new Database(join(dir, "conveyor.db"));
+        try {
+          db.query("UPDATE printers SET secrets_json = 'v1:garbage' WHERE id = ?").run(printer.id);
+        } finally {
+          db.close();
+        }
+        const refused = await put({ ...printer, name: "Renamed", secrets: { apiKey: "new" } });
+        expect(refused.status).toBe(409);
+        expect(await refused.json()).toEqual({
+          error: `printer ${printer.id}'s stored secrets can't be read, so they can't be updated; delete the printer and add it again`,
+        });
+        expect(rawRow(printer.id)).toBe("v1:garbage");
+        const listed = await (await fetch(`${base()}/catalog/printers`)).json();
+        expect(listed).toContainEqual(
+          expect.objectContaining({ id: printer.id, name: "Secrets Elegoo" }),
+        );
+        expect((await put({ ...printer, name: "Renamed" })).status).toBe(200);
+        expect(rawRow(printer.id)).toBe("v1:garbage");
+      });
     },
   );
 }

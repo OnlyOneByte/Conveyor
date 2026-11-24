@@ -46,10 +46,29 @@ export function printLine(
     .join(" · ");
 }
 
+export function placeInLine(id: string, active: JobView[]): number | null {
+  const me = active.find((job) => job.jobId === id);
+  if (me?.state !== "queued" || !me.printerId) return null;
+  const line = active
+    .filter((job) => job.state === "queued" && job.printerId === me.printerId)
+    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.jobId.localeCompare(b.jobId));
+  return line.findIndex((job) => job.jobId === id) + 1;
+}
+
+export function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const suffix = teen ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
 export async function liveView(id: string, fetchFn: typeof fetch): Promise<JobView | null> {
   const r = await fetchFn(`${API}/jobs/${encodeURIComponent(id)}`).catch(() => null);
   return r?.ok ? r.json() : null;
 }
+
+const reloaded = new Set<string>();
+
+export const firstEnd = (id: string) => !reloaded.has(id) && Boolean(reloaded.add(id));
 
 export const RETRY_MS = [500, 1000, 2000, 5000, 10_000, 30_000];
 

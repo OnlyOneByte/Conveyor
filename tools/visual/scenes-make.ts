@@ -28,6 +28,12 @@ const uploadTab = { click: "role=tab[name='Upload STL']" };
 
 export const makeScenes: Scene[] = [
   {
+    name: "upload-empty",
+    route: "/",
+    ready: "text=How big?",
+    steps: [uploadTab, { wait: 800 }],
+  },
+  {
     name: "make-fold",
     route: "/",
     ready: "text=How big?",

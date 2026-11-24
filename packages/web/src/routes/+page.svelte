@@ -14,6 +14,7 @@
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, measurements } from "#lib/make.js";
+  import { showMake } from "#lib/make-shown.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import {
     AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
@@ -39,6 +40,7 @@
   let profileId = "";
   let params: Record<string, unknown> = {};
 
+  onMount(showMake);
   onMount(() => {
     const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
     if (!r) return;

@@ -18,9 +18,10 @@ export type Step =
   | { fulfill: string; method?: string; status: number; json: unknown }
   | { follow: string }
   | { upload: string; name: string; text: string }
-  | { history: "back" | "forward" }
+  | { history: "back" | "forward"; url?: string }
   | { hits: string; viewports: readonly Viewport[] }
-  | { holds: string; ms: number; scrollTo: number; anchor: string };
+  | { holds: string; ms: number; scrollTo: number; anchor: string }
+  | { still: string; ms: number };
 
 export interface Scene {
   name: string;
@@ -30,6 +31,7 @@ export interface Scene {
   record?: boolean;
   fullPage?: boolean;
   signedOut?: boolean;
+  reducedMotion?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
 }
 
@@ -58,12 +60,6 @@ export const scenes: Scene[] = [
         viewports: REACH,
       },
     ],
-  },
-  {
-    name: "upload-empty",
-    route: "/",
-    ready: "text=How big?",
-    steps: [{ click: "button:has-text('Upload STL')" }, { wait: 800 }],
   },
   {
     name: "new-job",
@@ -125,7 +121,7 @@ export const scenes: Scene[] = [
     steps: [
       { press: "Control+k" },
       { type: "dialog[open] input", text },
-      { waitFor: "dialog[open] [role=option] >> text=Printed" },
+      { waitFor: "role=option[name=/^Gridfinity Bin 2×3 · 6u , Elegoo Neptune · Printed · /]" },
       { wait: 300 },
     ],
   })),
