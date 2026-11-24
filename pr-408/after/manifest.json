@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45909",
+  "url": "http://127.0.0.1:44823",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 497193,
+      "gifBytes": 543472,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 301118,
+      "gifBytes": 298198,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -173,7 +173,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 817143,
+      "gifBytes": 911328,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -253,7 +253,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 637672,
+      "gifBytes": 659880,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -261,7 +261,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 301170,
+      "gifBytes": 313131,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -299,7 +299,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 780668,
+      "gifBytes": 855403,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -325,7 +325,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 611874,
+      "gifBytes": 622620,
       "gif": "new-job-390.gif"
     },
     {
@@ -333,7 +333,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 373671,
+      "gifBytes": 346065,
       "gif": "job-progress-390.gif"
     },
     {
@@ -473,7 +473,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1091169,
+      "gifBytes": 1099245,
       "gif": "keyboard-390.gif"
     },
     {
@@ -547,7 +547,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 504586,
+      "gifBytes": 504479,
       "gif": "track-keys-390.gif"
     },
     {
@@ -585,7 +585,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1030013,
+      "gifBytes": 1030239,
       "gif": "primitives-keys-390.gif"
     }
   ]
