@@ -3,6 +3,7 @@ import { REACH, toastOnMake } from "./reach.ts";
 import { beltScenes } from "./scenes-belt.ts";
 import { liveScenes } from "./scenes-live.ts";
 import { receiptScenes } from "./scenes-receipt.ts";
+import { settingsScenes } from "./scenes-settings.ts";
 import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
@@ -107,12 +108,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 800 }],
   },
-  {
-    name: "settings",
-    route: "/settings",
-    ready: "h1",
-    steps: [{ wait: 800 }],
-  },
+  ...settingsScenes,
   {
     name: "command-menu",
     route: "/",

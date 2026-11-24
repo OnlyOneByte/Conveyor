@@ -92,9 +92,9 @@ either. Confirm them with the "Verify on hardware" runbook under each one. Both 
 once, when the worker loads them, so restart the worker after unsetting it.
 
 Printer settings live under **Printers** in the nav (`/settings`). The form's secret field saves
-`secrets.apiKey`; any other secret, such as Elegoo's `mainboardId`, is set with
-`PUT /api/catalog/printers`. A write that includes `secrets` replaces all of them, so send every key the
-printer needs; a write without `secrets` keeps the stored ones.
+`secrets.mainboardId` for an Elegoo printer and `secrets.apiKey` for any other; other keys are set with
+`PUT /api/catalog/printers`. A write's `secrets` merges per key, so saving one keeps the rest, and `null`
+removes a key ([api.md](api.md#catalog-and-history-routescatalogts-routescatalog-contentts)).
 
 Both upload the g-code through `multipartFileUpload({ field, path, filename }, onSent)` (`@conveyor/shared/node`),
 which streams the file from disk as one multipart part with a fixed `Content-Length`. `onSent(bytesSent,

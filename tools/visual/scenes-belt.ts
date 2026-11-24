@@ -61,7 +61,33 @@ const motion: Step[] = [
   { wait: 1500 },
 ];
 
+const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
+
 export const beltScenes: Scene[] = [
+  {
+    name: "belt-mobile",
+    route: "/history",
+    ready: "h1",
+    widths: [390],
+    fullPage: false,
+    steps: onChip,
+  },
+  {
+    name: "belt-mobile-sheet",
+    route: "/history",
+    ready: "h1",
+    widths: [390],
+    fullPage: false,
+    steps: [
+      ...onChip,
+      { click: "#belt .m .exp" },
+      { waitFor: "#belt .m .sheet .row" },
+      { click: "#belt .m .needs" },
+      { waitFor: "#belt .m .tray .btn" },
+      { hits: "#belt .m .sheet a, #belt .m .sheet button", viewports: [[390, 844]] },
+      { wait: 300 },
+    ],
+  },
   { name: "belt-bar", route: "/history", ready: "h1", widths: [1440], steps: onBar },
   {
     name: "belt-bar-make",

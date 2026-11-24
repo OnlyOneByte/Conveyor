@@ -137,7 +137,6 @@
   .skip:focus { top: var(--s2); }
   @media (max-width: 759px) {
     :global(:root) { --tabbar: calc(73px + env(safe-area-inset-bottom)); }
-    .belt { display: none; }
     .shell { padding: 0 var(--s4) calc(var(--tabbar) + var(--s6)); }
     .top { gap: var(--s2); min-height: 54px; }
     .word { font-size: 20px; }

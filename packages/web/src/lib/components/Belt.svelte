@@ -3,6 +3,7 @@
   import { afterNavigate } from "$app/navigation";
   import { page } from "$app/state";
   import { centre, collapsedBelt, onRail, SPANS, type TrackJob } from "#lib/track.js";
+  import MobileBelt from "./MobileBelt.svelte";
   import Track from "./Track.svelte";
 
   export let jobs: TrackJob[];
@@ -34,6 +35,8 @@
 </script>
 
 <svelte:window bind:scrollY />
+<div class="mobile"><MobileBelt {jobs} {onAction} {finishedToday} {needs} /></div>
+<div class="desktop">
 {#if collapsed}
   <div class="bar" role="group" aria-label="Belt">
     <b>Belt</b>
@@ -50,6 +53,7 @@
     <Track {jobs} {ended} {onAction} {finishedToday} {needs} />
   </div>
 {/if}
+</div>
 
 <style>
   .bar { display: flex; align-items: center; gap: var(--s2); height: 40px; margin: 6px 0; padding: 0 6px 0 14px; border-radius: 20px; background: var(--belt); color: var(--belt-ink); }
@@ -66,5 +70,7 @@
   .exp svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .full { position: relative; }
   .shut { position: absolute; top: 0; right: 0; z-index: 6; background: var(--belt); }
+  .mobile { display: none; }
+  @media (max-width: 759px) { .mobile { display: block; } .desktop { display: none; } }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
