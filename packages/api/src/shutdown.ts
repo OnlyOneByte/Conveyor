@@ -42,12 +42,9 @@ export function closeOnSignals(app: FastifyInstance, shutdown: Shutdown): void {
   for (const signal of SHUTDOWN_SIGNALS) source.on(signal, () => stop(signal));
 }
 
-export const SOCKET_CLOSE_WAIT_MS = 1_000;
-
 export function closeSocketsRestarting(this: FastifyInstance, done: () => void): void {
   const server = this.websocketServer;
   for (const client of server.clients)
     client.close(JOB_STREAM_CLOSE.restarting, "server restarting");
-  const closed = new Promise((resolve) => server.close(resolve));
-  Promise.race([closed, delay(SOCKET_CLOSE_WAIT_MS)]).then(() => done());
+  server.close(() => done());
 }

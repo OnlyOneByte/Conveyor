@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { JOB_STREAM_CLOSE } from "@conveyor/shared";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { closeOnSignals, closeSocketsRestarting, SOCKET_CLOSE_WAIT_MS } from "./shutdown";
+import { closeOnSignals, closeSocketsRestarting } from "./shutdown";
 
 function exits() {
   const codes: number[] = [];
@@ -88,7 +88,7 @@ describe("closeOnSignals", () => {
 });
 
 describe("closeSocketsRestarting", () => {
-  test("tells every open socket the server is restarting, waiting at most 1 s", async () => {
+  test("tells every open socket the server is restarting", async () => {
     const app = Fastify();
     await app.register(websocket, { preClose: closeSocketsRestarting });
     const seen: number[] = [];
@@ -98,9 +98,7 @@ describe("closeSocketsRestarting", () => {
     const base = await app.listen({ host: "127.0.0.1", port: 0 });
     const ws = new WebSocket(`${base.replace("http", "ws")}/ws`);
     await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
-    const started = performance.now();
     await new Promise<void>((resolve) => closeSocketsRestarting.call(app, resolve));
-    expect(performance.now() - started).toBeLessThan(SOCKET_CLOSE_WAIT_MS + 500);
     for (let i = 0; i < 100 && seen.length === 0; i++) await Bun.sleep(10);
     expect(seen).toEqual([JOB_STREAM_CLOSE.restarting]);
     app.server.closeAllConnections();

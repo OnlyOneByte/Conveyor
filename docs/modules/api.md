@@ -30,10 +30,12 @@ The job routes depend on the queue. `index.ts` reads `CONVEYOR_QUEUE` through `q
 if it fails or is still running after `CLOSE_DEADLINE_MS` (3 s). A second signal while closing exits `1` at once.
 The api runs as PID 1 in its container, and PID 1 gets no default signal handling, so without this handler
 `docker compose stop` waited its full 10 s and then killed it. Closing runs `closeSocketsRestarting`, the
-WebSocket plugin's `preClose`: every open job socket closes with `1012` (`JOB_STREAM_CLOSE.restarting`), and
-it waits at most `SOCKET_CLOSE_WAIT_MS` (1 s) for them. It uses `1012`, not `1001`, because Bun sends a
+WebSocket plugin's `preClose`: every open job socket is sent a close with `1012`
+(`JOB_STREAM_CLOSE.restarting`). It does not wait for clients to answer the close, and nothing else waits on
+them: a client that never answers doesn't hold the shutdown. It uses `1012`, not `1001`, because Bun sends a
 server's `1001` as `1000`, which a client would read as `job finished`. `shutdown-boot.test.ts` boots
-`index.ts`, opens a job socket and checks SIGTERM gives `1012` and exit `0` within 2 s.
+`index.ts` and checks SIGTERM exits `0` within 2 s, both with a browser-style job socket (which gets `1012`)
+and with a raw upgraded socket that never answers.
 
 ## Job status stream (both queues)
 

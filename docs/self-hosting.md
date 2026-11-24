@@ -107,7 +107,7 @@ Before you expose Conveyor beyond the host:
 
 ### The name Caddy serves
 
-`CONVEYOR_DOMAIN` in `.env` is the site address in the `Caddyfile`. Compose passes it to Caddy, and unset or empty means `localhost`. After changing it, run `docker compose up -d caddy`.
+`CONVEYOR_DOMAIN` in `.env` is the site address in the `Caddyfile`. Compose passes it to Caddy, and unset or empty means `localhost`. After changing it, run `docker compose up -d caddy`. Caddy then serves only that name: `https://localhost` on the host stops answering (the TLS handshake fails), so use the new name on the host too.
 
 Which certificate Caddy uses depends on the name:
 
@@ -165,7 +165,7 @@ Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds fr
 
 Every service logs through Docker's `json-file` driver capped at 3 files of 10 MB, so logs can't fill a small SD card. `docker compose logs <service>` reads them.
 
-`docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second.
+`docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second. The `worker` stops taking jobs and exits as soon as no job is running. On the default Redis queue it waits for a running job to finish, for up to its 60 s grace period (`stop_grace_period`); then Docker kills it, and that job runs again from the start when the worker comes back (#5 tracks the repeat this can cause on a printer). So the whole stack stops in about 3 seconds when idle, and in up to a minute mid-job.
 
 ## Printer secrets and backups
 
@@ -207,24 +207,26 @@ Never copy `conveyor.db` while the stack runs: the database is in WAL mode, so r
 
 ### Back up the database while it runs
 
-SQLite's `VACUUM INTO` writes a consistent copy of a live database. Run it in the api container, which has `bun` and the database, as the container's own user, then copy the result out:
+SQLite's `VACUUM INTO` writes a consistent copy of a live database. Run it in the api container, which has `bun` and the database, as the container's own user, then stream the copy out:
 
 ```sh
+umask 077
 mkdir -p backups
 docker compose exec -T --user 10001:10001 api rm -f /data/backup.db
 docker compose exec -T --user 10001:10001 api bun -e 'const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'
-docker compose cp api:/data/backup.db "backups/conveyor-$(date +%F).db"
+docker compose exec -T --user 10001:10001 api cat /data/backup.db > "backups/conveyor-$(date +%F).db"
 docker compose exec -T --user 10001:10001 api rm /data/backup.db
 ```
 
-Back up `.env` and `./data/secrets.key` (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not: `docker compose cp api:/data/secrets.key backups-private/secrets.key`.
+`umask 077` makes the folder `0700` and the backup `0600`, readable only by you. Keep it that way: the database holds the printer credentials, encrypted with the secrets key. Back up `.env` and the secrets key (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not, the same way: `docker compose exec -T --user 10001:10001 api cat /data/secrets.key > secrets.key.backup`.
 
 ### Restore the database
 
 ```sh
 docker compose stop api worker
-docker compose run --rm --no-deps --user 10001:10001 -v "$PWD/backups:/backups:ro" --entrypoint sh api \
-  -c 'rm -f /data/conveyor.db-wal /data/conveyor.db-shm && cp /backups/conveyor-2026-11-24.db /data/conveyor.db'
+docker compose run --rm -T --no-deps --user 10001:10001 --entrypoint sh api \
+  -c 'umask 077 && cat > /data/restore.db && rm -f /data/conveyor.db-wal /data/conveyor.db-shm && mv /data/restore.db /data/conveyor.db' \
+  < backups/conveyor-2026-11-24.db
 docker compose up -d --wait
 ```
 
@@ -232,30 +234,33 @@ Use the name of the backup you want. The old `-wal` and `-shm` files must go wit
 
 ### Back up and restore everything
 
-A full backup stops the stack for a few seconds and takes `./data` and both volumes at once:
+A full backup takes `./data` and both volumes at once, with the stack stopped:
 
 ```sh
+umask 077
 mkdir -p backups
 docker compose stop
 docker run --rm -v conveyor_redis_data:/v/redis_data:ro -v conveyor_caddy_data:/v/caddy_data:ro \
-  -v "$PWD/data:/v/data:ro" -v "$PWD/backups:/backups" alpine \
-  tar -C /v --numeric-owner -czf "/backups/conveyor-full-$(date +%F).tgz" .
+  -v "$PWD/data:/v/data:ro" alpine tar -C /v --numeric-owner -czf - . > "backups/conveyor-full-$(date +%F).tgz"
 docker compose start
 cp .env backups/
 ```
+
+`docker compose stop` takes about 3 seconds when no job is running, and up to a minute while one is ([Health checks, logs and stopping](#health-checks-logs-and-stopping)). Take full backups when the printers are idle. The tarball is created `0600`: it holds Caddy's CA private key and the secrets key next to the database, so anyone who can read it can sign certificates your devices trust and decrypt the printer credentials.
 
 To restore it, on the same host or a new one with the same checkout and `.env`:
 
 ```sh
 docker compose down
 docker compose up --no-start
-docker run --rm -v conveyor_redis_data:/v/redis_data -v conveyor_caddy_data:/v/caddy_data \
-  -v "$PWD/data:/v/data" -v "$PWD/backups:/backups:ro" alpine \
-  sh -c 'find /v/redis_data /v/caddy_data /v/data -mindepth 1 -delete && tar -C /v --numeric-owner -xzpf /backups/conveyor-full-2026-11-24.tgz'
+docker run --rm -i -v conveyor_redis_data:/v/redis_data -v conveyor_caddy_data:/v/caddy_data \
+  -v "$PWD/data:/v/data" alpine \
+  sh -c 'find /v/redis_data /v/caddy_data /v/data -mindepth 1 -delete && tar -C /v --numeric-owner -xzpf -' \
+  < backups/conveyor-full-2026-11-24.tgz
 docker compose up -d --wait
 ```
 
-`up --no-start` creates the volumes as Compose's own, so a new host doesn't warn about them. `--numeric-owner` keeps every file's owner (`10001` for `./data`, `999:1000` for Redis, `10002` for Caddy), so nothing needs a `chown` afterwards; `caddy-init` hands the volumes' top folders, which `up --no-start` made, back to Caddy on the next `up`. The tarball holds the secrets key with the database; keep it as private as the key.
+`up --no-start` creates the volumes as Compose's own, so a new host doesn't warn about them. `--numeric-owner` keeps every file's owner (`10001` for `./data`, `999:1000` for Redis, `10002` for Caddy), so nothing needs a `chown` afterwards; `caddy-init` hands the volumes' top folders, which `up --no-start` made, back to Caddy on the next `up`.
 
 ## Containers run as uid 10001
 

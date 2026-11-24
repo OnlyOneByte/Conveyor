@@ -186,7 +186,7 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha25
   image --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH conveyor-api
 ```
 
-The release workflow builds the same Dockerfiles, so a tag's images are the ones CI scanned on that commit.
+What this does not cover yet: CI builds the worker with `ORCA_ENABLE=0`, so OrcaSlicer's bundled files are never scanned (#468 tracks two fixed criticals in them), and `release.yml` builds and publishes images with no scan at all (#456). A worker built locally with the default `ORCA_ENABLE=auto` shows those findings.
 
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.
