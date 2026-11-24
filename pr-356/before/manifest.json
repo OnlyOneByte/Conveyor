@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:46011",
+  "url": "http://127.0.0.1:33143",
   "warnings": [],
   "results": [
     {
@@ -19,7 +19,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 456360,
+      "gifBytes": 434992,
       "gif": "new-job-1440.gif"
     },
     {
@@ -27,7 +27,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 299289,
+      "gifBytes": 256539,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -77,7 +77,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 558599,
+      "gifBytes": 558623,
       "gif": "new-job-390.gif"
     },
     {
@@ -85,7 +85,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 330479,
+      "gifBytes": 355015,
       "gif": "job-progress-390.gif"
     },
     {
