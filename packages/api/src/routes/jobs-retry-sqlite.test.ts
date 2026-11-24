@@ -44,7 +44,7 @@ function job(state: "queued" | "failed"): string {
   return id;
 }
 
-const submit = async (payload: unknown) => {
+const submit = async (payload: Record<string, unknown>) => {
   const res = await app.inject({ method: "POST", url: "/jobs", payload });
   return {
     status: res.statusCode,
