@@ -36,6 +36,7 @@ export interface PublishExtra {
   message?: string;
   error?: JobStatusEvent["error"];
   timings?: StageTiming[];
+  print?: JobStatusEvent["print"];
   bytesSent?: number;
   bytesTotal?: number;
 }

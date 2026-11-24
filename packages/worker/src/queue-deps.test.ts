@@ -16,7 +16,6 @@ import {
   row,
   states,
 } from "../test/helpers/queue-deps-harness";
-import { FILAMENT_NOT_READ } from "./pipeline";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 import { LeaseLostError } from "./run";
 
@@ -52,30 +51,22 @@ describe("a job run on the sqlite queue", () => {
     expect(h.submits).toBe(1);
   });
 
-  test("records the filament the slicer output reports on the settled job", async () => {
-    const read: string[] = [];
-    const h = queued(
-      {},
-      {
-        readFilament: async (path) => {
-          read.push(path);
-          return { grams: 3.08, metres: 1.032 };
-        },
+  test("keeps the printer's layer and time left on the printing event, and only there", async () => {
+    const print = { layer: 12, layers: 240, secondsLeft: 2460 };
+    const h = queued({
+      status: async function* () {
+        yield { state: "printing", progress: 0.05, print };
+        yield { state: "done", print };
       },
-    );
-    expect(await h.run()).toBe("done");
-    expect(read).toEqual(["/tmp/model.gcode"]);
-    expect(dbGetJob(db, "job-1")?.filament).toEqual({ grams: 3.08, metres: 1.032 });
-  });
-
-  test("a filament read that fails is noted, and the job still finishes without it", async () => {
-    const h = queued({}, { readFilament: async () => Promise.reject(new Error("EACCES")) });
-    expect(await h.run()).toBe("done");
-    expect(dbGetJob(db, "job-1")).toMatchObject({
-      state: "done",
-      notes: `${FILAMENT_NOT_READ}: EACCES`,
     });
-    expect(dbGetJob(db, "job-1")?.filament).toBeUndefined();
+    expect(await h.run()).toBe("done");
+    expect(events().map((e) => [e.state, e.print])).toEqual([
+      ...states()
+        .slice(0, -2)
+        .map((state) => [state, undefined]),
+      ["printing", print],
+      ["done", undefined],
+    ]);
   });
 
   test("puts the upload's bytes sent and total, and their fraction, on a transferring event", async () => {

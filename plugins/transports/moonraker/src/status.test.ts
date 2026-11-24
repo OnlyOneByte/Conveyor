@@ -134,6 +134,48 @@ describe("moonraker status", () => {
     expect(full.keys).toHaveLength(2);
   });
 
+  test("reports the layer, layer count and time left the printer gives, and leaves out the rest", async () => {
+    const { handle } = printer([
+      {
+        ...stats("printing", {
+          print_duration: 600,
+          info: { current_layer: 12, total_layer: 240 },
+        }),
+        virtual_sdcard: { progress: 0.2 },
+      },
+      { ...stats("paused", { print_duration: 0, info: { current_layer: 30, total_layer: 0 } }) },
+      stats("complete"),
+    ]);
+    const statuses = await collect(plugin.status(handle));
+    expect(statuses[1]).toStrictEqual({
+      state: "printing",
+      progress: 0.2,
+      message: undefined,
+      print: { layer: 12, layers: 240, secondsLeft: 2400 },
+    });
+    expect(statuses[2]).toStrictEqual({
+      state: "printing",
+      progress: 0,
+      message: "paused",
+      print: { layer: 30 },
+    });
+  });
+
+  test("keeps following a print whose print time Klipper reports a hair below zero", async () => {
+    const { handle } = printer([
+      {
+        ...stats("printing", { print_duration: -1.2434497875801753e-14 }),
+        virtual_sdcard: { progress: 0.02 },
+      },
+      stats("complete"),
+    ]);
+    expect(await collect(plugin.status(handle))).toEqual([
+      { state: "transferring" },
+      { state: "printing", progress: 0.02, message: undefined },
+      { state: "done", progress: 1 },
+    ]);
+  });
+
   test("fails on a query error, a missing address, or an abort while waiting", async () => {
     await expect(collect(plugin.status(printer([503]).handle))).rejects.toThrow(
       "moonraker status query failed: 503",
