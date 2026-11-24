@@ -1,5 +1,7 @@
 # M2 — Transports (Moonraker + ElegooLink/SDCP)
 
+> **Archived (2026-11-24):** the M2 transport notes, kept as history and not kept current. Its file list and status table are stale. The transports, and the hardware runbooks that were here, are now in [modules/plugins.md](../modules/plugins.md#transports).
+
 How a sliced gcode reaches a printer and how live status flows back. Both adapters
 are **written against the published protocols but not yet verified on hardware** —
 this doc is the capture-and-confirm runbook.

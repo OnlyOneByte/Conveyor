@@ -97,7 +97,7 @@ in [docs/architecture.md](docs/architecture.md).
 
 - **M0 — Contracts & skeleton.** ✅ monorepo, `shared` schema, stage registries, compose topology.
 - **M1 — Worker spike.** ✅ VERIFIED. Generator (real gridfinity STL, correct dims, params fixed, SCAD vendored, nightly OpenSCAD) **and both slicers** — PrusaSlicer (apt) **and** OrcaSlicer (v2.4.1 aarch64 AppImage, `--slice 0` → 449 KB/100-layer gcode) — all slice headless on aarch64; full generate→slice E2E proven in the worker image. See `docs/archive/M1-WORKER-ENGINES.md`.
-- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/M2-TRANSPORTS.md`.
+- **M2 — Transport.** 🟡 Moonraker submit/status/cancel + ElegooLink SDCP (submit/status/cancel) all **written** against the protocols; verified in stub mode, awaiting hardware. See `docs/modules/plugins.md` (Transports).
 - **M3 — PWA.** ✅ dynamic generator form + Threlte live preview + STL upload (real mesh) + printer/profile picker + WS job status; 3-zone responsive layout.
 - **M4 — Settings & auth.** ✅ SQLite store (bun:sqlite) + job history + a Settings page (printers/profiles CRUD) + shared-password auth (HMAC cookie, single tier).
 - **M5 — Observability & convenience.** ✅ (2026-09-04) Raw Orca JSON profile editor (`v0.1.2`); a `/monitor` tab (live active jobs with per-stage timings + cancel, per-printer TCP reachability, auto-refresh); `/history` state-filter chips + text filter + auto-refresh; job-detail STL/gcode downloads, a per-stage timings section, and a Run again button. API: `GET /jobs/active`, `GET /catalog/printers/:id/reachable`, `GET /jobs/:id/artifact/:kind` (containment-guarded). Shipped in `v0.1.3`.
@@ -105,5 +105,5 @@ in [docs/architecture.md](docs/architecture.md).
 
 ## 11. Deferred / backlog
 
-- **Hardware transport verification** — Moonraker and ElegooLink SDCP are protocol-complete but unproven against a physical printer (see M2 and the Elegoo open decision). The Elegoo adapter has two flagged VERIFY-ON-HARDWARE points (file-upload route, START_PRINT payload) that only a packet capture against a real device can resolve. `docs/M2-TRANSPORTS.md` holds the runbook.
+- **Hardware transport verification** — Moonraker and ElegooLink SDCP are protocol-complete but unproven against a physical printer (see M2 and the Elegoo open decision). The Elegoo adapter has two flagged VERIFY-ON-HARDWARE points (file-upload route, START_PRINT payload) that only a packet capture against a real device can resolve. The "Verify on hardware" runbooks are in `docs/modules/plugins.md`.
 - **History paging past 200** — `GET /jobs-history` takes a `before` cursor plus `state`, `printerId`, `since` and `until` filters, and `GET /jobs-history/counts` gives per-state counts (see `docs/modules/api.md`). The `/history` page still loads one `limit=200` window until the UI rewrite uses them.

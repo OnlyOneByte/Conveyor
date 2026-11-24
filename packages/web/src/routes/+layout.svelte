@@ -11,7 +11,7 @@
   import { createNewsDesk } from "#lib/belt-news.js";
   import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
-  import Track from "#lib/components/Track.svelte";
+  import Belt from "#lib/components/Belt.svelte";
   import { stashRerun } from "#lib/rerun.js";
   import type { TrackJob } from "#lib/track.js";
   import { toasts } from "#lib/ui/behaviour.js";
@@ -101,7 +101,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Track jobs={beltJobs} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
@@ -130,7 +130,7 @@
   svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   .sp { flex: 1; }
   .icon { width: 40px; padding: 0; }
-  .belt:empty { display: none; }
+  .belt { position: sticky; top: 0; z-index: 20; background: var(--bg); } .belt:empty { display: none; }
   main { padding-top: var(--s4); outline: none; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .skip { position: absolute; left: var(--s4); top: -100px; padding: var(--s2) var(--s4); border-radius: var(--r-control); background: var(--paper); color: var(--ink); z-index: 50; }

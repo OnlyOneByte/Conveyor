@@ -8,6 +8,7 @@ import { follow } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
+import { assertHolds } from "./holds.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -55,6 +56,10 @@ const colorScheme = values.scheme === "dark" ? "dark" : "light";
 const outDir = resolve(values.out);
 const only = values.only?.split(",").map((s) => s.trim());
 const selected = only ? scenes.filter((s) => only.includes(s.name)) : scenes;
+const unshot = selected
+  .filter((s) => !WIDTHS.some((w) => !s.widths || s.widths.includes(w)))
+  .map((s) => s.name);
+if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")}`);
 
 async function runStep(page: Page, step: Step, warnings: string[]): Promise<void> {
   if ("click" in step) await page.locator(step.click).first().click();
@@ -73,6 +78,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
         : route.fulfill({ status: step.status, json: step.json }),
     );
   else if ("history" in step) await (step.history === "back" ? page.goBack() : page.goForward());
+  else if ("holds" in step) await assertHolds(page, step);
   else await page.waitForTimeout(step.wait);
 }
 
@@ -203,7 +209,7 @@ async function main(): Promise<number> {
     warnings = await warmUp(browser, stack.url);
     for (const w of warnings) console.log(`warn ${w}`);
     for (const width of WIDTHS) {
-      for (const scene of selected) {
+      for (const scene of selected.filter((s) => !s.widths || s.widths.includes(width))) {
         const r = await shoot({ browser, base: stack.url, scene, width });
         results.push(r);
         console.log(describe(r));
