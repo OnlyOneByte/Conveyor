@@ -41,6 +41,23 @@ describe("when a queued job will start printing", () => {
     expect(estimates([printing(5), job("next", {})]).next?.startsAt).toBe(NOW + 30_000);
   });
 
+  test("behind a print and a job sliced for after it, preparing only once that job takes the printer", () => {
+    const slicing = job("slicing", { state: "slicing", stage: "slicer" });
+    const queued = job("queued", {});
+    for (const jobs of [
+      [printing(600), slicing, queued],
+      [queued, slicing, printing(600)],
+    ]) {
+      expect(estimates(jobs).queued?.startsAt).toBe(NOW + 600_000 + 300_000);
+    }
+    const later = job("later", {}, { createdAt: 1 });
+    expect(estimates([printing(600), queued, later]).later?.startsAt).toBe(NOW + 900_000);
+    const long = (_: ActiveJob): StageDurations => ({ ...TYPICAL, generator: 380_000 });
+    expect(estimates([printing(600), queued, later], long).later?.startsAt).toBe(
+      NOW + 600_000 + 400_000,
+    );
+  });
+
   test("after a job still slicing has sliced and printed, or one sending has printed", () => {
     const slicing = job("slicing", { state: "slicing", stage: "slicer" });
     const sending = job("sending", { state: "transferring" }, { printerId: "p2" });

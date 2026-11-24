@@ -30,18 +30,24 @@ function printerQueue(group: ActiveJob[], typical: Map<ActiveJob, StageDurations
   const starts = new Map<ActiveJob, number>();
   let printerFree: Maybe = now;
   let prepFree: Maybe = now;
-  for (const job of group.filter((j) => j.event.state !== "queued")) {
-    const t = typical.get(job) ?? {};
+  const onPrinter = (j: ActiveJob) =>
+    j.event.state === "printing" || j.event.state === "transferring";
+  for (const job of group.filter(onPrinter)) {
     const { state, at, print } = job.event;
-    if (state === "printing") {
-      const left = print?.secondsLeft;
-      printerFree = later(printerFree, left === undefined ? undefined : at + left * 1000);
-    } else if (state === "transferring") {
-      printerFree = later(printerFree, add(now, t.transport));
-    } else {
-      prepFree = later(prepFree, add(now, prepMs(job, t)));
-      printerFree = later(printerFree, add(prepFree, t.transport));
-    }
+    const left = print?.secondsLeft;
+    const end =
+      state === "printing"
+        ? left === undefined
+          ? undefined
+          : at + left * 1000
+        : add(now, typical.get(job)?.transport);
+    printerFree = later(printerFree, end);
+  }
+  for (const job of group.filter((j) => j.event.state !== "queued" && !onPrinter(j))) {
+    const t = typical.get(job) ?? {};
+    const start = later(printerFree, add(now, prepMs(job, t)));
+    printerFree = add(start, t.transport);
+    prepFree = start;
   }
   const queued = group
     .filter((job) => job.event.state === "queued")
@@ -52,7 +58,7 @@ function printerQueue(group: ActiveJob[], typical: Map<ActiveJob, StageDurations
     const start = later(printerFree, prepDone);
     if (start === undefined) break;
     starts.set(job, start);
-    prepFree = prepDone;
+    prepFree = start;
     printerFree = add(start, t.transport);
   }
   return starts;

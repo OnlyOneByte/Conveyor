@@ -65,8 +65,8 @@ In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; wit
 - `startsAt` (epoch ms), for a `queued` job: when it should start printing, that is, take the printer. Each
   printer's queue is walked in `createdAt` order. The printer is free when its printing job's `print.secondsLeft`
   runs out (from the event's `at`), or after a running job's remaining model, slicing and typical `transport`.
-  A queued job's model and slicing run meanwhile, one job at a time, so it starts at the later of the printer
-  being free and its own preparation being done. Each job ahead then holds the printer for its typical
+  A queued job's model and slicing run meanwhile, but only once the job ahead of it has taken the
+  printer, so it starts at the later of the printer being free and its own preparation being done. Each job ahead then holds the printer for its typical
   `transport`. Once a step is unknown, the jobs behind it get no `startsAt`, and a held printer
   (`printers.hold_job_id`, SQLite queue) gives none to its whole queue.
 - On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
