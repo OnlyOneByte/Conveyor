@@ -25,8 +25,8 @@
   let profiles: CatalogProfile[] = data.profiles ?? [];
   let transports: CatalogTransport[] = data.transports ?? [];
 
+  const arrived = page.url.searchParams.get("job");
   onMount(async () => {
-    const arrived = page.url.searchParams.get("job");
     if (arrived) return goto(`/jobs/${encodeURIComponent(arrived)}`, { replaceState: true });
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
@@ -120,7 +120,7 @@
   }
 
   let submitting = false;
-  $: jobId = data.initialJobId ?? null;
+  $: jobId = arrived ? null : (data.initialJobId ?? null);
   let error: string | null = null;
   let retried: string | null = null;
 

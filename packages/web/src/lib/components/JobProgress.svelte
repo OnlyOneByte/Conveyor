@@ -19,7 +19,8 @@
   onMount(() => {
     const timer = setInterval(async () => {
       if (view.state !== "queued") return;
-      place = placeInLine(view.jobId, await fetchActiveJobs().catch(() => []));
+      const active = await fetchActiveJobs().catch(() => null);
+      if (active) place = placeInLine(view.jobId, active);
     }, REFRESH_MS);
     return () => clearInterval(timer);
   });
