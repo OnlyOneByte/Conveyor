@@ -92,11 +92,12 @@ export const beltScenes: Scene[] = [
     route: "/",
     ready: "text=How big?",
     widths: [1440],
+    height: 720,
     fullPage: false,
     steps: [
       live,
       { waitFor: "#belt .chips a.chip", timeout: 8000 },
-      { scroll: "label.pill >> nth=-1" },
+      { press: "End" },
       { waitFor: "#belt .bar .mini i" },
       { wait: 300 },
     ],
@@ -106,6 +107,7 @@ export const beltScenes: Scene[] = [
     route: "/",
     ready: "text=How big?",
     widths: [1440],
+    height: 720,
     fullPage: false,
     steps: [
       live,

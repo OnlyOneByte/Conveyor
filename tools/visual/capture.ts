@@ -166,7 +166,7 @@ async function waitReady(page: Page, { route, ready }: Scene): Promise<void> {
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
   const context = await browser.newContext({
-    viewport: { width, height: HEIGHTS[width] ?? 900 },
+    viewport: { width, height: scene.height ?? HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
     colorScheme,
     reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",

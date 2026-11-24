@@ -33,6 +33,7 @@ export interface Scene {
   signedOut?: boolean;
   reducedMotion?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
+  height?: number;
 }
 
 const keys = (...presses: string[]): Step[] =>
