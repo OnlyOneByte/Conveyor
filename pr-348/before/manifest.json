@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45861",
+  "url": "http://127.0.0.1:36653",
   "warnings": [
     "warm-up /primitives: waitFor: Timeout 120000ms exceeded."
   ],
@@ -21,7 +21,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 485061,
+      "gifBytes": 485105,
       "gif": "new-job-1440.gif"
     },
     {
@@ -93,7 +93,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 558580,
+      "gifBytes": 558507,
       "gif": "new-job-390.gif"
     },
     {
