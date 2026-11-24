@@ -173,7 +173,7 @@ export const scenes: Scene[] = [
     record: true,
     steps: [
       { wait: 600 },
-      ...keys("Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab"),
+      ...keys("Tab", "Enter", "Tab"),
       { waitFor: "button.grp:focus", timeout: 5000 },
       ...keys("ArrowRight", "ArrowRight"),
       { waitFor: ".card li:nth-child(2) a:focus", timeout: 5000 },
