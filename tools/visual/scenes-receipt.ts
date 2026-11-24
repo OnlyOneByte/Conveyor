@@ -83,7 +83,7 @@ export const receiptScenes: Scene[] = [
           retriedBy: "seed-printed",
         },
       },
-      { click: 'button:text-is("Retry")' },
+      { click: 'role=button[name="Retry"s]' },
       { waitFor: "text=Configure" },
       { wait: 800 },
       { click: "button.desktop-print:visible, .mobile-cta button:visible" },

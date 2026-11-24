@@ -6,7 +6,8 @@
   import { POLL_MS } from "#lib/belt.js";
   import { type Catalog, loadCatalog } from "#lib/catalog.js";
   import JobList from "#lib/components/JobList.svelte";
-  import { cancelRow, canCancel, type Counts, EMPTY, fetchCounts, fetchPage, type Filter, FILTERS, groupRows, liveRow, mergeSettled, PAGE, pillCount, retryRow, type Row, settledRow } from "#lib/jobs-list.js";
+  import JobsState from "#lib/components/JobsState.svelte";
+  import { cancelRow, canCancel, type Counts, fetchCounts, fetchPage, type Filter, FILTERS, groupRows, liveRow, mergeSettled, PAGE, pillCount, retryRow, type Row, settledRow } from "#lib/jobs-list.js";
   import { singleKeyShortcuts } from "#lib/preferences.js";
   import { step } from "#lib/shortcuts.js";
   import { shortName } from "#lib/track.js";
@@ -18,7 +19,7 @@
   let counts: Counts | null = null, catalog: Catalog | null = null;
   let loaded = false, down = false, more = false, confirming = false;
   let chosen: string | undefined, asking: Row | null = null;
-  let page: HTMLElement;
+  let page: HTMLElement, seq = 0;
 
   $: groups = groupRows(filter === "all" || filter === "live" ? live : [], filter === "live" ? [] : settled, new Date());
   $: rows = groups.flatMap((g) => g.rows);
@@ -33,8 +34,9 @@
     if ([...was].some((id) => !live.some((row) => row.id === id))) await refresh().catch(() => {});
   }
 
-  async function refresh() {
+  async function refresh(at = seq) {
     const [first, total] = await Promise.all([fetchPage(filter, undefined), fetchCounts().catch(() => counts)]);
+    if (at !== seq) return;
     const fresh = first.map((entry) => settledRow(entry, catalog, Date.now()));
     settled = loaded ? mergeSettled(settled, fresh) : fresh;
     if (!loaded) more = first.length === PAGE;
@@ -42,11 +44,12 @@
   }
 
   async function load() {
+    const at = ++seq;
     down = false;
     catalog = await loadCatalog().catch(() => null);
-    const [views, history] = await Promise.allSettled([fetchActiveJobs(), refresh()]);
+    const [views, history] = await Promise.allSettled([fetchActiveJobs(), refresh(at)]);
+    if (at !== seq) return;
     down = history.status === "rejected";
-    if (down) counts = null;
     live = views.status === "fulfilled" ? views.value.map((view) => liveRow(view, catalog, Date.now())) : [];
     loaded = true;
   }
@@ -60,7 +63,9 @@
   }
 
   async function older() {
+    const at = seq;
     const next = await fetchPage(filter, settled.at(-1)).catch(() => null);
+    if (at !== seq) return;
     if (!next) return void announce("Couldn't load older jobs. Try again.", "assertive");
     settled = mergeSettled(settled, next.map((entry) => settledRow(entry, catalog, Date.now())));
     more = next.length === PAGE;
@@ -115,10 +120,8 @@
       <button type="button" class="pill" aria-pressed={filter === f.id} on:click={() => choose(f.id)}>{f.label}{#if n !== null}<span class="n">{n}</span>{/if}</button>
     {/each}
   </div>
-  {#if down && !rows.length}
-    <div class="state" role="alert"><p class="big">Can't reach Conveyor</p><p>The job list didn't load. Check that the server is running, then try again.</p><button class="btn primary" type="button" on:click={load}>Try again</button></div>
-  {:else if loaded && !rows.length}
-    <div class="state"><p class="big">{EMPTY[filter]}</p>{#if filter === "all"}<p>Jobs show up here as soon as you print one.</p><a class="btn primary" href="/">Make something</a>{/if}</div>
+  {#if !loaded}<JobsState kind="loading" {filter} />{:else if down}<JobsState kind="down" {filter} retry={load} />{/if}
+  {#if loaded && !down && !rows.length}<JobsState kind="empty" {filter} />
   {:else if rows.length}
     <JobList {groups} selected={current?.id} pick={(id) => (chosen = id)} />
     {#if more && filter !== "live"}<button class="btn older" type="button" on:click={older}>Show older jobs</button>{/if}
@@ -141,10 +144,7 @@
   .pill { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border: 1.5px solid var(--line-2); border-radius: 21px; background: transparent; color: var(--ink); font: 600 14px var(--display); white-space: nowrap; cursor: pointer; }
   .pill[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
   .n { font: 500 12.5px var(--mono); }
-  .state { display: grid; gap: var(--s2); justify-items: start; padding: var(--s5); border: 1px dashed var(--line-2); border-radius: var(--r-card); }
-  .state p { margin: 0; color: var(--muted); }
-  .state .big { color: var(--ink); font: 700 18px var(--display); }
-  .older, .state .btn { justify-self: start; min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
+  .older { justify-self: start; min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
   .keys { margin: 0; color: var(--muted); font-size: 13px; }
   @media (max-width: 759px) { .pills { flex-wrap: nowrap; overflow-x: auto; } .keys { display: none; } }
 </style>
