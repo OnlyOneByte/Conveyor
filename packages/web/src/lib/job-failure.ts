@@ -11,7 +11,7 @@ const STEP = new Map([
 
 const KNOWN: [RegExp, string][] = [
   [
-    /fully inside the print volume|partly inside, can not be sliced/i,
+    /fully inside the print volume|partly inside, can not be sliced|outside of the print volume/i,
     "The model doesn't fit the printer's bed. Make it smaller, or pick a bigger printer.",
   ],
   [

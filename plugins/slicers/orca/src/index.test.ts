@@ -81,4 +81,28 @@ describe("the orca slicer", () => {
     expect(err).toBeInstanceOf(StageError);
     expect((err as StageError).reason).toMatch(/exited 2: no printer preset/);
   });
+
+  test("fails the slice when Orca exits 0 without writing plate 1, quoting its stderr", async () => {
+    const { ctx, bin, plugin } = await setup(
+      { CONVEYOR_ENGINE_STUB: undefined },
+      "echo 'Nothing to be sliced' >&2; exit 0",
+    );
+    const err = await plugin.slice(model, profile, ctx).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StageError);
+    expect((err as StageError).stage).toBe("slicer");
+    expect((err as StageError).reason).toBe(
+      `${join(bin, "orca-slicer")} exited 0 but wrote no G-code: Nothing to be sliced`,
+    );
+  });
+
+  test("fails the slice when Orca leaves an empty plate 1", async () => {
+    const { ctx, plugin } = await setup(
+      { CONVEYOR_ENGINE_STUB: undefined },
+      'p=; for a; do [ "$p" = --outputdir ] && : > "$a/plate_1.gcode"; p=$a; done',
+    );
+    const err = await plugin.slice(model, profile, ctx).catch((e: unknown) => e);
+    expect((err as StageError).reason).toEndWith(
+      "exited 0 but wrote no G-code (the file is empty)",
+    );
+  });
 });

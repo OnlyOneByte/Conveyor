@@ -276,7 +276,12 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
   generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
   error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
-  that streams logs there would need a rolling buffer.
+  that streams logs there would need a rolling buffer. A zero exit resolves `{ stderr }` with the same tail, so
+  a caller can explain an exit that produced nothing.
+- `requireOutput(stage, path, missing, stderr)` throws a `StageError` for `stage` when `path` is not a file or
+  is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the trimmed
+  stderr when there is any. Both slicers call it after a zero exit (#384), because PrusaSlicer 2.9.2 exits 0
+  with no G-code when every object is outside the print volume.
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
   reads use. It refuses `..` escapes and, on Windows, another drive. It only compares strings, so callers
   pass both paths through `realpath` first; an unresolved symlink inside the root would otherwise pass.

@@ -73,6 +73,8 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
   - filaments load with `--load-filaments`;
   - `--outputdir` is a directory and Orca writes `plate_1.gcode`, which the plugin copies to `model.gcode` so
     the transport stage has a stable path.
+- A zero exit with no `plate_1.gcode`, or an empty one, fails the slicer stage with
+  `<orca bin> exited 0 but wrote no G-code`, plus Orca's stderr when it wrote any (`requireOutput`, #384).
 - The klipper bundle (Creality K1 family) was verified by slicing a cube to real klipper g-code (302 layers).
 
 ### Prusa (`plugins/slicers/prusa`)
@@ -82,6 +84,12 @@ by the worker and passed to `slice()` as a `ProfileRef`, so they need not be lis
   in alphabetical order, so a `00-printer.ini` / `10-filament.ini` split applies in order. Each becomes a
   repeated `--load`.
 - `--output <path>` writes that exact file, so no rename is needed.
+- PrusaSlicer 2.9.2, Debian trixie's package, exits 0 and writes no G-code when every object is outside the
+  print volume. It says `All objects are outside of the print volume.` on stderr; its `Nothing to print...`
+  line goes to stdout, which isn't read. A zero exit with a missing or empty `model.gcode` therefore fails the
+  slicer stage with `<prusa bin> exited 0 but wrote no G-code: <stderr>` (`requireOutput`, #384), instead of
+  failing later in transport. The web's `failureText` reads that stderr line as a model that doesn't fit the
+  bed.
 - `gcodeFlavor: "klipper"` declares the adapter's contract for job validation; the emitted flavor really comes
   from `gcode_flavor` in the loaded bundle, and the bundled defaults ship klipper.
 

@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { join, sep } from "node:path";
 import { testCtx } from "../../test/helpers/index.ts";
 import { StageError } from "../context";
-import { runEngine } from "./engine";
+import { requireOutput, runEngine } from "./engine";
 import { isWithin } from "./paths";
 
-async function stageErrorOf(run: Promise<void>) {
+async function stageErrorOf(run: Promise<unknown>) {
   try {
     await run;
   } catch (error) {
@@ -16,10 +16,16 @@ async function stageErrorOf(run: Promise<void>) {
 }
 
 describe("runEngine", () => {
-  test("resolves when the engine exits 0", async () => {
+  test("resolves with the stderr tail when the engine exits 0", async () => {
     const ctx = testCtx();
     try {
-      await expect(runEngine("slicer", "sh", ["-c", "exit 0"], ctx)).resolves.toBeUndefined();
+      await expect(runEngine("slicer", "sh", ["-c", "exit 0"], ctx)).resolves.toEqual({
+        stderr: "",
+      });
+      const script = `printf '%0600d' 0 >&2; echo 'All objects are outside of the print volume.' >&2`;
+      const { stderr } = await runEngine("slicer", "sh", ["-c", script], ctx);
+      expect(stderr).toEndWith("All objects are outside of the print volume.\n");
+      expect(stderr.length).toBe(500);
     } finally {
       ctx.cleanup();
     }
@@ -73,5 +79,34 @@ describe("isWithin", () => {
     ["a file named like ..", join(root, "..file"), true],
   ])("%s → %p", (_label, candidate, expected) => {
     expect(isWithin(root, candidate)).toBe(expected);
+  });
+});
+
+describe("requireOutput", () => {
+  test("passes a non-empty file and refuses a missing one, an empty one or a directory", async () => {
+    const ctx = testCtx();
+    try {
+      const out = join(ctx.workDir, "model.gcode");
+      await Bun.write(out, "G28\n");
+      await expect(requireOutput("slicer", out, "no G-code")).resolves.toBeUndefined();
+      const missing = join(ctx.workDir, "none.gcode");
+      expect(
+        await stageErrorOf(requireOutput("slicer", missing, "no G-code", "  said this \n")),
+      ).toEqual({
+        stage: "slicer",
+        reason: "no G-code: said this",
+      });
+      await Bun.write(out, "");
+      expect(await stageErrorOf(requireOutput("slicer", out, "no G-code"))).toEqual({
+        stage: "slicer",
+        reason: "no G-code (the file is empty)",
+      });
+      expect(await stageErrorOf(requireOutput("generator", ctx.workDir, "no STL"))).toEqual({
+        stage: "generator",
+        reason: "no STL",
+      });
+    } finally {
+      ctx.cleanup();
+    }
   });
 });
