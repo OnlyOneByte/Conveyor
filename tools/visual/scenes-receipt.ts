@@ -4,13 +4,13 @@ export const receiptScenes: Scene[] = [
   {
     name: "job-detail",
     route: "/history/seed-canceled",
-    ready: ".state",
+    ready: "text=Print again",
     steps: [{ wait: 800 }],
   },
   {
     name: "job-detail-failed",
     route: "/history/seed-failed",
-    ready: ".state",
+    ready: "text=didn't finish",
     steps: [{ wait: 800 }],
   },
   {

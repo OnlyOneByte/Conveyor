@@ -325,7 +325,8 @@ Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those 
 SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
 `/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
 localStorage strip on `/history` alongside the durable table, and why a running job links to the
-home page's live panel (`/?job=<id>`) instead of `/history/<id>`.
+home page's live panel (`/?job=<id>`) instead of its job page, `/jobs/<id>`. The old `/history/<id>` redirects
+there.
 
 > The browser reaches the API under `/api/`: the vite proxy and Caddy strip that prefix, so the API's
 > own routes (`/jobs-history/:id`, `/catalog/printers/:id`) stay as written here. Every other path is a

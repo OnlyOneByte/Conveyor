@@ -17,7 +17,7 @@
       "suppressions": 0
     },
     "packages/web/src/lib/components/RecentJobs.svelte": {
-      "comments": 11,
+      "comments": 6,
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaForm.svelte": {
@@ -50,10 +50,6 @@
     },
     "packages/web/src/routes/+page.svelte": {
       "comments": 62,
-      "suppressions": 0
-    },
-    "packages/web/src/routes/history/[jobId]/+page.svelte": {
-      "comments": 10,
       "suppressions": 0
     },
     "packages/web/src/routes/history/+page.svelte": {
