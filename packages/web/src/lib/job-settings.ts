@@ -1,9 +1,7 @@
 import type { FormUiHints } from "@conveyor/shared";
 import {
   fieldLabel,
-  groupSummary,
   type JsonSchema,
-  primaryGroups,
   resolveRoot,
 } from "./form-schema.js";
 
@@ -13,7 +11,7 @@ export interface SettingRow {
   value: string;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 function orderedKeys(
@@ -56,14 +54,27 @@ export function settingRows(
 export function jobName(
   generatorName: string,
   params: unknown,
-  schema: JsonSchema | null,
+  _schema: JsonSchema | null,
   ui: FormUiHints | null,
 ): string {
   if (!isRecord(params)) return generatorName;
   if (typeof params.filename === "string") return params.filename;
-  const props = resolveRoot(schema)?.properties ?? {};
-  const first = primaryGroups(props, ui)[0];
-  const size =
-    first && ui?.groups?.length ? groupSummary(first, props, params, { ...ui, unitMm: {} }) : "";
-  return size ? `${generatorName} ${size}` : generatorName;
+  if (!ui?.groups?.length) return generatorName;
+  const sizes = ui.groups.flatMap(({ fields }) => {
+    const values = fields.map((field) => params[field]);
+    if (!values.length || !values.every((value) => typeof value === "number")) return [];
+    if (fields.length > 1) return [values.join("×")];
+    const [only] = fields;
+    return only !== undefined && ui.unitMm?.[only] !== undefined ? [`${values[0]}u`] : [];
+  });
+  return sizes.length ? `${generatorName} ${sizes.join(" · ")}` : generatorName;
+}
+
+export function duration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest ? `${Math.floor(minutes / 60)} h ${rest} min` : `${minutes / 60} h`;
 }

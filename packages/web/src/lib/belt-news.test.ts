@@ -26,16 +26,17 @@ describe("what the belt announces", () => {
   });
 
   test("a failure is assertive and gives its reason", () => {
-    const after = [job("a", "failed", { reason: "the printer didn't answer" }), job("b", "failed", { printer: undefined })];
-    expect(changes(was(job("a", "printing"), job("b", "slicing")), after, "14:05")).toEqual([
+    const after = [job("a", "failed", { reason: "the printer didn't answer" }), job("b", "failed", { printer: undefined }), job("c", "failed", { reason: "no answer within 10 s." })];
+    expect(changes(was(job("a", "printing"), job("b", "slicing"), job("c", "printing")), after, "14:05")).toEqual([
       { level: "assertive", text: "Bin 1×1 · 3u failed: the printer didn't answer" },
       { level: "assertive", text: "Bin 1×1 · 3u failed" },
+      { level: "assertive", text: "Bin 1×1 · 3u failed: no answer within 10 s" },
     ]);
   });
 
-  test("percent changes, new jobs and jobs that left say nothing", () => {
-    const before = was(job("a", "printing", { progress: 0.4 }), job("gone", "slicing"));
-    expect(changes(before, [job("a", "printing", { progress: 0.6 }), job("new", "slicing")], "14:05")).toEqual([]);
+  test("percent changes, a move back to the queue, new jobs and jobs that left say nothing", () => {
+    const before = was(job("a", "printing", { progress: 0.4 }), job("gone", "slicing"), job("back", "printing"));
+    expect(changes(before, [job("a", "printing", { progress: 0.6 }), job("new", "slicing"), job("back", "queued")], "14:05")).toEqual([]);
   });
 });
 
@@ -49,6 +50,7 @@ describe("the news desk", () => {
   const polite = (text: string): News => ({ level: "polite", text });
 
   test("merges a burst within 2 s into one sentence per level", () => {
+    expect(BURST_MS).toBe(2000);
     const { said, timers, post } = desk();
     post([polite("A moved to Send"), { level: "assertive", text: "B failed: out of filament" }]);
     post([polite("C finished"), { level: "assertive", text: "D failed" }]);

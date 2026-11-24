@@ -1,16 +1,12 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": {
-      "comments": 20,
+      "comments": 18,
       "suppressions": 0
     },
     "packages/web/src/lib/components/JobStatus.svelte": {
       "comments": 3,
       "suppressions": 0
-    },
-    "packages/web/src/lib/components/Login.svelte": {
-      "comments": 1,
-      "suppressions": 1
     },
     "packages/web/src/lib/components/MeshScene.svelte": {
       "comments": 9,
@@ -21,7 +17,7 @@
       "suppressions": 0
     },
     "packages/web/src/lib/components/RecentJobs.svelte": {
-      "comments": 11,
+      "comments": 6,
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaForm.svelte": {
@@ -53,11 +49,7 @@
       "suppressions": 0
     },
     "packages/web/src/routes/+page.svelte": {
-      "comments": 62,
-      "suppressions": 0
-    },
-    "packages/web/src/routes/history/[jobId]/+page.svelte": {
-      "comments": 10,
+      "comments": 56,
       "suppressions": 0
     },
     "packages/web/src/routes/history/+page.svelte": {

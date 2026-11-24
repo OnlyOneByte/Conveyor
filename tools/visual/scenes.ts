@@ -1,4 +1,7 @@
 import type { Viewport } from "./hits.ts";
+import { REACH, toastOnMake } from "./reach.ts";
+import { receiptScenes } from "./scenes-receipt.ts";
+import { signedOutScenes } from "./scenes-signed-out.ts";
 
 export type Step =
   | { click: string }
@@ -17,6 +20,7 @@ export interface Scene {
   steps?: Step[];
   record?: boolean;
   fullPage?: boolean;
+  signedOut?: boolean;
 }
 
 const keys = (...presses: string[]): Step[] =>
@@ -35,18 +39,13 @@ export const scenes: Scene[] = [
   },
   {
     name: "nav-reach",
-    route: "/",
-    ready: "text=Configure",
+    route: "/primitives",
+    ready: "text=Primitives",
     steps: [
-      { wait: 1500 },
+      ...toastOnMake,
       {
-        hits: "nav[aria-label='Main'] a, .mobile-cta button",
-        viewports: [
-          [390, 844],
-          [390, 667],
-          [700, 900],
-          [1440, 900],
-        ],
+        hits: "nav[aria-label='Main'] a, .mobile-cta button, .toasts button",
+        viewports: REACH,
       },
     ],
   },
@@ -93,18 +92,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 800 }],
   },
-  {
-    name: "job-detail",
-    route: "/history/seed-canceled",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
-  {
-    name: "job-detail-failed",
-    route: "/history/seed-failed",
-    ready: ".state",
-    steps: [{ wait: 800 }],
-  },
+  ...receiptScenes,
   {
     name: "monitor",
     route: "/monitor",
@@ -157,6 +145,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 600 }],
   })),
+  ...signedOutScenes,
   {
     name: "track-keys",
     route: "/primitives/track?jobs=8",
@@ -164,7 +153,7 @@ export const scenes: Scene[] = [
     record: true,
     steps: [
       { wait: 600 },
-      ...keys("Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab"),
+      ...keys("Tab", "Enter", "Tab"),
       { waitFor: "button.grp:focus", timeout: 5000 },
       ...keys("ArrowRight", "ArrowRight"),
       { waitFor: ".card li:nth-child(2) a:focus", timeout: 5000 },
@@ -200,16 +189,10 @@ export const scenes: Scene[] = [
     route: "/primitives",
     ready: "text=Primitives",
     steps: [
-      { click: "button:has-text('Show a toast')" },
-      { waitFor: ".toasts button:has-text('Print again')", timeout: 5000 },
+      ...toastOnMake,
       {
-        hits: ".toasts button, nav[aria-label='Main'] a",
-        viewports: [
-          [390, 844],
-          [390, 667],
-          [700, 900],
-          [1440, 900],
-        ],
+        hits: ".toasts button, .mobile-cta button, nav[aria-label='Main'] a",
+        viewports: REACH,
       },
     ],
   },

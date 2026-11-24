@@ -134,7 +134,7 @@
             {#each filtered as j (j.id)}
               <tr>
                 <td class="muted">{fmtDate(j.createdAt)}</td>
-                <td><a class="mono jobid" href={`/history/${j.id}`}>{j.id.slice(0, 8)}</a></td>
+                <td><a class="mono jobid" href={`/jobs/${j.id}`}>{j.id.slice(0, 8)}</a></td>
                 <td class="mono">{j.request.generator.id}</td>
                 <td class="mono">{j.request.printerId || "—"}</td>
                 <td class="mono">{j.request.profileId || "—"}</td>

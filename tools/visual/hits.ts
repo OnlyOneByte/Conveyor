@@ -11,6 +11,8 @@ interface Target {
 }
 
 declare const document: {
+  title: string;
+  querySelector(selector: string): Target | null;
   querySelectorAll(selector: string): Iterable<Target>;
   elementFromPoint(x: number, y: number): Target | null;
 };
@@ -47,4 +49,14 @@ export async function assertHits(
   }
   if (original) await page.setViewportSize(original);
   if (failures.length) throw new Error(`hits ${selector}: ${failures.join("; ")}`);
+}
+
+export async function titleMismatch(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const h1 = document.querySelector("h1")?.textContent?.trim();
+    const want = `${h1} · Conveyor`;
+    return h1 === undefined || document.title === want
+      ? null
+      : `title "${document.title}" is not "${want}"`;
+  });
 }

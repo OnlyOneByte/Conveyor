@@ -60,7 +60,11 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
       body: JSON.stringify(body),
     });
     const answer = z
-      .object({ jobId: z.string().optional(), error: z.string().optional() })
+      .object({
+        jobId: z.string().optional(),
+        error: z.string().optional(),
+        retriedBy: z.string().nullable().optional(),
+      })
       .parse(await res.json());
     if (answer.jobId) queued.push(answer.jobId);
     return { status: res.status, ...answer };
@@ -88,6 +92,7 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
     expect(inTurn[1]).toEqual({
       status: 409,
       error: `retryOf: job ${one} is already being retried`,
+      retriedBy: inTurn[0]?.jobId,
     });
     expect([inTurn[0]?.status, ...atOnce.map((a) => a.status).sort()]).toEqual([
       202, 202, 409, 409,

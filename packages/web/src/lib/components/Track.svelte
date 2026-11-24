@@ -2,10 +2,13 @@
   import { centre, type Group, MIN_CHIP_PX, merge, onRail, type RailState, SPANS, STAGE_LABELS, type TrackJob } from "#lib/track.js";
   import { step } from "#lib/shortcuts.js";
   import Chip from "./Chip.svelte";
+  import NeedsYou from "./NeedsYou.svelte";
 
   export let jobs: TrackJob[];
   export let idle = "Nothing on the rail";
   export let onAction: (job: TrackJob, action: string) => void = () => {};
+  export let finishedToday: number | undefined = undefined;
+  export let needs: TrackJob[] | undefined = undefined;
   let rail: HTMLDivElement;
   let active = 0;
   let railPx = 0;
@@ -15,7 +18,7 @@
 
   $: moving = jobs.filter((j) => onRail(j.state));
   $: waiting = jobs.filter((j) => j.state === "queued").length;
-  $: finished = jobs.filter((j) => j.state === "done").length;
+  $: finished = finishedToday ?? jobs.filter((j) => j.state === "done").length;
   $: failed = jobs.filter((j) => j.state === "failed").length;
   $: byId = new Map(jobs.map((j) => [j.id, j]));
   const RAIL: RailState[] = ["generating", "slicing", "transferring", "printing"];
@@ -65,8 +68,8 @@
     </div>
   </div>
   <div class="bins">
-    <span class="slot done">Finished<span class="n">{finished} today</span></span>
-    {#if failed}<span class="slot needs">Needs you<span class="n">{failed}</span></span>{/if}
+    <a class="slot done" href="/history">Finished<span class="n">{finished} today</span></a>
+    {#if needs}{#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}{:else if failed}<span class="slot needs">Needs you<span class="n">{failed}</span></span>{/if}
   </div>
 </section>
 
@@ -77,7 +80,7 @@
   .slot { display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 10px; border: 1.5px dashed var(--muted); border-radius: 12px; background: var(--sunk); font-size: 13px; font-weight: 700; white-space: nowrap; }
   .n { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
   .bins { display: grid; gap: 6px; }
-  .done { border-style: solid; border-color: var(--ok); background: var(--paper); color: var(--ok); }
+  .done { border-style: solid; border-color: var(--ok); background: var(--paper); color: var(--ok); text-decoration: none; }
   .needs { border-style: solid; border-color: var(--err); background: var(--paper); color: var(--err); }
   .lane { position: relative; height: 110px; }
   .tick { position: absolute; bottom: 8px; width: 2px; height: 30px; background: var(--muted); }

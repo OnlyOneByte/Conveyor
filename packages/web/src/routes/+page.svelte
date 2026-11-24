@@ -7,14 +7,13 @@
   import SchemaForm from "#lib/components/SchemaForm.svelte";
   import JobStatus from "#lib/components/JobStatus.svelte";
   import {
-    submitJob,
     uploadStl,
     type CatalogPrinter,
     type CatalogProfile,
     type CatalogTransport,
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
-  import { takeRerun } from "#lib/rerun.js";
+  import { linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -26,11 +25,6 @@
   let transports: CatalogTransport[] = data.transports ?? [];
 
   onMount(async () => {
-    // "Run again" handoff: the job-detail page stashed a prior job's request and sent
-    // us here with ?rerun=1. Apply it AFTER the catalog is loaded so these selections
-    // win over the reactive defaults (which only fill empty selections). The referenced
-    // ids may no longer exist (a deleted printer/profile) — set them anyway; the
-    // eligibility filters below fall back to a valid default and the user just re-picks.
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
       if (r) {
@@ -38,6 +32,7 @@
         selectedGenId = r.generatorId;
         selectedPrinterId = r.printerId;
         selectedProfileId = r.profileId;
+        handoff = r;
         if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
       }
     }
@@ -52,9 +47,11 @@
   let source: Source = "generate";
 
   let selectedGenId = "";
+  let handoff: RerunPayload | null = null;
   let selectedPrinterId = "";
   let selectedProfileId = "";
   let params: Record<string, unknown> = {};
+  $: retryOf = linkedRetry(handoff, source, selectedGenId);
 
   // Default the pickers once the catalog arrives (load resolves after first paint
   // because ssr=false). Only fill empty selections so user choices stick.
@@ -149,13 +146,8 @@
         source === "upload"
           ? { id: "passthrough", params: { uploadId, filename: uploadName } }
           : { id: selectedGen!.id, params };
-      const res = await submitJob({
-        generator,
-        printerId: selectedPrinterId,
-        profileId: selectedProfileId,
-      });
+      const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       jobId = res.jobId;
-      // Persist to the browser's recent-jobs memory so a refresh keeps it visible.
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,
@@ -168,6 +160,7 @@
       error = (e as Error).message;
     } finally {
       submitting = false;
+      handoff = null;
     }
   }
 

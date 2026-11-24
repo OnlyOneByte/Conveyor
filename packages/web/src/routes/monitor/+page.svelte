@@ -146,7 +146,7 @@
           {@const elapsed = currentStageElapsed(j)}
           <li>
             <div class="jobmain">
-              <a class="mono jobid" href={`/history/${j.jobId}`} title="Open job details">{j.jobId.slice(0, 8)}</a>
+              <a class="mono jobid" href={`/jobs/${j.jobId}`} title="Open job details">{j.jobId.slice(0, 8)}</a>
               <span class="state {j.state}">{stageLabel(j)}</span>
               {#if elapsed !== null}<span class="muted elapsed">{fmtDuration(elapsed)} in stage</span>{/if}
               {#if j.state === "printing" && j.progress != null}

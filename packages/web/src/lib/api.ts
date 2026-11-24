@@ -101,7 +101,6 @@ export interface PrinterReachable {
   reason?: string;
 }
 
-/** TCP-connect liveness probe for one printer. */
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
   getJson<PrinterReachable>(`${API}/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
@@ -116,18 +115,6 @@ export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<Au
   const r = await fetchFn(`${API}/auth/status`);
   if (!r.ok) throw new Error(`GET /auth/status ${r.status}`);
   return r.json();
-}
-
-export async function login(password: string): Promise<void> {
-  const r = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `login failed (${r.status})`);
-  }
 }
 
 export async function logout(): Promise<void> {
@@ -165,13 +152,13 @@ export interface PrusaProfileContent {
 }
 export interface JobHistoryEntry {
   id: string;
-  /** printerId/profileId may be "" on a job migrated from a deleted station */
   request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
   state: JobState;
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
+  filament?: { grams?: number; metres?: number };
   createdAt: number;
   updatedAt: number;
 }
