@@ -1,12 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import { fileSize } from "#lib/make.js";
 
   export let name = "";
+  export let size = 0;
   export let uploading = false;
   export let ready = false;
   export let error = "";
 
-  const dispatch = createEventDispatcher<{ file: File }>();
+  const dispatch = createEventDispatcher<{ file: File; clear: null }>();
+
   let over = false;
 
   function take(file: File | null | undefined) {
@@ -28,12 +31,17 @@
   {#if uploading}
     <b>Uploading {name}…</b>
   {:else if ready}
-    <b>{name}</b><span>Ready to print. Drop another file to replace it.</span>
+    <b>{name}</b><span>{fileSize(size)} · ready to print. Drop another file to replace it.</span>
   {:else}
     <b>Drop an STL file here</b><span>or click to choose one</span>
   {/if}
 </label>
 {#if error}<p id="upload-error" class="error" role="alert">{error}</p>{/if}
+{#if ready}
+  <button type="button" class="btn clear" on:click={() => dispatch("clear", null)}>
+    Remove file
+  </button>
+{/if}
 
 <style>
   .drop {
@@ -49,4 +57,5 @@
   span { color: var(--muted); }
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .error { margin: var(--s2) 0 0; color: var(--err); font-weight: 600; }
+  .clear { margin-top: var(--s2); }
 </style>

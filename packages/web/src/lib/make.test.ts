@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FormUiHints } from "@conveyor/shared";
-import { dockLine, measurements, printerStatus } from "./make.js";
+import { dockLine, fileSize, measurements, printerStatus } from "./make.js";
 
 const ui: FormUiHints = {
   groups: [
@@ -31,6 +31,19 @@ describe("printerStatus", () => {
       "Busy",
       "Not reachable",
       "Ready",
+    ]);
+  });
+});
+
+describe("fileSize", () => {
+  test("rounds to whole KB under a MB, never below 1 KB, and to a tenth of a MB above", () => {
+    expect([0, 200, 1536, 1024 * 1024 - 1, 1024 * 1024, 5.25 * 1024 * 1024].map(fileSize)).toEqual([
+      "1 KB",
+      "1 KB",
+      "2 KB",
+      "1024 KB",
+      "1.0 MB",
+      "5.3 MB",
     ]);
   });
 });

@@ -89,6 +89,11 @@
     uploading = false;
   }
 
+  function clear() {
+    file = null;
+    uploadId = null;
+  }
+
   $: jobId = data.initialJobId ?? null;
   let busy = false;
   let sent = false;
@@ -142,8 +147,8 @@
           <section>
             <h2>Which file?</h2>
             <UploadDrop
-              name={file?.name ?? ""} {uploading} ready={!!uploadId} error={uploadError}
-              on:file={choose}
+              name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
+              error={uploadError} on:file={choose} on:clear={clear}
             />
           </section>
         {:else if gen}

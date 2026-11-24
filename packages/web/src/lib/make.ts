@@ -17,4 +17,11 @@ export function measurements(params: Record<string, unknown>, ui: FormUiHints | 
   return sizes.length ? `${sizes.join(" × ")} mm` : "";
 }
 
+const KB = 1024;
+
+export function fileSize(bytes: number): string {
+  if (bytes < KB * KB) return `${Math.max(1, Math.round(bytes / KB))} KB`;
+  return `${(bytes / KB / KB).toFixed(1)} MB`;
+}
+
 export const dockLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" · ");
