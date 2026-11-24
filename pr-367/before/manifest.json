@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35057",
+  "url": "http://127.0.0.1:33789",
   "warnings": [],
   "results": [
     {
@@ -7,6 +7,12 @@
       "width": 1440,
       "warnings": [],
       "png": "home-1440.png"
+    },
+    {
+      "scene": "nav-reach",
+      "width": 1440,
+      "warnings": [],
+      "png": "nav-reach-1440.png"
     },
     {
       "scene": "upload-empty",
@@ -19,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 440506,
+      "gifBytes": 485183,
       "gif": "new-job-1440.gif"
     },
     {
@@ -27,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 278036,
+      "gifBytes": 299430,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -67,11 +73,23 @@
       "png": "primitives-1440.png"
     },
     {
+      "scene": "primitives-fields",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-fields-1440.png"
+    },
+    {
+      "scene": "primitives-dialog",
+      "width": 1440,
+      "warnings": [],
+      "png": "primitives-dialog-1440.png"
+    },
+    {
       "scene": "primitives-keys",
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 332053,
+      "gifBytes": 514494,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -79,6 +97,12 @@
       "width": 390,
       "warnings": [],
       "png": "home-390.png"
+    },
+    {
+      "scene": "nav-reach",
+      "width": 390,
+      "warnings": [],
+      "png": "nav-reach-390.png"
     },
     {
       "scene": "upload-empty",
@@ -91,7 +115,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 558361,
+      "gifBytes": 558634,
       "gif": "new-job-390.gif"
     },
     {
@@ -139,11 +163,23 @@
       "png": "primitives-390.png"
     },
     {
+      "scene": "primitives-fields",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-fields-390.png"
+    },
+    {
+      "scene": "primitives-dialog",
+      "width": 390,
+      "warnings": [],
+      "png": "primitives-dialog-390.png"
+    },
+    {
       "scene": "primitives-keys",
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 587436,
+      "gifBytes": 812975,
       "gif": "primitives-keys-390.gif"
     }
   ]
