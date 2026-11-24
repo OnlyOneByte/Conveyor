@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": {
-      "comments": 24,
+      "comments": 22,
       "suppressions": 0
     },
     "packages/web/src/lib/components/JobStatus.svelte": {

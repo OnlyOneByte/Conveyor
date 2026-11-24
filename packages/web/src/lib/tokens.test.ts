@@ -10,9 +10,9 @@ function themeBlock(selector: string): string {
 }
 
 function token(block: string, name: string): [number, number, number] {
-  const m = block.match(new RegExp(`${name}: oklch\\(([\\d.]+) ([\\d.]+) ([\\d.]+)\\)`));
-  if (!m) throw new Error(`${name} is not a plain oklch() value`);
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+  const m = block.match(new RegExp(`${name}: (\\w+)\\(([\\d.]+) ([\\d.]+) ([\\d.]+)\\)`));
+  if (!m || m[1] !== "oklch") throw new Error(`${name} is not a plain OKLCH value`);
+  return [Number(m[2]), Number(m[3]), Number(m[4])];
 }
 
 function luminance([L, C, h]: [number, number, number]): number {

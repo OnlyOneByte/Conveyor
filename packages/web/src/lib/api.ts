@@ -1,4 +1,3 @@
-// Thin client over the Conveyor API. Same-origin in prod (Caddy), proxied in dev (vite).
 import type {
   FormUiHints,
   JobState,
@@ -103,7 +102,6 @@ export interface PrinterReachable {
   reason?: string;
 }
 
-/** TCP-connect liveness probe for one printer. */
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
   getJson<PrinterReachable>(`/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
