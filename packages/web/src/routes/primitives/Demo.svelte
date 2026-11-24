@@ -41,6 +41,8 @@
 
 <Dialog title="Cancel Bin 2×1?" bind:open>
   <p>The printer stops and the job moves to Canceled.</p>
+  <label class="stack">Reason <select><option>Wrong filament</option><option>Failed first layer</option></select></label>
+  <label class="stack">Note <textarea rows="2"></textarea></label>
   <svelte:fragment slot="actions">
     <Button variant="ghost" on:click={() => (open = false)}>Keep printing</Button>
     <Button variant="danger" on:click={() => (open = false)}>Cancel job</Button>
@@ -51,4 +53,6 @@
   section { margin-top: var(--s4); }
   .wrap { flex-wrap: wrap; }
   .grid { display: grid; gap: var(--s4); max-width: 420px; }
+  .stack { display: grid; gap: var(--s1); margin-top: var(--s3); }
+  textarea { font: inherit; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem; }
 </style>
