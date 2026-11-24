@@ -1,7 +1,7 @@
 {
-  "url": "http://127.0.0.1:37059",
+  "url": "http://127.0.0.1:41671",
   "warnings": [
-    "warm-up /jobs: waitFor: Timeout 120000ms exceeded."
+    "warm-up /jobs?day=today: waitFor: Timeout 120000ms exceeded."
   ],
   "results": [
     {
@@ -27,16 +27,36 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 543181,
+      "gifBytes": 543375,
       "gif": "new-job-1440.gif"
     },
     {
       "scene": "job-progress",
       "width": 1440,
       "warnings": [],
-      "png": "job-progress-1440.png",
-      "gifBytes": 303182,
-      "gif": "job-progress-1440.gif"
+      "error": "waitFor: Timeout 12000ms exceeded.",
+      "png": "job-progress-1440.png"
+    },
+    {
+      "scene": "jobs-today",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "jobs-today-1440.png"
+    },
+    {
+      "scene": "jobs-down-belt",
+      "width": 1440,
+      "warnings": [],
+      "error": "click: Timeout 30000ms exceeded.",
+      "png": "jobs-down-belt-1440.png"
+    },
+    {
+      "scene": "jobs-stale",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "jobs-stale-1440.png"
     },
     {
       "scene": "jobs",
@@ -296,7 +316,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 280246,
+      "gifBytes": 279860,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -304,7 +324,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 961066,
+      "gifBytes": 960889,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -312,7 +332,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1309262,
+      "gifBytes": 1284130,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -320,7 +340,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 314360,
+      "gifBytes": 325139,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -358,7 +378,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 862479,
+      "gifBytes": 847026,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -384,16 +404,29 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 624791,
+      "gifBytes": 621847,
       "gif": "new-job-390.gif"
     },
     {
       "scene": "job-progress",
       "width": 390,
       "warnings": [],
-      "png": "job-progress-390.png",
-      "gifBytes": 346065,
-      "gif": "job-progress-390.gif"
+      "error": "waitFor: Timeout 12000ms exceeded.",
+      "png": "job-progress-390.png"
+    },
+    {
+      "scene": "jobs-today",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 30000ms exceeded.",
+      "png": "jobs-today-390.png"
+    },
+    {
+      "scene": "jobs-down-belt",
+      "width": 390,
+      "warnings": [],
+      "error": "click: Timeout 30000ms exceeded.",
+      "png": "jobs-down-belt-390.png"
     },
     {
       "scene": "jobs",
@@ -647,7 +680,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506710,
+      "gifBytes": 506543,
       "gif": "track-keys-390.gif"
     },
     {
@@ -685,7 +718,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1029863,
+      "gifBytes": 1031010,
       "gif": "primitives-keys-390.gif"
     }
   ]
