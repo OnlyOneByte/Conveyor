@@ -82,6 +82,10 @@ describe("passwords and cookies", () => {
     expect(auth.readSessionCookie(undefined)).toBeUndefined();
     expect(auth.clearCookie()).toContain("Max-Age=0");
   });
+
+  test("a cookie header without the session cookie reads as no session", () => {
+    expect(auth.readSessionCookie("a=1; conveyor_session_x=tok.sig; b=2")).toBeUndefined();
+  });
 });
 
 describe("the password version", () => {
