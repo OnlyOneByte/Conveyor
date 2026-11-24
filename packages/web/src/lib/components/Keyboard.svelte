@@ -1,7 +1,8 @@
 <script lang="ts">
   import { afterNavigate, goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { fetchCatalogPrinters, fetchJobHistory } from "#lib/api.js";
+  import { fetchJobHistory } from "#lib/api.js";
+  import { loadCatalog } from "#lib/catalog.js";
   import type { Command } from "#lib/commands.js";
   import { theme } from "#lib/preferences.js";
   import { jobKeys, shortcuts } from "#lib/app-shortcuts.js";
@@ -26,7 +27,7 @@
   async function openMenu() {
     commands = actions;
     menu = true;
-    const [jobs, printers] = await Promise.allSettled([fetchJobHistory(), fetchCatalogPrinters()]);
+    const [jobs, printers] = await Promise.allSettled([fetchJobHistory(), loadCatalog().then((c) => c.printers)]);
     commands = [
       ...(jobs.status === "fulfilled" ? jobs.value.slice(0, 8) : []).map((j): Command => ({ group: "Jobs", label: `${j.request.generator.id} ${j.id.slice(0, 8)}`, hint: j.state, run: () => goto(`/history/${j.id}`) })),
       ...actions,

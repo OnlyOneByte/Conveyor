@@ -3,10 +3,15 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
-  import { logout, signedIn } from "#lib/api.js";
-  import { announcements } from "#lib/announce.js";
+  import { cancelJob, fetchActiveJobs, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
+  import { announce, announcements } from "#lib/announce.js";
+  import { createBelt, POLL_MS } from "#lib/belt.js";
+  import { loadCatalog } from "#lib/catalog.js";
+  import { createNewsDesk } from "#lib/belt-news.js";
   import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
+  import Track from "#lib/components/Track.svelte";
+  import { shortName, type TrackJob } from "#lib/track.js";
   import { resolveTheme, theme } from "#lib/preferences.js";
   import Toasts from "#lib/ui/Toasts.svelte";
   import type { LayoutData } from "./$types";
@@ -29,6 +34,29 @@
     return () => os.removeEventListener("change", syncOs);
   });
   $: dark = resolveTheme($theme, osDark) === "dark";
+
+  let beltJobs: TrackJob[] = [];
+  const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs) => (beltJobs = jobs), createNewsDesk(announce));
+  let polling = false;
+  function tick() {
+    if (polling || !showApp || document.visibilityState !== "visible") return;
+    polling = true;
+    belt.poll().catch(() => {}).finally(() => (polling = false));
+  }
+  onMount(() => {
+    tick();
+    const timer = setInterval(tick, POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+      belt.stop();
+    };
+  });
+  const act = (job: TrackJob, action: string) => {
+    if (action === "Cancel") cancelJob(job.id).catch(() => announce(`Couldn't cancel ${shortName(job.name)}.`, "assertive"));
+  };
 
   async function signOut() {
     await logout();
@@ -60,7 +88,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt"></div>
+  <div class="belt" id="belt">{#if showApp}<Track jobs={beltJobs} onAction={act} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
@@ -96,6 +124,7 @@
   .skip:focus { top: var(--s2); }
   @media (max-width: 759px) {
     :global(:root) { --tabbar: calc(73px + env(safe-area-inset-bottom)); }
+    .belt { display: none; }
     .shell { padding: 0 var(--s4) calc(var(--tabbar) + var(--s6)); }
     .top { gap: var(--s2); min-height: 54px; }
     .word { font-size: 20px; }

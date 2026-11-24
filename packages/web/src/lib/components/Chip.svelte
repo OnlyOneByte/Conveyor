@@ -60,7 +60,7 @@
     </a>
   {/if}
   {#if open && job}
-    <div class="card" class:end id={card}>
+    <div class="card" class:end id={card} style="--chip: {width}px">
       {#if jobs.length > 1}
         <ul>{#each jobs as member (member.id)}<li><a href="/history/{member.id}" data-stop tabindex="-1">{shortName(member.name)} <span class="v">{value(member)}<span class="sr">, {status(member)}</span></span></a></li>{/each}</ul>
       {:else}
@@ -88,8 +88,9 @@
   .stack { display: flex; } .stack .ring { width: 22px; height: 22px; margin-left: -9px; box-shadow: 0 0 0 2px var(--paper); } .stack .ring:first-child { margin-left: 0; }
   .sr { font-size: 0; line-height: 0; }
   .card { position: absolute; top: 44px; left: 0; z-index: 10; min-width: 260px; padding: var(--s3); border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); box-shadow: var(--lift-hi); }
-  .card::before { content: ""; position: absolute; inset: -12px 0 100%; }
+  .card::before { content: ""; position: absolute; inset: -12px auto 100% 0; width: var(--chip); }
   .card.end { right: 0; left: auto; }
+  .card.end::before { left: auto; right: 0; }
   .card p { margin: 0 0 var(--s2); } .name { font-weight: 700; } .what { color: var(--muted); font-size: var(--fs-chip); } .acts { display: flex; gap: var(--s2); margin: 0; }
   ul { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; } ul a { display: flex; gap: var(--s3); padding: var(--s1) var(--s2); border-radius: var(--r-control); color: var(--ink); text-decoration: none; } ul a:focus-visible { background: var(--sunk); }
   @media (prefers-reduced-motion: reduce) { .chip:hover, .chip:focus-visible, .slot:focus-within .chip { transform: none; } }

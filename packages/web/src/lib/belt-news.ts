@@ -15,7 +15,7 @@ export function changes(before: ReadonlyMap<string, TrackJob>, after: TrackJob[]
     const was = before.get(job.id);
     if (!was || was.state === job.state) return [];
     const name = shortName(job.name);
-    if (job.state === "failed") return [{ level: "assertive", text: `${name} failed${job.reason ? `: ${job.reason}` : ""}` }];
+    if (job.state === "failed") return [{ level: "assertive", text: `${name} failed${job.reason ? `: ${job.reason.replace(/[.!?\s]+$/, "")}` : ""}` }];
     if (job.state === "done") return [{ level: "polite", text: `${name} finished${on(job)}` }];
     if (job.state === "canceled") return [{ level: "polite", text: `${name} was canceled` }];
     if (job.state === "printing") return [{ level: "polite", text: `${name} started printing${on(job)} at ${time}` }];
