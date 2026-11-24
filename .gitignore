@@ -11,6 +11,8 @@ packages/shared/test/sweep-probe-*/
 data/
 profiles/**/secrets*
 .env
+/backups/
+/secrets.key.backup
 
 # Agent cold-start handoff — local only, never publish
 HANDOFF.md

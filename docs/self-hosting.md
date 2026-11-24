@@ -210,15 +210,17 @@ Never copy `conveyor.db` while the stack runs: the database is in WAL mode, so r
 SQLite's `VACUUM INTO` writes a consistent copy of a live database. Run it in the api container, which has `bun` and the database, as the container's own user, then stream the copy out:
 
 ```sh
-umask 077
-mkdir -p backups
-docker compose exec -T --user 10001:10001 api rm -f /data/backup.db
-docker compose exec -T --user 10001:10001 api bun -e 'const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'
-docker compose exec -T --user 10001:10001 api cat /data/backup.db > "backups/conveyor-$(date +%F).db"
-docker compose exec -T --user 10001:10001 api rm /data/backup.db
+(
+  umask 077
+  mkdir -p backups
+  docker compose exec -T --user 10001:10001 api rm -f /data/backup.db
+  docker compose exec -T --user 10001:10001 api bun -e 'const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'
+  docker compose exec -T --user 10001:10001 api cat /data/backup.db > "backups/conveyor-$(date +%F).db"
+  docker compose exec -T --user 10001:10001 api rm /data/backup.db
+)
 ```
 
-`umask 077` makes the folder `0700` and the backup `0600`, readable only by you. Keep it that way: the database holds the printer credentials, encrypted with the secrets key. Back up `.env` and the secrets key (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not, the same way: `docker compose exec -T --user 10001:10001 api cat /data/secrets.key > secrets.key.backup`.
+`umask 077` makes the folder `0700` and the backup `0600`, readable only by you. The parentheses run it in a subshell, so your shell's own umask is left alone. Keep it that way: the database holds the printer credentials, encrypted with the secrets key. Back up `.env` and the secrets key (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not, the same way: `( umask 077; docker compose exec -T --user 10001:10001 api cat /data/secrets.key > secrets.key.backup )`. `.gitignore` lists `backups/` and `secrets.key.backup`, so neither can be committed by accident; move them out of the checkout to keep them.
 
 ### Restore the database
 
@@ -237,13 +239,15 @@ Use the name of the backup you want. The old `-wal` and `-shm` files must go wit
 A full backup takes `./data` and both volumes at once, with the stack stopped:
 
 ```sh
-umask 077
-mkdir -p backups
-docker compose stop
-docker run --rm -v conveyor_redis_data:/v/redis_data:ro -v conveyor_caddy_data:/v/caddy_data:ro \
-  -v "$PWD/data:/v/data:ro" alpine tar -C /v --numeric-owner -czf - . > "backups/conveyor-full-$(date +%F).tgz"
-docker compose start
-cp .env backups/
+(
+  umask 077
+  mkdir -p backups
+  docker compose stop
+  docker run --rm -v conveyor_redis_data:/v/redis_data:ro -v conveyor_caddy_data:/v/caddy_data:ro \
+    -v "$PWD/data:/v/data:ro" alpine tar -C /v --numeric-owner -czf - . > "backups/conveyor-full-$(date +%F).tgz"
+  docker compose start
+  cp .env backups/
+)
 ```
 
 `docker compose stop` takes about 3 seconds when no job is running, and up to a minute while one is ([Health checks, logs and stopping](#health-checks-logs-and-stopping)). Take full backups when the printers are idle. The tarball is created `0600`: it holds Caddy's CA private key and the secrets key next to the database, so anyone who can read it can sign certificates your devices trust and decrypt the printer credentials.
