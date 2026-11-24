@@ -72,8 +72,7 @@ describe("toasts", () => {
     const toasts = createToasts(clock);
     const id = toasts.show("one");
     clock.tick(4000);
-    toasts.hold(id, "focus");
-    toasts.hold(id, "pointer");
+    toasts.hold(id, "focus"); toasts.hold(id, "pointer");
     clock.tick(60_000);
     toasts.release(id, "pointer");
     clock.tick(60_000);

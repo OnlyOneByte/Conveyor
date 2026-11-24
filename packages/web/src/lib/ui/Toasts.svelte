@@ -1,5 +1,7 @@
 <script lang="ts">
   import { toasts } from "./behaviour";
+  let back: HTMLElement | null = null;
+  const inside = (e: FocusEvent) => e.currentTarget instanceof Node && e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget);
 </script>
 
 <div class="toasts" role="status">
@@ -8,15 +10,14 @@
       class="toast"
       role="group"
       aria-label={toast.text}
-      on:focusin={() => toasts.hold(toast.id, "focus")}
-      on:focusout={(e) => e.currentTarget.contains(e.relatedTarget instanceof Node ? e.relatedTarget : null) || toasts.release(toast.id, "focus")}
-      on:pointerenter={() => toasts.hold(toast.id, "pointer")}
-      on:pointerleave={() => toasts.release(toast.id, "pointer")}
+      on:focusin={(e) => { if (!inside(e)) back = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null; toasts.hold(toast.id, "focus"); }}
+      on:focusout={(e) => inside(e) || toasts.release(toast.id, "focus")}
+      on:pointerenter={() => toasts.hold(toast.id, "pointer")} on:pointerleave={() => toasts.release(toast.id, "pointer")}
     >
       <span>{toast.text}</span>
       {#if toast.action}
         {@const action = toast.action}
-        <button type="button" class="btn" on:click={() => { toasts.dismiss(toast.id); action.run(); }}>{action.label}</button>
+        <button type="button" class="btn" on:click={() => { toasts.dismiss(toast.id); action.run(); back?.focus(); }}>{action.label}</button>
       {/if}
     </div>
   {/each}
