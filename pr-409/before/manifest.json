@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45853",
+  "url": "http://127.0.0.1:34269",
   "warnings": [],
   "results": [
     {
@@ -25,7 +25,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 494829,
+      "gifBytes": 521624,
       "gif": "new-job-1440.gif"
     },
     {
@@ -33,7 +33,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 294845,
+      "gifBytes": 304944,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -94,7 +94,7 @@
       "scene": "print-forward",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.",
+      "error": "waitForURL: Timeout 30000ms exceeded.",
       "png": "print-forward-1440.png"
     },
     {
@@ -141,6 +141,18 @@
       "png": "settings-1440.png"
     },
     {
+      "scene": "printer-form-elegoo",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-elegoo-1440.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-moonraker-1440.png"
+    },
+    {
       "scene": "command-menu",
       "width": 1440,
       "warnings": [],
@@ -175,7 +187,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 839469,
+      "gifBytes": 934483,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -236,36 +248,34 @@
       "scene": "belt-bar",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 8000ms exceeded.",
       "png": "belt-bar-1440.png"
     },
     {
       "scene": "belt-bar-make",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "belt-bar-make-1440.png"
     },
     {
       "scene": "belt-holds-make",
       "width": 1440,
       "warnings": [],
-      "error": "holds #belt .bar after scrolling to 100: gone at sample 0 of 60",
       "png": "belt-holds-make-1440.png"
     },
     {
       "scene": "belt-expand",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 8000ms exceeded.",
-      "png": "belt-expand-1440.png"
+      "png": "belt-expand-1440.png",
+      "gifBytes": 657936,
+      "gif": "belt-expand-1440.gif"
     },
     {
       "scene": "track-keys",
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 349391,
+      "gifBytes": 314813,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -303,7 +313,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 818002,
+      "gifBytes": 869392,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -329,7 +339,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 593700,
+      "gifBytes": 628801,
       "gif": "new-job-390.gif"
     },
     {
@@ -337,7 +347,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357577,
+      "gifBytes": 371096,
       "gif": "job-progress-390.gif"
     },
     {
@@ -398,7 +408,7 @@
       "scene": "print-forward",
       "width": 390,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.",
+      "error": "waitForURL: Timeout 30000ms exceeded.",
       "png": "print-forward-390.png"
     },
     {
@@ -445,6 +455,18 @@
       "png": "settings-390.png"
     },
     {
+      "scene": "printer-form-elegoo",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-elegoo-390.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-moonraker-390.png"
+    },
+    {
       "scene": "command-menu",
       "width": 390,
       "warnings": [],
@@ -479,7 +501,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1068812,
+      "gifBytes": 1088596,
       "gif": "keyboard-390.gif"
     },
     {
@@ -537,11 +559,23 @@
       "png": "not-found-390.png"
     },
     {
+      "scene": "belt-mobile",
+      "width": 390,
+      "warnings": [],
+      "png": "belt-mobile-390.png"
+    },
+    {
+      "scene": "belt-mobile-sheet",
+      "width": 390,
+      "warnings": [],
+      "png": "belt-mobile-sheet-390.png"
+    },
+    {
       "scene": "track-keys",
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 431970,
+      "gifBytes": 505439,
       "gif": "track-keys-390.gif"
     },
     {
@@ -579,7 +613,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1008956,
+      "gifBytes": 1030402,
       "gif": "primitives-keys-390.gif"
     }
   ]
