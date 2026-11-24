@@ -42,6 +42,7 @@ experiment) gets one. Take the next free number.
 | [0002](adr/0002-dual-model-preview.md) | Procedural client preview plus an exact server model |
 | [0003](adr/0003-visual-evidence.md) | Visual evidence captured automatically for UI pull requests |
 | [0004](adr/0004-sqlite-job-queue.md) | A job queue in SQLite instead of BullMQ and Redis |
+| [0005](adr/0005-belt-ui-track-rail.md) | The Belt UI: a Track rail of job chips on every page |
 
 ## Design docs
 
@@ -50,6 +51,7 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 | Design | Status |
 |---|---|
 | [design/sqlite-queue.md](design/sqlite-queue.md) | Accepted, in progress: a job queue in SQLite behind `CONVEYOR_QUEUE=sqlite`; Redis is still the default (#5) |
+| [design/track-ui.md](design/track-ui.md) | Accepted, not started: the UI rewrite's tokens, IA and Track rail, with [a mockup](design/track-mockup.html) (#49) |
 
 ## Keeping docs true
 
@@ -60,6 +62,4 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 Pages here get created by the PR that first needs them, then linked above:
 
 - `modules/web.md`: the web package's page, written with the UI rewrite. The other packages already have one.
-- `design/` UI pages: today `design/` holds only `sqlite-queue.md`. The UI rewrite adds its design tokens,
-  principles, mockups and screenshots there.
 - `audits/YYYY-MM-DD.md`: doc audit reports.

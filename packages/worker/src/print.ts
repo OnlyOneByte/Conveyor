@@ -131,6 +131,18 @@ async function closeStream(
   return failure === undefined ? undefined : `status stream did not close cleanly: ${failure}`;
 }
 
+export const SEEN_WRITE_FAILED = "printer last-seen time not recorded";
+
+function markPrinterSeen(run: Run, printerId: string): void {
+  try {
+    run.deps.printerSeen(printerId);
+  } catch (err) {
+    run.ctx.log(`job ${run.opts.jobId}: ${SEEN_WRITE_FAILED}: ${messageOf(err)}`);
+    if (!run.notes.some((note) => note.startsWith(SEEN_WRITE_FAILED)))
+      run.notes.push(`${SEEN_WRITE_FAILED}: ${messageOf(err)}`);
+  }
+}
+
 async function watchPrint(
   run: Run,
   transport: TransportPlugin,
@@ -152,6 +164,7 @@ async function watchPrint(
         throw unread ? new ResumeFailedError(lost) : new StageError("transport", lost);
       }
       unread = false;
+      if (next.value.state !== "transferring") markPrinterSeen(run, handle.printerId);
       const outcome = await handleStatus(run, next.value);
       if (outcome) return outcome;
       await checkpoint(run);

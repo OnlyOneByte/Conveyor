@@ -32,7 +32,7 @@ function receiver() {
 }
 
 async function post(url: string, path: string, field: string, filename: string) {
-  const upload = multipartFileUpload(field, path, filename);
+  const upload = multipartFileUpload({ field, path, filename });
   return fetch(url, { method: "POST", body: upload.body, headers: upload.headers });
 }
 
@@ -62,7 +62,7 @@ describe("multipartFileUpload", () => {
   test("declares the exact body length, so a printer that refuses chunked uploads accepts it", async () => {
     const path = join(dir, "small.gcode");
     writeFileSync(path, "G28\nG1 X10\n");
-    const upload = multipartFileUpload("File", path, "small.gcode");
+    const upload = multipartFileUpload({ field: "File", path, filename: "small.gcode" });
     const sent = new Uint8Array(await new Response(upload.body).arrayBuffer());
     expect(Number(upload.headers["content-length"])).toBe(sent.length);
     expect(upload.headers["content-type"]).toMatch(/^multipart\/form-data; boundary=----conveyor-/);
@@ -71,7 +71,11 @@ describe("multipartFileUpload", () => {
   test("keeps quotes and line breaks in a filename out of the part header", async () => {
     const path = join(dir, "odd.gcode");
     writeFileSync(path, "G28\n");
-    const upload = multipartFileUpload("file", path, 'a"b\r\nX-Evil: 1.gcode');
+    const upload = multipartFileUpload({
+      field: "file",
+      path,
+      filename: 'a"b\r\nX-Evil: 1.gcode',
+    });
     const text = await new Response(upload.body).text();
     expect(text).toContain('filename="a_b__X-Evil: 1.gcode"');
     expect(text).not.toContain("\r\nX-Evil");
@@ -81,7 +85,11 @@ describe("multipartFileUpload", () => {
     const path = join(dir, "chunks.gcode");
     const size = 8 * 1024 * 1024;
     writeFileSync(path, randomBytes(size));
-    const reader = multipartFileUpload("file", path, "chunks.gcode").body.getReader();
+    const reader = multipartFileUpload({
+      field: "file",
+      path,
+      filename: "chunks.gcode",
+    }).body.getReader();
     const head = await reader.read();
     const first = await reader.read();
     await reader.cancel();
@@ -102,7 +110,7 @@ const [path, url] = process.argv.slice(2);
 const before = process.memoryUsage().rss;
 let peak = before;
 const timer = setInterval(() => { peak = Math.max(peak, process.memoryUsage().rss); }, 2);
-const upload = multipartFileUpload("file", path, "big.gcode");
+const upload = multipartFileUpload({ field: "file", path, filename: "big.gcode" });
 const res = await fetch(url, { method: "POST", body: upload.body, headers: upload.headers });
 clearInterval(timer);
 peak = Math.max(peak, process.memoryUsage().rss);

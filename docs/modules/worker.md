@@ -64,6 +64,13 @@ The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`.
 
 ## pipeline.ts
 
+- Every status a transport yields while a print is watched calls `printerSeen(printerId)` before it is handled,
+  so a printer that is printing keeps a fresh `lastSeenAt` without a probe. `index.ts` and `sqlite.ts` wire it
+  to `markPrinterSeen` (`printer-target.ts`). `transferring` does not count: Moonraker and Elegoo yield it
+  before they contact the printer. A stream that fails before the printer's first status marks nothing.
+- A failed last-seen write never fails the print. It is logged, and noted once on the job
+  (`SEEN_WRITE_FAILED`).
+
 - Settlement runs outside the stage `try`, so an error while settling a finished or printer-canceled job
   (such as the history write) propagates as is. It is not re-settled as `failed`, and the finished job's work
   directory is kept.

@@ -1,0 +1,62 @@
+:root {
+  --display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --mono: "DM Mono", ui-monospace, monospace;
+  --fs-title: 36px; --fs-section: 18px; --fs-body: 15px; --fs-chip: 13px; --fs-label: 11px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r-chip: 16px; --r-control: 13px; --r-card: 18px; --r-panel: 26px; --tap: 44px;
+  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms;
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1); --ease-pop: cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: oklch(0.952 0.016 85);
+  --paper: oklch(0.992 0.006 85);
+  --sunk: oklch(0.93 0.016 85);
+  --ink: oklch(0.22 0.02 55);
+  --muted: oklch(0.45 0.02 60);
+  --faint: oklch(0.5 0.02 65);
+  --line: color-mix(in oklch, var(--ink) 13%, transparent);
+  --line-2: color-mix(in oklch, var(--ink) 24%, transparent);
+  --accent: oklch(0.68 0.19 45);
+  --focus: oklch(0.52 0.17 42);
+  --accent-ink: oklch(0.2 0.03 45);
+  --live: oklch(0.54 0.18 42);
+  --ok: oklch(0.48 0.13 150);
+  --err: oklch(0.5 0.2 28);
+  --off: oklch(0.5 0.01 60);
+  --belt: oklch(0.26 0.008 60);
+  --tread: oklch(0.34 0.008 60);
+  --mat: oklch(0.44 0.075 168);
+  --lift: 0 1px 2px color-mix(in oklch, var(--ink) 12%, transparent);
+  --lift-hi: 0 6px 18px color-mix(in oklch, var(--ink) 18%, transparent);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: oklch(0.19 0.01 60);
+  --paper: oklch(0.25 0.012 60);
+  --sunk: oklch(0.215 0.011 60);
+  --ink: oklch(0.95 0.012 85);
+  --muted: oklch(0.78 0.015 80);
+  --faint: oklch(0.7 0.015 75);
+  --line: color-mix(in oklch, var(--ink) 10%, transparent);
+  --line-2: color-mix(in oklch, var(--ink) 20%, transparent);
+  --accent: oklch(0.74 0.17 50);
+  --focus: oklch(0.74 0.17 50);
+  --accent-ink: oklch(0.18 0.02 50);
+  --live: oklch(0.77 0.16 52);
+  --ok: oklch(0.78 0.14 150);
+  --err: oklch(0.74 0.16 28);
+  --off: oklch(0.68 0.01 60);
+  --belt: oklch(0.12 0.005 60);
+  --tread: oklch(0.2 0.006 60);
+  --mat: oklch(0.31 0.055 168);
+  --lift: 0 1px 2px oklch(0 0 0 / 0.4);
+  --lift-hi: 0 6px 18px oklch(0 0 0 / 0.5);
+}
+
+@media (max-width: 759px) { :root { --fs-title: 30px; } }
+
+@media (prefers-reduced-motion: reduce) { :root { --t-fast: 0ms; --t-move: 0ms; --t-hop: 0ms; } }

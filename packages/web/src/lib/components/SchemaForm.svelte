@@ -106,8 +106,8 @@
     font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
     font-weight: 600; min-height: 32px; }
   summary::-webkit-details-marker { display: none; }
-  summary:hover { color: var(--accent); }
-  .caret { font-size: 0.6rem; color: var(--accent); transition: transform 0.15s; }
+  summary:hover { color: var(--live); }
+  .caret { font-size: 0.6rem; color: var(--live); transition: transform 0.15s; }
   details[open] .caret { transform: rotate(90deg); }
   .adv { padding-top: 0.7rem; }
 </style>

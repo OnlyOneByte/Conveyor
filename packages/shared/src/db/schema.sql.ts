@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS printers (
   created_at               INTEGER NOT NULL,
   hold_job_id              TEXT,
   hold_reason              TEXT,
-  hold_at                  INTEGER
+  hold_at                  INTEGER,
+  last_seen_at             INTEGER,
+  last_checked_at          INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
