@@ -55,10 +55,14 @@ jobs:
           if [[ -z "$issues" ]]; then
             err "The body needs a line 'Closes #N' or 'Part of #N' naming an issue."
           fi
+          ghErr=$(mktemp)
           for n in $issues; do
-            kind=$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "a pull request" else "issue" end' 2>/dev/null || echo "missing")
-            if [[ "$kind" != issue ]]; then
-              err "#$n is not an issue of $REPO ($kind)."
+            if kind=$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "a pull request" else "issue" end' 2>"$ghErr"); then
+              [[ "$kind" == issue ]] || err "#$n is not an issue of $REPO ($kind)."
+            elif grep -q 'HTTP 404' "$ghErr"; then
+              err "#$n is not an issue of $REPO (not found)."
+            else
+              err "Could not look up #$n, so re-run this check: $(head -n 1 "$ghErr")"
             fi
           done
           if (( fail == 0 )); then echo "Title, labels and issue link are fine."; fi

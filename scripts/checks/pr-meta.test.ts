@@ -24,7 +24,7 @@ const script = steps.map((step) => field(step, "run")).find((run) => typeof run 
 const bin = mkdtempSync(join(tmpdir(), "pr-meta-"));
 writeFileSync(
   join(bin, "gh"),
-  `#!/usr/bin/env bash\ncase "$2" in\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  *) exit 1 ;;\nesac\n`,
+  `#!/usr/bin/env bash\ncase "$2" in\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  */issues/503) echo "gh: Service Unavailable (HTTP 503)" >&2; exit 1 ;;\n  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;\nesac\n`,
 );
 chmodSync(join(bin, "gh"), 0o755);
 
@@ -77,7 +77,8 @@ describe("the pr-meta job", () => {
     ["an agent PR without the agent label", { labels: ["area/ui"] }, "need the agent label"],
     ["no issue line", { body: "Fixes the thing, see #425" }, "needs a line"],
     ["a pull request named as the issue", { body: "Closes #381" }, "not an issue"],
-    ["a number that doesn't exist", { body: "Part of #999" }, "not an issue"],
+    ["a number that doesn't exist", { body: "Part of #999" }, "(not found)"],
+    ["a failed lookup, saying so", { body: "Closes #503" }, "Could not look up #503"],
   ])("fails %s", (_name, pr, message) => {
     const { code, out } = check(pr);
     expect(code).toBe(1);
