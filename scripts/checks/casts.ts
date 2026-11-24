@@ -34,7 +34,8 @@ const check = (baseRef: string) => {
   const tree = workingTree(ROOT);
   const current = measure(tree);
   console.log(`\`as\` casts: ${total(current)} (base ${baseRef})`);
-  const errors = checkRatchet({ current, committed: tree.read(BASELINE_PATH), base });
+  const present = new Set(tree.list());
+  const errors = checkRatchet({ current, committed: tree.read(BASELINE_PATH), base, present });
   for (const error of errors) console.error(error);
   return errors.length === 0 ? 0 : 1;
 };

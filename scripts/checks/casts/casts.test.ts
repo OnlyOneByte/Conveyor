@@ -16,14 +16,20 @@ const baseWith = (files: Record<string, string>, baseline: Counts) =>
   treeOf({ ...files, [CHECKER_PATH]: "", [BASELINE_PATH]: serializeBaseline(baseline) });
 
 const run = (current: Counts, base: Tree, committed: Counts = current) =>
-  checkRatchet({ current, base, committed: serializeBaseline(committed) });
+  checkRatchet({
+    current,
+    base,
+    committed: serializeBaseline(committed),
+    present: new Set(Object.keys(current)),
+  });
 
 describe("counting casts", () => {
-  test("counts `as` and angle-bracket assertions but not `as const`", () => {
+  test("counts `as` and angle-bracket assertions but not const assertions", () => {
     const src = [
       "const a = x as string;",
       "const b = <number>y;",
       'const c = ["a", "b"] as const;',
+      'const f = <const>["a", "b"];',
       "const d = z as unknown as Date;",
       "const e = { k: 1 } satisfies Record<string, number>;",
     ].join("\n");
@@ -74,8 +80,28 @@ describe("the cast ratchet", () => {
   });
 
   test("a missing or invalid committed baseline fails", () => {
-    expect(checkRatchet({ current: {}, base, committed: null })[0]).toContain("is missing");
-    expect(checkRatchet({ current: {}, base, committed: "[]" })[0]).toContain("not a valid");
+    const present = new Set<string>();
+    expect(checkRatchet({ current: {}, base, committed: null, present })[0]).toContain(
+      "is missing",
+    );
+    expect(checkRatchet({ current: {}, base, committed: "[]", present })[0]).toContain(
+      "not a valid",
+    );
+  });
+
+  test("a renamed file keeps its allowance", () => {
+    expect(run({ "b.ts": 1 }, base)).toEqual([]);
+  });
+
+  test("a split file shares its allowance across the new files", () => {
+    const big = baseWith({ "a.ts": cast.repeat(3) }, { "a.ts": 3 });
+    expect(run({ "b.ts": 2, "c.ts": 1 }, big)).toEqual([]);
+    expect(run({ "b.ts": 2, "c.ts": 2 }, big)[0]).toContain("new cast: c.ts: 2");
+  });
+
+  test("a removed file's allowance does not move to a file the base already has", () => {
+    const two = baseWith({ "a.ts": cast, "b.ts": "" }, { "a.ts": 1 });
+    expect(run({ "b.ts": 1 }, two)[0]).toContain("new cast: b.ts: 1");
   });
 
   test("a base without the checker allows exactly the casts it already has", () => {
