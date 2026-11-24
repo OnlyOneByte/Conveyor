@@ -20,7 +20,7 @@ describe("a file that changes size after the upload is built", () => {
   test("a grown file fails the stream instead of sending more than Content-Length", async () => {
     const path = join(dir, "grows.gcode");
     writeFileSync(path, "G28\n");
-    const upload = multipartFileUpload("file", path, "grows.gcode");
+    const upload = multipartFileUpload({ field: "file", path, filename: "grows.gcode" });
     appendFileSync(path, "G1 X10\n".repeat(1000));
     await expect(drain(upload.body)).rejects.toThrow(
       "grows.gcode changed size while uploading: declared 4 bytes",
@@ -30,7 +30,7 @@ describe("a file that changes size after the upload is built", () => {
   test("a shrunk file fails the stream instead of leaving the printer waiting for bytes", async () => {
     const path = join(dir, "shrinks.gcode");
     writeFileSync(path, "G28\nG1 X10\n");
-    const upload = multipartFileUpload("file", path, "shrinks.gcode");
+    const upload = multipartFileUpload({ field: "file", path, filename: "shrinks.gcode" });
     truncateSync(path, 4);
     await expect(drain(upload.body)).rejects.toThrow(
       "shrinks.gcode changed size while uploading: declared 11 bytes, read 4",
@@ -40,7 +40,7 @@ describe("a file that changes size after the upload is built", () => {
   test("an unchanged file still sends exactly Content-Length bytes", async () => {
     const path = join(dir, "same.gcode");
     writeFileSync(path, "G28\nG1 X10\n");
-    const upload = multipartFileUpload("file", path, "same.gcode");
+    const upload = multipartFileUpload({ field: "file", path, filename: "same.gcode" });
     const sent = await drain(upload.body);
     expect(sent.byteLength).toBe(Number(upload.headers["content-length"]));
   });
@@ -50,7 +50,7 @@ describe("the part's filename", () => {
   test("maps a backslash to _ so it can't escape the quoted filename", async () => {
     const path = join(dir, "slash.gcode");
     writeFileSync(path, "G28\n");
-    const upload = multipartFileUpload("file", path, 'bins\\a\\".gcode');
+    const upload = multipartFileUpload({ field: "file", path, filename: 'bins\\a\\".gcode' });
     const text = await new Response(upload.body).text();
     expect(text).toContain('filename="bins_a__.gcode"');
   });

@@ -81,7 +81,7 @@
   .state { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); text-transform: capitalize; flex-shrink: 0; }
   .state.done { color: var(--ok); border-color: var(--ok); }
   .state.bad { color: var(--danger); border-color: var(--danger); }
-  .state.live { color: var(--accent); border-color: var(--accent-dim); }
+  .state.live { color: var(--live); border-color: var(--accent-dim); }
   .meta { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
   .gen { font-size: 0.85rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .when { margin-left: auto; font-size: 0.75rem; flex-shrink: 0; }
