@@ -170,3 +170,49 @@ test("the fake api exits by itself once its parent is gone", async () => {
     killIfAlive(apiPid);
   }
 }, 30000);
+
+test("on the base side, a scene whose ready selector never appears is skipped after 5 s at one width and at once at the next, as new", async () => {
+  const out = await mkdtemp(join(tmpdir(), "visual-base-test-"));
+  scratch.push(out);
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () =>
+      new Response("<!doctype html><title>Old · Conveyor</title><h1>Old</h1>", {
+        headers: { "content-type": "text/html" },
+      }),
+  });
+  try {
+    const started = Date.now();
+    const run = Bun.spawn({
+      cmd: [
+        process.execPath,
+        join(import.meta.dir, "capture.ts"),
+        `--url=http://127.0.0.1:${server.port}`,
+        `--out=${out}`,
+        "--only=job-detail",
+        "--base",
+      ],
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    const code = await run.exited;
+    const took = Date.now() - started;
+    const manifest = JSON.parse(await readFile(join(out, "manifest.json"), "utf8"));
+    expect(code).toBe(0);
+    expect(took).toBeLessThan(25000);
+    expect(
+      manifest.results.map((r: { width: number; png?: string; error?: string }) => [
+        r.width,
+        r.png,
+        r.error,
+      ]),
+    ).toEqual([
+      [1440, undefined, undefined],
+      [390, undefined, undefined],
+    ]);
+    expect(manifest.results[0].warnings[0]).toContain("job-detail is new on this PR");
+  } finally {
+    server.stop(true);
+  }
+}, 40000);

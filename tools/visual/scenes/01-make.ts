@@ -1,4 +1,5 @@
-import type { Scene } from "./scenes.ts";
+import { REACH, toastOnMake } from "../reach.ts";
+import type { Scene } from "../scene.ts";
 
 const STL = [
   "solid bin",
@@ -26,12 +27,63 @@ const printing = {
 
 const uploadTab = { click: "role=tab[name='Upload STL']" };
 
-export const makeScenes: Scene[] = [
+
+export const scenes: Scene[] = [
+  {
+    name: "home",
+    route: "/",
+    ready: "text=How big?",
+    steps: [{ wait: 1500 }],
+  },
+  {
+    name: "nav-reach",
+    route: "/primitives",
+    visits: ["/"],
+    ready: "text=Primitives",
+    steps: [
+      ...toastOnMake,
+      {
+        hits: "nav[aria-label='Main'] a, .dock button, .toasts button",
+        viewports: REACH,
+      },
+    ],
+  },
   {
     name: "upload-empty",
     route: "/",
     ready: "text=How big?",
     steps: [uploadTab, { wait: 800 }],
+  },
+  {
+    name: "new-job",
+    route: "/",
+    ready: "text=How big?",
+    record: true,
+    steps: [
+      { wait: 800 },
+      uploadTab,
+      { wait: 700 },
+      { click: "role=tab[name='Gridfinity Bin']" },
+      { wait: 700 },
+      { click: "label.pill >> nth=-1" },
+      { wait: 800 },
+    ],
+  },
+  {
+    name: "job-progress",
+    route: "/",
+    ready: "text=How big?",
+    record: true,
+    steps: [
+      { wait: 800 },
+      { click: "button.print" },
+      { scroll: "ol.stages, .status" },
+      {
+        waitFor: "ol.stages li.done:last-child, .status .failed",
+        timeout: 12000,
+      },
+      { wait: 800 },
+    ],
   },
   {
     name: "make-fold",

@@ -19,18 +19,56 @@ import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import type { LiveJobCounter } from "../live-jobs.js";
-import { jobQueue, redis } from "../queue.js";
+import { connection, createSubscriber, jobQueue, QUEUE_DEADLINE_MS, redis } from "../queue.js";
+import { untilReady, withinDeadline } from "../queue-reach.js";
 import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 import { submitJob } from "./submit.js";
 
+export const DROP_WITHIN_MS = 5 * 60_000;
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 
+const reach = <T>(call: Promise<T>): Promise<T> => withinDeadline(call, QUEUE_DEADLINE_MS);
+
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
-  (await jobQueue.getJobs([...LIVE_STATES])).filter((job) => job?.data?.[reference] === id).length;
+  (await reach(jobQueue.getJobs([...LIVE_STATES]))).filter((job) => job?.data?.[reference] === id)
+    .length;
 
 export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
+
+const reachableJobs: JobLookup = { getJob: (id) => reach(jobQueue.getJob(id)) };
+
+async function dropAbandoned(app: FastifyInstance, jobId: string): Promise<void> {
+  const [removed, flagged] = await Promise.allSettled([
+    jobQueue.remove(jobId),
+    connection.set(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS),
+  ]);
+  for (const [step, outcome] of [
+    ["remove", removed],
+    ["cancel flag", flagged],
+  ] as const) {
+    if (outcome.status === "rejected")
+      app.log.error({ err: outcome.reason, jobId }, `abandoned job ${step} failed`);
+  }
+}
+
+async function enqueue(app: FastifyInstance, jobId: string, request: JobRequest): Promise<void> {
+  try {
+    await reach(jobQueue.add("job", request, { jobId }));
+  } catch (err) {
+    app.log.warn(
+      { jobId },
+      "enqueue failed; removing the job and flagging it canceled if it lands",
+    );
+    void untilReady(connection, DROP_WITHIN_MS).then(
+      () => dropAbandoned(app, jobId),
+      (initErr: unknown) =>
+        app.log.error({ err: initErr, jobId }, "queue never came up to drop the job"),
+    );
+    throw err;
+  }
+}
 
 async function activeJob(jobs: JobLookup, event: JobStatusEvent): Promise<ActiveJob> {
   const job = await jobs.getJob(event.jobId);
@@ -45,18 +83,16 @@ async function activeJob(jobs: JobLookup, event: JobStatusEvent): Promise<Active
 
 export async function registerJobRoutes(
   app: FastifyInstance,
-  jobs: JobLookup = jobQueue,
+  jobs: JobLookup = reachableJobs,
 ): Promise<void> {
-  const statusHub = createStatusHub(
-    () => redis.duplicate({ enableReadyCheck: false }),
-    (err) => app.log.error({ err }, "job status subscriber error"),
-  );
+  const logHubError = (err: unknown) => app.log.error({ err }, "job status subscriber error");
+  const statusHub = createStatusHub(createSubscriber, logHubError);
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
     if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
 
     const result = await submitJob(openDb(), submission, (jobId, request) =>
-      jobQueue.add("job", request, { jobId }),
+      enqueue(app, jobId, request),
     );
     return reply.code(result.code).send(result.body);
   });
@@ -64,7 +100,7 @@ export async function registerJobRoutes(
   const withFields = async (snapshot: JobStatusEvent): Promise<JobView> => {
     let fields: unknown;
     try {
-      const job = await jobQueue.getJob(snapshot.jobId);
+      const job = await reach(jobQueue.getJob(snapshot.jobId));
       fields = job && { ...job.data, createdAt: job.timestamp };
     } catch (err) {
       app.log.error({ err, jobId: snapshot.jobId }, "job request fields unreadable");
@@ -112,7 +148,7 @@ export async function registerJobRoutes(
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const jobId = req.params.id;
     if (!isJobId(jobId)) return reply.code(404).send({ ok: false, jobId, error: "unknown job" });
-    const result = await cancelJob(req.params.id, {
+    const canceling = cancelJob(req.params.id, {
       getJob: (id) => jobQueue.getJob(id),
       readSnapshot: async (id) => parseStatusEvent(await redis.get(jobSnapshotKey(id))),
       requestCancel: async (id) => {
@@ -141,12 +177,13 @@ export async function registerJobRoutes(
         return written;
       },
     });
+    const result = await reach(canceling);
     return reply.code(result.code).send(result.body);
   });
 
   registerJobStream(app, {
     hub: statusHub,
     snapshot: (id) => redis.get(jobSnapshotKey(id)),
-    queued: async (id) => (await jobQueue.getJob(id)) !== undefined,
+    queued: async (id) => (await reach(jobQueue.getJob(id))) !== undefined,
   });
 }

@@ -63,6 +63,11 @@ describe("the pr-meta job", () => {
     );
   });
 
+  test("never cancels its own runs, because a cancelled required check blocks the merge", () => {
+    expect(field(workflow, "concurrency")).toBeUndefined();
+    expect(field(field(field(workflow, "jobs"), "pr-meta"), "concurrency")).toBeUndefined();
+  });
+
   test("passes a well-formed agent PR", () => {
     expect(check({})).toEqual({ code: 0, out: expect.stringContaining("are fine") });
   });

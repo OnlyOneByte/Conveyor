@@ -1,6 +1,6 @@
 <script lang="ts">
   import { T } from "@threlte/core";
-  import { OrbitControls } from "@threlte/extras";
+  import Orbit from "./Orbit.svelte";
   import { spinPreview, prefersReducedMotion, theme } from "#lib/preferences.js";
   import { tokenColor } from "#lib/token-color.js";
   import * as THREE from "three";
@@ -41,7 +41,7 @@
 </script>
 
 <T.PerspectiveCamera makeDefault position={[camDist, camDist * 0.8, camDist]} fov={45}>
-  <OrbitControls enableDamping {autoRotate} autoRotateSpeed={0.6} target={[0, 0, 0]} />
+  <Orbit {autoRotate} />
 </T.PerspectiveCamera>
 
 <T.AmbientLight intensity={0.6} />

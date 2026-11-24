@@ -1,4 +1,4 @@
-import type { Scene, Step } from "./scenes.ts";
+import type { Scene, Step } from "../scene.ts";
 
 const AT = Date.UTC(2026, 0, 1, 12, 31);
 
@@ -96,7 +96,7 @@ const added = {
 };
 const field = (name: string) => `${dialog} >> role=textbox[name="${name}"s]`;
 
-export const printersScenes: Scene[] = [
+export const scenes: Scene[] = [
   fleetPage("printers"),
   fleetPage(
     "printers-keys",

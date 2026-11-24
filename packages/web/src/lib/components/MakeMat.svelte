@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { Canvas } from "@threlte/core";
-  import { ACESFilmicToneMapping } from "three";
-  import MeshScene from "#lib/components/MeshScene.svelte";
-  import PreviewScene from "#lib/components/PreviewScene.svelte";
+  import Viewport from "#lib/components/Viewport.svelte";
 
   export let preview: boolean;
   export let params: Record<string, unknown>;
@@ -12,11 +9,11 @@
 
 <div class="mat">
   {#if upload && file}
-    <Canvas toneMapping={ACESFilmicToneMapping}><MeshScene {file} /></Canvas>
+    <Viewport {file} />
   {:else if upload}
     <p class="empty">Your model shows here once you choose a file.</p>
   {:else if preview}
-    <Canvas toneMapping={ACESFilmicToneMapping}><PreviewScene {params} /></Canvas>
+    <Viewport {params} />
   {:else}
     <p class="empty">This model is made when it prints, so there's no preview.</p>
   {/if}

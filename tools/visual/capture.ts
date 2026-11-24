@@ -2,18 +2,15 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
+import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
-import { follow, travel } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
-import { assertHits, titleMismatch } from "./hits.ts";
-import { assertHolds } from "./holds.ts";
-import { readyWaiter } from "./ready.ts";
-import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
-import { scrollTo } from "./scroll.ts";
+import { titleMismatch } from "./hits.ts";
+import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
-import { assertStill } from "./still.ts";
+import { runStep } from "./step.ts";
 
 export interface ShotResult {
   scene: string;
@@ -51,61 +48,30 @@ const { values } = parseArgs({
     only: { type: "string" },
     verbose: { type: "boolean", default: false },
     scheme: { type: "string", default: "light" },
+    base: { type: "boolean", default: false },
   },
 });
 
 const colorScheme = values.scheme === "dark" ? "dark" : "light";
 
 const outDir = resolve(values.out);
-const only = values.only?.split(",").map((s) => s.trim());
+const only = values.only
+  ?.split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const unknown = only?.filter((name) => !scenes.some((s) => s.name === name)) ?? [];
+if (unknown.length) throw new Error(`no such scene: ${unknown.join(", ")}`);
 const selected = only ? scenes.filter((s) => only.includes(s.name)) : scenes;
 const unshot = selected
   .filter((s) => !WIDTHS.some((w) => !s.widths || s.widths.includes(w)))
   .map((s) => s.name);
 if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")}`);
-
-async function runStep(page: Page, step: Step, warnings: string[]): Promise<void> {
-  if ("click" in step) await page.locator(step.click).first().click();
-  else if ("type" in step) await page.locator(step.type).first().fill(step.text);
-  else if ("press" in step) await page.keyboard.press(step.press);
-  else if ("hover" in step) await page.locator(step.hover).first().hover();
-  else if ("scroll" in step) await scrollTo(page, step.scroll);
-  else if ("waitFor" in step) await waitForStep(page, step, warnings);
-  else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
-  else if ("follow" in step) await follow(page, step.follow);
-  else if ("upload" in step)
-    await page.setInputFiles(step.upload, {
-      name: step.name,
-      mimeType: "application/octet-stream",
-      buffer: Buffer.from(step.text),
-    });
-  else if ("fulfill" in step)
-    await page.route(step.fulfill, (route) =>
-      step.method && route.request().method() !== step.method
-        ? route.fallback()
-        : route.fulfill({ status: step.status, json: step.json }),
-    );
-  else if ("history" in step) await travel(page, step.history, step.url);
-  else if ("holds" in step) await assertHolds(page, step);
-  else if ("still" in step) await assertStill(page, step);
-  else await page.waitForTimeout(step.wait);
-}
-
-async function waitForStep(
-  page: Page,
-  step: { waitFor: string; timeout?: number; warn?: string },
-  warnings: string[],
-): Promise<void> {
-  try {
-    await page
-      .locator(step.waitFor)
-      .first()
-      .waitFor({ timeout: step.timeout ?? 15000 });
-  } catch (err) {
-    if (!step.warn) throw err;
-    warnings.push(step.warn);
-  }
-}
+const dirs = pageDirs(resolve(values.root));
+const BASE_READY_MS = 5000;
+const readyMs = values.base ? BASE_READY_MS : 30000;
+const absent = new Set<string>();
+const notOnBase = (scene: Scene) =>
+  `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
 
 function startSampler(page: Page, warnings: string[]): Sampler {
   const frames: Frame[] = [];
@@ -153,10 +119,9 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
   }
 }
 
-const waitReady = readyWaiter();
-
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
+  if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
   const context = await browser.newContext({
     viewport: { width, height: scene.height ?? HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
@@ -167,14 +132,41 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   await context.clock.setSystemTime(CAPTURE_NOW);
   if (scene.signedOut) await stubSignedOut(context);
   const page = await context.newPage();
+  const landed = new Set<string>();
+  page.on("framenavigated", (frame) => {
+    const url = new URL(frame.url());
+    if (frame === page.mainFrame() && url.protocol.startsWith("http")) landed.add(url.pathname);
+  });
   let sampler: Sampler | undefined;
   try {
     await page.goto(new URL(scene.route, base).toString(), { waitUntil: "load" });
-    await waitReady(page, scene);
+    const ready = await page
+      .locator(scene.ready)
+      .first()
+      .waitFor({ timeout: readyMs })
+      .then(
+        () => true,
+        (err: unknown) => {
+          if (!values.base) throw err;
+          return false;
+        },
+      );
+    if (!ready) {
+      absent.add(scene.name);
+      await context.close();
+      return { ...result, warnings: [notOnBase(scene)] };
+    }
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
     const mismatch = await titleMismatch(page);
     if (mismatch) throw new Error(mismatch);
+    const elsewhere = values.base
+      ? []
+      : [...landed].filter((path) => landsElsewhere(dirs, scene, path));
+    if (elsewhere.length)
+      throw new Error(
+        `reached ${elsewhere.join(", ")}, which isn't the scene's route, a follow or history step, or in its visits`,
+      );
   } catch (err) {
     result.error = messageOf(err);
   }
@@ -192,7 +184,10 @@ async function warmUp(browser: Browser, base: string): Promise<string[]> {
     const ready = selected.find((s) => s.route === route)?.ready ?? "body";
     try {
       await page.goto(new URL(route, base).toString(), { waitUntil: "load", timeout: 120000 });
-      await page.locator(ready).first().waitFor({ timeout: 120000 });
+      await page
+        .locator(ready)
+        .first()
+        .waitFor({ timeout: values.base ? readyMs : 120000 });
     } catch (err) {
       warnings.push(`warm-up ${route}: ${messageOf(err)}`);
     }
