@@ -28,7 +28,7 @@
 <section class="belt" aria-label="On the belt">
   <div class="queue">
     <span class="label">Queue</span>
-    <span class="slot q">{waiting ? "Waiting" : "Empty"}<span class="n">{waiting}</span></span>
+    <span class="slot q">{waiting ? "Waiting" : "Empty"}{#if waiting}<span class="n">{waiting}</span>{/if}</span>
   </div>
   <div class="lane" role="group" aria-label="Rail, {moving.length} moving">
     {#each stages as stage (stage.state)}
@@ -66,7 +66,7 @@
   .tick { position: absolute; bottom: 8px; width: 2px; height: 30px; background: var(--muted); }
   .stage { position: absolute; bottom: 36px; font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .stage.on { color: var(--ink); }
-  .stage.on::before { content: "● "; color: var(--accent); }
+  .stage.on::before { content: "● " / ""; color: var(--accent); }
   .rail { position: absolute; inset: auto 0 8px; height: 22px; border-radius: 11px; background: repeating-linear-gradient(90deg, var(--tread) 0 3px, transparent 3px 26px), var(--belt); }
   :global([data-theme="dark"]) .rail { box-shadow: 0 0 0 1px var(--faint); }
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
