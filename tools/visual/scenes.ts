@@ -1,3 +1,5 @@
+import type { Viewport } from "./hits.ts";
+
 export type Step =
   | { click: string }
   | { type: string; text: string }
@@ -5,7 +7,8 @@ export type Step =
   | { hover: string }
   | { scroll: string }
   | { waitFor: string; timeout?: number; warn?: string }
-  | { wait: number };
+  | { wait: number }
+  | { hits: string; viewports: readonly Viewport[] };
 
 export interface Scene {
   name: string;
@@ -29,6 +32,23 @@ export const scenes: Scene[] = [
     route: "/",
     ready: "text=Configure",
     steps: [{ wait: 1500 }],
+  },
+  {
+    name: "nav-reach",
+    route: "/",
+    ready: "text=Configure",
+    steps: [
+      { wait: 1500 },
+      {
+        hits: "nav[aria-label='Main'] a, .mobile-cta button",
+        viewports: [
+          [390, 844],
+          [390, 667],
+          [700, 900],
+          [1440, 900],
+        ],
+      },
+    ],
   },
   {
     name: "upload-empty",
@@ -106,6 +126,24 @@ export const scenes: Scene[] = [
       { hover: "button:has-text('Secondary')" },
       ...keys("Tab", "Tab", "Tab", "Tab", "Tab"),
       { wait: 6500 },
+    ],
+  },
+  {
+    name: "toast-reach",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      { click: "button:has-text('Show a toast')" },
+      { waitFor: ".toasts button:has-text('Print again')", timeout: 5000 },
+      {
+        hits: ".toasts button, nav[aria-label='Main'] a",
+        viewports: [
+          [390, 844],
+          [390, 667],
+          [700, 900],
+          [1440, 900],
+        ],
+      },
     ],
   },
   {

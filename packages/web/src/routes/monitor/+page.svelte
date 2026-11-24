@@ -118,10 +118,10 @@
   }
 </script>
 
+<svelte:head><title>Monitor · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Monitor</h1>
-    <a href="/" class="navlink">← Back to app</a>
   </div>
 
   <!-- ── Active jobs ─────────────────────────────────────────────────────── -->
@@ -226,7 +226,6 @@
   h1 { margin: 0; }
   h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
   .secthead { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .navlink { color: var(--live); text-decoration: none; }
   .inlink { color: var(--live); text-decoration: none; }
   .inlink:hover { text-decoration: underline; }
   .live { font-size: 0.72rem; color: var(--ok); letter-spacing: 0.02em; }

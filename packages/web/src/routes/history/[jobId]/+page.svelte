@@ -46,7 +46,6 @@
     await goto("/?rerun=1");
   }
 
-  // Human duration for a persisted per-stage timing.
   function fmtDuration(ms: number): string {
     const s = Math.round(ms / 1000);
     if (s < 60) return `${s}s`;
@@ -61,6 +60,7 @@
   };
 </script>
 
+<svelte:head><title>Job · Conveyor</title></svelte:head>
 <div class="page">
   <div class="head">
     <h1>Job</h1>
