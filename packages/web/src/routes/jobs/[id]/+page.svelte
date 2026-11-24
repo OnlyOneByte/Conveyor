@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { titled } from "#lib/belt.js";
+  import JobHead from "#lib/components/JobHead.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
@@ -15,6 +16,7 @@
 
   const PILL = { done: "Printed", failed: "Failed", canceled: "Canceled" } as const;
   const WHEN = { done: "Finished", failed: "Stopped", canceled: "Canceled" } as const;
+  const DATE = { dateStyle: "medium", timeStyle: "short" } as const;
 
   $: job = data.job;
   $: watch = `/?job=${encodeURIComponent(page.params.id ?? "")}`;
@@ -32,9 +34,9 @@
   $: retryOf = job?.state === "failed" && job.request.generator.id !== "passthrough"
     && job.request.printerId && job.request.profileId ? job.id : undefined;
   $: rerun = job ? (rerunRequest(job) ?? (retryOf ? job.request : null)) : null;
-  $: when = job
-    ? new Date(job.updatedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
-    : "";
+  $: stamp = job ? new Date(job.updatedAt).toLocaleString([], DATE) : "";
+  $: when = state ? `${WHEN[state]} ${stamp}` : "";
+  $: meta = [data.printer, data.profile].filter(Boolean).join(" · ");
 
   async function again() {
     if (!rerun) return;
@@ -64,24 +66,13 @@
     {/if}
   </section>
 {:else}
-  <a class="crumb" href="/history">← Jobs</a>
-  <div class="head">
-    <div class="t">
-      <h1 id="job-title">{title}</h1>
-      <p class="meta">
-        {#if state}<span class="pill {state}">{PILL[state]}</span>{/if}
-        <span>{[data.printer, data.profile].filter(Boolean).join(" · ")}</span>
-        {#if state}<span>{WHEN[state]} {when}</span>{/if}
-      </p>
-    </div>
+  <JobHead {title} tone={state ?? ""} pill={state ? PILL[state] : ""} {meta} {when}>
     {#if rerun}
-      <div class="acts">
-        <button class="btn primary" type="button" on:click={again}>
-          {retryOf ? "Retry" : "Print again"}
-        </button>
-      </div>
+      <button class="btn primary" type="button" on:click={again}>
+        {retryOf ? "Retry" : "Print again"}
+      </button>
     {/if}
-  </div>
+  </JobHead>
   {#if failure}
     <div class="why" role="note"><strong>{failure.title}</strong><p>{failure.detail}</p></div>
   {/if}
@@ -102,23 +93,6 @@
 <style>
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1.05; letter-spacing: -0.04em; }
   p { margin: 0; }
-  .crumb { font-weight: 600; color: var(--muted); text-decoration: none; }
-  .head {
-    display: flex; align-items: flex-start; gap: var(--s4); flex-wrap: wrap;
-    margin: var(--s2) 0 var(--s5);
-  }
-  .t { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: var(--s2); }
-  .meta {
-    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3);
-    color: var(--muted);
-  }
-  .pill {
-    display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
-    border: 1.5px solid currentColor; border-radius: 99px; font-weight: 700;
-  }
-  .pill.done { color: var(--ok); }
-  .pill.failed { color: var(--err); }
-  .pill.canceled { color: var(--off); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .btn {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
@@ -144,7 +118,5 @@
   .nf { max-width: 520px; display: flex; flex-direction: column; gap: var(--s4); padding: 10vh 0; }
   @media (max-width: 759px) {
     .grid { grid-template-columns: 1fr; }
-    .head .acts { width: 100%; }
-    .head .btn { flex: 1; }
   }
 </style>

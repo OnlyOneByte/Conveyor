@@ -14,7 +14,7 @@
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
-  import { replaceState } from "$app/navigation";
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
@@ -144,7 +144,7 @@
           : { id: selectedGen!.id, params };
       const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       jobId = res.jobId;
-      replaceState(`/?job=${encodeURIComponent(res.jobId)}`, {});
+      await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
       const profile = profiles.find((pr) => pr.id === selectedProfileId);
       rememberJob({
         jobId: res.jobId,

@@ -68,8 +68,11 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
   else if ("follow" in step) await follow(page, step.follow);
   else if ("fulfill" in step)
     await page.route(step.fulfill, (route) =>
-      route.fulfill({ status: step.status, json: step.json }),
+      step.method && route.request().method() !== step.method
+        ? route.fallback()
+        : route.fulfill({ status: step.status, json: step.json }),
     );
+  else if ("history" in step) await (step.history === "back" ? page.goBack() : page.goForward());
   else await page.waitForTimeout(step.wait);
 }
 
