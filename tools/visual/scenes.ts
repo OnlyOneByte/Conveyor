@@ -129,6 +129,24 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "toast-reach",
+    route: "/primitives",
+    ready: "text=Primitives",
+    steps: [
+      { click: "button:has-text('Show a toast')" },
+      { waitFor: ".toasts button:has-text('Print again')", timeout: 5000 },
+      {
+        hits: ".toasts button, nav[aria-label='Main'] a",
+        viewports: [
+          [390, 844],
+          [390, 667],
+          [700, 900],
+          [1440, 900],
+        ],
+      },
+    ],
+  },
+  {
     name: "primitives-fields",
     route: "/primitives",
     ready: "text=Fields",
