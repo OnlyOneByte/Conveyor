@@ -35,7 +35,7 @@ function live(name: string, ready: string, view: object): Scene {
 }
 
 export const liveScenes: Scene[] = [
-  live("queued", "text=Waiting", { state: "queued", timings: [] }),
+  live("queued", "main >> text=Waiting", { state: "queued", timings: [] }),
   live("modelling", "text=Modelling", { state: "generating" }),
   live("slicing", "text=Slicing · 35%", { state: "slicing", progress: 0.35 }),
   live("sending", "text=Sending · 72%", { state: "transferring", progress: 0.72 }),
