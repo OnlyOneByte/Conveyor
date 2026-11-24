@@ -15,7 +15,7 @@ afterEach(() => {
 const writer = (dbPath: string, key: string, startAt: number) => `
   const { dbUpsertPrinter, openDb } = await import(${JSON.stringify(join(import.meta.dir, "index.ts"))});
   const db = openDb(${JSON.stringify(dbPath)});
-  while (Date.now() < ${startAt}) {}
+  await Bun.sleep(Math.max(0, ${startAt} - Date.now()));
   for (let i = 0; i < 5; i++) {
     dbUpsertPrinter(db, {
       id: "shared",

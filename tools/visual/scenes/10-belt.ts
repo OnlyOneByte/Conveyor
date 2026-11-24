@@ -1,4 +1,4 @@
-import type { Scene, Step } from "./scenes.ts";
+import type { Scene, Step } from "../scene.ts";
 
 const job = (jobId: string, state: string, progress: number, gridX: number) => ({
   jobId,
@@ -61,7 +61,7 @@ const moves: Step[] = [
 
 const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
 
-export const beltScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "belt-mobile",
     route: "/history",

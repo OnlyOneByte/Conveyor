@@ -12,5 +12,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "scenes/*.ts", "steps/*.ts"]
 }

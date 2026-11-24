@@ -10,6 +10,7 @@ import {
   type IN_FLIGHT_STATES,
   inImmediate,
   type QueueTiming,
+  RELEASED_LEASE,
 } from "./lease.js";
 
 export type ReapOutcome = "requeued" | "canceled" | "failed" | "unknown" | "orphaned";
@@ -60,8 +61,6 @@ function reasonOf(row: ReapRow, outcome: "failed" | "unknown"): string {
     : `worker lost the job ${row.attempts} times before it reached the printer`;
 }
 
-const TAKE_OVER = "lease_owner = NULL, lease_until = NULL, lease_token = lease_token + 1";
-
 export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING): ReapedJob[] {
   return inImmediate(db, timing.now, (at) => {
     const rows = db
@@ -76,22 +75,22 @@ export function reapExpired(db: Database, timing: QueueTiming = DEFAULT_TIMING):
     return rows.map((row) => {
       const outcome = outcomeOf(row);
       if (outcome === "orphaned") {
-        db.query(`UPDATE jobs SET ${TAKE_OVER}, updated_at = ? WHERE id = ?`).run(at, row.id);
+        db.query(`UPDATE jobs SET ${RELEASED_LEASE}, updated_at = ? WHERE id = ?`).run(at, row.id);
       } else if (outcome === "requeued") {
         const runAfter = at + timing.backoffBaseMs * 2 ** Math.max(row.attempts - 1, 0);
         db.query(
-          `UPDATE jobs SET ${TAKE_OVER}, ${CLEAR_PROGRESS}, state = 'queued', run_after = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE jobs SET ${RELEASED_LEASE}, ${CLEAR_PROGRESS}, state = 'queued', run_after = ?, updated_at = ? WHERE id = ?`,
         ).run(runAfter, at, row.id);
         appendEvent(db, { jobId: row.id, state: "queued", at });
       } else if (outcome === "canceled") {
         db.query(
-          `UPDATE jobs SET ${TAKE_OVER}, state = 'canceled', updated_at = ? WHERE id = ?`,
+          `UPDATE jobs SET ${RELEASED_LEASE}, state = 'canceled', updated_at = ? WHERE id = ?`,
         ).run(at, row.id);
         appendEvent(db, { jobId: row.id, state: "canceled", at });
       } else {
         const error = { stage: stageOf(row.state), reason: reasonOf(row, outcome) };
         db.query(
-          `UPDATE jobs SET ${TAKE_OVER}, state = 'failed', error_json = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE jobs SET ${RELEASED_LEASE}, state = 'failed', error_json = ?, updated_at = ? WHERE id = ?`,
         ).run(JSON.stringify(error), at, row.id);
         appendEvent(db, { jobId: row.id, state: "failed", stage: error.stage, error, at });
         if (outcome === "unknown") {

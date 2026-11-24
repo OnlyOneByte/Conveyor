@@ -1,7 +1,13 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { holdWriteLock, type QueueHarness, queueHarness } from "../../test/helpers/queue.ts";
-import { claimJob, DEFAULT_TIMING, releaseLease, renewLease } from "./lease.ts";
+import {
+  claimJob,
+  DEFAULT_TIMING,
+  releaseLease,
+  renewLease,
+  UNREADABLE_PARAMS_REASON,
+} from "./lease.ts";
 import { tailEvents } from "./status.ts";
 
 let h: QueueHarness;
@@ -90,6 +96,50 @@ describe("claimJob", () => {
     other.close();
     expect(seen.size).toBe(20);
     expect(seen.has("none")).toBe(false);
+  });
+
+  test("fails a queued job whose stored parameters don't parse and claims the one behind it", () => {
+    h = queueHarness();
+    h.enqueue("corrupt");
+    h.enqueue("good", "p2");
+    h.set("corrupt", `params_json = '{"gridx":'`);
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("good");
+    const error = { stage: "generator", reason: UNREADABLE_PARAMS_REASON } as const;
+    expect(h.row("corrupt")).toMatchObject({
+      state: "failed",
+      stage: "generator",
+      error_json: JSON.stringify(error),
+      lease_owner: null,
+    });
+    const events = tailEvents(h.db, "corrupt", 0, 100).map((e) => e.event);
+    expect(events.at(-1)).toEqual({
+      jobId: "corrupt",
+      state: "failed",
+      stage: "generator",
+      error,
+      at: h.timing.now(),
+    });
+    expect(claimJob(h.db, "w1", h.timing)).toBeNull();
+  });
+
+  test("fails every corrupt queued job in a row in one claim, then claims the next good one", () => {
+    h = queueHarness();
+    h.enqueue("corrupt-1");
+    h.enqueue("corrupt-2", "p2");
+    h.enqueue("good", "p3");
+    h.set("corrupt-1", "params_json = '['");
+    h.set("corrupt-2", "params_json = 'nope'");
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("good");
+    for (const id of ["corrupt-1", "corrupt-2"]) expect(h.row(id).state).toBe("failed");
+  });
+
+  test("resumes a submitted job without its parameters when they don't parse", () => {
+    h = queueHarness();
+    h.enqueue("orphan");
+    h.set("orphan", `state = 'printing', submitted_at = 1, params_json = 'not json'`);
+    const claimed = claimJob(h.db, "w1", h.timing);
+    expect(claimed).toMatchObject({ state: "printing", resumed: true });
+    expect(claimed?.request.generator).toEqual({ id: "gen", params: undefined });
   });
 });
 

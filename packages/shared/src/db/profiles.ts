@@ -16,32 +16,35 @@ interface ProfileRow {
   name: string;
   path: string;
   gcode_flavor: string;
-  orca_machine_json: string | null;
-  orca_process_json: string | null;
-  orca_filament_json: string | null;
-  prusa_ini: string | null;
+  is_edited: number;
 }
 
+const PROFILE_COLUMNS = `id, slicer_id, name, path, gcode_flavor,
+  (orca_machine_json IS NOT NULL AND orca_process_json IS NOT NULL AND orca_filament_json IS NOT NULL)
+    OR prusa_ini IS NOT NULL AS is_edited`;
+
 function rowToProfile(r: ProfileRow): Profile {
-  const orcaEdited =
-    r.orca_machine_json !== null && r.orca_process_json !== null && r.orca_filament_json !== null;
-  const prusaEdited = r.prusa_ini !== null;
   return {
     id: r.id,
     slicerId: r.slicer_id,
     name: r.name,
     path: r.path,
     gcodeFlavor: r.gcode_flavor,
-    ...(orcaEdited || prusaEdited ? { hasEditableContent: true } : {}),
+    ...(r.is_edited === 1 ? { hasEditableContent: true } : {}),
   };
 }
 
 export function dbListProfiles(db: Database): Profile[] {
-  return (db.query("SELECT * FROM profiles ORDER BY name").all() as ProfileRow[]).map(rowToProfile);
+  return db
+    .query<ProfileRow, []>(`SELECT ${PROFILE_COLUMNS} FROM profiles ORDER BY name`)
+    .all()
+    .map(rowToProfile);
 }
 
 export function dbGetProfile(db: Database, id: string): Profile | null {
-  const row = db.query("SELECT * FROM profiles WHERE id = ?").get(id) as ProfileRow | null;
+  const row = db
+    .query<ProfileRow, [string]>(`SELECT ${PROFILE_COLUMNS} FROM profiles WHERE id = ?`)
+    .get(id);
   return row ? rowToProfile(row) : null;
 }
 

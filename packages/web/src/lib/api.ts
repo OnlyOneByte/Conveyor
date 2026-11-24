@@ -121,16 +121,17 @@ export async function logout(): Promise<void> {
   await fetch(`${API}/auth/logout`, { method: "POST" });
 }
 
-// ─── Catalog (printers / profiles) ──────────────────────────────────────────
 export interface CatalogPrinter {
   id: string;
   transportId: string;
   name: string;
   address: string;
   hasSecrets: boolean;
-  /** generator ids this printer accepts; undefined = no restriction, [] = none */
   allowedGenerators?: string[];
+  lastSeenAt?: number;
+  lastCheckedAt?: number;
 }
+type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt"> & { secrets?: Record<string, string> | null };
 export interface CatalogProfile {
   id: string;
   slicerId: string;
@@ -249,8 +250,7 @@ export async function fetchJobHistoryEntry(
   return r.json() as Promise<JobHistoryEntry>;
 }
 
-export const savePrinter = (p: Omit<CatalogPrinter, "hasSecrets"> & { secrets?: Record<string, string> }) =>
-  putJson(`${API}/catalog/printers`, p);
+export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
 
 /**
