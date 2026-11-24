@@ -1,15 +1,38 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { exhaustive, isTerminal, JOB_STREAM_CLOSE, type JobStatusEvent } from "@conveyor/shared";
-import { openDb } from "@conveyor/shared/db";
+import {
+  exhaustive,
+  isTerminal,
+  JOB_STREAM_CLOSE,
+  type JobStatusEvent,
+  parseStatusEvent,
+} from "@conveyor/shared";
+import { dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import { enqueueJob, readSnapshot, requestCancel, tailEvents } from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
+import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
+
+type ActiveRow = {
+  id: string;
+  printer_id: string | null;
+  generator_id: string;
+  created_at: number;
+};
+
+function latestPrint(db: Database, jobId: string): JobStatusEvent["print"] {
+  const row = db
+    .query<{ event: string }, [string]>(
+      "SELECT event FROM job_events WHERE job_id = ? ORDER BY seq DESC LIMIT 1",
+    )
+    .get(jobId);
+  return row ? parseStatusEvent(row.event)?.print : undefined;
+}
 
 export interface TailOptions {
   fastMs: number;
@@ -52,22 +75,37 @@ export async function registerJobRoutes(
     return reply.code(202).send({ jobId });
   });
 
-  app.get("/jobs/active", async () =>
-    db
-      .query<{ id: string }, []>(
-        `SELECT id FROM jobs WHERE state NOT IN ('done', 'failed', 'canceled')
+  app.get("/jobs/active", async () => {
+    const jobs = db
+      .query<ActiveRow, []>(
+        `SELECT id, printer_id, generator_id, created_at FROM jobs
+          WHERE state NOT IN ('done', 'failed', 'canceled')
           ORDER BY updated_at DESC, rowid DESC`,
       )
       .all()
-      .flatMap(({ id }) => {
+      .flatMap((row): ActiveJob[] => {
         try {
-          return readSnapshot(db, id)?.snapshot ?? [];
+          const snapshot = readSnapshot(db, row.id)?.snapshot;
+          const { printer_id, generator_id: generatorId, created_at: createdAt } = row;
+          const event = snapshot && { ...snapshot, print: latestPrint(db, row.id) };
+          return event ? [{ event, printerId: printer_id ?? "", generatorId, createdAt }] : [];
         } catch (err) {
-          app.log.error({ err, jobId: id }, "unreadable job skipped in /jobs/active");
+          app.log.error({ err, jobId: row.id }, "unreadable job skipped in /jobs/active");
           return [];
         }
-      }),
-  );
+      });
+    const held = new Set(
+      db
+        .query<{ id: string }, []>("SELECT id FROM printers WHERE hold_job_id IS NOT NULL")
+        .all()
+        .map((p) => p.id),
+    );
+    const inputs = {
+      typical: (job: ActiveJob) => dbTypicalStageMs(db, job),
+      isHeld: held.has.bind(held),
+    };
+    return withEstimates(jobs, inputs, tail.now());
+  });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     const read = readSnapshot(db, req.params.id);
