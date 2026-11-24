@@ -57,6 +57,12 @@ export function merge(chips: Placed[], railPx: number, previous: Group[] = [], g
       last.x = last.members.reduce((sum, m) => sum + m.x, 0) / last.members.length;
       last.width = groupWidth(last.members);
     } else groups.push({ members: [chip], x: chip.x, width: chip.width });
+    while (groups.length > 1) {
+      const [a, b] = groups.slice(-2);
+      if (!a || !b || b.x - b.width / 2 - (a.x + a.width / 2) >= JOIN_PX) break;
+      const members = [...a.members, ...b.members];
+      groups.splice(-2, 2, { members, x: members.reduce((sum, m) => sum + m.x, 0) / members.length, width: groupWidth(members) });
+    }
   }
   return groups.map(({ members, x, width }) => ({
     ids: members.map((m) => m.id),
