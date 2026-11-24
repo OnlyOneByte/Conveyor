@@ -122,6 +122,17 @@ describe("claimJob", () => {
     expect(claimJob(h.db, "w1", h.timing)).toBeNull();
   });
 
+  test("fails every corrupt queued job in a row in one claim, then claims the next good one", () => {
+    h = queueHarness();
+    h.enqueue("corrupt-1");
+    h.enqueue("corrupt-2", "p2");
+    h.enqueue("good", "p3");
+    h.set("corrupt-1", "params_json = '['");
+    h.set("corrupt-2", "params_json = 'nope'");
+    expect(claimJob(h.db, "w1", h.timing)?.lease.jobId).toBe("good");
+    for (const id of ["corrupt-1", "corrupt-2"]) expect(h.row(id).state).toBe("failed");
+  });
+
   test("resumes a submitted job without its parameters when they don't parse", () => {
     h = queueHarness();
     h.enqueue("orphan");

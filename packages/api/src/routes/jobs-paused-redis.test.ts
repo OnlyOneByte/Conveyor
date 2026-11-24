@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -83,4 +84,20 @@ describe.skipIf(!url)("submitting a job while Redis stops answering", () => {
     expect(await queue.jobQueue.getJob(jobId)).toBeUndefined();
     await admin.del(jobCancelKey(jobId));
   });
+
+  test(
+    "answers job reads with 503 within the deadline while Redis answers nothing",
+    async () => {
+      for (const url of ["/jobs/active", `/jobs/${randomUUID()}`]) {
+        await admin.client("PAUSE", PAUSE_MS, "ALL");
+        const started = Date.now();
+        const res = await app.inject({ method: "GET", url });
+        const tookMs = Date.now() - started;
+        expect({ url, status: res.statusCode }).toEqual({ url, status: 503 });
+        expect(tookMs).toBeLessThan(PAUSE_MS);
+        expect(await admin.ping()).toBe("PONG");
+      }
+    },
+    PAUSE_MS * 4,
+  );
 });

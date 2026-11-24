@@ -38,6 +38,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   for (const spy of Object.values(fakes)) spy.mockClear();
+  connection.status = "ready";
 });
 
 afterAll(async () => {
@@ -64,6 +65,27 @@ describe("POST /jobs when the enqueue fails", () => {
     const jobId = fakes.add.mock.calls[0]?.[2]?.jobId ?? "";
     expect(fakes.remove).toHaveBeenCalledWith(jobId);
     expect(fakes.set).toHaveBeenCalledWith(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS);
+  });
+
+  test("logs each cleanup step that fails, naming the job", async () => {
+    fakes.remove.mockRejectedValueOnce(new Error("Command timed out"));
+    const logged = spyOn(app.log, "error");
+    expect((await submit()).statusCode).toBe(503);
+    await until(() => logged.mock.calls.length > 0);
+    const jobId = fakes.add.mock.calls[0]?.[2]?.jobId ?? "";
+    expect(logged.mock.calls).toEqual([
+      [{ err: new Error("Command timed out"), jobId }, "abandoned job remove failed"],
+    ]);
+    logged.mockRestore();
+  });
+
+  test("skips the cleanup when the queue connection is down, since the add never left", async () => {
+    connection.status = "reconnecting";
+    expect((await submit()).statusCode).toBe(503);
+    await until(() => fakes.ready.mock.calls.length > 0);
+    await Bun.sleep(0);
+    expect(fakes.remove).not.toHaveBeenCalled();
+    expect(fakes.set).not.toHaveBeenCalled();
   });
 
   test("still answers 503 when the queue never comes up to drop the job", async () => {

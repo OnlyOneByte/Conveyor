@@ -332,7 +332,13 @@ prepared for a held printer until someone checks the printer and releases it.
 Three clients. `connection` backs the BullMQ `Queue`, and `redis` serves snapshot reads and cancel writes.
 Both fail fast: no offline queue, no retries, and nothing re-sent after a reconnect (`enableOfflineQueue: false`,
 `maxRetriesPerRequest: 0`, `autoResendUnfulfilledCommands: false`), so a command written while Redis is down is
-refused at once instead of being sent later. `redis` also has `commandTimeout: QUEUE_DEADLINE_MS` (2 s). The
+refused at once instead of being sent later. Both also have `socketTimeout: SOCKET_TIMEOUT_MS` (3 s): a socket
+that has a command waiting and receives nothing for 3 s is torn down and reconnected. Without it, a reconnect
+that lands while Redis is shutting down can be accepted and then never answered, and the client sits in its
+handshake for good, so every submit is 503 until the api restarts. `routes/redis-restart-boot.test.ts`
+reproduces that with a proxy that drops every connection, then accepts and ignores the next ones for 0.5 s,
+and checks submits are accepted again after each of three restarts. `redis` also has
+`commandTimeout: QUEUE_DEADLINE_MS` (2 s). The
 api never blocks on the queue, so `connection` doesn't need BullMQ's `maxRetriesPerRequest: null`, which is
 for workers. `createSubscriber` makes the status hub's subscriber, which keeps ioredis' defaults so it
 resubscribes after a reconnect.
@@ -354,7 +360,16 @@ command once it resumes. So the route answers 503 and, once the queue is up, rem
 covers a worker that took the job in between: the worker checks it before every stage and settles the job
 `canceled` without making or printing anything. A retry's claim on the failed job is released, as on any
 enqueue error. `routes/redis-down-boot.test.ts` boots the api with Redis refused, and
-`routes/jobs-paused-redis.test.ts` pauses a real Redis (`CLIENT PAUSE WRITE`) across a submit.
+`routes/jobs-paused-redis.test.ts` pauses a real Redis across a submit (`CLIENT PAUSE WRITE`) and across
+the job reads (`CLIENT PAUSE ALL`, which `commandTimeout` answers). `routes/jobs-queue-deadline.test.ts` gives
+the routes a BullMQ queue that never answers and checks `GET /jobs/active`, `GET /jobs/:id`, cancel and
+deleting a printer all answer within the deadline. The cleanup runs only while `connection` is `ready`: when
+it isn't, the `add` was refused before it left, so there is nothing to drop. Each cleanup step that fails is
+logged with the job id (`abandoned job remove failed`, `abandoned job cancel flag failed`), since that job may
+still run. Skipping the cleanup while the connection is down is only safe because of
+`autoResendUnfulfilledCommands: false`: an `add` in flight when the connection drops is rejected, never re-sent
+after the reconnect, so the only late `add` left is one Redis already ran (the known limit below). No test
+drops a connection mid-`add`; the option is covered by review, not by a test.
 Known limit: if Redis runs the `add` and then dies before replying, the job can survive with no flag.
 
 ## Image (`Dockerfile`)

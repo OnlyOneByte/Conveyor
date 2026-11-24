@@ -38,6 +38,21 @@ export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
 
 const reachableJobs: JobLookup = { getJob: (id) => reach(jobQueue.getJob(id)) };
 
+async function dropAbandoned(app: FastifyInstance, jobId: string): Promise<void> {
+  if (connection.status !== "ready") return;
+  const [removed, flagged] = await Promise.allSettled([
+    jobQueue.remove(jobId),
+    connection.set(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS),
+  ]);
+  for (const [step, outcome] of [
+    ["remove", removed],
+    ["cancel flag", flagged],
+  ] as const) {
+    if (outcome.status === "rejected")
+      app.log.error({ err: outcome.reason, jobId }, `abandoned job ${step} failed`);
+  }
+}
+
 async function enqueue(app: FastifyInstance, jobId: string, request: JobRequest): Promise<void> {
   try {
     await reach(jobQueue.add("job", request, { jobId }));
@@ -47,11 +62,7 @@ async function enqueue(app: FastifyInstance, jobId: string, request: JobRequest)
       "enqueue failed; removing the job and flagging it canceled if it lands",
     );
     void jobQueue.waitUntilReady().then(
-      () =>
-        Promise.allSettled([
-          jobQueue.remove(jobId),
-          connection.set(jobCancelKey(jobId), "1", "EX", CANCEL_TTL_SECONDS),
-        ]),
+      () => dropAbandoned(app, jobId),
       (initErr: unknown) =>
         app.log.error({ err: initErr, jobId }, "queue never came up to drop the job"),
     );

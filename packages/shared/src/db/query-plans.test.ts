@@ -44,6 +44,13 @@ describe("the queries the belt polls", () => {
     expect(plan).toContain("USING INDEX idx_jobs_history (updated_at>? AND updated_at<?)");
   });
 
+  test("history counts with no window are left to the planner, not forced onto idx_jobs_history", () => {
+    for (const filter of [{}, { printerId: "p1" }]) {
+      const [plan] = plansOf(db, () => dbCountJobs(db, filter));
+      expect(plan).not.toContain("idx_jobs_history");
+    }
+  });
+
   test("a job target looks up its printer and profile by primary key", () => {
     const plans = plansOf(db, () => dbResolveJobTarget(db, "p1", "prof"));
     expect(plans).toEqual([

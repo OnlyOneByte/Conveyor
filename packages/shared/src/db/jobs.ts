@@ -115,9 +115,11 @@ export function dbListJobs(db: Database, page: HistoryPage = { limit: 50 }): Job
 export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCounts {
   const { sql, params } = historyWhere(filter);
   const counts: HistoryCounts = { done: 0, failed: 0, canceled: 0 };
+  const windowed = filter.since !== undefined || filter.until !== undefined;
+  const index = windowed ? "INDEXED BY idx_jobs_history" : "";
   const rows = db
     .query<{ state: HistoryState; n: number }, SqlParam[]>(
-      `SELECT state, COUNT(*) AS n FROM jobs INDEXED BY idx_jobs_history WHERE ${sql} GROUP BY state`,
+      `SELECT state, COUNT(*) AS n FROM jobs ${index} WHERE ${sql} GROUP BY state`,
     )
     .all(...params);
   for (const row of rows) counts[row.state] = row.n;
