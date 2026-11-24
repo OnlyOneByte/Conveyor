@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   model_path    TEXT,
   gcode_path    TEXT,
   timings_json  TEXT,
+  filament_json TEXT,
   notes         TEXT,
   dismissed_at  INTEGER,
   created_at    INTEGER NOT NULL,

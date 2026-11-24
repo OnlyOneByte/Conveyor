@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
-import type { Job, JobState, JobTarget, StageTiming } from "../job.js";
+import { z } from "zod";
+import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
 import type { Stage } from "../plugins.js";
 import { dbListPrinters } from "./printers.js";
 import { dbListProfiles } from "./profiles.js";
@@ -36,10 +37,25 @@ interface JobRow {
   model_path: string | null;
   gcode_path: string | null;
   timings_json: string | null;
+  filament_json: string | null;
   notes: string | null;
   dismissed_at: number | null;
   created_at: number;
   updated_at: number;
+}
+
+const filamentSchema = z.object({
+  grams: z.number().nonnegative().optional(),
+  metres: z.number().nonnegative().optional(),
+});
+
+function filamentOf(json: string | null): FilamentUse | undefined {
+  if (!json) return undefined;
+  try {
+    return filamentSchema.parse(JSON.parse(json));
+  } catch {
+    return undefined;
+  }
 }
 
 function rowToJob(r: JobRow): Job {
@@ -58,6 +74,7 @@ function rowToJob(r: JobRow): Job {
     error: r.error_json ? JSON.parse(r.error_json) : undefined,
     artifacts: { model: r.model_path ?? undefined, gcode: r.gcode_path ?? undefined },
     timings: r.timings_json ? (JSON.parse(r.timings_json) as StageTiming[]) : undefined,
+    filament: filamentOf(r.filament_json),
     notes: r.notes ?? undefined,
     dismissedAt: r.dismissed_at ?? undefined,
     createdAt: r.created_at,
@@ -77,18 +94,19 @@ export interface SettledJob {
   modelPath?: string;
   gcodePath?: string;
   timings?: StageTiming[];
+  filament?: FilamentUse;
   notes?: string;
 }
 
 export function dbRecordJob(db: Database, job: SettledJob): void {
   const now = Date.now();
   db.prepare(
-    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, timings_json, notes, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `INSERT INTO jobs (id, generator_id, params_json, printer_id, profile_id, state, stage, error_json, model_path, gcode_path, timings_json, filament_json, notes, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        state=excluded.state, stage=excluded.stage, error_json=excluded.error_json,
        model_path=excluded.model_path, gcode_path=excluded.gcode_path,
-       timings_json=excluded.timings_json, notes=excluded.notes, updated_at=excluded.updated_at`,
+       timings_json=excluded.timings_json, filament_json=excluded.filament_json, notes=excluded.notes, updated_at=excluded.updated_at`,
   ).run(
     job.id,
     job.generatorId,
@@ -101,6 +119,7 @@ export function dbRecordJob(db: Database, job: SettledJob): void {
     job.modelPath ?? null,
     job.gcodePath ?? null,
     job.timings?.length ? JSON.stringify(job.timings) : null,
+    job.filament ? JSON.stringify(job.filament) : null,
     job.notes ?? null,
     now,
     now,

@@ -52,7 +52,7 @@ async function writeHistory(run: Run, outcome: TerminalRecord): Promise<Error | 
   for (let attempt = 0; attempt < HISTORY_ATTEMPTS; attempt++) {
     if (attempt > 0) await delay(baseMs * 2 ** (attempt - 1));
     try {
-      run.deps.record(run.opts.jobId, run.opts.req, outcome);
+      run.deps.record(run.opts.jobId, run.opts.req, { ...outcome, filament: run.filament });
       return undefined;
     } catch (err) {
       lastError = err;
