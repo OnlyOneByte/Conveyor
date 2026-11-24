@@ -367,11 +367,13 @@ jobs:
             -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "https://localhost/api/jobs/$id/ws" || true)
           echo "websocket: $ws"
           test "$ws" = 101
-          for page in "/jobs/$id" /jobs /history; do
-            api -o page.html -w '%{http_code} %{content_type}\n' -H 'Accept: application/json' "https://localhost$page" | tee code.txt
-            grep -qE '^(200|404) text/html' code.txt
+          page() {
+            api -o page.html -w '%{http_code} %{content_type}\n' -H 'Accept: application/json' "https://localhost$2" | tee code.txt
+            grep -qE "^$1 text/html" code.txt
             grep -qi '<!doctype html>' page.html
-          done
+          }
+          page 200 /history
+          for path in "/jobs/$id" /jobs; do page '(200|404)' "$path"; done
       - name: The api keys the real client, not Caddy or a forged header
         run: |
           login() {

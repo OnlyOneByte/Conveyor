@@ -186,7 +186,7 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 
 This applies only to the default Redis queue, and only if the job queue was paused. Conveyor never pauses it itself, so a pause comes from someone running `pause()` or a BullMQ admin tool by hand.
 
-Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
+Resume a paused queue before upgrading to the release that moves to BullMQ 6 (#267). BullMQ 5 keeps the jobs of a paused queue in a separate list that BullMQ 6 no longer reads. So after the upgrade, every job that was waiting in that queue is invisible to the job lists until the queue is resumed, whether it was added before or during the pause. That means `/api/jobs/active` leaves those jobs out, and deleting a printer or profile doesn't count them as in use.
 
 Check before upgrading. This prints `1` when the queue is paused and nothing when it isn't:
 

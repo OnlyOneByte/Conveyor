@@ -10,7 +10,7 @@ same PR.
 flowchart LR
   B[Browser PWA] -->|https| C[Caddy]
   C -->|page routes| W[web: SvelteKit]
-  C -->|/jobs /generators /uploads /auth /catalog| A[api: Fastify]
+  C -->|/api/*, prefix stripped| A[api: Fastify]
   A -->|enqueue, read snapshot, subscribe| R[(Redis: BullMQ + pub/sub)]
   K[worker: BullMQ Worker] -->|claim job, publish status| R
   A --> D[(SQLite /data/conveyor.db)]
@@ -55,13 +55,13 @@ Contracts are in [PLUGINS.md](PLUGINS.md).
 
 ## A job's trip
 
-1. The PWA posts `{ generator, params, printerId, profileId }` to `POST /jobs`.
+1. The PWA posts `{ generator, params, printerId, profileId }` to `POST /api/jobs`.
 2. The api resolves the printer → transport and the profile → slicer, runs `validateJobRequest`, enqueues on
    BullMQ and answers `202 { jobId }`. The PWA opens `/api/jobs/:id/ws`, which Caddy hands to the api as `/jobs/:id/ws`.
 3. The worker claims the job and publishes `generating`, `slicing`, `transferring`, then printer progress.
    Artifacts land in `/data/<jobId>/` and pass between stages as path handles.
 4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until something deletes it.
-5. `POST /jobs/:id/cancel` cancels; `GET /jobs/:id/artifact/:kind` downloads the STL or g-code.
+5. `POST /api/jobs/:id/cancel` cancels; `GET /api/jobs/:id/artifact/:kind` downloads the STL or g-code.
 
 Full sequence with failure paths: [SEQUENCE.md](SEQUENCE.md).
 

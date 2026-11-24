@@ -4,6 +4,9 @@ The REST and WebSocket front door. It validates requests, serves the catalog and
 It never runs a plugin's `generate()`, `slice()` or `submit()`: those run only in the worker
 ([ADR 0001](../adr/0001-plugin-isolation.md)).
 
+The routes on this page are the api's own paths. Browsers and scripts reach them through Caddy under `/api`, which
+Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from outside.
+
 ## Boot order (`index.ts`)
 
 `index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
