@@ -104,7 +104,7 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     const lost: News[] = [];
     const ends = await Promise.all(gone.map(async (job) => {
       const event = await feed.final(job.id).catch(() => {
-        lost.push({ level: "polite", text: `${shortName(job.name)} left the belt; its job page has how it ended` });
+        lost.push({ level: "polite", text: `${shortName(job.name)} left the belt; its job page has how it ended`, ended: job.id });
         return null;
       });
       return event ? [trackJob(event, job)] : [];
