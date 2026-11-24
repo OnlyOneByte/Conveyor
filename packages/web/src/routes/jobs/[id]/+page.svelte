@@ -2,16 +2,17 @@
   import { Canvas } from "@threlte/core";
   import { ACESFilmicToneMapping } from "three";
   import { onDestroy } from "svelte";
-  import { goto, invalidateAll } from "$app/navigation";
+  import { afterNavigate, goto, invalidateAll, replaceState } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
   import { titled } from "#lib/belt.js";
+  import CancelJob from "#lib/components/CancelJob.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import PreviewScene from "#lib/components/PreviewScene.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
-  import { followJob, pillText, SETTLED } from "#lib/job-live.js";
+  import { firstEnd, followJob, pillText, SETTLED } from "#lib/job-live.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
@@ -30,6 +31,9 @@
     stop = data.view ? followJob(data.view.jobId, (v) => (latest = v), settle) : () => {};
   }
   onDestroy(() => stop());
+  afterNavigate(({ to }) => {
+    if (to && location.pathname !== to.url.pathname) replaceState(to.url, {});
+  });
   $: gen = data.generator;
   $: params = job?.request.generator.params ?? live?.generator?.params;
   $: schema = gen?.paramSchema ?? null;
@@ -63,7 +67,8 @@
   }
 
   function settle() {
-    if (data.view && !SETTLED.includes(data.view.state)) setTimeout(invalidateAll, 300);
+    const id = data.view && !SETTLED.includes(data.view.state) ? data.view.jobId : null;
+    if (id && firstEnd(id)) setTimeout(invalidateAll, 300);
   }
 </script>
 
@@ -84,6 +89,8 @@
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
       </button>
+    {:else if live}
+      {#key live.jobId}<CancelJob id={live.jobId} printing={live.state === "printing"} />{/key}
     {/if}
   </JobHead>
   {#if failure}
@@ -100,7 +107,7 @@
       {/if}
     </div>
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} />{/if}
+      {#if live}<JobProgress view={live} place={data.place} printer={data.printer} />{/if}
     </JobReceipt>
   </div>
 {/if}

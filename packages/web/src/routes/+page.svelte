@@ -14,6 +14,7 @@
   } from "#lib/api.js";
   import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
+  import { showMake } from "#lib/make-shown.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
@@ -25,6 +26,7 @@
   let profiles: CatalogProfile[] = data.profiles ?? [];
   let transports: CatalogTransport[] = data.transports ?? [];
 
+  onMount(showMake);
   onMount(async () => {
     if (page.url.searchParams.get("rerun")) {
       const r = takeRerun();
@@ -52,8 +54,6 @@
   let params: Record<string, unknown> = {};
   $: retryOf = linkedRetry(handoff, source, selectedGenId);
 
-  // Default the pickers once the catalog arrives (load resolves after first paint
-  // because ssr=false). Only fill empty selections so user choices stick.
   $: if (!selectedGenId && pickableGenerators.length) selectedGenId = pickableGenerators[0].id;
   // The generator actually being submitted — the Upload STL tab submits `passthrough`,
   // so an allowlist can restrict uploads too.

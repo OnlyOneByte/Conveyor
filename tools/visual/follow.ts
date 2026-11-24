@@ -26,3 +26,8 @@ export async function follow(page: Page, href: string): Promise<void> {
   if (kept !== token)
     throw new Error(`follow ${href}: the page reloaded instead of navigating in place`);
 }
+
+export async function travel(page: Page, way: "back" | "forward", lands?: string): Promise<void> {
+  await (way === "back" ? page.goBack() : page.goForward());
+  if (lands) await page.waitForURL((url) => `${url.pathname}${url.search}` === lands);
+}

@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
-import { follow } from "./follow.ts";
+import { follow, travel } from "./follow.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
 import { assertHits, titleMismatch } from "./hits.ts";
@@ -77,7 +77,7 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
         ? route.fallback()
         : route.fulfill({ status: step.status, json: step.json }),
     );
-  else if ("history" in step) await (step.history === "back" ? page.goBack() : page.goForward());
+  else if ("history" in step) await travel(page, step.history, step.url);
   else if ("holds" in step) await assertHolds(page, step);
   else await page.waitForTimeout(step.wait);
 }
