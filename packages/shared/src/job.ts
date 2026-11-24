@@ -52,9 +52,12 @@ export interface Job {
   filament?: FilamentUse;
   notes?: string;
   dismissedAt?: number;
+  unreadable?: UnreadableColumn[];
   createdAt: number;
   updatedAt: number;
 }
+
+export type UnreadableColumn = "params" | "error" | "timings";
 
 export interface FilamentUse {
   grams?: number;
