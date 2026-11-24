@@ -2,7 +2,9 @@
   import { toasts } from "#lib/ui/behaviour.js";
   import Button from "#lib/ui/Button.svelte";
   import Dialog from "#lib/ui/Dialog.svelte";
+  import Field from "#lib/ui/Field.svelte";
   import Menu from "#lib/ui/Menu.svelte";
+  import Switch from "#lib/ui/Switch.svelte";
 
   let open = false;
   const items = ["Open job", "Print again", "Cancel"].map((label) => ({ label, run: () => toasts.show(label) }));
@@ -28,6 +30,14 @@
     <Button disabled>Disabled</Button>
   </div>
 </section>
+<section class="card grid">
+  <h2>Fields</h2>
+  <Field label="Name" value="Bin 2×3" hint="Shown on the belt and in Jobs." />
+  <Field label="Height" value="42" numeric unit="mm" />
+  <Field label="Width" value="0" numeric unit="u" error="Width must be at least 1." />
+  <Switch label="Spin the preview" checked />
+  <Switch label="Single-key shortcuts" />
+</section>
 
 <Dialog title="Cancel Bin 2×1?" bind:open>
   <p>The printer stops and the job moves to Canceled.</p>
@@ -40,4 +50,5 @@
 <style>
   section { margin-top: var(--s4); }
   .wrap { flex-wrap: wrap; }
+  .grid { display: grid; gap: var(--s4); max-width: 420px; }
 </style>

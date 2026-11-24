@@ -109,6 +109,12 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "primitives-fields",
+    route: "/primitives",
+    ready: "text=Fields",
+    steps: [{ click: "text=Single-key shortcuts" }, { click: "text=Name" }, { wait: 400 }],
+  },
+  {
     name: "primitives-keys",
     route: "/primitives",
     ready: "text=Primitives",
