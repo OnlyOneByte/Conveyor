@@ -92,6 +92,7 @@ describe("the auth guard on an api running the sqlite queue", () => {
 
   test("refuses the websocket upgrade without a session", async () => {
     const response = await fetch(`${base}/jobs/j1/ws`, {
+      keepalive: false,
       headers: {
         connection: "Upgrade",
         upgrade: "websocket",

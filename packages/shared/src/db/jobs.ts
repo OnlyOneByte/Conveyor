@@ -126,14 +126,59 @@ export function dbRecordJob(db: Database, job: SettledJob): void {
   );
 }
 
-export function dbListJobs(db: Database, limit = 50): Job[] {
-  return (
-    db
-      .query(
-        "SELECT * FROM jobs WHERE state IN ('done', 'failed', 'canceled') ORDER BY created_at DESC LIMIT ?",
-      )
-      .all(limit) as JobRow[]
-  ).map(rowToJob);
+export const HISTORY_STATES = ["done", "failed", "canceled"] as const;
+export type HistoryState = (typeof HISTORY_STATES)[number];
+export type HistoryCounts = Record<HistoryState, number>;
+
+export interface HistoryFilter {
+  printerId?: string;
+  since?: number;
+  until?: number;
+}
+
+export interface HistoryPage extends HistoryFilter {
+  limit: number;
+  state?: HistoryState;
+  before?: { updatedAt: number; id: string };
+}
+
+type SqlParam = string | number;
+
+function historyWhere(filter: Partial<HistoryPage>): { sql: string; params: SqlParam[] } {
+  const terms = ["state IN ('done', 'failed', 'canceled')"];
+  const params: SqlParam[] = [];
+  const add = (term: string, ...values: SqlParam[]) => {
+    terms.push(term);
+    params.push(...values);
+  };
+  if (filter.state) add("state = ?", filter.state);
+  if (filter.printerId !== undefined) add("printer_id = ?", filter.printerId);
+  if (filter.since !== undefined) add("updated_at >= ?", filter.since);
+  if (filter.until !== undefined) add("updated_at < ?", filter.until);
+  if (filter.before) add("(updated_at, id) < (?, ?)", filter.before.updatedAt, filter.before.id);
+  return { sql: terms.join(" AND "), params };
+}
+
+export function dbListJobs(db: Database, page: HistoryPage = { limit: 50 }): Job[] {
+  const { sql, params } = historyWhere(page);
+  return db
+    .query<JobRow, SqlParam[]>(
+      `SELECT * FROM jobs INDEXED BY idx_jobs_history WHERE ${sql} ORDER BY updated_at DESC, id DESC LIMIT ?`,
+    )
+    .all(...params, page.limit)
+    .map(rowToJob);
+}
+
+export function dbCountJobs(db: Database, filter: HistoryFilter = {}): HistoryCounts {
+  const { sql, params } = historyWhere(filter);
+  const counts: HistoryCounts = { done: 0, failed: 0, canceled: 0 };
+  const rows = db
+    .query<{ state: HistoryState; n: number }, SqlParam[]>(
+      `SELECT state, COUNT(*) AS n FROM jobs WHERE ${sql} GROUP BY state`,
+    )
+    .all(...params);
+  for (const row of rows) counts[row.state] = row.n;
+  return counts;
 }
 
 export function dbGetJob(db: Database, id: string): Job | null {

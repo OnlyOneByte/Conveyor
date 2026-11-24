@@ -1,12 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { dbUpsertProfile, openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { registerCatalogRoutes } from "./catalog";
 import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite";
 
 const previousDbPath = process.env.DB_PATH;
-process.env.DB_PATH = ":memory:";
+const dir = mkdtempSync(join(tmpdir(), "conveyor-catalog-"));
 
 const app = Fastify();
 let base = "";
@@ -40,13 +42,17 @@ const profile = (overrides: Record<string, string>) => ({
 });
 
 beforeAll(async () => {
+  process.env.DB_PATH = join(dir, "conveyor.db");
   await registerCatalogRoutes(app, countSqliteLiveJobs);
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
 afterAll(async () => {
   await app.close();
-  process.env.DB_PATH = previousDbPath;
+  openDb().close();
+  if (previousDbPath === undefined) delete process.env.DB_PATH;
+  else process.env.DB_PATH = previousDbPath;
+  rmSync(dir, { recursive: true, force: true });
 });
 
 describe("GET /catalog/printers", () => {

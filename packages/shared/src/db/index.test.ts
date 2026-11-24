@@ -109,6 +109,18 @@ openDb(${JSON.stringify(path)});`;
   });
 });
 
+describe("openDb's shared handle", () => {
+  test("is opened again when someone closed it, instead of being handed out closed", () => {
+    const path = freshPath();
+    const first = openDb(path);
+    expect(openDb(path)).toBe(first);
+    first.close();
+    const again = openDb(path);
+    expect(again).not.toBe(first);
+    expect(dbListPrinters(again)).toHaveLength(DEFAULT_PRINTERS.length);
+  });
+});
+
 describe("dbRecordJob notes", () => {
   const settled = {
     id: "job-1",
