@@ -98,6 +98,18 @@ export function value({ state, progress }: TrackJob): string {
   return `${Math.round((progress ?? 0) * 100)}%`;
 }
 
+export const ACTIONS: Partial<Record<JobState, string>> = {
+  queued: "Cancel",
+  generating: "Cancel",
+  slicing: "Cancel",
+  transferring: "Cancel",
+  printing: "Cancel",
+  failed: "Retry",
+  canceled: "Print again",
+};
+
+export const status = (job: TrackJob) => `${WORDS[job.state]}${job.printer ? ` on ${job.printer}` : ""}`;
+
 export const visible = (job: TrackJob) => `${shortName(job.name)} ${value(job)}`;
 
 export const chipName = (job: TrackJob) =>
