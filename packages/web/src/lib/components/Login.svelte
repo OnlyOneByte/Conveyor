@@ -43,7 +43,7 @@
 
 <div class="gate">
   <form class="card" on:submit|preventDefault={submit} aria-labelledby="signin-title">
-    <h1 id="signin-title">Sign in to Conveyor</h1>
+    <h1 id="signin-title">Sign in</h1>
     <p class="muted">Enter the password for this Conveyor.</p>
     <label for="password">Password</label>
     <div class="field" class:bad={error}>

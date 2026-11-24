@@ -117,7 +117,7 @@ header menu and at `/settings`. `/monitor` and the localStorage "from this brows
 | `/jobs/:id` | Job detail | The job's name | 40 px; this job's chip is outlined |
 | `/printers` | Printers | Printers | 40 px |
 | `/settings` | Settings | Settings | 40 px |
-| `/login` | Sign in | Sign in to Conveyor | None |
+| `/login` | Sign in | Sign in | None |
 
 Every route sets `<title>` to `<h1> · Conveyor` (#32). Under 760 px the nav is a bottom tab bar with the same three
 items (#31).

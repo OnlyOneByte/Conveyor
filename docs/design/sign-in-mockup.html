@@ -61,7 +61,7 @@ document.documentElement.dataset.theme = q.get("theme") || (matchMedia("(prefers
 document.getElementById("theme").onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light"; };
 const alert = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17v.5"/></svg>';
 const signIn = (wrong) => `<form class="card" onsubmit="return false" aria-labelledby="h1">
-  <h1 id="h1">Sign in to Conveyor</h1>
+  <h1 id="h1">Sign in</h1>
   <p>Enter the password for this Conveyor.</p>
   <label for="pw">Password</label>
   <div class="field ${wrong ? "bad focus" : ""}"><input id="pw" type="password" autocomplete="current-password" ${wrong ? 'aria-invalid="true" aria-describedby="pw-err"' : ""} value=""><button class="reveal" type="button" aria-controls="pw">Show</button></div>

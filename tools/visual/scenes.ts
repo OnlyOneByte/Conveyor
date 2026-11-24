@@ -155,13 +155,13 @@ export const scenes: Scene[] = [
   {
     name: "sign-in",
     route: "/",
-    ready: "text=Sign in to Conveyor",
+    ready: "h1 >> text=Sign in",
     signedOut: true,
   },
   {
     name: "sign-in-wrong",
     route: "/",
-    ready: "text=Sign in to Conveyor",
+    ready: "h1 >> text=Sign in",
     signedOut: true,
     steps: [
       { type: "#password", text: "not the password" },

@@ -6,7 +6,7 @@ import { stubSignedOut } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { pinHistoryRoute } from "./history.ts";
-import { assertHits } from "./hits.ts";
+import { assertHits, titleMismatch } from "./hits.ts";
 import { HEIGHTS, type Scene, type Step, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 
@@ -145,6 +145,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     await page.locator(scene.ready).first().waitFor({ timeout: 30000 });
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
+    const mismatch = await titleMismatch(page);
+    if (mismatch) throw new Error(mismatch);
   } catch (err) {
     result.error = messageOf(err);
   }
