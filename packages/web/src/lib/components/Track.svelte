@@ -120,7 +120,8 @@
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
   .idle { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); white-space: nowrap; }
   .off { top: 4px; z-index: 6; padding: var(--s1) var(--s2); border-radius: var(--r-control); background: var(--paper); color: var(--ink); box-shadow: var(--lift); }
-  .stale .chips, .stale .rail { opacity: 0.45; }
+  .stale .rail, .stale .chips :global(.ring) { opacity: 0.45; }
+  .stale .chips :global(.v) { color: var(--muted); }
   .measure { position: absolute; visibility: hidden; pointer-events: none; }
   @media (max-width: 759px) { .belt { grid-template-columns: 1fr 1fr; } .lane { grid-column: 1 / -1; grid-row: 1; } .stage { display: none; } }
 </style>

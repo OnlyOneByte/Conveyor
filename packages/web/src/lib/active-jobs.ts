@@ -1,5 +1,5 @@
 import type { JobView } from "@conveyor/shared";
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 
 export interface ActiveJobs {
   jobs: JobView[];
@@ -7,6 +7,7 @@ export interface ActiveJobs {
 }
 
 export const activeJobs = writable<ActiveJobs | null>(null);
+export const watchers = writable(0);
 
 export const shareActive =
   (fetchJobs: () => Promise<JobView[]>) =>
@@ -20,3 +21,10 @@ export const shareActive =
       throw err;
     }
   };
+
+export function watchActive(): () => void {
+  watchers.update((n) => n + 1);
+  return () => watchers.update((n) => n - 1);
+}
+
+export const unwatched = (covered: () => boolean) => () => covered() && get(watchers) === 0;

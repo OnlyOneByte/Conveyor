@@ -96,11 +96,11 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
       offline = true;
       stop();
       show([...known.values()], [], true);
-      tell([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw.` }]);
+      tell([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw` }]);
       return;
     }
     failures = 0;
-    if (offline) tell([{ level: "polite", text: "Conveyor is back." }]);
+    if (offline) tell([{ level: "polite", text: "Conveyor is back" }]);
     offline = false;
     const catalog = await feed.catalog().catch(() => null);
     const seen = new Set(live.map((view) => view.jobId));

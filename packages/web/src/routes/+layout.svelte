@@ -5,7 +5,7 @@
   import { page } from "$app/state";
   import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
-  import { shareActive } from "#lib/active-jobs.js";
+  import { shareActive, unwatched } from "#lib/active-jobs.js";
   import { createBelt, createTicker, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
@@ -54,7 +54,7 @@
   const refreshEnds = () => showApp && document.visibilityState === "visible" && void ends.refresh();
   const desk = createNewsDesk(announce);
   const belt = createBelt({ active: shareActive(fetchActiveJobs), final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended, offline) => ((beltJobs = jobs), (beltEnded = ended), (beltOffline = offline)), (news) => (desk(news), news.length && refreshEnds()));
-  const tick = createTicker(belt, () => showApp && document.visibilityState === "visible");
+  const tick = createTicker({ poll: () => belt.poll(), covered: unwatched(() => belt.covered()) }, () => showApp && document.visibilityState === "visible");
   onMount(() => {
     tick();
     refreshEnds();

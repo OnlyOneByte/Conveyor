@@ -31,7 +31,8 @@ submit it themselves.
   - **Sharing:** each answer goes into the `activeJobs` store, which `/monitor` and the queued job card read
     instead of polling themselves.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
-    on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
+    on the belt is on the rail with an open socket and no page is watching (`watchActive`; `/monitor` watches, so it
+    keeps 2 s). A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
     so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,

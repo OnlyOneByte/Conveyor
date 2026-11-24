@@ -179,13 +179,13 @@ describe("the belt's live feed", () => {
     expect([FAILS_TO_CLEAR, offline.at(-1), told]).toEqual([2, false, []]);
     await belt.poll();
     expect([shown.at(-1)?.map((job) => job.id), offline.at(-1), sockets.get("a")?.closed]).toEqual([["a"], true, true]);
-    expect(told).toEqual([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw.` }]);
+    expect(told).toEqual([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw` }]);
     await belt.poll();
     expect(told).toHaveLength(1);
     state.active = [view("a", "printing")];
     await belt.poll();
     expect([shown.at(-1)?.map((job) => job.state), offline.at(-1)]).toEqual([["printing"], false]);
-    expect(told.slice(1).map((news) => news.text)).toEqual(["Conveyor is back.", "Bin 2×3 · 6u started printing on Voron 2.4 at 14:05"]);
+    expect(told.slice(1).map((news) => news.text)).toEqual(["Conveyor is back", "Bin 2×3 · 6u started printing on Voron 2.4 at 14:05"]);
     state.active = null;
     await belt.poll();
     expect([offline.at(-1), told.length]).toEqual([false, 3]);

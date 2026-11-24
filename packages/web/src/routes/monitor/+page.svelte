@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { activeJobs } from "#lib/active-jobs.js";
+  import { activeJobs, watchActive } from "#lib/active-jobs.js";
   import { POLL_MS } from "#lib/belt.js";
   import { OFFLINE } from "#lib/track.js";
   import {
@@ -13,7 +13,6 @@
   } from "#lib/api.js";
 
   const REACH_MS = 15000;
-
   let printers: CatalogPrinter[] = [];
   let reach: Record<string, PrinterReachable | "checking"> = {};
   let now = Date.now();
@@ -51,6 +50,7 @@
     );
   }
 
+  onMount(watchActive);
   onMount(() => {
     void pollReach();
     reachTimer = setInterval(pollReach, REACH_MS);
