@@ -10,7 +10,10 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
     profileId: "orca/klipper-pla-0.2",
     state: "failed",
     stage: "transport",
-    error: { stage: "transport", reason: "printer 192.0.2.50 did not answer within 10 s" },
+    error: {
+      stage: "transport",
+      reason: "elegoo upload failed: Unable to connect. Is the computer able to access the url?",
+    },
   },
   {
     id: "seed-canceled",
