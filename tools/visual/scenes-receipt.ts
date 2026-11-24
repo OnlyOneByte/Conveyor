@@ -44,6 +44,7 @@ export const receiptScenes: Scene[] = [
     steps: [
       {
         fulfill: "**/api/jobs",
+        method: "POST",
         status: 409,
         json: {
           error: "retryOf: job seed-failed is already being retried",
@@ -84,6 +85,36 @@ export const receiptScenes: Scene[] = [
       { follow: "/?job=scene-b" },
       { waitFor: "text=printer went offline" },
       { scroll: "text=printer went offline" },
+      { wait: 800 },
+    ],
+  },
+  {
+    name: "print-forward",
+    route: "/history",
+    ready: "text=From this browser",
+    steps: [
+      { follow: "/" },
+      { waitFor: "text=Configure" },
+      { wait: 800 },
+      { fulfill: "**/api/jobs", method: "POST", status: 202, json: { jobId: "scene-forward" } },
+      {
+        fulfill: "**/api/jobs/scene-forward",
+        status: 200,
+        json: {
+          jobId: "scene-forward",
+          state: "printing",
+          stage: "transport",
+          progress: 0.42,
+          at: 1,
+        },
+      },
+      { click: "button.desktop-print:visible, .mobile-cta button:visible" },
+      { waitFor: "text=42%" },
+      { history: "back" },
+      { waitFor: "text=From this browser" },
+      { history: "forward" },
+      { waitFor: "text=42%" },
+      { scroll: "text=42%" },
       { wait: 800 },
     ],
   },
