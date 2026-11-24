@@ -3,15 +3,18 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
-  import { cancelJob, fetchActiveJobs, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
+  import { cancelJob, fetchActiveJobs, fetchJobHistory, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
   import { createBelt, POLL_MS } from "#lib/belt.js";
+  import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
   import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
   import Track from "#lib/components/Track.svelte";
-  import { shortName, type TrackJob } from "#lib/track.js";
+  import { stashRerun } from "#lib/rerun.js";
+  import type { TrackJob } from "#lib/track.js";
+  import { toasts } from "#lib/ui/behaviour.js";
   import { resolveTheme, theme } from "#lib/preferences.js";
   import Toasts from "#lib/ui/Toasts.svelte";
   import type { LayoutData } from "./$types";
@@ -36,8 +39,20 @@
   $: dark = resolveTheme($theme, osDark) === "dark";
 
   let beltJobs: TrackJob[] = [];
+  let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs) => (beltJobs = jobs), createNewsDesk(announce));
+  const ends = createEnds({ ...http, history: () => fetchJobHistory(), entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
+    show: (finished, failures) => ((finishedToday = finished), (needs = failures)),
+    toast: (text, action) => toasts.show(text, action),
+    say: (text, level) => void announce(text, level),
+    pick: ({ generator, printerId, profileId }) => {
+      stashRerun({ generatorId: generator.id, params: generator.params, printerId, profileId });
+      location.assign("/?rerun=1");
+    },
+  });
+  const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
+  const desk = createNewsDesk(announce);
+  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs) => (beltJobs = jobs), (news) => (desk(news), news.length && refreshEnds()));
   let polling = false;
   function tick() {
     if (polling || !showApp || document.visibilityState !== "visible") return;
@@ -46,17 +61,15 @@
   }
   onMount(() => {
     tick();
-    const timer = setInterval(tick, POLL_MS);
+    refreshEnds();
+    const timers = [setInterval(tick, POLL_MS), setInterval(refreshEnds, ENDS_MS)];
     document.addEventListener("visibilitychange", tick);
     return () => {
-      clearInterval(timer);
+      for (const timer of timers) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
       belt.stop();
     };
   });
-  const act = (job: TrackJob, action: string) => {
-    if (action === "Cancel") cancelJob(job.id).catch(() => announce(`Couldn't cancel ${shortName(job.name)}.`, "assertive"));
-  };
 
   async function signOut() {
     await logout();
@@ -88,7 +101,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Track jobs={beltJobs} onAction={act} />{/if}</div>
+  <div class="belt" id="belt">{#if showApp}<Track jobs={beltJobs} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
