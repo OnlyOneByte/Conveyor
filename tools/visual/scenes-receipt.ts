@@ -59,4 +59,32 @@ export const receiptScenes: Scene[] = [
       { wait: 1200 },
     ],
   },
+  {
+    name: "job-switch",
+    route: "/",
+    ready: "text=Configure",
+    steps: [
+      {
+        fulfill: "**/api/jobs/scene-a",
+        status: 200,
+        json: { jobId: "scene-a", state: "printing", stage: "transport", progress: 0.42, at: 1 },
+      },
+      {
+        fulfill: "**/api/jobs/scene-b",
+        status: 200,
+        json: {
+          jobId: "scene-b",
+          state: "failed",
+          error: { stage: "transport", reason: "printer went offline" },
+          at: 2,
+        },
+      },
+      { follow: "/?job=scene-a" },
+      { waitFor: "text=42%" },
+      { follow: "/?job=scene-b" },
+      { waitFor: "text=printer went offline" },
+      { scroll: "text=printer went offline" },
+      { wait: 800 },
+    ],
+  },
 ];

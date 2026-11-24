@@ -64,11 +64,23 @@ async function runStep(page: Page, step: Step, warnings: string[]): Promise<void
     await page.locator(step.scroll).first().scrollIntoViewIfNeeded({ timeout: 15000 });
   else if ("waitFor" in step) await waitForStep(page, step, warnings);
   else if ("hits" in step) await assertHits(page, step.hits, step.viewports);
+  else if ("follow" in step) await follow(page, step.follow);
   else if ("fulfill" in step)
     await page.route(step.fulfill, (route) =>
       route.fulfill({ status: step.status, json: step.json }),
     );
   else await page.waitForTimeout(step.wait);
+}
+
+async function follow(page: Page, href: string): Promise<void> {
+  await page.evaluate((target) => {
+    const link = document.createElement("a");
+    link.href = target;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  }, href);
+  await page.waitForURL((url) => `${url.pathname}${url.search}` === href);
 }
 
 async function waitForStep(
