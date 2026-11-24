@@ -4,7 +4,14 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dbGetPrinter, dbGetPrinterSecrets, dbUpsertPrinter, openDb } from "./index";
+import {
+  dbGetPrinter,
+  dbGetPrinterSecrets,
+  dbUpsertPrinter,
+  MAX_PRINTER_SECRETS,
+  openDb,
+  PrinterSecretsWriteError,
+} from "./index";
 import { resolveSecretsKey } from "./printer-secrets";
 import { SCHEMA_SQL } from "./schema.sql";
 
@@ -131,7 +138,7 @@ describe("printer secrets at rest", () => {
     );
   });
 
-  test("an upsert encrypts new secrets, keeps them when omitted and clears them on {}", () => {
+  test("an upsert encrypts new secrets, and keeps them when secrets is omitted or empty", () => {
     const db = reopen(dbWithPlaintextRows(), KEY_A);
     const printer = { id: "no-key", transportId: "moonraker", name: "N", address: "10.0.0.9" };
     dbUpsertPrinter(db, { ...printer, secrets: { apiKey: "fresh-key" } });
@@ -139,6 +146,65 @@ describe("printer secrets at rest", () => {
     dbUpsertPrinter(db, printer);
     expect(dbGetPrinterSecrets(db, "no-key")).toEqual({ ok: true, value: { apiKey: "fresh-key" } });
     dbUpsertPrinter(db, { ...printer, secrets: {} });
+    expect(dbGetPrinterSecrets(db, "no-key")).toEqual({ ok: true, value: { apiKey: "fresh-key" } });
+  });
+
+  test("an upsert merges secrets per key, and null removes one", () => {
+    const db = reopen(dbWithPlaintextRows(), KEY_A);
+    const printer = { id: "no-key", transportId: "elegoo", name: "N", address: "10.0.0.9" };
+    const secrets = () => dbGetPrinterSecrets(db, "no-key");
+    dbUpsertPrinter(db, { ...printer, secrets: { mainboardId: "board-1" } });
+    dbUpsertPrinter(db, { ...printer, secrets: { apiKey: "k1" } });
+    expect(secrets()).toEqual({ ok: true, value: { mainboardId: "board-1", apiKey: "k1" } });
+    dbUpsertPrinter(db, { ...printer, secrets: { apiKey: "k2", mainboardId: null } });
+    expect(secrets()).toEqual({ ok: true, value: { apiKey: "k2" } });
+    dbUpsertPrinter(db, { ...printer, secrets: { apiKey: null, absent: null } });
     expect(storedOf(db, "no-key")).toBeNull();
+    expect(dbGetPrinter(db, "no-key")?.hasSecrets).toBe(false);
+  });
+
+  test("an upsert refuses to merge past the limit, counting the stored secrets", () => {
+    const db = reopen(dbWithPlaintextRows(), KEY_A);
+    const printer = { id: "no-key", transportId: "moonraker", name: "N", address: "10.0.0.9" };
+    const keys = (from: number, to: number) =>
+      Object.fromEntries(Array.from({ length: to - from }, (_, i) => [`k${from + i}`, "v"]));
+    dbUpsertPrinter(db, { ...printer, secrets: keys(0, MAX_PRINTER_SECRETS) });
+    const before = storedOf(db, "no-key");
+    expect(() =>
+      dbUpsertPrinter(db, { ...printer, name: "Renamed", secrets: { extra: "v" } }),
+    ).toThrow(
+      new PrinterSecretsWriteError(
+        "TooManySecrets",
+        `secrets: at most ${MAX_PRINTER_SECRETS} secrets per printer, counting the ones already stored`,
+      ),
+    );
+    expect(storedOf(db, "no-key")).toBe(before ?? "missing");
+    expect(dbGetPrinter(db, "no-key")?.name).toBe("N");
+    dbUpsertPrinter(db, { ...printer, secrets: { k0: null, extra: "v" } });
+    expect(Object.keys(secretsOf(db) ?? {})).toHaveLength(MAX_PRINTER_SECRETS);
+  });
+
+  test("an upsert with secrets refuses a printer whose stored secrets don't decrypt, and changes nothing", () => {
+    const db = reopen(dbWithPlaintextRows(), KEY_A);
+    const printer = { id: "bad-shape", transportId: "moonraker", name: "B", address: "10.0.0.9" };
+    const before = storedOf(db, "bad-shape");
+    let thrown: unknown;
+    try {
+      dbUpsertPrinter(db, { ...printer, secrets: { apiKey: "new" } });
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(PrinterSecretsWriteError);
+    expect(thrown).toMatchObject({ kind: "StoredSecretsUnreadable" });
+    expect(storedOf(db, "bad-shape")).toBe(before ?? "missing");
+    expect(dbGetPrinter(db, "bad-shape")?.name).toBe("Bad shape");
+    dbUpsertPrinter(db, printer);
+    expect(dbGetPrinter(db, "bad-shape")?.name).toBe("B");
+    expect(storedOf(db, "bad-shape")).toBe(before ?? "missing");
   });
 });
+
+function secretsOf(db: Database): Record<string, string> | undefined {
+  const read = dbGetPrinterSecrets(db, "no-key");
+  return read.ok ? read.value : undefined;
+}

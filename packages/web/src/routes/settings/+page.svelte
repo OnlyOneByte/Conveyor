@@ -24,6 +24,7 @@
   } from "#lib/api.js";
   import { slicerFormat } from "@conveyor/shared";
   import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
+  import { secretFieldFor, secretsPatch } from "#lib/printer-secrets.js";
   import ThemePicker from "#lib/components/ThemePicker.svelte";
 
   const reducedMotion = prefersReducedMotion();
@@ -72,6 +73,7 @@
   let ppTransportId = "";
   let ppAddress = "";
   let ppSecret = "";
+  $: secretField = secretFieldFor(ppTransportId);
   // undefined vs [] is a real distinction, so the UI models it explicitly: the
   // toggle is "is there an allowlist at all", the set is its contents.
   let ppRestrict = false;
@@ -115,8 +117,7 @@
         name: ppName,
         transportId: ppTransportId,
         address: ppAddress,
-        // Omit entirely when blank so the API preserves any stored secret.
-        ...(ppSecret.trim() ? { secrets: { apiKey: ppSecret.trim() } } : {}),
+        ...secretsPatch(ppTransportId, ppSecret),
         // Omitted = no restriction. Sent as an array (possibly empty) when restricting.
         ...(ppRestrict ? { allowedGenerators: [...ppAllowed] } : {}),
       });
@@ -620,14 +621,10 @@
           <label>Address
             <input bind:value={ppAddress} placeholder="192.168.1.50:7125" />
           </label>
-          <label>API key / secret
-            <input type="password" bind:value={ppSecret} autocomplete="off"
-              placeholder={editingPrinter ? "leave blank to keep the stored secret" : "optional"} />
-          </label>
-          <p class="muted note">
-            Secrets are write-only — they are never sent back to the browser, so this
-            field always starts empty. Leaving it blank keeps whatever is stored.
-          </p>
+          <label>{secretField.label}<input type={secretField.hidden ? "password" : "text"} bind:value={ppSecret} autocomplete="off"
+            spellcheck="false" placeholder={editingPrinter ? "leave blank to keep the stored value" : secretField.hint} /></label>
+          <p class="muted note">Secrets are write-only — they are never sent back to the browser, so this field always
+            starts empty. Leaving it blank keeps whatever is stored, and saving one secret keeps the others.</p>
           <label class="check">
             <input type="checkbox" bind:checked={ppRestrict} />
             <span>Restrict which generators can print here</span>

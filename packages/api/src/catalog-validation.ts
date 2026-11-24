@@ -1,8 +1,9 @@
 import { isBundledProfilePath } from "@conveyor/shared";
+import { MAX_PRINTER_SECRETS } from "@conveyor/shared/db";
 import { z } from "zod";
 import { apiRegistry } from "./registry.js";
 
-export const MAX_SECRETS = 16;
+export const MAX_SECRETS = MAX_PRINTER_SECRETS;
 const MAX_SECRET_KEY_LENGTH = 64;
 export const MAX_SECRET_VALUE_LENGTH = 4096;
 
@@ -24,7 +25,10 @@ const profileSchema = z.object({
 });
 
 const secretsSchema = z
-  .record(z.string().min(1).max(MAX_SECRET_KEY_LENGTH), z.string().max(MAX_SECRET_VALUE_LENGTH))
+  .record(
+    z.string().min(1).max(MAX_SECRET_KEY_LENGTH),
+    z.string().max(MAX_SECRET_VALUE_LENGTH).nullable(),
+  )
   .refine(
     (secrets) => Object.keys(secrets).length <= MAX_SECRETS,
     `at most ${MAX_SECRETS} secrets`,

@@ -14,6 +14,7 @@ import {
   dbUpsertPrinter,
   dbUpsertProfile,
   openDb,
+  PrinterSecretsWriteError,
 } from "@conveyor/shared/db";
 import type { FastifyInstance } from "fastify";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
@@ -67,7 +68,12 @@ export async function registerCatalogRoutes(
     const parsed = parsePrinter(req.body);
     if (!parsed.success)
       return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
-    dbUpsertPrinter(openDb(), parsed.data);
+    try {
+      dbUpsertPrinter(openDb(), parsed.data);
+    } catch (err) {
+      if (!(err instanceof PrinterSecretsWriteError)) throw err;
+      return reply.code(err.kind === "TooManySecrets" ? 400 : 409).send({ error: err.message });
+    }
     return reply.code(200).send({ ok: true });
   });
 
