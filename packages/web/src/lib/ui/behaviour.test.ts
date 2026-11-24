@@ -111,4 +111,13 @@ describe("toasts", () => {
     toasts.release(first, "focus");
     expect([get(toasts).map((t) => t.text), clock.pending()]).toEqual([["two"], 1]);
   });
+  test("say each toast's text once, through the given announcer", () => {
+    const said: string[] = [];
+    const toasts = createToasts(fakeClock(), (text) => said.push(text));
+    const id = toasts.show("Bin 2×1 canceled");
+    toasts.hold(id, "focus");
+    toasts.release(id, "focus");
+    toasts.show("Printing");
+    expect(said).toEqual(["Bin 2×1 canceled", "Printing"]);
+  });
 });
