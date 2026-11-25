@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { FormUiHints } from "@conveyor/shared";
-import { dockLine, fileSize, latestOnly, measurements, printerStatus } from "./make.js";
+import {
+  dockLine, fileSize, knownParams, latestOnly, measurements, printerStatus,
+} from "./make.js";
 
 const ui: FormUiHints = {
   groups: [
@@ -81,5 +83,21 @@ describe("latestOnly", () => {
     uploads.drop();
     expect(await dropped).toBeNull();
     expect((await uploads.run(true))?.ok).toBe(false);
+  });
+});
+
+describe("knownParams", () => {
+  const schema = { properties: { gridX: { type: "integer" }, gridY: { type: "integer" } } };
+
+  test("keeps only the fields the generator's schema still has", () => {
+    const prefill = { gridX: 2, gridY: 3, droppedField: 9 };
+    expect(knownParams(prefill, schema)).toEqual({ gridX: 2, gridY: 3 });
+  });
+
+  test("follows a $ref root, and gives nothing for missing params or schema", () => {
+    const ref = { $ref: "#/definitions/Bin", definitions: { Bin: schema } };
+    expect(knownParams({ gridY: 1, old: true }, ref)).toEqual({ gridY: 1 });
+    expect(knownParams(undefined, schema)).toEqual({});
+    expect(knownParams({ gridX: 2 }, null)).toEqual({});
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { precached } from "./precache";
+import { fromCache, precached } from "./precache";
 
 const kept = [
   "_app/immutable/entry/start.Dua2OphI.js",
@@ -37,5 +37,30 @@ describe("the service-worker precache", () => {
     const paths = ["_app/immutable/chunks/a.js", "_app/immutable/chunks/editor.js"];
     const kept = precached(paths, ["/_app/immutable/chunks/editor.js"]);
     expect(kept).toEqual(["/_app/immutable/chunks/a.js"]);
+  });
+});
+
+describe("fromCache", () => {
+  const varied = new Response("chunk", { headers: { Vary: "Origin" } });
+  const store = (hit: Response | undefined) => {
+    const asked: boolean[] = [];
+    const match = (_request: Request, options: { ignoreVary: boolean }) => {
+      asked.push(options.ignoreVary);
+      return Promise.resolve(options.ignoreVary ? hit : undefined);
+    };
+    return { asked, match };
+  };
+  const request = new Request("http://x/_app/immutable/nodes/2.BFnsYAFX.js");
+
+  test("answers a cached chunk whose response varies on Origin, without the network", async () => {
+    const cache = store(varied);
+    const offline = () => Promise.reject(new TypeError("Failed to fetch"));
+    expect(await fromCache(request, cache, offline)).toBe(varied);
+    expect(cache.asked).toEqual([true]);
+  });
+
+  test("falls back to the network on a miss", async () => {
+    const fresh = new Response("fresh");
+    expect(await fromCache(request, store(undefined), () => Promise.resolve(fresh))).toBe(fresh);
   });
 });

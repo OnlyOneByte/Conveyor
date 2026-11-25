@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { CADDY_IMAGE } from "./caddy.ts";
+import { fakeAdapt, serveCaddy } from "./fixtures.ts";
 import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } from "./stack.ts";
 import { EXIT_TRIGGERS } from "./teardown.ts";
 
@@ -75,16 +78,11 @@ interface FakeStack {
   emitter: EventEmitter;
   sleeps: number[];
   exits: number[];
+  proxy?: ReturnType<typeof Bun.serve>;
 }
 
 function closedStream(): ReadableStream<Uint8Array> {
   return new ReadableStream({ start: (controller) => controller.close() });
-}
-
-function nameOf(cmd: string[]): string {
-  if (cmd.includes("preview")) return "web";
-  if (cmd.includes("build")) return "build";
-  return "service";
 }
 
 function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: number }): FakeStack {
@@ -113,23 +111,28 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
         fake.sleeps.push(ms);
         return new Promise<void>(() => {});
       },
+      caddyfile: async () => readFileSync(join(import.meta.dir, "../../Caddyfile"), "utf8"),
       spawnSync: (cmd) => {
         fake.dockerCalls.push(cmd);
         const isRm = cmd[1] === "rm";
+        if (cmd.includes("adapt")) return fakeAdapt(cmd);
+        const caddy = cmd.includes(CADDY_IMAGE);
+        if (caddy) fake.proxy = serveCaddy(cmd);
+        if (isRm && cmd[3] === "cid-2") fake.proxy?.stop(true);
         return {
           exitCode: isRm ? options.dockerRmExitCode : 0,
-          stdout: Buffer.from(cmd[1] === "exec" ? "PONG\n" : "cid-1\n"),
+          stdout: Buffer.from(cmd[1] === "exec" ? "PONG\n" : caddy ? "cid-2\n" : "cid-1\n"),
           stderr: Buffer.from(isRm ? "daemon gone" : ""),
         };
       },
       spawn: ({ cmd, cwd, env }) => {
-        const name = cmd.includes("vite") ? nameOf(cmd) : (cwd.split("/").at(-1) ?? "");
+        const name = cmd.includes("vite") ? "build" : (cwd.split("/").at(-1) ?? "");
         fake.dataDirs.push(env.DATA_DIR ?? "");
         fake.listenersAtSpawn.push(EXIT_TRIGGERS.map((t) => emitter.listenerCount(t)));
         const record = { name, cmd, signals: [] as string[] };
         fake.children.push(record);
         const { promise, resolve } = Promise.withResolvers<number>();
-        const port = name === "api" ? env.PORT : cmd[cmd.indexOf("--port") + 1];
+        const port = env.PORT;
         const exitCode = name === "build" ? 0 : name === "api" ? options.apiExitCode : null;
         const server =
           exitCode === null && (name === "api" || name === "web")
@@ -165,6 +168,7 @@ describe("bootStack teardown wiring", () => {
     const stack = await bootStack("/repo", () => {}, fake.deps);
     expect(fake.children.map((c) => c.name)).toEqual(["api", "worker", "build", "web"]);
     expect(fake.children.find((c) => c.name === "worker")?.cmd).toEqual(["bun", "src/main.ts"]);
+    expect(fake.children.find((c) => c.name === "web")?.cmd).toEqual(["node", "build/index.js"]);
     expect(fake.listenersAtSpawn[0]).toEqual([1, 1, 1, 1]);
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(true);
     expect(fake.seeded).toEqual([
@@ -178,6 +182,7 @@ describe("bootStack teardown wiring", () => {
       ["SIGTERM"],
     ]);
     expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-1"]);
+    expect(fake.dockerCalls).toContainEqual(["docker", "rm", "-f", "cid-2"]);
     expect(existsSync(fake.dataDirs[0] ?? "")).toBe(false);
     expect(EXIT_TRIGGERS.map((t) => fake.emitter.listenerCount(t))).toEqual([0, 0, 0, 0]);
   });
