@@ -6,6 +6,7 @@ import {
   type JobRequest,
   jobCancelKey,
   jobControlChannel,
+  logErrors,
   StageError,
 } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
@@ -63,8 +64,10 @@ export function startRedisWorker(
   const url = env.REDIS_URL ?? "redis://redis:6379";
   const dataDir = env.DATA_DIR ?? "/data";
   const db = () => openDb(env.DB_PATH);
-  const connection = deps.connect(url, { maxRetriesPerRequest: null });
-  const commands = deps.connect(url);
+  const connect = (name: string, options?: RedisOptions) =>
+    logErrors(deps.connect(url, options), name);
+  const connection = connect("queue connection", { maxRetriesPerRequest: null });
+  const commands = connect("commands");
   const registry = buildRegistry();
   const bus = new StatusBus(commands);
   const publish: PipelineDeps["publish"] = (id, state, extra) => bus.publish(id, state, extra);
@@ -102,7 +105,7 @@ export function startRedisWorker(
     const jobId = job.id;
     if (!jobId) throw new Error("job has no id");
     const controller = new AbortController();
-    const control = deps.connect(url);
+    const control = connect(`job ${jobId} control`);
     try {
       let req = requestOf(job.data);
       let workDir: string;
@@ -136,15 +139,18 @@ export function startRedisWorker(
     }
   }
 
-  const worker = new Worker<unknown>(deps.queue, handle, {
-    ...WORKER_OPTIONS,
-    connection,
-    concurrency: Number(env.WORKER_CONCURRENCY ?? 2),
-  });
+  const worker = logErrors(
+    new Worker<unknown>(deps.queue, handle, {
+      ...WORKER_OPTIONS,
+      connection,
+      concurrency: Number(env.WORKER_CONCURRENCY ?? 2),
+    }),
+    "worker",
+  );
   worker.on("ready", () => console.log("conveyor worker ready"));
   worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
 
-  const lookup = new Queue(deps.queue, { connection });
+  const lookup = logErrors(new Queue(deps.queue, { connection }), "queue lookup");
   const stopReaper = startRedisReaper({
     ...redisReaperDeps(commands, lookup, (message) => console.log(`[reaper] ${message}`)),
     db,

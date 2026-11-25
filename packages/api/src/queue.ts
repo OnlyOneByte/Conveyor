@@ -1,4 +1,4 @@
-import { JOB_QUEUE, type JobRequest } from "@conveyor/shared";
+import { JOB_QUEUE, type JobRequest, logErrors } from "@conveyor/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 
@@ -15,10 +15,13 @@ export const FAIL_FAST = {
   socketTimeout: SOCKET_TIMEOUT_MS,
 } as const;
 
-export const connection = new Redis(REDIS_URL, FAIL_FAST);
+export const connection = logErrors(new Redis(REDIS_URL, FAIL_FAST), "queue connection");
 
-export const redis = new Redis(REDIS_URL, { ...FAIL_FAST, commandTimeout: QUEUE_DEADLINE_MS });
+export const redis = logErrors(
+  new Redis(REDIS_URL, { ...FAIL_FAST, commandTimeout: QUEUE_DEADLINE_MS }),
+  "commands",
+);
 
 export const createSubscriber = (): Redis => new Redis(REDIS_URL, { enableReadyCheck: false });
 
-export const jobQueue = new Queue<JobRequest>(JOB_QUEUE, { connection });
+export const jobQueue = logErrors(new Queue<JobRequest>(JOB_QUEUE, { connection }), "job queue");

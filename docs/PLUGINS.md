@@ -148,11 +148,13 @@ export interface TransportPlugin extends PluginManifest {
   stage: "transport";
   acceptsFlavors: string[];                // gcode flavors it can print
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
-  status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>; // stop when signal aborts
-  cancel?(handle: PrintHandle): Promise<void>;     // resolve only once the printer confirmed the stop
+  status(handle: PrintHandle, signal?: AbortSignal, target?: PrinterTarget): AsyncIterable<PrintStatus>; // stop when signal aborts
+  cancel?(handle: PrintHandle, target?: PrinterTarget): Promise<void>; // resolve only once the printer confirmed the stop
   handleFor?(target: PrinterTarget, ref: string): PrintHandle; // handle for a submit() that never returned
 }
 ```
+
+The worker passes the job's printer, secrets included, as `target` to `status()` and `cancel()`, so a transport can authenticate every request the way `submit()` did. The handle is stored with the job, so keep secrets off it.
 
 `submit()` must check `ctx.signal` between the upload and the start command, and throw `PrintNotStartedError` (from `@conveyor/shared`) when it is cancelled before the start command was sent. The worker sends no stop for that error. Any other error from `submit()` after a cancel is treated as "the print may have started", and the worker sends a stop.
 
