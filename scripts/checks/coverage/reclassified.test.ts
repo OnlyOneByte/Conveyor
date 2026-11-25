@@ -28,6 +28,7 @@ const facts = (overrides: Partial<MoveFacts> = {}): MoveFacts => ({
     worker: { hit: 788, found: 957 },
     shared: { hit: 1, found: 1 },
     plugins: { hit: 1, found: 1 },
+    web: { hit: 1, found: 1 },
   },
   base: { worker: 83.99 },
   committed: { worker: 82.34 },
@@ -128,9 +129,10 @@ describe("checkRatchet with a reclassified floor", () => {
     worker: serializePercent(worker),
     shared: serializePercent(90),
     plugins: serializePercent(90),
+    web: serializePercent(90),
   });
   const input = {
-    current: { api: 90, worker: 82.34, shared: 90, plugins: 90 },
+    current: { api: 90, worker: 82.34, shared: 90, plugins: 90, web: 90 },
     committed: texts(82.34),
     base: texts(83.99),
     baseHasChecker: true,
