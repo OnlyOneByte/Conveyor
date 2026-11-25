@@ -15,4 +15,5 @@ export function departures(ended: TrackJob[], lefts: Map<string, number>): Depar
   });
 }
 
-export const hopDistance = (left: number, railPx: number) => Math.max(0, railPx - left) + BIN_GAP_PX;
+export const hopDistance = (left: number, railPx: number) =>
+  Math.max(0, railPx - left) + BIN_GAP_PX;

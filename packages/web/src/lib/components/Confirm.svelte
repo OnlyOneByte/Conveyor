@@ -1,6 +1,5 @@
 <script lang="ts">
   import Dialog from "#lib/ui/Dialog.svelte";
-
   export let open = false;
   export let title: string;
   export let keep: string;

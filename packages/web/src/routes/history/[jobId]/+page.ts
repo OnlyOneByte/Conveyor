@@ -3,4 +3,5 @@ import type { PageLoad } from "./$types";
 
 export const ssr = true;
 
-export const load: PageLoad = ({ params }) => redirect(308, `/jobs/${encodeURIComponent(params.jobId)}`);
+export const load: PageLoad = ({ params }) =>
+  redirect(308, `/jobs/${encodeURIComponent(params.jobId)}`);

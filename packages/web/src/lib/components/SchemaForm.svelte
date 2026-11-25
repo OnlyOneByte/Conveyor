@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from "svelte";
   import type { FormUiHints } from "@conveyor/shared";
+  import { createEventDispatcher, onMount } from "svelte";
+  import { type JsonSchema, primaryGroups, resolveRoot } from "#lib/form-schema.js";
   import SchemaGroup from "./SchemaGroup.svelte";
-  import { primaryGroups, resolveRoot, type JsonSchema } from "#lib/form-schema.js";
 
   export let schema: JsonSchema | null = null;
   export let value: Record<string, unknown> = {};

@@ -1,8 +1,17 @@
 <script lang="ts">
   import type { FormGroup, FormUiHints } from "@conveyor/shared";
   import {
-    clamp, controlFor, fieldLabel, groupSummary, hi, lo, numOf,
-    type JsonSchemaProp, type Props,
+    clamp,
+    controlFor,
+    fieldLabel,
+    groupSummary,
+    hi,
+    type JsonSchemaProp,
+    lo,
+    numOf,
+    type Props,
+    settledValue,
+    typedValue,
   } from "#lib/form-schema.js";
 
   export let group: FormGroup;
@@ -13,9 +22,7 @@
 
   $: fields = group.fields.filter((f) => schemaProps[f]);
   $: summary = groupSummary(group, schemaProps, value, ui);
-  $: cur = Object.fromEntries(
-    fields.map((f) => [f, numOf(schemaProps, value, f)]),
-  ) as Record<string, number>;
+  $: cur = Object.fromEntries<number>(fields.map((f) => [f, numOf(schemaProps, value, f)]));
 
   const num = (key: string) => numOf(schemaProps, value, key);
 
@@ -24,19 +31,12 @@
   }
 
   function typed(key: string, p: JsonSchemaProp, raw: string) {
-    if (raw.trim() === "") return;
-    let n = Number(raw);
-    if (!Number.isFinite(n)) return;
-    if (p.type === "integer") n = Math.trunc(n);
-    if (n >= lo(p) && n <= hi(p)) onSet(key, n);
+    const n = typedValue(p, raw);
+    if (n !== undefined) onSet(key, n);
   }
 
   function settle(key: string, p: JsonSchemaProp, el: HTMLInputElement) {
-    const raw = el.value.trim();
-    let n = raw === "" ? num(key) : Number(raw);
-    if (!Number.isFinite(n)) n = num(key);
-    if (p.type === "integer") n = Math.trunc(n);
-    n = clamp(n, p);
+    const n = settledValue(p, el.value, num(key));
     onSet(key, n);
     el.value = String(n);
   }

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { T } from "@threlte/core";
-  import Orbit from "./Orbit.svelte";
-  import { spinPreview, prefersReducedMotion, theme } from "#lib/preferences.js";
-  import { tokenColor } from "#lib/token-color.js";
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+  import { prefersReducedMotion, spinPreview, theme } from "#lib/preferences.js";
+  import { tokenColor } from "#lib/token-color.js";
+  import Orbit from "./Orbit.svelte";
 
   export let file: File | null = null;
 

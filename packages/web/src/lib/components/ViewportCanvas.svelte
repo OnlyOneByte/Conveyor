@@ -3,7 +3,6 @@
   import { ACESFilmicToneMapping } from "three";
   import MeshScene from "./MeshScene.svelte";
   import PreviewScene from "./PreviewScene.svelte";
-
   export let params: Record<string, unknown> = {};
   export let file: File | null = null;
 </script>

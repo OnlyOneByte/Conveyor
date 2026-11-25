@@ -13,7 +13,8 @@
   $: pct = percent(view);
   $: detail = view.state === "printing" ? printLine(view.print, view.at, clock) : "";
 
-  $: place = view.state === "queued" && $activeJobs ? placeInLine(view.jobId, $activeJobs.jobs) : null;
+  $: place =
+    view.state === "queued" && $activeJobs ? placeInLine(view.jobId, $activeJobs.jobs) : null;
 </script>
 
 <section class="live">

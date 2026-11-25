@@ -3,10 +3,10 @@ import {
   type CatalogProfile,
   fetchOrcaProfileContent,
   fetchPrusaProfileContent,
-  resetProfileContent,
   saveOrcaProfileContent,
   savePrusaProfileContent,
 } from "./api.js";
+import { resetProfileContent } from "./api-delete.js";
 import type { Lang } from "./code-editor.js";
 
 export type Docs = Record<string, string>;

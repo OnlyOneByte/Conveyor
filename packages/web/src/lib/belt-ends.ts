@@ -28,22 +28,40 @@ export interface EndsUi {
   pick(request: Request, retryOf: string): void;
 }
 
-export const midnight = (now: Date) => new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+export const midnight = (now: Date) =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-const asStatus = (job: JobHistoryEntry) => ({ ...job, jobId: job.id, generator: job.request.generator, printerId: job.request.printerId });
+const asStatus = (job: JobHistoryEntry) => ({
+  ...job,
+  jobId: job.id,
+  generator: job.request.generator,
+  printerId: job.request.printerId,
+});
 
-export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(), toasted = new Set<string>() } = {}) {
+export function createEnds(
+  feed: EndsFeed,
+  ui: EndsUi,
+  { now = () => new Date(), toasted = new Set<string>() } = {},
+) {
   let failures = new Map<string, JobHistoryEntry>();
 
   async function refresh(): Promise<boolean> {
-    const [finished, needs, catalog] = await Promise.all([feed.finished(midnight(now())).catch(() => null), feed.needsYou().catch(() => null), feed.catalog().catch(() => null)]);
+    const [finished, needs, catalog] = await Promise.all([
+      feed.finished(midnight(now())).catch(() => null),
+      feed.needsYou().catch(() => null),
+      feed.catalog().catch(() => null),
+    ]);
     if (finished === null || needs === null) return false;
     failures = new Map(needs.map((job) => [job.id, job]));
-    ui.show(finished, needs.map((job) => trackJob(asStatus(job), undefined, catalog)));
+    ui.show(
+      finished,
+      needs.map((job) => trackJob(asStatus(job), undefined, catalog)),
+    );
     return true;
   }
 
-  const runnable = (job: TrackJob) => (job.request ? rerunRequest({ state: "canceled", request: job.request }) : null);
+  const runnable = (job: TrackJob) =>
+    job.request ? rerunRequest({ state: "canceled", request: job.request }) : null;
 
   async function again(job: TrackJob) {
     const entry = await feed.entry(job.id).catch(() => null);
@@ -61,31 +79,58 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(),
         toasted.delete(job.id);
         throw error;
       });
-      ui.toast(`${shortName(job.name)} canceled`, runnable(job) ? { label: "Print again", run: () => void act(job, "Print again") } : undefined);
+      ui.toast(
+        `${shortName(job.name)} canceled`,
+        runnable(job)
+          ? { label: "Print again", run: () => void act(job, "Print again") }
+          : undefined,
+      );
     } else if (action === "Print again") await again(job);
     else if (action === "Pick printer" && failed) {
       const { printerId, generator } = failed.request;
       const printers = (await feed.catalog().catch(() => null))?.printers ?? [];
-      const other = printers.find((p) => p.id !== printerId && (!p.allowedGenerators || p.allowedGenerators.includes(generator.id)));
+      const other = printers.find(
+        (p) =>
+          p.id !== printerId &&
+          (!p.allowedGenerators || p.allowedGenerators.includes(generator.id)),
+      );
       ui.pick({ ...failed.request, printerId: other?.id ?? "", profileId: "" }, job.id);
-    }
-    else if (action === "Retry" && failed) {
+    } else if (action === "Retry" && failed) {
       const retried = await feed.retry(failed);
       if (!retried.ok && retried.status !== 409) throw new Error(retried.error);
-      ui.say(retried.ok ? `Retrying ${shortName(job.name)}.` : `${shortName(job.name)} is already being retried.`, "polite");
+      ui.say(
+        retried.ok
+          ? `Retrying ${shortName(job.name)}.`
+          : `${shortName(job.name)} is already being retried.`,
+        "polite",
+      );
     } else if (action === "Dismiss") await feed.dismiss(job.id);
     else return;
     if (action !== "Cancel" && action !== "Pick printer") await refresh();
   }
 
   const act = (job: TrackJob, action: string): Promise<void> =>
-    run(job, action).catch(() => ui.say(action === "Print again" ? `Couldn't print ${shortName(job.name)} again.` : `Couldn't ${action.toLowerCase()} ${shortName(job.name)}.`, "assertive"));
+    run(job, action).catch(() =>
+      ui.say(
+        action === "Print again"
+          ? `Couldn't print ${shortName(job.name)} again.`
+          : `Couldn't ${action.toLowerCase()} ${shortName(job.name)}.`,
+        "assertive",
+      ),
+    );
 
   return { refresh, act };
 }
 
 const send = async (path: string, body?: unknown) => {
-  const init = body === undefined ? { method: "POST" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+  const init =
+    body === undefined
+      ? { method: "POST" }
+      : {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        };
   const r = await fetch(`${API}${path}`, init);
   if (!r.ok) throw new Error(`POST ${path} ${r.status}`);
   return r.json();
@@ -96,7 +141,12 @@ export const http = {
     const r = await fetch(`${API}/jobs-history/counts?since=${since}`);
     if (!r.ok) throw new Error(`GET /jobs-history/counts ${r.status}`);
     const counts: unknown = await r.json();
-    return typeof counts === "object" && counts !== null && "done" in counts && typeof counts.done === "number" ? counts.done : 0;
+    return typeof counts === "object" &&
+      counts !== null &&
+      "done" in counts &&
+      typeof counts.done === "number"
+      ? counts.done
+      : 0;
   },
   needsYou: async (): Promise<JobHistoryEntry[]> => {
     const r = await fetch(`${API}/jobs/needs-you`);

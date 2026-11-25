@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
-  import { openJobSocket, fetchJobSnapshot, type JobStatusEvent } from "#lib/api.js";
   import type { JobState } from "@conveyor/shared";
+  import { onDestroy } from "svelte";
+  import { fetchJobSnapshot, type JobStatusEvent, openJobSocket } from "#lib/api.js";
 
   export let jobId: string;
 
@@ -22,9 +22,11 @@
 
   function connect(id: string) {
     ws?.close();
-    fetchJobSnapshot(id).then((s) => {
-      if (s && !evt) evt = s;
-    }).catch(() => {});
+    fetchJobSnapshot(id)
+      .then((s) => {
+        if (s && !evt) evt = s;
+      })
+      .catch(() => {});
     ws = openJobSocket(id);
     ws.onmessage = (m) => {
       evt = JSON.parse(m.data);

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { page } from "$app/state";
   import Chip from "#lib/components/Chip.svelte";
   import Track from "#lib/components/Track.svelte";
+  import { page } from "$app/state";
   import { STUBS } from "./stubs";
 
+  let name: string;
   $: name = page.url.searchParams.get("jobs") ?? "8";
   $: jobs = (STUBS[name] ?? STUBS["8"] ?? (() => []))();
 </script>

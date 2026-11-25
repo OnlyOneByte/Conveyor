@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { beforeNavigate, goto } from "$app/navigation";
   import type { CatalogProfile } from "#lib/api.js";
   import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
   import * as editing from "#lib/profile-content.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
+  import { beforeNavigate, goto } from "$app/navigation";
   import CodeEditor from "./CodeEditor.svelte";
   import Confirm from "./Confirm.svelte";
   import EditorBar from "./EditorBar.svelte";
@@ -24,7 +24,7 @@
 
   $: problem = problemOf(content.lang, docs);
   $: dirty = editing.changed(docs, saved);
-  $: status = editing.status(problem !== null, busy, dirty);
+  $: barStatus = editing.status(problem !== null, busy, dirty);
   $: label = tabbed ? `${fileLabel(file)} settings, JSON` : "Settings, config.ini";
   $: tidied = content.lang === "json" ? editing.formatted(docs[file] ?? "") : null;
   $: can = editing.gate({ ready, problem: problem !== null, dirty, busy, tidied: tidied !== null });
@@ -124,7 +124,7 @@
 
 <EditorBar
   name={profile.name}
-  {status}
+  status={barStatus}
   busy={!can.reset}
   {edited}
   canSave={can.save}

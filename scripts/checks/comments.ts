@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { totals } from "./comments/baseline";
+import { EXEMPTIONS } from "./comments/exemptions";
 import { checkRatchet } from "./comments/ratchet";
 import { commentLines, languageOf } from "./comments/tally";
 import { measure, type Tree, treeAt, workingTree } from "./comments/tree";
@@ -35,8 +36,11 @@ const check = (tree: Tree, baseRef: string) => {
 const strict = (tree: Tree) => {
   printStrict(tree);
   const sum = totals(measure(tree));
-  console.log(`comment lines: ${sum.comments} (strict: 0 allowed)`);
-  return sum.comments === 0 ? 0 : 1;
+  console.log(
+    `comment lines: ${sum.comments}, suppressions: ${sum.suppressions} (strict: 0 allowed)`,
+  );
+  for (const e of EXEMPTIONS) console.log(`exempt: ${e.name}, ${e.where}`);
+  return sum.comments === 0 && sum.suppressions === 0 ? 0 : 1;
 };
 
 function main(argv: string[]): number {

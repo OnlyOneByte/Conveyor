@@ -29,7 +29,11 @@ describe("printerStatus", () => {
     const unreachable = new Set(["ender"]);
     const answered = new Set(["voron", "ender", "prusa"]);
     const status = (id: string, heard = answered) => printerStatus(id, busy, unreachable, heard);
-    expect(["voron", "ender", "prusa"].map((id) => status(id))).toEqual(["Busy", "Not reachable", "Ready"]);
+    expect(["voron", "ender", "prusa"].map((id) => status(id))).toEqual([
+      "Busy",
+      "Not reachable",
+      "Ready",
+    ]);
     expect(status("prusa", new Set())).toBe("");
     expect(status("voron", new Set())).toBe("Busy");
   });
@@ -75,7 +79,8 @@ describe("latestOnly", () => {
   });
 
   test("drops a pending run, and reports a failure of the latest", async () => {
-    const send = (fail: boolean) => (fail ? Promise.reject(new TypeError("x")) : Promise.resolve(1));
+    const send = (fail: boolean) =>
+      fail ? Promise.reject(new TypeError("x")) : Promise.resolve(1);
     const uploads = latestOnly(send);
     const dropped = uploads.run(false);
     uploads.drop();

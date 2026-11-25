@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { type CatalogProfile, deleteProfile, saveProfile } from "#lib/api.js";
+  import { type CatalogProfile, saveProfile } from "#lib/api.js";
+  import { deleteProfile } from "#lib/api-delete.js";
   import { type Content, loadContent, saveContent } from "#lib/profile-content.js";
   import { toasts } from "#lib/ui/behaviour.js";
   import Confirm from "./Confirm.svelte";

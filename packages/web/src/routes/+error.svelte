@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { page } from "$app/state";
   import { OFFLINE } from "#lib/track.js";
+  import { page } from "$app/state";
 
   let unreachable = false;
   const missing = () => page.status === 404;
-  const heading = () => (missing() ? "Page not found" : unreachable ? OFFLINE : "Something went wrong");
+  const heading = () =>
+    missing() ? "Page not found" : unreachable ? OFFLINE : "Something went wrong";
 
   onMount(() => {
     if (missing()) return;

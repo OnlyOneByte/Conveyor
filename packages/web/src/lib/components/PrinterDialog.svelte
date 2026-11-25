@@ -1,13 +1,32 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { deletePrinter, savePrinter, type CatalogPrinter, type CatalogTransport, type GeneratorSummary } from "#lib/api.js";
-  import { blankDraft, clearSecretsPayload, draftErrors, draftOf, type DraftErrors, printerPayload, slugOf } from "#lib/printer-form.js";
+  import {
+    type CatalogPrinter,
+    type CatalogTransport,
+    type GeneratorSummary,
+    savePrinter,
+  } from "#lib/api.js";
+  import { deletePrinter } from "#lib/api-delete.js";
+  import { errorText } from "#lib/make.js";
+  import {
+    blankDraft,
+    clearSecretsPayload,
+    type DraftErrors,
+    deleteFailure,
+    deleteNote,
+    dialogTitle,
+    draftErrors,
+    draftOf,
+    printerPayload,
+    slugOf,
+  } from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
+  import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
   import GeneratorLimits from "./GeneratorLimits.svelte";
-  import { toasts, uid } from "#lib/ui/behaviour.js";
+  import SavedSecrets from "./SavedSecrets.svelte";
 
   export let open = false;
   export let printer: CatalogPrinter | null = null;
@@ -20,11 +39,10 @@
   let draft = blankDraft();
   let errors: DraftErrors = {};
   let problem = "";
-  let [busy, idEdited, confirming, tried, secretsSaved, cleared] = [false, false, false, false, false, false];
+  let [busy, idEdited, confirming] = [false, false, false];
+  let [tried, secretsSaved, cleared] = [false, false, false];
   let form: HTMLFormElement;
   const formId = uid("printer-form");
-
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   $: adding = printer === null;
   $: if (open) reset(printer);
@@ -32,13 +50,11 @@
   $: if (tried) errors = draftErrors(draft, taken, adding);
   $: secret = secretFieldFor(draft.transportId);
   $: options = transports.map((t) => ({ value: t.id, label: t.name }));
-  $: title = confirming ? `Delete ${printer?.name}?` : adding ? "Add printer" : `Edit ${printer?.name}`;
-  $: [them, waiting] = jobs === 1 ? ["it", "It has a job on the belt"] : ["them", `It has ${jobs} jobs on the belt`];
+  $: title = dialogTitle(printer, confirming);
   const focus = (el: HTMLElement) => el.focus();
-  $: secretHint = secretsSaved ? "Leave blank to keep the saved one." : secret.hint;
+  let shown: CatalogPrinter | null | undefined;
   $: if (!open) shown = undefined;
 
-  let shown: CatalogPrinter | null | undefined;
   function reset(next: CatalogPrinter | null) {
     if (shown === next) return;
     shown = next;
@@ -54,16 +70,10 @@
 
   const close = () => (open = false);
 
-  async function attempt(work: () => Promise<void>, explain = message) {
-    problem = "";
-    busy = true;
-    try {
-      await work();
-    } catch (e) {
-      problem = explain(e);
-    } finally {
-      busy = false;
-    }
+  async function attempt(work: () => Promise<void>, explain = errorText) {
+    [problem, busy] = ["", true];
+    problem = await work().then(() => "", explain);
+    busy = false;
   }
 
   async function save() {
@@ -97,15 +107,13 @@
         close();
         changed();
       },
-      (e) => (message(e).includes("queued or running") ? `${saved.name} still has jobs on the belt, so it can't be deleted yet.` : message(e)),
+      (e) => deleteFailure(saved.name, errorText(e)),
     );
 </script>
 
 <Dialog {title} bind:open>
   {#if confirming}
-    <p>
-      {jobs ? `${waiting}. Cancel ${them} or let ${them} finish, then delete it.` : "Jobs it already printed keep their history."}
-    </p>
+    <p>{deleteNote(jobs)}</p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
@@ -115,15 +123,8 @@
       {/if}
       <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
       <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />
-      <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretHint} />
-      {#if secretsSaved}
-        <div class="saved">
-          <span>A key is saved for this printer. It stays until you clear it.</span>
-          <button class="btn" type="button" disabled={busy} on:click={() => printer && clearSecrets(printer)}>Clear saved secrets</button>
-        </div>
-      {:else if cleared}
-        <p class="saved" role="status">Saved secrets cleared.</p>
-      {/if}
+      <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
+      <SavedSecrets saved={secretsSaved} {cleared} {busy} clear={() => printer && clearSecrets(printer)} />
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     </form>
@@ -143,8 +144,6 @@
 <style>
   .form { display: flex; flex-direction: column; gap: var(--s4); }
   p { margin: 0; }
-  .saved { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); padding: var(--s3); border-radius: var(--r-control); background: var(--sunk); color: var(--muted); }
-  .saved span { flex: 1; min-width: 12rem; }
   .problem { color: var(--err); font-weight: 600; }
   .del { margin-right: auto; }
 </style>

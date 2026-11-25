@@ -1,12 +1,9 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { activeJobs, watchActive } from "#lib/active-jobs.js";
+  import { cancelJob, type JobStatusEvent } from "#lib/api.js";
   import { POLL_MS } from "#lib/belt.js";
   import { OFFLINE } from "#lib/track.js";
-  import {
-    cancelJob,
-    type JobStatusEvent,
-  } from "#lib/api.js";
 
   let now = Date.now();
   $: jobs = $activeJobs?.jobs ?? [];

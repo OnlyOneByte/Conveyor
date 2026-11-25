@@ -10,8 +10,7 @@ export const activeJobs = writable<ActiveJobs | null>(null);
 export const watchers = writable(0);
 
 export const shareActive =
-  (fetchJobs: () => Promise<JobView[]>) =>
-  async (): Promise<JobView[]> => {
+  (fetchJobs: () => Promise<JobView[]>) => async (): Promise<JobView[]> => {
     try {
       const jobs = await fetchJobs();
       activeJobs.set({ jobs, ok: true });

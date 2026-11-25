@@ -48,7 +48,8 @@ export function draftErrors(draft: PrinterDraft, taken: string[], adding: boolea
   const id = draft.id.trim();
   if (!draft.name.trim()) errors.name = "Give the printer a name.";
   if (adding && !id) errors.id = "Give the printer an ID.";
-  else if (adding && /\s|\//.test(id)) errors.id = "Use letters, numbers and dashes, with no spaces or slashes.";
+  else if (adding && /\s|\//.test(id))
+    errors.id = "Use letters, numbers and dashes, with no spaces or slashes.";
   else if (adding && taken.includes(id)) errors.id = `Another printer already uses ${id}.`;
   if (!draft.transportId) errors.transportId = "Choose the printer's software.";
   if (!draft.address.trim()) errors.address = "Enter the printer's address.";
@@ -69,5 +70,29 @@ export function printerPayload(draft: PrinterDraft) {
 
 export function clearSecretsPayload(printer: CatalogPrinter) {
   const { id, name, transportId, address, allowedGenerators } = printer;
-  return { id, name, transportId, address, secrets: null, ...(allowedGenerators ? { allowedGenerators } : {}) };
+  return {
+    id,
+    name,
+    transportId,
+    address,
+    secrets: null,
+    ...(allowedGenerators ? { allowedGenerators } : {}),
+  };
 }
+
+export const dialogTitle = (printer: CatalogPrinter | null, confirming: boolean) => {
+  if (confirming) return `Delete ${printer?.name}?`;
+  return printer === null ? "Add printer" : `Edit ${printer.name}`;
+};
+
+export const deleteNote = (jobs: number) => {
+  if (!jobs) return "Jobs it already printed keep their history.";
+  const [them, waiting] =
+    jobs === 1 ? ["it", "It has a job on the belt"] : ["them", `It has ${jobs} jobs on the belt`];
+  return `${waiting}. Cancel ${them} or let ${them} finish, then delete it.`;
+};
+
+export const deleteFailure = (name: string, message: string) =>
+  message.includes("queued or running")
+    ? `${name} still has jobs on the belt, so it can't be deleted yet.`
+    : message;

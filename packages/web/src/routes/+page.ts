@@ -1,3 +1,4 @@
+import { redirect } from "@sveltejs/kit";
 import {
   fetchCatalogPrinters,
   fetchCatalogProfiles,
@@ -6,7 +7,6 @@ import {
   signedIn,
 } from "#lib/api.js";
 import { makeShown } from "#lib/make-shown.js";
-import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;

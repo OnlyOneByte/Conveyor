@@ -21,7 +21,7 @@
     "check": "biome check .",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
-    "check:comments": "bun scripts/checks/comments.ts",
+    "check:comments": "bun scripts/checks/comments.ts --strict",
     "check:lines": "bun scripts/checks/lines.ts",
     "check:colours": "bun scripts/checks/colours.ts",
     "check:casts": "bun scripts/checks/casts.ts",

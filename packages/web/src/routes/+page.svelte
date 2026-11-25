@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { jobSent, titled } from "#lib/belt.js";
@@ -13,19 +11,22 @@
   import SourceTabs from "#lib/components/SourceTabs.svelte";
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
-  import { dockLine, latestOnly, measurements } from "#lib/make.js";
+  import { dockLine, errorText, latestOnly, measurements, uploadFailure } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import {
-    AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
+    AlreadyRetried,
+    linkedRetry,
+    type RerunPayload,
+    sendJob,
+    takeRerun,
   } from "#lib/rerun.js";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
   const UPLOAD = "upload";
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-  const upFailed = (e: unknown) =>
-    e instanceof TypeError ? "check your connection and try again." : message(e);
   const SENT_MS = 2500;
 
   $: generators = data.generators ?? [];
@@ -45,9 +46,7 @@
   onMount(() => {
     const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
     if (!r) return;
-    tab = r.generatorId;
-    printerId = r.printerId;
-    profileId = r.profileId;
+    ({ generatorId: tab, printerId, profileId } = r);
     handoff = r;
     if (r.params && typeof r.params === "object") params = { ...r.params };
   });
@@ -88,7 +87,7 @@
     if (!done) return;
     uploading = false;
     if (done.ok) uploadId = done.value.uploadId;
-    else uploadError = `Couldn't upload ${chosen.name}: ${upFailed(done.error)}`;
+    else uploadError = `Couldn't upload ${chosen.name}: ${uploadFailure(done.error)}`;
   }
 
   function clear() {
@@ -104,8 +103,8 @@
   let retried: string | null = null;
 
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
-  $: name = upload ? (file?.name ?? "Your STL") : made;
-  $: summary = printer ? `${name} on ${printer.name}` : name;
+  $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
+  $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -121,13 +120,13 @@
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
       jobId = res.jobId;
-      announce(`${name} sent to ${printer.name}.`);
+      announce(`${jobLabel} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = message(e);
+      error = errorText(e);
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
