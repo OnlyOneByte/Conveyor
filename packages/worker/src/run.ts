@@ -15,6 +15,7 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import type { ResumeState } from "@conveyor/shared/queue";
+import { type JobEvent, jsonLine } from "./job-log.js";
 import type { ProfileForSlice } from "./profile.js";
 
 export type TerminalState = "done" | "failed" | "canceled";
@@ -62,8 +63,11 @@ export interface PipelineDeps {
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
   log(msg: string): void;
+  event?(event: JobEvent): void;
   queue?: QueueHooks;
 }
+
+export const emit = (run: Run, event: JobEvent): void => (run.deps.event ?? jsonLine)(event);
 
 export interface RunJobOptions {
   jobId: string;
@@ -179,6 +183,7 @@ export async function enterStage(run: Run, stage: Stage, state: JobState): Promi
   run.stage = stage;
   run.state = state;
   run.enters.push({ stage, at: Date.now() });
+  emit(run, { event: "stage", jobId: run.opts.jobId, stage });
   await run.deps.publish(run.opts.jobId, state, {
     stage,
     timings: computeStageTimings(run.enters),

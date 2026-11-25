@@ -1,10 +1,12 @@
 import { queueMode } from "@conveyor/shared";
-import { openDb } from "@conveyor/shared/db";
+import { dbReadWorkerHeartbeat, openDb } from "@conveyor/shared/db";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { registerErrorReplies } from "./error-replies.js";
+import { healthReport } from "./health.js";
+import { withinDeadline } from "./queue-reach.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
@@ -41,6 +43,25 @@ app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 
 registerAuthGuard(app);
 await registerAuthRoutes(app);
+
+const pingRedis =
+  queue === "redis"
+    ? await import("./queue.js").then(
+        ({ redis, QUEUE_DEADLINE_MS }) =>
+          () =>
+            withinDeadline(redis.ping(), QUEUE_DEADLINE_MS),
+      )
+    : undefined;
+app.get("/health/deep", async (req, reply) => {
+  const report = await healthReport({
+    db: () => openDb().query("SELECT 1").get(),
+    redis: pingRedis,
+    heartbeat: () => dbReadWorkerHeartbeat(openDb()),
+    now: Date.now(),
+    onError: (check, err) => req.log.warn({ err }, `health: ${check} check failed`),
+  });
+  return reply.code(report.status === "down" ? 503 : 200).send(report);
+});
 
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app, uploads);
