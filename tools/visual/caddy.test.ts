@@ -67,7 +67,7 @@ const variants: [string, string, string][] = [
       "\thandle {",
       "\thandle_path /x/* {\n\t\treverse_proxy {\n\t\t\tdynamic a example.com 80\n\t\t}\n\t}\n\n\thandle {",
     ),
-    '("dynamic_upstreams")',
+    'reverse_proxy option "dynamic_upstreams"',
   ],
   [
     "a forward proxy",
@@ -75,7 +75,7 @@ const variants: [string, string, string][] = [
       "reverse_proxy api:3000",
       "reverse_proxy api:3000 {\n\t\t\ttransport http {\n\t\t\t\tforward_proxy_url http://10.0.0.9:3128\n\t\t\t}\n\t\t}",
     ),
-    "a proxy that can leave the stack",
+    'a protocol module production doesn\'t use ("http")',
   ],
   [
     "a network proxy",
@@ -83,7 +83,28 @@ const variants: [string, string, string][] = [
       "reverse_proxy api:3000",
       "reverse_proxy api:3000 {\n\t\t\ttransport http {\n\t\t\t\tnetwork_proxy url http://10.0.0.9:3128\n\t\t\t}\n\t\t}",
     ),
-    '("network_proxy")',
+    'reverse_proxy option "transport"',
+  ],
+  [
+    "a TLS trust pool fetched over http",
+    production.replace(
+      "reverse_proxy api:3000",
+      "reverse_proxy api:3000 {\n\t\t\ttransport http {\n\t\t\t\ttls\n\t\t\t\ttls_trust_pool http {\n\t\t\t\t\tendpoints https://10.0.0.9/ca.pem\n\t\t\t\t}\n\t\t\t}\n\t\t}",
+    ),
+    'a provider module production doesn\'t use ("http")',
+  ],
+  [
+    "health checks on another port",
+    production.replace(
+      "reverse_proxy api:3000",
+      "reverse_proxy api:3000 {\n\t\t\thealth_uri /health\n\t\t\thealth_port 41009\n\t\t}",
+    ),
+    'reverse_proxy option "health_checks"',
+  ],
+  [
+    "an ACME server",
+    production.replace("\thandle {", "\thandle_path /acme/* {\n\t\tacme_server\n\t}\n\n\thandle {"),
+    'a handler module production doesn\'t use ("acme_server")',
   ],
   [
     "an outside health-check upstream",
