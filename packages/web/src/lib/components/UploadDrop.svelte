@@ -53,7 +53,8 @@
     padding: var(--s5); border: 2px dashed var(--field-line); border-radius: var(--r-card);
     background: var(--paper); text-align: center; cursor: pointer;
   }
-  .drop:hover, .drop.over { border-color: var(--ink); }
+  .drop.over { border-color: var(--ink); }
+  @media (hover: hover) { .drop:hover { border-color: var(--ink); } }
   .drop:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .drop.ready { border-style: solid; border-color: var(--ok); }
   .drop.bad { border-color: var(--err); }

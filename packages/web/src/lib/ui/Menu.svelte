@@ -42,6 +42,7 @@
 <style>
   [popover] { inset: auto; top: anchor(bottom); left: anchor(left); margin: var(--s1) 0 0; min-width: 180px; padding: var(--s1); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
   [role="menuitem"] { display: block; width: 100%; min-height: 30px; padding: 0 var(--s3); border: 0; border-radius: var(--r-control); background: none; text-align: left; }
-  [role="menuitem"]:hover, [role="menuitem"]:focus-visible { background: var(--sunk); }
+  [role="menuitem"]:focus-visible { background: var(--sunk); }
+  @media (hover: hover) { [role="menuitem"]:hover { background: var(--sunk); } }
   @media (pointer: coarse) { [role="menuitem"] { min-height: var(--tap); } }
 </style>

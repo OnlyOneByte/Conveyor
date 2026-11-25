@@ -43,6 +43,25 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }, { ring: ".dock button.print" }],
   },
   {
+    name: "print-tap",
+    route: "/",
+    ready: "text=How big?",
+    widths: [390],
+    fullPage: false,
+    touch: true,
+    steps: [
+      { wait: 800 },
+      {
+        fulfill: "**/api/jobs",
+        method: "POST",
+        status: 202,
+        json: { jobId: "tap-job" },
+        delayMs: 30000,
+      },
+      { noRing: ".dock button.print" },
+    ],
+  },
+  {
     name: "nav-reach",
     route: "/primitives",
     visits: ["/"],

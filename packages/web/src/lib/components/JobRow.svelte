@@ -18,7 +18,7 @@
 <style>
   .row { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px 170px 130px; gap: 14px; align-items: center; min-height: 56px; padding: 8px 16px; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; }
   li:first-child .row { border-top: 0; }
-  .row:hover { background: var(--sunk); }
+  @media (hover: hover) { .row:hover { background: var(--sunk); } }
   .row.sel { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
   .row:focus-visible { outline-offset: -3px; }
   .name { display: flex; flex-direction: column; min-width: 0; }

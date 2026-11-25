@@ -74,9 +74,15 @@
 
 <style>
   .slot { position: absolute; top: 8px; left: 0; transition: transform var(--t-move) var(--ease-move); }
-  .slot:hover, .slot:focus-within { z-index: 5; }
+  .slot:focus-within { z-index: 5; }
+  @media (hover: hover) { .slot:hover { z-index: 5; } }
   .chip { position: relative; display: inline-flex; align-items: center; gap: var(--s2); height: 34px; min-height: 34px; min-width: 156px; padding: 0 var(--s3) 0 5px; border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); box-shadow: var(--lift); color: var(--ink); font: 650 13px / 1 var(--display); text-decoration: none; white-space: nowrap; transition: transform var(--t-fast), box-shadow var(--t-fast); }
-  .chip:hover, .chip:focus-visible, .slot:focus-within .chip { transform: translateY(-3px); box-shadow: var(--lift-hi); z-index: 5; }
+  .chip:focus-visible, .slot:focus-within .chip {
+    transform: translateY(-3px); box-shadow: var(--lift-hi); z-index: 5;
+  }
+  @media (hover: hover) {
+    .chip:hover { transform: translateY(-3px); box-shadow: var(--lift-hi); z-index: 5; }
+  }
   .ring { --ring: var(--live); position: relative; flex: none; width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--p) * 1turn), var(--line-2) 0); }
   .ring::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--paper); }
   .ring.ind { background: conic-gradient(var(--ring) 0 25%, var(--line-2) 0); }
