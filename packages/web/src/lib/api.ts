@@ -1,6 +1,7 @@
 import type {
   FormUiHints,
   JobState,
+  JobStatusEvent,
   JobView,
   OrcaEditableProfile,
   OrcaProfileDocuments,
@@ -18,17 +19,6 @@ export interface GeneratorSummary {
   ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
-}
-
-export interface JobStatusEvent {
-  jobId: string;
-  state: JobState;
-  stage?: string | null;
-  progress?: number;
-  message?: string;
-  error?: { stage: string; reason: string };
-  timings?: StageTiming[];
-  at: number;
 }
 
 export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<GeneratorSummary[]> {
@@ -143,11 +133,11 @@ export interface CatalogProfile {
 
 export type CatalogSlicer = { id: string; name: string };
 
-export interface OrcaProfileContent extends OrcaEditableProfile {
+interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
 
-export interface PrusaProfileContent {
+interface PrusaProfileContent {
   format: "prusa-ini";
   source: "bundled" | "edited";
   document: PrusaProfileDocument;
@@ -176,11 +166,7 @@ async function putJson(path: string, body: unknown): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    const msg = (err as { error?: unknown }).error;
-    throw new Error(typeof msg === "string" ? msg : `PUT ${path} ${r.status}`);
-  }
+  if (!r.ok) throw await failure(r, `PUT ${path}`);
 }
 
 export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>(`${API}/catalog/printers`, f);
@@ -237,20 +223,9 @@ export async function fetchJobHistoryEntry(
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
 
-async function serverErrorOrEmpty(r: Response): Promise<string> {
-  try {
-    const body = (await r.json()) as { error?: unknown };
-    return typeof body.error === "string" ? body.error : "";
-  } catch {
-    return "";
-  }
-}
-
 async function del(path: string): Promise<void> {
   const r = await fetch(path, { method: "DELETE" });
-  if (r.ok) return;
-  const detail = await serverErrorOrEmpty(r);
-  throw new Error(detail || `DELETE ${path} ${r.status}`);
+  if (!r.ok) throw await failure(r, `DELETE ${path}`);
 }
 
 export const deletePrinter = (id: string) =>

@@ -12,10 +12,10 @@ import type { PageLoad } from "./$types";
 export const ssr = false;
 
 export const load: PageLoad = async ({ fetch, url, parent }) => {
-  const initialJobId = url.searchParams.get("job");
-  if (initialJobId && !makeShown()) redirect(307, `/jobs/${encodeURIComponent(initialJobId)}`);
+  const job = url.searchParams.get("job");
+  if (job && !makeShown()) redirect(307, `/jobs/${encodeURIComponent(job)}`);
   if (!signedIn((await parent()).auth))
-    return { generators: [], printers: [], profiles: [], transports: [], initialJobId };
+    return { generators: [], printers: [], profiles: [], transports: [] };
   void import("#lib/components/ViewportCanvas.svelte").catch(() => {});
   const [generators, printers, profiles, transports] = await Promise.all([
     fetchGenerators(fetch).catch(() => []),
@@ -23,5 +23,5 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
     fetchCatalogProfiles(fetch).catch(() => []),
     fetchCatalogTransports(fetch).catch(() => []),
   ]);
-  return { generators, printers, profiles, transports, initialJobId };
+  return { generators, printers, profiles, transports };
 };

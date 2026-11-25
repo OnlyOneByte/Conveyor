@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Sizes } from "./measure";
+import type { RouteJs, Sizes } from "./measure";
 
 export const BUDGET_PATH = "scripts/checks/bundle/budget.json";
 export const PRECACHE_GROWTH = 1.1;
@@ -10,7 +10,7 @@ export interface Budget {
 }
 
 export interface Measured {
-  initialJs: Record<string, Sizes & { three: boolean }>;
+  initialJs: Record<string, RouteJs>;
   precache: Sizes & { missing: string[]; editor: string[]; editorKept: string[] };
 }
 
@@ -49,14 +49,24 @@ function routeSetErrors(routes: string[], budget: Budget): string[] {
 function routeErrors(measured: Measured, budget: Budget): string[] {
   return Object.entries(measured.initialJs).flatMap(([route, sizes]) => {
     const limit = budget.initialJsGzip[route];
-    return [
-      ...(sizes.three
-        ? [`${route}: three.js is in the initial JS; load it with import() when a canvas mounts`]
-        : []),
-      ...(limit !== undefined && sizes.gzip > limit
-        ? [`${route}: initial JS is ${kb(sizes.gzip)} gzip, over the ${kb(limit)} budget`]
-        : []),
-    ];
+    const errors: string[] = [];
+    if (sizes.three)
+      errors.push(
+        `${route}: three.js is in the initial JS; load it with import() when a canvas mounts`,
+      );
+    if (sizes.zod)
+      errors.push(`${route}: Zod is in the initial JS; import the Zod-free shared modules instead`);
+    if (sizes.evals)
+      errors.push(
+        `${route}: the initial JS builds code at runtime (Function, eval, a function's constructor, or a timer given a string), which the strict CSP refuses`,
+      );
+    if (limit === undefined)
+      errors.push(
+        `${route}: no initial JS budget; add it to ${BUDGET_PATH} (about 10% over its ${kb(sizes.gzip)} gzip today)`,
+      );
+    else if (sizes.gzip > limit)
+      errors.push(`${route}: initial JS is ${kb(sizes.gzip)} gzip, over the ${kb(limit)} budget`);
+    return errors;
   });
 }
 

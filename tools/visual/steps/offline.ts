@@ -1,8 +1,9 @@
+import { blockEditor, recordWrites } from "../offline.ts";
 import { type StepRunner, wrongKind } from "../step.ts";
 
 declare module "../step.ts" {
   interface StepKinds {
-    offline: { offline: string; uncache?: string };
+    offline: { offline: string; uncache?: string; only?: "editor" };
   }
 }
 
@@ -15,8 +16,14 @@ declare const caches: { keys(): Promise<string[]>; open(name: string): Promise<C
 
 export const step: StepRunner = {
   kind: "offline",
-  run: async (page, step) => {
+  run: async (page, step, _warnings, { root }) => {
     if (!("offline" in step)) throw wrongKind("offline", step);
+    recordWrites(page);
+    if (step.only === "editor") {
+      await blockEditor(page, root);
+      await page.locator(step.offline).first().waitFor();
+      return;
+    }
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
     await page.reload({ waitUntil: "load" });
     await page.locator(step.offline).first().waitFor();

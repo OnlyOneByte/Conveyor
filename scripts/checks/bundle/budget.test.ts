@@ -12,7 +12,7 @@ import {
 } from "./measure";
 
 const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1_000_000, gzip: 400_000 } };
-const ok = { raw: 300_000, gzip: 100_000, three: false };
+const ok = { raw: 300_000, gzip: 100_000, three: false, zod: false, evals: false };
 const editor = { editor: ["_app/immutable/chunks/e.js"], editorKept: [] };
 
 describe("the bundle budget", () => {
@@ -31,7 +31,7 @@ describe("the bundle budget", () => {
   test("fails on initial JS over budget, three.js on first load, or precache growth past 10%", () => {
     const errors = budgetErrors(
       {
-        initialJs: { "/": { raw: 1_100_000, gzip: 312_310, three: true } },
+        initialJs: { "/": { ...ok, raw: 1_100_000, gzip: 312_310, three: true } },
         precache: {
           raw: 1_100_001,
           gzip: 400_000,
@@ -133,7 +133,7 @@ describe("finding three.js in a route's chunks", () => {
 });
 
 describe("failing closed", () => {
-  const ok = { raw: 1, gzip: 1, three: false };
+  const ok = { raw: 1, gzip: 1, three: false, zod: false, evals: false };
   const precache = { raw: 1, gzip: 1, missing: [], ...editor };
   const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1, gzip: 1 } };
 
@@ -150,6 +150,7 @@ describe("failing closed", () => {
     ).toEqual([
       "scripts/checks/bundle/budget.json has no initial JS budget for /",
       "scripts/checks/bundle/budget.json budgets /gone, but the build has no such route",
+      "/: no initial JS budget; add it to scripts/checks/bundle/budget.json (about 10% over its 0.0 KB gzip today)",
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fetchCatalogProfiles } from "./api.js";
-import { failure, Unreachable, unreachable } from "./http-error.js";
+import { failure, MESSAGE_MAX, shown, Unreachable, unreachable } from "./http-error.js";
 
 const answering = (status: number, body: BodyInit | null, type = "application/json") =>
   Object.assign(async () => new Response(body, { status, headers: { "content-type": type } }), {
@@ -14,7 +14,8 @@ describe("a failed request", () => {
   });
 
   test("falls back to the method, path and status when the body has no message", async () => {
-    for (const body of ["<html>oops</html>", JSON.stringify({ error: "" }), JSON.stringify({})]) {
+    const blank = JSON.stringify({ error: " \n\t " });
+    for (const body of ["<html>oops</html>", JSON.stringify({ error: "" }), JSON.stringify({}), blank]) {
       const err = await failure(new Response(body, { status: 500 }), "GET /api/catalog/profiles");
       expect(err.message).toBe("GET /api/catalog/profiles 500");
       expect(unreachable(err)).toBe(false);
@@ -34,5 +35,37 @@ describe("a failed request", () => {
     expect(unreachable(new TypeError("fetch failed"))).toBe(true);
     const refused = await failure(new Response(null, { status: 409 }), "GET /x");
     expect(unreachable(refused)).toBe(false);
+  });
+});
+
+describe("a server message", () => {
+  test("is trimmed", async () => {
+    const err = await failure(Response.json({ error: "  database is locked \n" }, { status: 500 }), "GET /x");
+    expect(err.message).toBe("database is locked");
+  });
+
+  test("is cut to about 300 characters with an ellipsis", async () => {
+    const long = "x".repeat(200_000);
+    const err = await failure(Response.json({ error: long }, { status: 500 }), "GET /x");
+    expect(err.message.length).toBe(MESSAGE_MAX);
+    expect(err.message.endsWith("…")).toBe(true);
+    expect(shown("y".repeat(MESSAGE_MAX))).toBe("y".repeat(MESSAGE_MAX));
+  });
+
+  test("reaches the put and delete helpers too", async () => {
+    const real = globalThis.fetch;
+    globalThis.fetch = Object.assign(
+      async () => Response.json({ error: `  ${"z".repeat(1000)}` }, { status: 409 }),
+      { preconnect: real.preconnect },
+    );
+    try {
+      const { deleteProfile, saveProfile } = await import("./api.js");
+      for (const call of [() => deleteProfile("a"), () => saveProfile({ id: "a", slicerId: "orca", name: "A", path: "/profiles/a", gcodeFlavor: "klipper" })]) {
+        const err = await call().catch((e: unknown) => e);
+        expect(err instanceof Error && err.message.length).toBe(MESSAGE_MAX);
+      }
+    } finally {
+      globalThis.fetch = real;
+    }
   });
 });
