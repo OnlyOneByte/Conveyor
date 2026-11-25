@@ -89,7 +89,7 @@ jobs:
               "$TRIVY" image --quiet "$@"
           }
           for attempt in 1 2 3; do
-            if trivy --download-db-only; then break; fi
+            if trivy --download-db-only && trivy --download-java-db-only; then break; fi
             if [ "$attempt" = 3 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
