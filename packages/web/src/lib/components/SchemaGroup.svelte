@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { FormGroup, FormUiHints } from "@conveyor/shared";
-  import {
-    clamp, controlFor, fieldLabel, groupSummary, hi, lo, numOf,
-    type JsonSchemaProp, type Props,
-  } from "#lib/form-schema.js";
+  import { controlFor, fieldLabel, groupSummary, numOf, type Props } from "#lib/form-schema.js";
+  import Stepper from "./Stepper.svelte";
 
   export let group: FormGroup;
   export let schemaProps: Props;
@@ -16,30 +14,6 @@
   $: cur = Object.fromEntries(
     fields.map((f) => [f, numOf(schemaProps, value, f)]),
   ) as Record<string, number>;
-
-  const num = (key: string) => numOf(schemaProps, value, key);
-
-  function bump(key: string, p: JsonSchemaProp, delta: number) {
-    onSet(key, clamp(num(key) + delta, p));
-  }
-
-  function typed(key: string, p: JsonSchemaProp, raw: string) {
-    if (raw.trim() === "") return;
-    let n = Number(raw);
-    if (!Number.isFinite(n)) return;
-    if (p.type === "integer") n = Math.trunc(n);
-    if (n >= lo(p) && n <= hi(p)) onSet(key, n);
-  }
-
-  function settle(key: string, p: JsonSchemaProp, el: HTMLInputElement) {
-    const raw = el.value.trim();
-    let n = raw === "" ? num(key) : Number(raw);
-    if (!Number.isFinite(n)) n = num(key);
-    if (p.type === "integer") n = Math.trunc(n);
-    n = clamp(n, p);
-    onSet(key, n);
-    el.value = String(n);
-  }
 </script>
 
 <div class="group">
@@ -66,37 +40,10 @@
           <span>{fieldLabel(key, prop)}</span>
         </label>
       {:else if kind === "stepper"}
-        <div class="stepper">
-          <button
-            type="button"
-            aria-label={`Decrease ${fieldLabel(key, prop)}`}
-            disabled={cur[key] <= lo(prop)}
-            on:click={() => bump(key, prop, -1)}>−</button
-          >
-          <span class="sval">
-            <input
-              type="number"
-              inputmode="numeric"
-              aria-label={fieldLabel(key, prop)}
-              min={prop.minimum}
-              max={prop.maximum}
-              step="1"
-              value={cur[key]}
-              on:input={(e) => typed(key, prop, e.currentTarget.value)}
-              on:blur={(e) => settle(key, prop, e.currentTarget)}
-              on:keydown={(e) => {
-                if (e.key === "Enter") settle(key, prop, e.currentTarget);
-              }}
-            />
-            {#if ui?.unitMm?.[key] !== undefined}<em>u · {cur[key] * (ui.unitMm[key] ?? 0)} mm</em>{/if}
-          </span>
-          <button
-            type="button"
-            aria-label={`Increase ${fieldLabel(key, prop)}`}
-            disabled={cur[key] >= hi(prop)}
-            on:click={() => bump(key, prop, 1)}>+</button
-          >
-        </div>
+        <Stepper
+          label={fieldLabel(key, prop)} {prop} current={cur[key]} unitMm={ui?.unitMm?.[key]}
+          onSet={(v) => onSet(key, v)}
+        />
       {:else}
         <div class="stack1">
           <label for={`f-${key}`}>{fieldLabel(key, prop)}</label>
@@ -126,28 +73,12 @@
 
   .fields { display: flex; flex-direction: column; gap: 0.5rem; }
   .fields.pair { flex-direction: row; align-items: center; gap: 0.5rem; }
-  .fields.pair > .stepper { flex: 1; min-width: 0; }
+  .fields.pair > :global(.stepper) { flex: 1; min-width: 0; }
   .times { color: var(--muted); }
 
   .fields.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; }
   .cb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; min-height: 32px; }
   .cb input { margin: 0; }
-  .stepper { display: flex; align-items: center; background: var(--surface-2);
-    border: 1.5px solid var(--field-line); border-radius: var(--r-control); overflow: hidden; }
-  .stepper button { border: 0; background: transparent; border-radius: 0; width: 40px;
-    padding: 0; font-size: 1.05rem; line-height: 1; color: var(--text); flex: none; }
-  @media (hover: hover) {
-    .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
-  }
-  .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
-  .stepper button:focus-visible { outline-offset: -3px; }
-  .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 0.12rem; }
-  .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
-    text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;
-    color: var(--text); -moz-appearance: textfield; appearance: textfield; }
-  .sval input::-webkit-outer-spin-button,
-  .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
   .stack1 { display: flex; flex-direction: column; gap: 0.3rem; width: 100%; }
   .stack1 label { font-size: 0.85rem; color: var(--muted); }
   .slider { display: flex; align-items: center; gap: 0.6rem; }
