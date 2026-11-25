@@ -1,40 +1,78 @@
 {
-  "url": "http://127.0.0.1:34969",
-  "warnings": [],
+  "url": "http://127.0.0.1:39619",
+  "warnings": [
+    "warm-up /: waitFor: Timeout 5000ms exceeded."
+  ],
   "results": [
     {
       "scene": "home",
       "width": 1440,
-      "warnings": [],
-      "png": "home-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so home is new on this PR"
+      ]
+    },
+    {
+      "scene": "print-hover",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so print-hover is new on this PR"
+      ]
     },
     {
       "scene": "nav-reach",
       "width": 1440,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "nav-reach-1440.png"
     },
     {
       "scene": "upload-empty",
       "width": 1440,
-      "warnings": [],
-      "png": "upload-empty-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so upload-empty is new on this PR"
+      ]
     },
     {
       "scene": "new-job",
       "width": 1440,
-      "warnings": [],
-      "png": "new-job-1440.png",
-      "gifBytes": 436588,
-      "gif": "new-job-1440.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so new-job is new on this PR"
+      ]
     },
     {
       "scene": "job-progress",
       "width": 1440,
-      "warnings": [],
-      "png": "job-progress-1440.png",
-      "gifBytes": 257322,
-      "gif": "job-progress-1440.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-progress is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-fold",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-fold is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-bad",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-bad is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-good",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-good is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-print",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-print is new on this PR"
+      ]
     },
     {
       "scene": "jobs-today",
@@ -83,7 +121,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 665117,
+      "gifBytes": 638346,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -132,49 +170,57 @@
       "scene": "retry-link",
       "width": 1440,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "retry-link-1440.png"
     },
     {
       "scene": "job-switch",
       "width": 1440,
-      "warnings": [],
-      "png": "job-switch-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-switch is new on this PR"
+      ]
     },
     {
       "scene": "print-forward",
       "width": 1440,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "print-forward-1440.png"
     },
     {
       "scene": "receipt-queued",
       "width": 1440,
-      "warnings": [],
-      "png": "receipt-queued-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-queued is new on this PR"
+      ]
     },
     {
       "scene": "receipt-modelling",
       "width": 1440,
-      "warnings": [],
-      "png": "receipt-modelling-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-modelling is new on this PR"
+      ]
     },
     {
       "scene": "receipt-slicing",
       "width": 1440,
-      "warnings": [],
-      "png": "receipt-slicing-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-slicing is new on this PR"
+      ]
     },
     {
       "scene": "receipt-sending",
       "width": 1440,
-      "warnings": [],
-      "png": "receipt-sending-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-sending is new on this PR"
+      ]
     },
     {
       "scene": "receipt-printing",
       "width": 1440,
-      "warnings": [],
-      "png": "receipt-printing-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-printing is new on this PR"
+      ]
     },
     {
       "scene": "monitor",
@@ -215,34 +261,37 @@
     {
       "scene": "command-menu",
       "width": 1440,
-      "warnings": [],
-      "png": "command-menu-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-done",
       "width": 1440,
-      "warnings": [],
-      "png": "command-menu-done-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-done is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-2x3",
       "width": 1440,
-      "warnings": [],
-      "png": "command-menu-2x3-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-2x3 is new on this PR"
+      ]
     },
     {
       "scene": "shortcut-sheet",
       "width": 1440,
-      "warnings": [],
-      "png": "shortcut-sheet-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so shortcut-sheet is new on this PR"
+      ]
     },
     {
       "scene": "keyboard",
       "width": 1440,
-      "warnings": [],
-      "png": "keyboard-1440.png",
-      "gifBytes": 664852,
-      "gif": "keyboard-1440.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so keyboard is new on this PR"
+      ]
     },
     {
       "scene": "track-0",
@@ -307,38 +356,38 @@
     {
       "scene": "belt-bar-make",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-bar-make-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-bar-make is new on this PR"
+      ]
     },
     {
       "scene": "belt-holds-make",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-holds-make-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-holds-make is new on this PR"
+      ]
     },
     {
       "scene": "belt-expand",
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 525482,
+      "gifBytes": 485353,
       "gif": "belt-expand-1440.gif"
     },
     {
       "scene": "belt-motion",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-motion-1440.png",
-      "gifBytes": 1015565,
-      "gif": "belt-motion-1440.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-motion is new on this PR"
+      ]
     },
     {
       "scene": "belt-motion-reduced",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1075268,
-      "gif": "belt-motion-reduced-1440.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-motion-reduced is new on this PR"
+      ]
     },
     {
       "scene": "belt-offline",
@@ -349,21 +398,23 @@
     {
       "scene": "belt-offline-make",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-offline-make-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-offline-make is new on this PR"
+      ]
     },
     {
       "scene": "belt-region",
       "width": 1440,
-      "warnings": [],
-      "png": "belt-region-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-region is new on this PR"
+      ]
     },
     {
       "scene": "track-keys",
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 277475,
+      "gifBytes": 279871,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -382,6 +433,7 @@
       "scene": "toast-reach",
       "width": 1440,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "toast-reach-1440.png"
     },
     {
@@ -401,7 +453,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 398200,
+      "gifBytes": 383288,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -415,7 +467,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 869705,
+      "gifBytes": 927611,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -429,7 +481,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 672740,
+      "gifBytes": 691588,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -437,7 +489,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 582373,
+      "gifBytes": 586788,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -461,36 +513,58 @@
     {
       "scene": "home",
       "width": 390,
-      "warnings": [],
-      "png": "home-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so home is new on this PR"
+      ]
     },
     {
       "scene": "nav-reach",
       "width": 390,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "nav-reach-390.png"
     },
     {
       "scene": "upload-empty",
       "width": 390,
-      "warnings": [],
-      "png": "upload-empty-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so upload-empty is new on this PR"
+      ]
     },
     {
       "scene": "new-job",
       "width": 390,
-      "warnings": [],
-      "png": "new-job-390.png",
-      "gifBytes": 562868,
-      "gif": "new-job-390.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so new-job is new on this PR"
+      ]
     },
     {
       "scene": "job-progress",
       "width": 390,
-      "warnings": [],
-      "png": "job-progress-390.png",
-      "gifBytes": 313415,
-      "gif": "job-progress-390.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-progress is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-fold",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-fold is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-bad",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-bad is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-good",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-good is new on this PR"
+      ]
     },
     {
       "scene": "jobs-today",
@@ -533,7 +607,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1034668,
+      "gifBytes": 976619,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -582,49 +656,57 @@
       "scene": "retry-link",
       "width": 390,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "retry-link-390.png"
     },
     {
       "scene": "job-switch",
       "width": 390,
-      "warnings": [],
-      "png": "job-switch-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-switch is new on this PR"
+      ]
     },
     {
       "scene": "print-forward",
       "width": 390,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "print-forward-390.png"
     },
     {
       "scene": "receipt-queued",
       "width": 390,
-      "warnings": [],
-      "png": "receipt-queued-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-queued is new on this PR"
+      ]
     },
     {
       "scene": "receipt-modelling",
       "width": 390,
-      "warnings": [],
-      "png": "receipt-modelling-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-modelling is new on this PR"
+      ]
     },
     {
       "scene": "receipt-slicing",
       "width": 390,
-      "warnings": [],
-      "png": "receipt-slicing-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-slicing is new on this PR"
+      ]
     },
     {
       "scene": "receipt-sending",
       "width": 390,
-      "warnings": [],
-      "png": "receipt-sending-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-sending is new on this PR"
+      ]
     },
     {
       "scene": "receipt-printing",
       "width": 390,
-      "warnings": [],
-      "png": "receipt-printing-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-printing is new on this PR"
+      ]
     },
     {
       "scene": "monitor",
@@ -665,34 +747,37 @@
     {
       "scene": "command-menu",
       "width": 390,
-      "warnings": [],
-      "png": "command-menu-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-done",
       "width": 390,
-      "warnings": [],
-      "png": "command-menu-done-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-done is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-2x3",
       "width": 390,
-      "warnings": [],
-      "png": "command-menu-2x3-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-2x3 is new on this PR"
+      ]
     },
     {
       "scene": "shortcut-sheet",
       "width": 390,
-      "warnings": [],
-      "png": "shortcut-sheet-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so shortcut-sheet is new on this PR"
+      ]
     },
     {
       "scene": "keyboard",
       "width": 390,
-      "warnings": [],
-      "png": "keyboard-390.png",
-      "gifBytes": 906806,
-      "gif": "keyboard-390.gif"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so keyboard is new on this PR"
+      ]
     },
     {
       "scene": "track-0",
@@ -769,15 +854,16 @@
     {
       "scene": "belt-region",
       "width": 390,
-      "warnings": [],
-      "png": "belt-region-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-region is new on this PR"
+      ]
     },
     {
       "scene": "track-keys",
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 529626,
+      "gifBytes": 508137,
       "gif": "track-keys-390.gif"
     },
     {
@@ -796,6 +882,7 @@
       "scene": "toast-reach",
       "width": 390,
       "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
       "png": "toast-reach-390.png"
     },
     {
@@ -815,7 +902,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 623678,
+      "gifBytes": 599295,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -829,7 +916,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1340112,
+      "gifBytes": 1368904,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -843,7 +930,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1010906,
+      "gifBytes": 1125919,
       "gif": "printers-add-390.gif"
     },
     {
@@ -851,7 +938,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1008754,
+      "gifBytes": 980419,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
