@@ -7,6 +7,7 @@
   export let open = false;
   export let profile: CatalogProfile | null = null;
   export let changed: () => void;
+  export let deleted: (id: string) => void = () => {};
 
   let busy = false;
   let problem = "";
@@ -28,6 +29,7 @@
       const content = target.hasEditableContent ? await loadContent(target) : null;
       await deleteProfile(target.id);
       open = false;
+      deleted(target.id);
       changed();
       const undo = { label: "Undo", run: () => void restore(target, content) };
       toasts.show(`Deleted ${target.name}`, undo);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { slicerFormat } from "@conveyor/shared/profile-format";
   import type { CatalogProfile, CatalogSlicer } from "#lib/api.js";
   import { profileFacts, profileTag } from "#lib/profile-facts.js";
@@ -17,10 +18,31 @@
   const editPath = (id: string) =>
     `/settings/profiles/${id.split("/").map(encodeURIComponent).join("/")}`;
 
+  let list: HTMLElement | undefined;
+  let add: HTMLButtonElement;
+  let gone: string | null = null;
+  let next: string | null = null;
+
   function remove(profile: CatalogProfile) {
     doomed = profile;
     deleting = true;
   }
+
+  function deleted(id: string) {
+    const at = profiles.findIndex((p) => p.id === id);
+    [gone, next] = [id, (profiles[at + 1] ?? profiles[at - 1])?.id ?? null];
+  }
+
+  async function land(id: string | null) {
+    gone = null;
+    await tick();
+    const row = [...(list?.querySelectorAll<HTMLElement>("[data-id]") ?? [])].find(
+      (li) => li.dataset.id === id,
+    );
+    (row?.querySelector<HTMLElement>(".acts > :last-child") ?? add).focus();
+  }
+
+  $: if (gone && !profiles.some((p) => p.id === gone)) void land(next);
 </script>
 
 <section class="panel" aria-labelledby="profiles-h">
@@ -29,14 +51,14 @@
       <h2 id="profiles-h">Profiles</h2>
       <p class="sub">How the slicer turns a model into G-code for your printer.</p>
     </div>
-    <button class="btn big" type="button" on:click={() => (adding = true)}>
+    <button class="btn big" type="button" bind:this={add} on:click={() => (adding = true)}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d={plus} /></svg>Add profile
     </button>
   </header>
   {#if profiles.length}
-    <ul class="list">
+    <ul class="list" bind:this={list}>
       {#each profiles as profile (profile.id)}
-        <li>
+        <li data-id={profile.id}>
           <div class="n">
             <b>{profile.name}</b>
             <span class="facts">{profileFacts(profile, slicers)}</span>
@@ -72,7 +94,7 @@
 </section>
 
 <ProfileDialog bind:open={adding} {slicers} {flavors} taken={profiles.map((p) => p.id)} {changed} />
-<DeleteProfile bind:open={deleting} profile={doomed} {changed} />
+<DeleteProfile bind:open={deleting} profile={doomed} {changed} {deleted} />
 
 <style>
   .panel {

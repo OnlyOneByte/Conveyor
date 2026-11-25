@@ -10,6 +10,7 @@
   export let invalid: boolean;
   export let diagnose: Diagnose;
   export let change: (text: string) => void;
+  export let ready = false;
 
   let host: HTMLDivElement;
   let editor: EditorHandle | null = null;
@@ -21,6 +22,7 @@
       const { createEditor } = await import("#lib/code-editor.js");
       const check = (t: string) => diagnose(t);
       editor = createEditor(host, { text, lang, label, described, change, diagnose: check });
+      ready = true;
       host.querySelector<HTMLElement>(".cm-content")?.focus();
     } catch {
       failed = true;

@@ -19,6 +19,8 @@ const LABELS: Record<string, string> = {
   config: "Settings",
 };
 
+const EMPTY = "this file is empty. Paste the settings your slicer exported for it.";
+
 export const fileLabel = (file: string) => LABELS[file] ?? file;
 
 export const describe = ({ file, line, text }: Problem) =>
@@ -70,6 +72,7 @@ function orcaLine(text: string, message: string): number {
 export function orcaProblem(documents: OrcaProfileDocuments): Problem | null {
   for (const file of ORCA_PROFILE_DOCUMENT_NAMES) {
     const text = documents[file];
+    if (!text.trim()) return { file, line: 1, text: EMPTY };
     const at = syntaxAt(text);
     if (at !== null) {
       const hint = "this isn't valid JSON. Look for a missing comma, quote or bracket.";

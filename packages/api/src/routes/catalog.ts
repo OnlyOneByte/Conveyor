@@ -107,6 +107,15 @@ export async function registerCatalogRoutes(
     const parsed = parseProfile(req.body);
     if (!parsed.success)
       return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    const shipped = BUNDLED_PROFILE_IDS.has(parsed.data.id)
+      ? dbGetProfile(openDb(), parsed.data.id)
+      : null;
+    const fields = ["name", "slicerId", "path", "gcodeFlavor"] as const;
+    if (shipped && fields.some((field) => shipped[field] !== parsed.data[field])) {
+      return reply.code(409).send({
+        error: `profile ${parsed.data.id} is bundled, so its name, slicer, folder and firmware can't change`,
+      });
+    }
     dbUpsertProfile(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });

@@ -15,7 +15,7 @@
   let [docs, saved] = [{ ...content.docs }, { ...content.docs }];
   let edited = content.edited;
   let file = content.files[0] ?? "";
-  let [busy, discarding, letGo] = [false, false, false];
+  let [busy, discarding, letGo, ready] = [false, false, false, false];
   let [failure, leaving]: [string, URL | null] = ["", null];
   let version = 0;
   const [errorId, panelId] = [uid("editor-error"), uid("editor-panel")];
@@ -52,7 +52,7 @@
   }
 
   async function save() {
-    if (problem || !dirty || busy) return;
+    if (problem || !dirty || busy || !ready) return;
     await attempt(async () => {
       await editing.saveContent(profile, content.lang, docs);
       [saved, edited] = [{ ...docs }, true];
@@ -70,7 +70,7 @@
     });
 
   function tidy() {
-    if (tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
+    if (ready && tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
   }
 
   function leave() {
@@ -115,7 +115,7 @@
     {label}
     described={errorId}
     invalid={problem?.file === file}
-    {diagnose}
+    {diagnose} bind:ready
     change={(text) => (docs = { ...docs, [file]: text })}
   />
 </div>
@@ -123,10 +123,10 @@
 <EditorBar
   name={profile.name}
   {status}
-  {busy}
+  busy={busy || !ready}
   {edited}
-  canSave={!problem && dirty && !busy}
-  tidy={content.lang === "json" ? tidied !== null ? tidy : null : undefined}
+  canSave={ready && !problem && dirty && !busy}
+  tidy={content.lang === "json" ? ready && tidied !== null ? tidy : null : undefined}
   {save}
   {reset}
 />

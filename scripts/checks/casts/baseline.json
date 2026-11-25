@@ -19,7 +19,7 @@
     "packages/shared/src/param-schema.ts": 1,
     "packages/shared/src/profile.ts": 1,
     "packages/web/src/hooks.server.test.ts": 2,
-    "packages/web/src/lib/api.ts": 6,
+    "packages/web/src/lib/api.ts": 5,
     "packages/web/src/lib/belt.test.ts": 2,
     "packages/web/src/lib/components/SchemaGroup.svelte": 1,
     "packages/web/src/lib/form-schema.ts": 1,

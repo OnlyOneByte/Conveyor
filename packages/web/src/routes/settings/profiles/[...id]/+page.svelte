@@ -6,8 +6,10 @@
 
   export let data: PageData;
 
-  $: ({ profile, content, slicers, failed } = data);
-  $: title = profile?.name ?? (failed ? "Can't reach Conveyor" : "No such profile");
+  $: ({ profile, content, slicers, failed, problem } = data);
+  $: title =
+    profile?.name ??
+    (failed ? "Can't reach Conveyor" : problem ? "The profile didn't load" : "No such profile");
 </script>
 
 <svelte:head><title>{title} · Conveyor</title></svelte:head>
@@ -25,6 +27,13 @@
       <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
     </div>
   </div>
+{:else if problem}
+  <div class="empty" role="alert">
+    <p class="sub">Conveyor answered: {problem}</p>
+    <div>
+      <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
+    </div>
+  </div>
 {:else if !profile}
   <p class="sub">It may have been deleted. <a href="/settings">Back to Settings</a></p>
 {:else if !content}
@@ -32,6 +41,11 @@
     Settings for this slicer can't be edited here. Change the files in its folder instead.
   </p>
 {:else}
+  {#if content.missing}
+    <p class="sub">
+      This profile has no files yet. Paste the settings your slicer exported, then Save.
+    </p>
+  {/if}
   {#key profile.id}<ProfileEditor {profile} {content} />{/key}
 {/if}
 

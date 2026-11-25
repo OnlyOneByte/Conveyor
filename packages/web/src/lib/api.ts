@@ -7,6 +7,7 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
+import { failure } from "./http-error.js";
 
 export const API = "/api";
 
@@ -169,7 +170,7 @@ export interface JobHistoryEntry {
 
 async function getJson<T>(path: string, fetchFn: typeof fetch = fetch): Promise<T> {
   const r = await fetchFn(path);
-  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  if (!r.ok) throw await failure(r, `GET ${path}`);
   return r.json();
 }
 async function putJson(path: string, body: unknown): Promise<void> {
@@ -195,16 +196,13 @@ export interface CatalogTransport {
 export const fetchCatalogTransports = (f?: typeof fetch) =>
   getJson<CatalogTransport[]>(`${API}/catalog/transports`, f);
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
-export const fetchCatalogSlicers = (f?: typeof fetch) =>
-  getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
+export const fetchCatalogSlicers = (f?: typeof fetch) => getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
 
-async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T> {
+async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T | null> {
   const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
   const r = await fetchFn(path);
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: unknown };
-    throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);
-  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await failure(r, `GET ${path}`);
   return r.json();
 }
 
