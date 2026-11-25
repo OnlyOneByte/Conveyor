@@ -1,4 +1,5 @@
 import { afterAll, beforeAll } from "bun:test";
+import { readFileSync } from "node:fs";
 import { type Browser, chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
 import { messageOf } from "./errors.ts";
@@ -40,4 +41,23 @@ export function browserPages() {
       await context.close();
     }
   };
+}
+
+export function serveCaddy(cmd: string[]): ReturnType<typeof Bun.serve> {
+  const file = cmd[cmd.indexOf("-v") + 1]?.split(":")[0] ?? "";
+  const port = Number(readFileSync(file, "utf8").match(/http:\/\/127\.0\.0\.1:(\d+)/)?.[1]);
+  return Bun.serve({ hostname: "127.0.0.1", port, fetch: () => new Response("ok") });
+}
+
+export function fakeAdapt(cmd: string[]): { exitCode: number; stdout: Buffer; stderr: Buffer } {
+  const text = readFileSync(cmd[cmd.indexOf("-v") + 1]?.split(":")[0] ?? "", "utf8");
+  const port = text.match(/http:\/\/(127\.0\.0\.1:\d+)/)?.[1];
+  const dials = [...text.matchAll(/reverse_proxy (\S+)/g)].map(([, dial]) => ({ dial }));
+  const server = {
+    listen: [port],
+    routes: [{ upstreams: dials }],
+    automatic_https: { disable: true },
+  };
+  const config = { admin: { disabled: true }, apps: { http: { servers: { srv0: server } } } };
+  return { exitCode: 0, stdout: Buffer.from(JSON.stringify(config)), stderr: Buffer.from("") };
 }
