@@ -37,13 +37,12 @@ submit it themselves.
     counts come from `GET /jobs-history/counts`.
   - **Keys:** the rows share one Tab stop. `J`/`K` move real focus, Enter opens, `C` cancels a job on the belt after
     a confirm dialog, `R` retries a failure, and `/` focuses the filter.
-  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` redirects here.
+  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` and `/monitor` redirect here.
 - **The belt's feed** (`lib/belt.ts`, `lib/active-jobs.ts`). The shell runs the only `GET /jobs/active` poll:
-  - **Sharing:** each answer goes into the `activeJobs` store, which `/monitor` and the queued job card read
-    instead of polling themselves.
+  - **Sharing:** each answer goes into the `activeJobs` store, which the queued job card reads instead of
+    polling itself.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
-    on the belt is on the rail with an open socket and no page is watching (`watchActive`; `/monitor` watches, so it
-    keeps 2 s). A queued job, or a closed socket, brings it back to 2 s.
+    on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
     so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
@@ -79,7 +78,7 @@ the printer has jobs on the belt, because the API refuses that delete with `409`
 in plain words.
 
 Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
-page's **More** menu links there. `/monitor` keeps its active-jobs list only.
+page's **More** menu links there.
 
 ### Settings
 
@@ -208,11 +207,9 @@ Preferences describe how this browser renders, not anything about the catalog, s
 - **Auto-spin** (`spinPreview`) is off by default. A model that keeps rotating is distracting while you dial in parameters, and it fights manual orbiting: the camera drifts the moment you let go. The toggle is on `/settings` and the viewer on `/`, so the two are often open in separate tabs. The `storage` event fires only in other tabs, so listening to it keeps them in sync without looping on the tab's own writes.
 - **Reduced motion** (`prefersReducedMotion`) overrides the preference. `autoRotate` is a render-loop prop, not a CSS animation, so the global `@media (prefers-reduced-motion)` rule in `app.css` can't reach it.
 
-## lib/api.ts, JobStatus.svelte and /monitor (fetching job state)
+## lib/api.ts and /settings (fetching state)
 
 - **`fetchJobHistoryEntry`** doesn't use `getJson`, which throws the same error for every non-ok status. The job page has to tell "no job with this id" (a not-found page) apart from a server failure (shown as an error), so only `404` becomes `null` and anything else still throws.
 - **Deleting** a printer or profile surfaces the server's `error` message, so a refusal explains itself. A body that isn't JSON falls back to the method, path and status.
 - **`uploadStl`** uploads an STL for the passthrough generator and returns an opaque `uploadId`.
-- **`JobStatus`** is reconnect-safe: it pulls the job's snapshot first, then streams live updates.
-- **`/monitor`** shows the time spent in a job's current stage, from the timing entry that is still open (no `durationMs` yet). A worker stamps `enteredAt` with `Date.now()`, so an elapsed time over about 24 hours, or a negative one, means a bad or skewed timestamp, not a day-long stage, and the counter is hidden.
-- **Client-rendered pages:** `/settings` and `/monitor` set `ssr = false`. Settings' cookies and fetches run in the browser, and Monitor polls live job and printer state there.
+- **Client-rendered page:** `/settings` sets `ssr = false`, because its cookies and fetches run in the browser.

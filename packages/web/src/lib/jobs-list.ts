@@ -162,7 +162,7 @@ export const EMPTY: Record<Filter, string> = {
 
 export const canCancel = (row: Row) => row.state in LIVE;
 
-export type Said = [string, Politeness];
+type Said = [string, Politeness];
 
 export async function retryRow(row: Row | undefined, send = retryJob): Promise<Said> {
   if (!row || row.state !== "failed" || !row.request) return ["Only a failed job can be retried.", "polite"];

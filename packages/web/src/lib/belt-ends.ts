@@ -21,7 +21,7 @@ export interface EndsFeed {
   catalog(): Promise<Catalog>;
 }
 
-export interface EndsUi {
+interface EndsUi {
   show(finished: number, needs: TrackJob[]): void;
   toast(text: string, action?: { label: string; run: () => void }): void;
   say(text: string, level: Politeness): void;

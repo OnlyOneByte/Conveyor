@@ -96,34 +96,6 @@ export const scenes: Scene[] = [
     ],
   },
   {
-    name: "job-switch",
-    route: "/",
-    ready: "text=How big?",
-    steps: [
-      {
-        fulfill: "**/api/jobs/scene-a",
-        status: 200,
-        json: { jobId: "scene-a", state: "printing", stage: "transport", progress: 0.42, at: 1 },
-      },
-      {
-        fulfill: "**/api/jobs/scene-b",
-        status: 200,
-        json: {
-          jobId: "scene-b",
-          state: "failed",
-          error: { stage: "transport", reason: "printer went offline" },
-          at: 2,
-        },
-      },
-      { follow: "/?job=scene-a" },
-      { waitFor: "text=42%" },
-      { follow: "/?job=scene-b" },
-      { waitFor: "text=printer went offline" },
-      { scroll: "text=printer went offline" },
-      { wait: 800 },
-    ],
-  },
-  {
     name: "print-forward",
     route: "/jobs",
     ready: "h1",
@@ -144,7 +116,7 @@ export const scenes: Scene[] = [
         },
       },
       { click: "button.print" },
-      { waitFor: "text=42%" },
+      { waitFor: "text=See the job" },
       { history: "back" },
       { waitFor: "h1 >> text=Jobs" },
       { history: "forward", url: "/jobs/scene-forward" },
