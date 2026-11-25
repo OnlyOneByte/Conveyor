@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:36551",
+  "url": "http://127.0.0.1:34895",
   "warnings": [
     "warm-up /: waitFor: Timeout 5000ms exceeded."
   ],
@@ -114,7 +114,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 615504,
+      "gifBytes": 702682,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -341,7 +341,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 485316,
+      "gifBytes": 520307,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -383,7 +383,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 279884,
+      "gifBytes": 313365,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -422,7 +422,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 383323,
+      "gifBytes": 430655,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -436,7 +436,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 923289,
+      "gifBytes": 961351,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -450,7 +450,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 693495,
+      "gifBytes": 818971,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -458,7 +458,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 584919,
+      "gifBytes": 680747,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -576,7 +576,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 998814,
+      "gifBytes": 976532,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -808,7 +808,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 508025,
+      "gifBytes": 509344,
       "gif": "track-keys-390.gif"
     },
     {
@@ -847,7 +847,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 624867,
+      "gifBytes": 623561,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -861,7 +861,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1369882,
+      "gifBytes": 1344141,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -875,7 +875,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1012598,
+      "gifBytes": 1105760,
       "gif": "printers-add-390.gif"
     },
     {
