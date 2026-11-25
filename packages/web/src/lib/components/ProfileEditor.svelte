@@ -143,8 +143,6 @@
 
 <style>
   p { margin: 0; }
-  .problem {
-    display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); color: var(--err);
-  }
+  .problem { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); color: var(--err); overflow-wrap: anywhere; }
   .problem.shown { margin: var(--s3) 0; font-weight: 600; }
 </style>
