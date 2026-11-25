@@ -59,6 +59,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-add",
     "printers-touch",
     "printers-delete",
+    "offline-nav",
     "printers-clear-secrets",
     "printers-clear-secrets-keep",
     "printers-clear-secrets-confirm",

@@ -1,4 +1,4 @@
-FROM oven/bun:debian AS deps
+FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS deps
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
@@ -14,7 +14,7 @@ COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
 COPY plugins/registry/builtin/package.json plugins/registry/builtin/
 RUN bun install --frozen-lockfile --production
 
-FROM debian:trixie-slim AS openscad
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS openscad
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build pkg-config bison flex gettext ca-certificates curl gpgv \
       libboost-program-options-dev libboost-regex-dev libcgal-dev libeigen3-dev libgmp-dev libmpfr-dev \
@@ -25,15 +25,17 @@ COPY --chmod=755 scripts/build-openscad.sh scripts/fetch-openscad-source.sh scri
 COPY scripts/openscad-release-key.asc /tmp/
 RUN /tmp/build-openscad.sh /opt/openscad
 
-FROM oven/bun:debian
+FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor worker — OpenSCAD generator + PrusaSlicer/OrcaSlicer engines" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 ARG ORCA_RELEASE=2.4.1
 ARG ORCA_ENABLE=auto
+ARG OS_REFRESH=""
 ENV ORCA_BIN=/opt/orca/AppRun
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "OS package refresh: ${OS_REFRESH:-none}" \
+ && apt-get update && apt-get install -y --no-install-recommends \
       prusa-slicer \
       xvfb xauth ca-certificates curl \
       libharfbuzz0b libgpg-error0 libgcrypt20 libglib2.0-0 libfontconfig1 libfreetype6 libgomp1 \

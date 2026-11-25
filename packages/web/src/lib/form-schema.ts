@@ -1,5 +1,3 @@
-// Shared plumbing for the schema-driven config form: the JSON Schema shapes we
-// actually consume, plus the pure helpers SchemaForm and SchemaGroup both need.
 import type { FormControl, FormGroup, FormUiHints } from "@conveyor/shared";
 
 export interface JsonSchemaProp {
@@ -21,7 +19,6 @@ export interface JsonSchema {
 
 export type Props = Record<string, JsonSchemaProp>;
 
-/** paramJsonSchema in @conveyor/shared wraps the object behind $ref → definitions[name]. Resolve it. */
 export function resolveRoot(s: JsonSchema | null): JsonSchema | null {
   if (!s) return null;
   if (s.$ref && s.definitions) {
@@ -38,13 +35,11 @@ export const lo = (p: JsonSchemaProp): number => p.minimum ?? Number.NEGATIVE_IN
 export const hi = (p: JsonSchemaProp): number => p.maximum ?? Number.POSITIVE_INFINITY;
 export const clamp = (n: number, p: JsonSchemaProp): number => Math.min(hi(p), Math.max(lo(p), n));
 
-/** Current numeric value of a field, falling back to its default then its minimum. */
 export function numOf(props: Props, value: Record<string, unknown>, key: string): number {
   const p = props[key];
   return Number(value[key] ?? p?.default ?? p?.minimum ?? 0);
 }
 
-/** Which control to render. Explicit hint wins; otherwise infer from the schema. */
 export function controlFor(key: string, p: JsonSchemaProp, ui: FormUiHints | null): FormControl {
   const forced = ui?.controls?.[key];
   if (forced) return forced;
@@ -53,11 +48,6 @@ export function controlFor(key: string, p: JsonSchemaProp, ui: FormUiHints | nul
   return "stepper";
 }
 
-/**
- * Right-aligned readout beside a group heading. When every field in the group has a
- * millimetre-per-unit mapping we show real millimetres (the number you measure a
- * drawer against); a numeric pair without one just echoes its values, e.g. "1 × 1".
- */
 export function groupSummary(
   gr: FormGroup, props: Props, value: Record<string, unknown>, ui: FormUiHints | null,
 ): string {
@@ -77,11 +67,6 @@ export function groupSummary(
   return "";
 }
 
-/**
- * Render plan for the primary (always-visible) section. Any field the hints forget is
- * appended as a visible group rather than dropped — a stray control is a much better
- * failure mode than a silently missing parameter.
- */
 export function primaryGroups(props: Props, ui: FormUiHints | null): FormGroup[] {
   const keys = Object.keys(props);
   if (!ui?.groups?.length) return [{ fields: keys, layout: "stack" }];

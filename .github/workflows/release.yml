@@ -49,6 +49,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pick this week's OS package refresh
+        id: refresh
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
@@ -57,12 +61,39 @@ jobs:
           file: packages/${{ matrix.service }}/Dockerfile
           platforms: ${{ matrix.platform.name }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: CONVEYOR_VERSION=${{ steps.meta.outputs.version }}
+          build-args: |
+            CONVEYOR_VERSION=${{ steps.meta.outputs.version }}
+            OS_REFRESH=${{ steps.refresh.outputs.week }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=min,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
+
+      - name: Scan the pushed image for vulnerabilities with a fix
+        env:
+          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
+          DIGEST: ${{ steps.build.outputs.digest }}
+          SERVICE: ${{ matrix.service }}
+          ARCH: ${{ matrix.platform.arch }}
+        run: |
+          image="$REGISTRY_IMAGE@$DIGEST"
+          docker pull --quiet "$image"
+          trivy() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
+              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$image"
+          }
+          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
+          { echo "### conveyor-$SERVICE ($ARCH): fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: image-scan-${{ matrix.service }}-${{ matrix.platform.arch }}
+          path: image-scan.txt
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Export digest
         run: |
