@@ -59,6 +59,10 @@ export function jobCancelKey(jobId: string): string {
 
 const terminalLua = TERMINAL_STATES.map((s) => `prev.state == '${s}'`).join(" or ");
 
+export const JOB_KEY_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+export const JOB_REMOVAL = { age: JOB_KEY_TTL_SECONDS, count: 1000 } as const;
+
 export const PUBLISH_STATUS_SCRIPT = `
 local cur = redis.call('GET', KEYS[1])
 if cur then
@@ -72,6 +76,8 @@ redis.call('SET', KEYS[1], stamped)
 redis.call('PUBLISH', KEYS[2], stamped)
 if ARGV[3] == '1' then
   redis.call('SREM', KEYS[3], ARGV[2])
+  redis.call('EXPIRE', KEYS[1], ARGV[4])
+  redis.call('EXPIRE', KEYS[4], ARGV[4])
 else
   redis.call('SADD', KEYS[3], ARGV[2])
 end
@@ -96,6 +102,7 @@ export async function publishStatus(
     JSON.stringify(evt),
     evt.jobId,
     isTerminal(evt.state) ? "1" : "0",
+    String(JOB_KEY_TTL_SECONDS),
   );
   return written === 1;
 }

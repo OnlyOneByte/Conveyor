@@ -2,6 +2,7 @@ import { queueMode } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { workerConcurrency } from "./mode.js";
+import { retentionDays, sqliteFinishedBefore, sqliteLive, startRetention } from "./retention.js";
 
 export interface StartedWorker {
   mode: string;
@@ -10,19 +11,39 @@ export interface StartedWorker {
 
 export async function startWorker(env: Record<string, string | undefined>): Promise<StartedWorker> {
   const mode = queueMode(env);
-  openDb(env.DB_PATH);
-  uploadSettings(env);
+  retentionDays(env);
+  const db = openDb(env.DB_PATH);
+  const dirs = {
+    dataDir: env.DATA_DIR ?? "/data",
+    uploadDir: uploadSettings(env).dir,
+    finishedBefore: (cutoff: number) => sqliteFinishedBefore(db, cutoff),
+    log: (line: string) => console.log(line),
+  };
   const concurrency = mode === "sqlite" ? workerConcurrency(env) : 0;
   console.log(`conveyor worker queue: ${mode}`);
   if (mode === "sqlite") {
     const { startSqliteWorker } = await import("./sqlite.js");
     const worker = startSqliteWorker(env, concurrency);
+    const stopRetention = startRetention(env, { ...dirs, live: async () => sqliteLive(db) });
     console.log("conveyor worker ready");
-    return { mode, stop: () => worker.stop() };
+    return {
+      mode,
+      stop: async () => {
+        stopRetention();
+        await worker.stop();
+      },
+    };
   }
   const { startRedisWorker } = await import("./index.js");
   const worker = startRedisWorker(env);
-  return { mode, stop: () => worker.stop() };
+  const stopRetention = startRetention(env, { ...dirs, live: worker.live });
+  return {
+    mode,
+    stop: async () => {
+      stopRetention();
+      await worker.stop();
+    },
+  };
 }
 
 if (import.meta.main) {

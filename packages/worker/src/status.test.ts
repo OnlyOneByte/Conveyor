@@ -2,7 +2,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import {
   ACTIVE_JOBS_KEY,
+  JOB_KEY_TTL_SECONDS,
   type JobState,
+  jobSeqKey,
   jobSnapshotKey,
   parseStatusEvent,
   publishStatus,
@@ -18,7 +20,7 @@ const touched: string[] = [];
 
 afterAll(async () => {
   if (!redis) return;
-  if (touched.length) await redis.del(...touched.map(jobSnapshotKey));
+  if (touched.length) await redis.del(...touched.map(jobSnapshotKey), ...touched.map(jobSeqKey));
   if (touched.length) await redis.srem(ACTIVE_JOBS_KEY, ...touched);
   redis.disconnect();
 });
@@ -58,6 +60,19 @@ describe.skipIf(!redis)("publishStatus Lua guard (real Redis)", () => {
     }
     expect(await snapshotState(id)).toBe(terminal);
     expect(await client().sismember(ACTIVE_JOBS_KEY, id)).toBe(0);
+  });
+
+  test("a live job's keys never expire; a finished job's snapshot and seq expire after a week", async () => {
+    const id = newJob();
+    await write(id, "printing");
+    expect(await client().ttl(jobSnapshotKey(id))).toBe(-1);
+    expect(await client().ttl(jobSeqKey(id))).toBe(-1);
+    await write(id, "done");
+    for (const key of [jobSnapshotKey(id), jobSeqKey(id)]) {
+      const ttl = await client().ttl(key);
+      expect(ttl).toBeGreaterThan(JOB_KEY_TTL_SECONDS - 60);
+      expect(ttl).toBeLessThanOrEqual(JOB_KEY_TTL_SECONDS);
+    }
   });
 
   test("exactly one of many concurrent terminal writes wins", async () => {
