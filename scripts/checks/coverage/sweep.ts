@@ -37,6 +37,16 @@ for (const name of SIDE_EFFECT_MODULES) {
   }));
 }
 
+const BUILD_TIME_MODULES: Record<string, Record<string, unknown>> = {
+  "$app/env": { version: "sweep" },
+  "$app/manifest": { assets: [], immutable: [] },
+  "virtual:editor-chunks": { default: [] },
+};
+
+for (const [name, exports] of Object.entries(BUILD_TIME_MODULES)) {
+  mock.module(name, () => exports);
+}
+
 const files = (process.env[SWEEP_ENV] ?? "").split("\n").filter(Boolean);
 
 class ExitDuringImport extends Error {}

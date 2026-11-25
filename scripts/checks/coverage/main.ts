@@ -8,6 +8,7 @@ import {
   type BaselineTexts,
   baselineWrites,
   checkRatchet,
+  newPackages,
   type Percents,
   parseBaseline,
   updateRefusal,
@@ -141,10 +142,16 @@ function check(summary: Summary, ref: string): number {
     committed: readCommitted(),
     base: base.baseline,
     baseHasChecker: base.hasChecker,
+    basePackages: base.packages,
     reclassifiedFloors: moves.floors,
   });
   for (const error of [...moves.errors, ...errors]) console.error(error);
   for (const note of moves.notes) console.log(note);
+  for (const name of newPackages(base.packages)) {
+    console.log(
+      `${name}: new in this change (base ${ref} doesn't measure it); its floor starts at the committed baseline`,
+    );
+  }
   if (parseBaseline(base.baseline) === null && !base.hasChecker) {
     console.log(
       `base ${ref} predates the coverage checker; bootstrapping from the committed baseline`,

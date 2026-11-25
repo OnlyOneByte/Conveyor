@@ -10,13 +10,20 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
-import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
+import {
+  multipartFileUpload,
+  refuseRedirect,
+  requirePrinterAddress,
+  uploadSignal,
+} from "@conveyor/shared/node";
+import { poll, positiveSetting, unresolved } from "./poll.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
+const POLL_MS = 2000;
 const CANCEL_TIMEOUT_MS = 15000;
 const STATUS_TIMEOUT_MS = 30000;
+const STATUS_FAILURES = 5;
 
 export const moonraker: TransportPlugin = {
   id: "moonraker",
@@ -38,6 +45,7 @@ export const moonraker: TransportPlugin = {
     }
 
     const base = baseUrl(target.address);
+    await requirePrinterAddress(target.address);
     const headers = apiKeyHeaders(target);
 
     const upload = multipartFileUpload(
@@ -48,6 +56,7 @@ export const moonraker: TransportPlugin = {
       method: "POST",
       body: upload.body,
       headers: { ...headers, ...upload.headers },
+      redirect: "manual",
       signal: uploadSignal(ctx.signal),
     }).catch((e) => {
       const reason = `moonraker upload failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -55,6 +64,7 @@ export const moonraker: TransportPlugin = {
         ? new PrintNotStartedError(reason)
         : new StageError("transport", reason);
     });
+    refuseRedirect(up, "moonraker upload");
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
 
@@ -63,9 +73,11 @@ export const moonraker: TransportPlugin = {
       {
         method: "POST",
         headers,
+        redirect: "manual",
         signal: ctx.signal,
       },
     );
+    refuseRedirect(start, "moonraker start");
     if (!start.ok) throw new StageError("transport", `moonraker start failed: ${start.status}`);
 
     return {
@@ -93,15 +105,27 @@ export const moonraker: TransportPlugin = {
     const base = baseUrl(handle.address);
     const query = `${base}/printer/objects/query?print_stats&virtual_sdcard&display_status`;
     const headers = statusKeyHeaders(target);
+    const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
+    const failuresAllowed = positiveSetting("MOONRAKER_STATUS_FAILURES", STATUS_FAILURES);
+    const pollMs = positiveSetting("MOONRAKER_POLL_MS", POLL_MS);
 
     yield { state: "transferring" };
     let printingSeen = false;
+    let failures = 0;
     while (true) {
-      const res = await fetch(query, { headers, signal: pollSignal(signal) }).catch((e) => {
-        throw new StageError("transport", `moonraker status query failed: ${(e as Error).message}`);
-      });
-      if (!res.ok)
-        throw new StageError("transport", `moonraker status query failed: ${res.status}`);
+      const res =
+        (await unresolved(handle.address)) ?? (await poll(query, headers, timeoutMs, signal));
+      if (typeof res === "string") {
+        failures++;
+        if (failures >= failuresAllowed || signal?.aborted)
+          throw new StageError(
+            "transport",
+            `moonraker status query failed: ${res} (${failures} in a row)`,
+          );
+        await sleep(pollMs, signal);
+        continue;
+      }
+      failures = 0;
 
       const objects = parseQuery(await res.json());
       const ps = objects.print_stats;
@@ -137,7 +161,7 @@ export const moonraker: TransportPlugin = {
         default:
           break;
       }
-      await sleep(POLL_MS, signal);
+      await sleep(pollMs, signal);
     }
   },
 
@@ -146,11 +170,14 @@ export const moonraker: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "moonraker cancel: missing printer address on handle");
     const base = baseUrl(handle.address);
+    await requirePrinterAddress(handle.address);
     const res = await fetch(`${base}/printer/print/cancel`, {
       method: "POST",
       headers: statusKeyHeaders(target),
+      redirect: "manual",
       signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
     });
+    refuseRedirect(res, "moonraker cancel");
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);
   },
 };
@@ -177,12 +204,6 @@ function statusKeyHeaders(target?: PrinterTarget): Record<string, string> {
   if (printerKey["X-Api-Key"]) return printerKey;
   const key = process.env.MOONRAKER_API_KEY;
   return key ? { "X-Api-Key": key } : {};
-}
-
-function pollSignal(signal?: AbortSignal): AbortSignal {
-  const ms = Number(process.env.MOONRAKER_STATUS_TIMEOUT_MS) || STATUS_TIMEOUT_MS;
-  const timeout = AbortSignal.timeout(ms);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
 function clamp01(n: number): number {

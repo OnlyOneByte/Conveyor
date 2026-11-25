@@ -8,10 +8,12 @@ import {
   checkRatchet,
   type Percents,
   parseBaseline,
+  parsePackages,
   raisedBaseline,
   serializePercent,
   updateRefusal,
 } from "./ratchet";
+import { PACKAGES } from "./summary";
 
 const json = (lines: Percents): BaselineTexts =>
   Object.fromEntries(Object.entries(lines).map(([name, value]) => [name, serializePercent(value)]));
@@ -21,6 +23,7 @@ const all = (value: number): Percents => ({
   worker: value,
   shared: value,
   plugins: value,
+  web: value,
 });
 
 interface Case {
@@ -28,15 +31,21 @@ interface Case {
   committed?: Percents | null;
   base?: Percents | null;
   baseHasChecker?: boolean;
+  basePackages?: string[] | null;
 }
 
-const run = ({ current, committed, base, baseHasChecker }: Case) =>
+const run = ({ current, committed, base, baseHasChecker, basePackages }: Case) =>
   checkRatchet({
     current,
     committed: committed === null ? {} : json(committed ?? current),
     base: base === null || base === undefined ? {} : json(base),
     baseHasChecker: baseHasChecker ?? (base !== null && base !== undefined),
+    basePackages,
   });
+
+const withoutWeb = ({ web: _web, ...rest }: Percents): Percents => rest;
+
+const OLD_PACKAGES = ["api", "worker", "shared", "plugins"];
 
 describe("checkRatchet", () => {
   test("passes when coverage holds", () => {
@@ -76,7 +85,7 @@ describe("checkRatchet", () => {
 
   test("fails when the committed baseline claims more than is measured", () => {
     const { errors } = run({ current: all(10), committed: all(50), base: null });
-    expect(errors).toHaveLength(4);
+    expect(errors).toHaveLength(5);
     expect(errors[0]).toBe("api: baseline claims 50.00% but measured 10.00%");
   });
 
@@ -108,15 +117,49 @@ describe("checkRatchet", () => {
   });
 
   test("fails when a package is missing from the committed baseline", () => {
-    const committed = { api: 10, worker: 10, shared: 10 };
+    const committed = { api: 10, worker: 10, shared: 10, web: 10 };
     const { errors } = run({ current: all(10), committed, base: null });
     expect(errors).toEqual([`plugins: ${baselinePath("plugins")} is missing`]);
   });
 
   test("fails when the base has other packages' files but not this one, instead of a zero floor", () => {
-    const base = { api: 40, worker: 40, shared: 40 };
+    const base = { api: 40, worker: 40, shared: 40, web: 40 };
     const { errors } = run({ current: all(40), committed: all(40), base });
     expect(errors).toEqual([`plugins: base ${baselinePath("plugins")} is missing`]);
+  });
+
+  test("a package the base's checker does not list starts at its committed floor", () => {
+    const base = withoutWeb(all(40));
+    const current = { ...all(40), web: 62.2 };
+    const passing = run({ current, committed: current, base, basePackages: OLD_PACKAGES });
+    expect(passing.errors).toEqual([]);
+  });
+
+  test("a new package's floor must still match what is measured", () => {
+    const base = withoutWeb(all(40));
+    const current = { ...all(40), web: 62.2 };
+    const high = run({
+      current,
+      committed: { ...current, web: 70 },
+      base,
+      basePackages: OLD_PACKAGES,
+    });
+    const low = run({
+      current,
+      committed: { ...current, web: 50 },
+      base,
+      basePackages: OLD_PACKAGES,
+    });
+    expect(high.errors).toEqual(["web: baseline claims 70.00% but measured 62.20%"]);
+    expect(low.errors[0]).toStartWith("web: line coverage 62.20% is 0.5 or more above");
+  });
+
+  test("a package the base's checker lists may not lose its base floor", () => {
+    const base = withoutWeb(all(40));
+    for (const basePackages of [[...OLD_PACKAGES, "web"], null, undefined]) {
+      const { errors } = run({ current: all(40), committed: all(40), base, basePackages });
+      expect(errors).toEqual([`web: base ${baselinePath("web")} is missing`]);
+    }
   });
 
   test("fails when coverage rises half a point above an unraised baseline", () => {
@@ -174,7 +217,25 @@ describe("baseline files", () => {
 
   test("an update writes every package when no baseline exists yet", () => {
     expect(baselineWrites(all(12), {}).map(([path]) => path)).toEqual(
-      ["api", "worker", "shared", "plugins"].map(baselinePath),
+      ["api", "worker", "shared", "plugins", "web"].map(baselinePath),
     );
+  });
+});
+
+describe("parsePackages", () => {
+  test("reads the base checker's package list", () => {
+    const source = 'export const PACKAGES = ["api", "worker", "shared", "plugins"] as const;\n';
+    expect(parsePackages(source)).toEqual(OLD_PACKAGES);
+  });
+
+  test("reads this checker's own list, so the next base can", async () => {
+    const own = await Bun.file(new URL("./summary.ts", import.meta.url)).text();
+    expect(parsePackages(own)).toEqual([...PACKAGES]);
+  });
+
+  test("gives null when the list can't be read, so no package counts as new", () => {
+    for (const source of [null, "", "export const PACKAGES = [] as const;", "const x = 1;"]) {
+      expect(parsePackages(source)).toBeNull();
+    }
   });
 });

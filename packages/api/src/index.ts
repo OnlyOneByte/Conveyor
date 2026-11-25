@@ -1,5 +1,6 @@
 import { queueMode } from "@conveyor/shared";
-import { dbReadWorkerHeartbeat, openDb } from "@conveyor/shared/db";
+import { dbListPrinters, dbReadWorkerHeartbeat, openDb } from "@conveyor/shared/db";
+import { allowList, loopbackPrinters } from "@conveyor/shared/node";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
@@ -26,6 +27,7 @@ try {
   uploads = uploadSettings(process.env);
   queue = queueMode(process.env);
   trustProxy = parseTrustedProxies(process.env.CONVEYOR_TRUSTED_PROXIES);
+  allowList(process.env);
   openDb();
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));
@@ -72,6 +74,9 @@ await registerCatalogRoutes(app, countLiveJobs);
 await registerPrinterHoldRoutes(app);
 await registerJobRoutes(app);
 app.log.info(`conveyor api queue: ${queue}`);
+const onLoopback = loopbackPrinters(dbListPrinters(openDb()));
+if (onLoopback.length)
+  app.log.info(`printers on this host's loopback address: ${onLoopback.join(", ")}`);
 
 await app.listen({ host: HOST, port: PORT });
 app.log.info(`conveyor api listening on :${PORT}`);
