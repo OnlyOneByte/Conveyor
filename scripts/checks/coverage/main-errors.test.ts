@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { ROOT } from "./runner";
@@ -13,11 +13,15 @@ const lcov = join(scratch, "lcov.info");
 const out = join(scratch, "merged.lcov");
 writeFileSync(lcov, "");
 
-const check = (args: string[], env: Record<string, string>) => {
-  const { GITHUB_ACTIONS: _ci, CI: _local, ...rest } = process.env;
+const childEnv = (inherited: Record<string, string | undefined>) =>
+  Object.fromEntries(
+    Object.entries(inherited).filter(([key]) => key !== "CI" && !key.startsWith("GITHUB_")),
+  );
+
+const check = (args: string[], env: Record<string, string>, inherited = process.env) => {
   const result = Bun.spawnSync(
     ["bun", "scripts/checks/coverage/main.ts", "--out", relative(ROOT, out), ...args],
-    { cwd: ROOT, env: { ...rest, ...env }, stdout: "pipe", stderr: "pipe" },
+    { cwd: ROOT, env: { ...childEnv(inherited), ...env }, stdout: "pipe", stderr: "pipe" },
   );
   return { code: result.exitCode, text: `${result.stdout}${result.stderr}` };
 };
@@ -57,6 +61,24 @@ describe("check:coverage's early exits", () => {
       });
       expect(result.code).toBe(1);
       expect(result.text).toContain("::error::--update is local only;");
+    },
+    SLOW,
+  );
+
+  test(
+    "a child check never writes to the job summary of the run that tests it",
+    () => {
+      const summary = join(scratch, "step-summary.md");
+      writeFileSync(summary, "");
+      const inherited = { ...process.env, GITHUB_STEP_SUMMARY: summary, GITHUB_ACTIONS: "true" };
+      const result = check(
+        ["--lcov", relative(ROOT, lcov), "--base", "no-such-ref"],
+        {},
+        inherited,
+      );
+      expect(result.code).toBe(1);
+      expect(result.text).toContain("### Line coverage");
+      expect(readFileSync(summary, "utf8")).toBe("");
     },
     SLOW,
   );
