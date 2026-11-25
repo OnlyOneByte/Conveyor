@@ -5,6 +5,7 @@ import { API, cancelJob, type JobHistoryEntry } from "./api";
 import { named } from "./belt";
 import { midnight } from "./belt-ends";
 import type { Catalog } from "./catalog";
+import { statusError } from "./http-error";
 import { failureText } from "./job-failure";
 import { duration } from "./job-settings";
 import { retryJob } from "./retry";
@@ -161,7 +162,7 @@ export function latest() {
 
 async function getJson<T>(path: string, fetchFn: typeof fetch): Promise<T> {
   const r = await fetchFn(path);
-  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  if (!r.ok) throw statusError(r, `GET ${path}`);
   return r.json();
 }
 
@@ -187,7 +188,7 @@ export const EMPTY: Record<Filter, string> = {
 
 export const canCancel = (row: Row) => row.state in LIVE;
 
-export type Said = [string, Politeness];
+type Said = [string, Politeness];
 
 export async function retryRow(row: Row | undefined, send = retryJob): Promise<Said> {
   if (row?.state !== "failed" || !row.request)

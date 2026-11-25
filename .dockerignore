@@ -15,4 +15,5 @@ coverage
 profiles/**/secrets*
 temp-screenshots
 visual-out
+orca-cache
 HANDOFF.md

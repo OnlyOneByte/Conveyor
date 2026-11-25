@@ -3,7 +3,6 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { jobSent, titled } from "#lib/belt.js";
-  import JobStatus from "#lib/components/JobStatus.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
@@ -11,15 +10,11 @@
   import SourceTabs from "#lib/components/SourceTabs.svelte";
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
-  import { dockLine, errorText, latestOnly, measurements, uploadFailure } from "#lib/make.js";
+  import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
-  import {
-    AlreadyRetried,
-    linkedRetry,
-    type RerunPayload,
-    sendJob,
-    takeRerun,
-  } from "#lib/rerun.js";
+  import type { RerunPayload } from "#lib/rerun.js";
+  import { AlreadyRetried, linkedRetry, sendJob, takeRerun } from "#lib/rerun.js";
+  import { couldnt, said } from "#lib/said.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
@@ -46,9 +41,10 @@
   onMount(() => {
     const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
     if (!r) return;
-    ({ generatorId: tab, printerId, profileId } = r);
-    handoff = r;
-    if (r.params && typeof r.params === "object") params = { ...r.params };
+    tab = r.generatorId;
+    [printerId, profileId, handoff] = [r.printerId, r.profileId, r];
+    const schema = pickable.find((g) => g.id === r.generatorId)?.paramSchema ?? null;
+    params = knownParams(r.params, schema);
   });
 
   $: if (!tab && generators.length) tab = tabs[0].id;
@@ -70,8 +66,7 @@
 
   let file: File | null = null;
   let uploadId: string | null = null;
-  let uploading = false;
-  let uploadError = "";
+  let [uploading, uploadError] = [false, ""];
 
   const uploads = latestOnly(uploadStl);
 
@@ -86,8 +81,12 @@
     const done = await uploads.run(chosen);
     if (!done) return;
     uploading = false;
-    if (done.ok) uploadId = done.value.uploadId;
-    else uploadError = `Couldn't upload ${chosen.name}: ${uploadFailure(done.error)}`;
+    if (!done.ok) {
+      uploadError = couldnt(`upload ${chosen.name}`, done.error);
+      return;
+    }
+    uploadId = done.value.uploadId;
+    announce(`${chosen.name} is uploaded and ready to print.`);
   }
 
   function clear() {
@@ -95,9 +94,7 @@
     [file, uploadId, uploading, uploadError] = [null, null, false, ""];
   }
 
-  $: jobId = data.initialJobId ?? null;
-  let busy = false;
-  let sent = false;
+  let [busy, sent] = [false, false];
   let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
@@ -119,14 +116,13 @@
       const res = await sendJob({ generator, printerId, profileId }, retryOf);
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
-      jobId = res.jobId;
       announce(`${jobLabel} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = errorText(e);
+      error = said(e);
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -164,7 +160,7 @@
         </div>
       {:else}
         <p class="note">
-          Conveyor can't reach its server right now. Check that the api service is running.
+          Can't reach Conveyor right now. Check that it's running, then reload the page.
         </p>
       {/if}
       <section id="make-where" class="where" tabindex="-1">
@@ -178,12 +174,6 @@
           <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
         {/if}
       </section>
-      {#if jobId}{#key jobId}
-        <section class="job">
-          <h3>Job</h3>
-          <JobStatus {jobId} />
-        </section>
-      {/key}{/if}
     </div>
     <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
   </form>
@@ -199,13 +189,8 @@
   .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }
-  h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }
   .questions { display: flex; flex-direction: column; gap: var(--s5); }
   .note { margin: 0; color: var(--muted); }
-  .job {
-    padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card);
-    background: var(--paper);
-  }
   @media (min-width: 1200px) {
     .make { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
     .fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }

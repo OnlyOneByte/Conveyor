@@ -190,7 +190,7 @@ export const scenes: Scene[] = [
       { wait: 800 },
       region,
       collapsed,
-      { follow: "/monitor" },
+      { follow: "/printers" },
       { wait: 800 },
       region,
       collapsed,

@@ -3,22 +3,13 @@
 @import "@fontsource/dm-mono/500.css";
 @import "./tokens.css";
 
-:root {
-  --surface: var(--paper);
-  --surface-2: var(--sunk);
-  --border: var(--line-2);
-  --text: var(--ink);
-  --accent-dim: var(--live);
-  --danger: var(--err);
-  --radius: var(--r-control);
-}
-
 * { box-sizing: border-box; }
 
+html { scroll-padding-bottom: calc(var(--dock-h, 0px) + var(--tabbar, 0px)); }
 html, body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   font: var(--fs-body) / 1.45 var(--display);
 }
 
@@ -33,10 +24,10 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
 :where(button) {
   font: inherit;
   cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--sunk);
+  color: var(--ink);
+  border-radius: var(--r-control);
   padding: 0.5rem 0.9rem;
   min-height: var(--tap);
   transition: border-color var(--t-fast), background var(--t-fast);
@@ -56,8 +47,8 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
 
 input, select, textarea {
   font: inherit;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--paper);
+  color: var(--ink);
   border: 1.5px solid var(--field-line);
   border-radius: 8px;
   padding: 0.4rem 0.6rem;

@@ -8,7 +8,7 @@
   import Toasts from "#lib/ui/Toasts.svelte";
   import "#lib/styles/app.css";
   import { onMount } from "svelte";
-  import { shareActive, unwatched } from "#lib/active-jobs.js";
+  import { shareActive } from "#lib/active-jobs.js";
   import { announce, announcements } from "#lib/announce.js";
   import {
     cancelJob,
@@ -76,7 +76,7 @@
     },
   );
   const tick = createTicker(
-    { poll: () => belt.poll(), covered: unwatched(() => belt.covered()) },
+    { poll: () => belt.poll(), covered: () => belt.covered() },
     () => showApp && document.visibilityState === "visible",
   );
   onMount(() => {

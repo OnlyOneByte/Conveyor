@@ -22,8 +22,8 @@ export const REOPEN_AT = 4;
 
 export const collapsedBelt = (path: string, scrollY: number, opened: boolean, was = false) =>
   !opened && (path !== "/" || scrollY > (was ? REOPEN_AT : COLLAPSE_AT));
-export const JOIN_PX = 6;
-export const SPLIT_PX = 16;
+const JOIN_PX = 6;
+const SPLIT_PX = 16;
 export const MIN_CHIP_PX = 156;
 
 export const onRail = (state: JobState): state is RailState => state in SPANS;

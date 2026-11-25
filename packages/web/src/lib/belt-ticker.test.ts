@@ -28,7 +28,8 @@ function held() {
 function rig() {
   const queue = held();
   let now: JobView[] = [];
-  const final = new Map<string, JobView>();
+  const final = new Map<string, JobView | Promise<JobView>>();
+  const shown: TrackJob[][] = [];
   const ended: TrackJob[] = [];
   const told: News[] = [];
   const offline: boolean[] = [];
@@ -44,21 +45,19 @@ function rig() {
   };
   const feed: Feed = {
     active: async () => queue.answers.shift() ?? now,
-    final: async (id) => final.get(id) ?? null,
+    final: async (id) => (await final.get(id)) ?? null,
     socket,
     catalog: async () => ({ printers: [], generators: [] }),
     clock: () => "14:05",
   };
-  const belt = createBelt(
-    feed,
-    (_, gone, down) => {
-      ended.push(...gone);
-      offline.push(down);
-    },
-    (news) => told.push(...news),
-  );
+  const show = (jobs: TrackJob[], gone: TrackJob[], down: boolean) => {
+    shown.push(jobs);
+    ended.push(...gone);
+    offline.push(down);
+  };
+  const belt = createBelt(feed, show, (news) => told.push(...news));
   const set = (jobs: JobView[]) => (now = jobs);
-  return { belt, queue, final, ended, told, offline, set, send };
+  return { belt, queue, final, shown, ended, told, offline, set, send };
 }
 
 const settle = () => new Promise((done) => setTimeout(done, 10));
@@ -184,5 +183,51 @@ describe("the belt's ticker", () => {
     expect(ended.filter((job) => job.id === "b")).toHaveLength(1);
     expect(told.filter((news) => news.ended === "b")).toHaveLength(1);
     expect(ended.filter((job) => job.id === "a")).toHaveLength(0);
+  });
+
+  test("a job a socket updated during a poll stays on the belt", async () => {
+    const { belt, queue, shown, set, send } = rig();
+    set([printing("a")]);
+    await belt.poll();
+    queue.hold();
+    const polled = belt.poll();
+    send({ jobId: "a", state: "printing", progress: 0.5, at: 2 });
+    queue.release[0]?.([printing("a")]);
+    await polled;
+    expect(shown.at(-1)?.map((job) => job.id)).toEqual(["a"]);
+  });
+
+  test("a socket done while the belt fetches how a job ended ends it once", async () => {
+    const { belt, queue, final, ended, told, set, send } = rig();
+    set([printing("a")]);
+    await belt.poll();
+    let ending = (_: JobView) => {};
+    final.set("a", new Promise<JobView>((done) => (ending = done)));
+    queue.hold();
+    const polled = belt.poll();
+    queue.release[0]?.([]);
+    await settle();
+    send({ jobId: "a", state: "done", at: 2 });
+    ending({ jobId: "a", state: "done", at: 2 });
+    await polled;
+    expect(ended.filter((job) => job.id === "a")).toHaveLength(1);
+    expect(told.filter((news) => news.ended === "a")).toHaveLength(1);
+  });
+
+  test("a socket done while the end fetch fails doesn't say the job left the belt", async () => {
+    const { belt, queue, final, told, set, send } = rig();
+    set([printing("a")]);
+    await belt.poll();
+    let failing = (_: Error) => {};
+    final.set("a", new Promise<JobView>((_, refuse) => (failing = refuse)));
+    queue.hold();
+    const polled = belt.poll();
+    queue.release[0]?.([]);
+    await settle();
+    send({ jobId: "a", state: "done", at: 2 });
+    failing(new Error("down"));
+    await polled;
+    expect(told.map((news) => news.text)).not.toContain(expect.stringContaining("left the belt"));
+    expect(told.filter((news) => news.ended === "a")).toHaveLength(1);
   });
 });

@@ -2,7 +2,7 @@ import type { Scene, Step } from "../scene.ts";
 
 const AT = Date.UTC(2026, 0, 1, 12, 31);
 
-const fleet = [
+export const fleet = [
   {
     id: "voron",
     transportId: "moonraker",
@@ -70,7 +70,7 @@ const stubbed: Step[] = [
   reachable("klipper-garage", { reachable: true, latencyMs: 12, host: "garage.local", port: 7125 }),
 ];
 
-const fleetPage = (name: string, extra: Step[] = [], record = false): Scene => ({
+export const fleetPage = (name: string, extra: Step[] = [], record = false): Scene => ({
   name,
   route: "/settings",
   ready: "h1",
@@ -85,7 +85,7 @@ const fleetPage = (name: string, extra: Step[] = [], record = false): Scene => (
   ],
 });
 
-const dialog = "dialog[open]";
+export const dialog = "dialog[open]";
 const press = (...keys: string[]): Step[] => keys.flatMap((key) => [{ press: key }, { wait: 150 }]);
 const added = {
   id: "mk4",
@@ -160,27 +160,7 @@ export const scenes: Scene[] = [
     ],
     true,
   ),
-  fleetPage(
-    "printers-clear-secrets",
-    [
-      { click: "button[aria-label='Edit Garage Klipper']" },
-      { waitFor: `${dialog} >> text=A key is saved for this printer.` },
-      { wait: 600 },
-      { fulfill: "**/api/catalog/printers", method: "PUT", status: 200, json: { ok: true } },
-      {
-        fulfill: "**/api/catalog/printers",
-        method: "GET",
-        status: 200,
-        json: fleet.map((printer) =>
-          printer.id === "klipper-garage" ? { ...printer, hasSecrets: false } : printer,
-        ),
-      },
-      { click: `${dialog} button:has-text('Clear saved secrets')` },
-      { waitFor: "text=Saved secrets cleared." },
-      { wait: 800 },
-    ],
-    true,
-  ),
+  { ...fleetPage("printers-touch"), widths: [390], touch: true },
   fleetPage("printers-delete", [
     { click: "button[aria-label='Edit Elegoo Neptune']" },
     { waitFor: `${dialog} >> text=Mainboard ID` },

@@ -25,6 +25,8 @@ COPY --chmod=755 scripts/build-openscad.sh scripts/fetch-openscad-source.sh scri
 COPY scripts/openscad-release-key.asc /tmp/
 RUN /tmp/build-openscad.sh /opt/openscad
 
+FROM scratch AS orca-cache
+
 FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor worker — OpenSCAD generator + PrusaSlicer/OrcaSlicer engines" \
@@ -50,7 +52,8 @@ COPY --from=openscad /opt/openscad /opt/openscad
 ENV OPENSCAD_BIN=/opt/openscad/bin/openscad
 
 COPY scripts/install-orca.sh /tmp/install-orca.sh
-RUN chmod +x /tmp/install-orca.sh && /tmp/install-orca.sh "${ORCA_RELEASE}" "${ORCA_ENABLE}"
+RUN --mount=type=bind,from=orca-cache,target=/orca-cache \
+    chmod +x /tmp/install-orca.sh && /tmp/install-orca.sh "${ORCA_RELEASE}" "${ORCA_ENABLE}"
 ENV ORCA_DATADIR=/opt/orca/squashfs-root/resources/profiles
 
 WORKDIR /app

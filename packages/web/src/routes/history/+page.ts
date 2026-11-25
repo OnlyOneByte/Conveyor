@@ -1,6 +1,5 @@
 import { redirect } from "@sveltejs/kit";
-import type { PageLoad } from "./$types";
 
 export const ssr = true;
 
-export const load: PageLoad = () => redirect(308, "/jobs");
+export const load = () => redirect(308, "/jobs");

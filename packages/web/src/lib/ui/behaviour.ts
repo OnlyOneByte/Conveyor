@@ -34,7 +34,7 @@ export function wrapTab(back: boolean, at: number, count: number): number | null
   return null;
 }
 
-export interface Toast {
+interface Toast {
   id: number;
   text: string;
   action?: { label: string; run: () => void };

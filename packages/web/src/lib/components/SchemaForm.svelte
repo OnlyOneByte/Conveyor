@@ -65,7 +65,7 @@
 {:else}
   <section class="q">
     <h2>{title}</h2>
-    <p class="none">No configurable parameters.</p>
+    <p class="none">This model has no settings to change.</p>
   </section>
 {/if}
 

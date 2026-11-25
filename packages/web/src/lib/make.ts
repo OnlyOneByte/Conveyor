@@ -1,4 +1,5 @@
 import type { FormUiHints } from "@conveyor/shared";
+import { type JsonSchema, resolveRoot } from "./form-schema.js";
 
 export function printerStatus(
   id: string,
@@ -31,14 +32,9 @@ export function fileSize(bytes: number): string {
   return `${(bytes / KB / KB).toFixed(1)} MB`;
 }
 
-export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-export const uploadFailure = (e: unknown) =>
-  e instanceof TypeError ? "check your connection and try again." : errorText(e);
-
 export const dockLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" · ");
 
-export type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
+type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
 
 export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
   let turn = 0;
@@ -53,4 +49,10 @@ export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
       return mine === turn ? outcome : null;
     },
   };
+}
+
+export function knownParams(params: unknown, schema: JsonSchema | null): Record<string, unknown> {
+  if (!params || typeof params !== "object") return {};
+  const known = resolveRoot(schema)?.properties ?? {};
+  return Object.fromEntries(Object.entries(params).filter(([key]) => key in known));
 }

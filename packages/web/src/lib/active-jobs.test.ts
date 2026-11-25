@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { JobView } from "@conveyor/shared";
 import { get } from "svelte/store";
-import { activeJobs, shareActive, unwatched, watchActive, watchers } from "./active-jobs";
+import { activeJobs, shareActive } from "./active-jobs";
 
 const view = (jobId: string): JobView => ({ jobId, state: "printing", at: 1 });
 
 describe("the shared active-jobs store", () => {
   beforeEach(() => {
     activeJobs.set(null);
-    watchers.set(0);
   });
 
   test("a good answer is shared as ok; a failed one keeps the last jobs, says not ok and rethrows; the next good one recovers", async () => {
@@ -33,20 +32,5 @@ describe("the shared active-jobs store", () => {
       "down",
     );
     expect(get(activeJobs)).toEqual({ jobs: [], ok: false });
-  });
-
-  test("the poll may back off only while sockets cover the belt and no page is watching", () => {
-    let covered = true;
-    const mayBackOff = unwatched(() => covered);
-    expect(mayBackOff()).toBe(true);
-    const stop = watchActive();
-    const stopAnother = watchActive();
-    expect(mayBackOff()).toBe(false);
-    stop();
-    expect(mayBackOff()).toBe(false);
-    stopAnother();
-    expect(mayBackOff()).toBe(true);
-    covered = false;
-    expect(mayBackOff()).toBe(false);
   });
 });

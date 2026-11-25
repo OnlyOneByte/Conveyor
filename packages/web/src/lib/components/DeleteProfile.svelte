@@ -2,6 +2,7 @@
   import { type CatalogProfile, saveProfile } from "#lib/api.js";
   import { deleteProfile } from "#lib/api-delete.js";
   import { type Content, loadContent, saveContent } from "#lib/profile-content.js";
+  import { couldnt, said } from "#lib/said.js";
   import { toasts } from "#lib/ui/behaviour.js";
   import Confirm from "./Confirm.svelte";
 
@@ -19,7 +20,7 @@
   function explain(name: string, e: unknown) {
     return message(e).includes("queued or running")
       ? `${name} has jobs on the belt. Let them finish, then delete it.`
-      : message(e);
+      : said(e);
   }
 
   async function remove() {
@@ -48,7 +49,7 @@
       if (content?.edited) await saveContent(target, content.lang, content.docs);
       toasts.show(`Restored ${name}`);
     } catch (e) {
-      toasts.show(`Couldn't restore ${name}: ${message(e)}`);
+      toasts.show(couldnt(`restore ${name}`, e));
     }
     changed();
   }

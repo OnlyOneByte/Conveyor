@@ -12,7 +12,7 @@
       href: "/jobs",
       label: "Jobs",
       icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
-      on: (p: string) => p.startsWith("/jobs") || p.startsWith("/monitor"),
+      on: (p: string) => p.startsWith("/jobs"),
     },
     {
       href: "/printers",

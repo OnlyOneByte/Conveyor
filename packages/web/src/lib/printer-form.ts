@@ -1,7 +1,7 @@
 import type { CatalogPrinter } from "./api";
 import { secretsPatch } from "./printer-secrets";
 
-export interface PrinterDraft {
+interface PrinterDraft {
   id: string;
   name: string;
   transportId: string;

@@ -29,7 +29,7 @@
   </div>
 {:else if problem}
   <div class="empty" role="alert">
-    <p class="sub answer">Conveyor answered: {problem}</p>
+    <p class="sub answer">{problem}</p>
     <div>
       <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
     </div>

@@ -8,6 +8,7 @@ import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { titleMismatch } from "./hits.ts";
+import { hoverProblem } from "./hover-lint.ts";
 import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 import { runStep } from "./step.ts";
@@ -164,6 +165,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
       await runStep(page, step, result.warnings, { root: resolve(values.root) });
     const mismatch = await titleMismatch(page);
     if (mismatch) throw new Error(mismatch);
+    const hover = values.base ? null : await hoverProblem(page);
+    if (hover) throw new Error(hover);
     const elsewhere = values.base
       ? []
       : [...landed].filter((path) => landsElsewhere(dirs, scene, path));

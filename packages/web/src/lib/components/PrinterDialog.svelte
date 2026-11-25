@@ -7,20 +7,9 @@
     savePrinter,
   } from "#lib/api.js";
   import { deletePrinter } from "#lib/api-delete.js";
-  import { errorText } from "#lib/make.js";
-  import {
-    blankDraft,
-    clearSecretsPayload,
-    type DraftErrors,
-    deleteFailure,
-    deleteNote,
-    dialogTitle,
-    draftErrors,
-    draftOf,
-    printerPayload,
-    slugOf,
-  } from "#lib/printer-form.js";
+  import * as drafts from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
+  import { said } from "#lib/said.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
@@ -36,8 +25,8 @@
   export let jobs = 0;
   export let changed: () => void = () => {};
 
-  let draft = blankDraft();
-  let errors: DraftErrors = {};
+  let draft = drafts.blankDraft();
+  let errors: drafts.DraftErrors = {};
   let problem = "";
   let [busy, idEdited, confirming] = [false, false, false];
   let [tried, secretsSaved, cleared] = [false, false, false];
@@ -47,10 +36,10 @@
   $: adding = printer === null;
   $: if (open) reset(printer);
   $: autoId(draft.name);
-  $: if (tried) errors = draftErrors(draft, taken, adding);
+  $: if (tried) errors = drafts.draftErrors(draft, taken, adding);
   $: secret = secretFieldFor(draft.transportId);
   $: options = transports.map((t) => ({ value: t.id, label: t.name }));
-  $: title = dialogTitle(printer, confirming);
+  $: title = drafts.dialogTitle(printer, confirming);
   const focus = (el: HTMLElement) => el.focus();
   let shown: CatalogPrinter | null | undefined;
   $: if (!open) shown = undefined;
@@ -58,19 +47,19 @@
   function reset(next: CatalogPrinter | null) {
     if (shown === next) return;
     shown = next;
-    draft = next ? draftOf(next) : blankDraft(transports[0]?.id ?? "");
+    draft = next ? drafts.draftOf(next) : drafts.blankDraft(transports[0]?.id ?? "");
     [errors, problem] = [{}, ""];
     [tried, idEdited, confirming, cleared] = [false, false, false, false];
     secretsSaved = next?.hasSecrets ?? false;
   }
 
   function autoId(name: string) {
-    if (adding && !idEdited) draft.id = slugOf(name);
+    if (adding && !idEdited) draft.id = drafts.slugOf(name);
   }
 
   const close = () => (open = false);
 
-  async function attempt(work: () => Promise<void>, explain = errorText) {
+  async function attempt(work: () => Promise<void>, explain = said) {
     [problem, busy] = ["", true];
     problem = await work().then(() => "", explain);
     busy = false;
@@ -78,14 +67,14 @@
 
   async function save() {
     tried = true;
-    errors = draftErrors(draft, taken, adding);
+    errors = drafts.draftErrors(draft, taken, adding);
     if (Object.keys(errors).length) {
       await tick();
       form.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
       return;
     }
     await attempt(async () => {
-      await savePrinter(printerPayload(draft));
+      await savePrinter(drafts.printerPayload(draft));
       toasts.show(`${adding ? "Added" : "Saved"} ${draft.name.trim()}`);
       close();
       changed();
@@ -94,7 +83,7 @@
 
   const clearSecrets = (saved: CatalogPrinter) =>
     attempt(async () => {
-      await savePrinter(clearSecretsPayload(saved));
+      await savePrinter(drafts.clearSecretsPayload(saved));
       [secretsSaved, cleared] = [false, true];
       changed();
     });
@@ -107,24 +96,29 @@
         close();
         changed();
       },
-      (e) => deleteFailure(saved.name, errorText(e)),
+      (e) => drafts.deleteFailure(saved.name, said(e)),
     );
 </script>
 
 <Dialog {title} bind:open>
   {#if confirming}
-    <p>{deleteNote(jobs)}</p>
+    <p>{drafts.deleteNote(jobs)}</p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
       <Field label="Name" bind:value={draft.name} error={errors.name ?? ""} />
       {#if adding}
-        <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in links and the API. It can't change later." error={errors.id ?? ""} />
+        <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
       {/if}
       <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
       <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />
       <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
-      <SavedSecrets saved={secretsSaved} {cleared} {busy} clear={() => printer && clearSecrets(printer)} />
+      {#key shown}
+        {#if printer}
+          {@const saved = printer}
+          <SavedSecrets label={secretFieldFor(saved.transportId).label} saved={secretsSaved} {cleared} {busy} clear={() => clearSecrets(saved)} />
+        {/if}
+      {/key}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     </form>
