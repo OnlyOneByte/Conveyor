@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { job, jobRows, login } from "../../test/booted-api.ts";
+import { job, jobRows, login } from "../../test/helpers/booted-api.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-sqlite-"));
 const { REDIS_URL: _redis, ...inherited } = process.env;

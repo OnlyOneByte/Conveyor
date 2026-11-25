@@ -39,6 +39,7 @@ import {
   PACKAGES,
   percent,
   percents,
+  printErrors,
   printSweepLog,
   type Summary,
   summarize,
@@ -90,7 +91,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
     ...symlinkErrors(stagedEntries()),
     ...suiteErrors(testNamedFiles(), (path) => readOrNull(join(ROOT, path)) ?? ""),
   ];
-  for (const error of errors) console.error(error);
+  printErrors(errors, process.env, console.error);
   return errors.length === 0 ? summary : null;
 }
 
@@ -177,7 +178,7 @@ function check(summary: Summary, ref: string): number {
       env: process.env,
     }),
   );
-  for (const error of [...moves.errors, ...errors]) console.error(error);
+  printErrors([...moves.errors, ...errors], process.env, console.error);
   for (const warning of warnings) console.log(`::warning::${warning}`);
   for (const note of moves.notes) console.log(note);
   for (const name of newPackages(base.packages)) {

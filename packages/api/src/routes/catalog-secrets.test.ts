@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbGetPrinterSecrets, openDb } from "@conveyor/shared/db";
-import { type BootedApi, bootApi } from "../../test/booted-api.ts";
+import { type BootedApi, bootApi } from "../../test/helpers/booted-api.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)

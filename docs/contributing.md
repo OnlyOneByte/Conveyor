@@ -103,7 +103,13 @@ sees the slack. Entries stay in the file as history and have no effect once they
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared`, `web` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
 `*.spec.*` (the name decides, not what the file contains), and the declared helper folders
-`packages/shared/test/helpers/`, `packages/worker/test/helpers/` and `packages/web/test/helpers/`.
+`packages/api/test/helpers/`, `packages/shared/test/helpers/`, `packages/worker/test/helpers/` and
+`packages/web/test/helpers/`.
+
+Which lines of a file count depends on whether a test loads it. For a file a test loads, the lines are the
+ones bun's own coverage run lists for it, so blank lines, closing braces and the continuation lines of a
+multi-line string never count against it. For a file no test loads, the lines are the ones the sweep maps
+when it imports the file, all at 0 hits.
 
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
@@ -134,8 +140,11 @@ helper folders and
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that. The sweep runs as a child `bun test` without
 `GITHUB_ACTIONS`, so the coverage checker's own tests, which make it fail on purpose (a hanging import, a
-timeout of `soon`), don't post CI error annotations. Their output still shows in the log; the run's real
-failures are the annotations and the final pass/fail count.
+timeout of `soon`), don't post CI error annotations, and the child's output is printed only when a real
+check needs it: `check:coverage` shows it when the sweep didn't finish or a file failed to import. Every error
+`check:coverage` itself reports (a sweep that didn't finish, a file that threw while importing, an import of
+test code, a ratchet failure) is printed as a plain line and, when `GITHUB_ACTIONS` is `true`, also as a
+`::error::` annotation, so it shows in the run's annotation list.
 
 Lines that hold only types leave the denominator, so writing a type inline or as a named `interface` measures
 the same. The checker parses each file with TypeScript and drops a line only when every token on it sits inside

@@ -32,7 +32,7 @@ export interface BootedApi {
 }
 
 export async function bootApi(dir: string, env: Record<string, string>): Promise<BootedApi> {
-  const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "src", "index.ts")], {
+  const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "..", "src", "index.ts")], {
     cwd: dir,
     env: {
       ...process.env,

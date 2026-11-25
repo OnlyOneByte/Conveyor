@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BootedApi, bootApi, login } from "../test/booted-api.ts";
+import { type BootedApi, bootApi, login } from "../test/helpers/booted-api.ts";
 
 const PASSWORD = "a-long-test-passphrase";
 const dir = mkdtempSync(join(tmpdir(), "conveyor-health-"));

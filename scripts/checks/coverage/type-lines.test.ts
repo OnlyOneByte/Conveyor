@@ -135,7 +135,12 @@ describe("the ratchet ignores how a type is written", () => {
     const path = "packages/shared/src/x.ts";
     const merged = mergeCoverage({
       sources: [path],
-      measured: new Map([[path, new Map([[4, 1]])]]),
+      measured: new Map([
+        [
+          path,
+          new Map([...nonBlankLines(INLINE).keys()].map((line) => [line, line === 4 ? 1 : 0])),
+        ],
+      ]),
       sweep: new Map([[path, nonBlankLines(INLINE)]]),
       fallback: () => new Map(),
       typeLines: () => typeOnlyLines(path, INLINE),
