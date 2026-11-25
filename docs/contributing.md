@@ -65,6 +65,12 @@ a single line-coverage percent, so PRs that move different packages never touch 
 `bun run check:coverage:update` and commit the files it names; it rewrites only packages whose floor rose. If
 it says `dropped below base`, add the tests that cover what you changed.
 
+A package the checker starts measuring has no file on the base yet. `check:coverage` reads the `PACKAGES`
+list from the base's `scripts/checks/coverage/summary.ts`, and for a package that list doesn't name, the
+committed baseline is the floor: it must match what is measured, within half a point either way, and the log
+says the package is new. A package the base lists still needs its base file, so a lost file can't become a
+zero floor. If the base's list can't be read, every package is treated as listed.
+
 Moving a test-only file out of `src/` into a declared helper folder lowers that package's number without any
 real coverage being lost: the file leaves the denominator. That is the one case where a floor may go down, and
 it is recorded where review sees it. Add an entry to `scripts/checks/coverage/baseline/reclassified.json`,
@@ -90,9 +96,18 @@ Otherwise it fails and names the rule. The log prints how far the move could exp
 sees the slack. Entries stay in the file as history and have no effect once they are on the base.
 
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
-in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
+in `packages/api`, `worker`, `shared`, `web` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
 `*.spec.*` (the name decides, not what the file contains), and the declared helper folders
-`packages/shared/test/helpers/` and `packages/worker/test/helpers/`. Because those leave the denominator,
+`packages/shared/test/helpers/`, `packages/worker/test/helpers/` and `packages/web/test/helpers/`.
+
+For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
+`+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
+or measure them, so they are in neither the numerator nor the denominator, and the visual and end-to-end
+tools are what exercise them. The sweep stubs the three build-time modules the web code imports, which only
+Vite provides: `$app/env`, `$app/manifest` and `virtual:editor-chunks`. `packages/web/package.json` maps
+`#lib/*.js` to `./src/lib/*.ts`, the way Vite already resolves it, so Bun can load a route loader too.
+
+Because the helper folders and test files leave the denominator,
 `check:coverage` fails when a module that still counts:
 
 - imports something that lands in a helper folder or a `*.test.*`/`*.spec.*` file. Each quoted specifier is

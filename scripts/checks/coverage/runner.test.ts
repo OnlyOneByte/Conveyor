@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { baselinePath, CHECKER_PATH } from "./ratchet";
+import { baselinePath, CHECKER_PATH, PACKAGES_PATH } from "./ratchet";
 import { ROOT, readBase, readCommitted, runSweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
@@ -158,17 +158,17 @@ const repo = (files: Record<string, string>) => {
   return root;
 };
 
-const none = { api: null, worker: null, shared: null, plugins: null };
+const none = { api: null, worker: null, shared: null, plugins: null, web: null };
 
 describe("readBase", () => {
   test("detects a base that has the checker but no baseline", () => {
     const root = repo({ [CHECKER_PATH]: "export {};\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true, packages: null });
   });
 
   test("detects a base that predates the checker", () => {
     const root = repo({ "README.md": "x\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: false });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: false, packages: null });
   });
 
   test("reads one file per package from the base", () => {
@@ -180,6 +180,7 @@ describe("readBase", () => {
     expect(readBase("HEAD", root)).toEqual({
       baseline: { ...none, api: "40\n", shared: "80\n" },
       hasChecker: true,
+      packages: null,
     });
   });
 
@@ -188,7 +189,19 @@ describe("readBase", () => {
       [CHECKER_PATH]: "export {};\n",
       "scripts/checks/coverage/baseline.json": '{"lines":{"api":35.51,"worker":79}}\n',
     });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true, packages: null });
+  });
+
+  test("reads the package list the base's checker measures", () => {
+    const root = repo({
+      [CHECKER_PATH]: "export {};\n",
+      [PACKAGES_PATH]: 'export const PACKAGES = ["api", "worker"] as const;\n',
+    });
+    expect(readBase("HEAD", root)).toEqual({
+      baseline: none,
+      hasChecker: true,
+      packages: ["api", "worker"],
+    });
   });
 
   test("an unresolvable base ref is an error", () => {
