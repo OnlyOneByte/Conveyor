@@ -10,6 +10,7 @@ const UPLOAD_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const PART_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl\.part$/i;
 
 export const ABANDONED_PART_AGE_MS = 60 * 60 * 1000;
+export const PART_CLOCK_MAX_LAG_MS = 24 * 60 * 60 * 1000;
 
 export interface LiveJobs {
   ids: Set<string>;
@@ -182,7 +183,8 @@ function anchor(clock: ProcessClock, at: number): void {
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
   const { clock, ...aged } = await reapAged(deps);
-  return { ...aged, parts: await reapParts(deps, clock) };
+  const partClock = Math.max(clock, deps.now() - PART_CLOCK_MAX_LAG_MS);
+  return { ...aged, parts: await reapParts(deps, partClock) };
 }
 
 async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts"> & { clock: number }> {

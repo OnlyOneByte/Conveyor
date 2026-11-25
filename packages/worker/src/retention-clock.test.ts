@@ -13,6 +13,7 @@ import {
 } from "../test/helpers/retention";
 import {
   ABANDONED_PART_AGE_MS,
+  PART_CLOCK_MAX_LAG_MS,
   type ProcessClock,
   processClock,
   type Reaped,
@@ -24,6 +25,13 @@ import {
 afterEach(cleanupRoots);
 
 const HOUR = 60 * 60 * 1000;
+
+function part(uploadDir: string, label: string, at: number): string {
+  const path = join(uploadDir, `${crypto.randomUUID()}.stl.part`);
+  writeFileSync(path, label);
+  utimesSync(path, at / 1000, at / 1000);
+  return path;
+}
 const THIRTY = 30 * DAY;
 
 function fakeProcess(): ProcessClock & { advance: (ms: number) => void } {
@@ -56,22 +64,34 @@ function at(
 }
 
 describe("the reaper clock", () => {
-  test("a system clock that jumps ahead doesn't make an in-flight upload write look abandoned", async () => {
+  test.each([
+    ["long after install", 365 * DAY, 2 * HOUR],
+    ["long after install, a full day ahead", 365 * DAY, PART_CLOCK_MAX_LAG_MS],
+    ["in the first 30 days", DAY, 2 * HOUR],
+    ["in the first 30 days, a full day ahead", DAY, PART_CLOCK_MAX_LAG_MS],
+  ])(
+    "%s, a system clock that jumps ahead doesn't make an in-flight upload write look abandoned",
+    async (_, installed, jump) => {
+      const dirs = layout();
+      const oldPath = part(dirs.uploadDir, "old", NOW - ABANDONED_PART_AGE_MS - HOUR);
+      const inFlightPath = part(dirs.uploadDir, "in-flight", NOW - ABANDONED_PART_AGE_MS / 2);
+      const state = memoryState({ startedAt: NOW - installed, lastRunAt: NOW });
+      const jumped = at(dirs, {}, NOW + jump, state, fakeProcess());
+      expect((await reapOnce(jumped)).parts).toHaveLength(1);
+      expect(existsSync(oldPath)).toBe(false);
+      expect(existsSync(inFlightPath)).toBe(true);
+    },
+  );
+
+  test("after 10 days down, an abandoned upload write goes on the first run, a new one stays", async () => {
     const dirs = layout();
-    const part = (name: string, at: number) => {
-      const path = join(dirs.uploadDir, `${name}.stl.part`);
-      writeFileSync(path, "sol");
-      utimesSync(path, at / 1000, at / 1000);
-      return path;
-    };
-    const [old, inFlight] = [crypto.randomUUID(), crypto.randomUUID()];
-    const oldPath = part(old, NOW - ABANDONED_PART_AGE_MS - HOUR);
-    const inFlightPath = part(inFlight, NOW - ABANDONED_PART_AGE_MS / 2);
-    const state = memoryState({ startedAt: NOW - 365 * DAY, lastRunAt: NOW });
-    const jumped = at(dirs, {}, NOW + 2 * HOUR, state, fakeProcess());
-    expect((await reapOnce(jumped)).parts).toEqual([old]);
-    expect(existsSync(oldPath)).toBe(false);
-    expect(existsSync(inFlightPath)).toBe(true);
+    const abandoned = part(dirs.uploadDir, "abandoned", NOW - 10 * DAY + 60_000);
+    const fresh = part(dirs.uploadDir, "fresh", NOW - ABANDONED_PART_AGE_MS / 2);
+    const state = memoryState({ startedAt: NOW - 365 * DAY, lastRunAt: NOW - 10 * DAY });
+    await reapOnce(at(dirs, {}, NOW, state, fakeProcess()));
+    expect(existsSync(abandoned)).toBe(false);
+    expect(existsSync(fresh)).toBe(true);
+    expect(state.clock.lastRunAt).toBe(NOW - 10 * DAY);
   });
 
   test("the first run after an upgrade removes nothing; old items go 30 days of uptime after it", async () => {
@@ -127,12 +147,14 @@ describe("the reaper clock", () => {
     const process = fakeProcess();
     const state = memoryState({ startedAt: NOW - 365 * DAY, lastRunAt: Date.UTC(2099, 0, 1) });
     const settled = { [old]: NOW - 400 * DAY };
+    const writing = part(dirs.uploadDir, "writing", NOW - ABANDONED_PART_AGE_MS / 2);
     expect(await reapOnce(at(dirs, settled, NOW, state, process, lines))).toEqual({
       dirs: [],
       uploads: [],
       parts: [],
     });
     expect(lines.join("\n")).toContain("is ahead of the system clock");
+    expect(existsSync(writing)).toBe(true);
     expect(state.clock).toEqual({ startedAt: NOW, lastRunAt: NOW });
     process.advance(HOUR);
     expect((await reapOnce(at(dirs, settled, NOW + HOUR, state, process))).dirs).toEqual([]);
