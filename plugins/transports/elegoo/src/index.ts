@@ -9,7 +9,12 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
+import {
+  multipartFileUpload,
+  refuseRedirect,
+  requirePrinterAddress,
+  uploadSignal,
+} from "@conveyor/shared/node";
 import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
@@ -31,9 +36,11 @@ export const elegoo: TransportPlugin = {
     }
 
     const mainboardId = mainboardIdOf(target);
+    await requirePrinterAddress(target.address);
     await uploadGcode(target.address, gcode.path, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
+    await requirePrinterAddress(target.address);
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
     await sendCommand(target.address, {
       mainboardId,
@@ -56,6 +63,7 @@ export const elegoo: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "elegoo status: missing printer address on handle");
 
+    await requirePrinterAddress(handle.address);
     yield { state: "transferring" };
     const stream = {
       address: handle.address,
@@ -72,6 +80,7 @@ export const elegoo: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
+    await requirePrinterAddress(handle.address);
     const mainboardId = handle.deviceId ?? handle.printerId;
     await sendCommand(handle.address, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
   },
@@ -98,13 +107,20 @@ async function uploadGcode(address: string, path: string, ctx: StageCtx): Promis
   );
   const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
   const signal = uploadSignal(ctx.signal);
-  const init = { method: "POST", body: upload.body, headers: upload.headers, signal };
+  const init: RequestInit = {
+    method: "POST",
+    body: upload.body,
+    headers: upload.headers,
+    redirect: "manual",
+    signal,
+  };
   const res = await fetch(url, init).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted
       ? new PrintNotStartedError(reason)
       : new StageError("transport", reason);
   });
+  refuseRedirect(res, "elegoo upload");
   if (!res.ok)
     throw new StageError(
       "transport",

@@ -1,5 +1,14 @@
-import { describe, expect, test } from "bun:test";
-import { ALREADY_RETRIED, AlreadyRetried, linkedRetry, rerunRequest, sendJob } from "./rerun";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  ALREADY_RETRIED,
+  AlreadyRetried,
+  linkedRetry,
+  rerunOnMake,
+  rerunRequest,
+  sendJob,
+  stashRerun,
+  takeRerun,
+} from "./rerun";
 
 const request = {
   generator: { id: "gridfinity", params: { gridX: 2 } },
@@ -64,5 +73,85 @@ describe("whether a job can run again", () => {
       (e: unknown) => e,
     );
     expect(unnamed).toMatchObject({ message: ALREADY_RETRIED, retriedBy: null });
+  });
+
+  test("a job that isn't a retry goes to POST /jobs as a fresh submission", async () => {
+    const posted: unknown[] = [];
+    const fake = async (_: string | URL | Request, init?: RequestInit) => {
+      posted.push(JSON.parse(String(init?.body)));
+      return Response.json({ jobId: "j9" }, { status: 202 });
+    };
+    const spy = spyOn(globalThis, "fetch").mockImplementation(
+      Object.assign(fake, { preconnect: fetch.preconnect }),
+    );
+    try {
+      expect(await sendJob(request)).toEqual({ jobId: "j9" });
+      expect(posted).toEqual([request]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("handing a job back to Make", () => {
+  const store = new Map<string, string>();
+  const session = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+    removeItem: (key: string) => void store.delete(key),
+  };
+  const assigned: string[] = [];
+
+  beforeEach(() => {
+    store.clear();
+    assigned.length = 0;
+    Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: session });
+    Object.defineProperty(globalThis, "location", {
+      configurable: true,
+      value: { assign: (url: string) => assigned.push(url) },
+    });
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, "sessionStorage");
+    Reflect.deleteProperty(globalThis, "location");
+  });
+
+  test("rerunOnMake stashes the request with its retryOf and opens Make", () => {
+    rerunOnMake(request, "f1");
+    expect(assigned).toEqual(["/?rerun=1"]);
+    expect(takeRerun()).toEqual({
+      generatorId: "gridfinity",
+      params: { gridX: 2 },
+      printerId: "voron",
+      profileId: "pla",
+      retryOf: "f1",
+    });
+  });
+
+  test("a stashed rerun is taken once", () => {
+    stashRerun({ generatorId: "gridfinity", printerId: "voron", profileId: "pla" });
+    expect(takeRerun()?.generatorId).toBe("gridfinity");
+    expect(takeRerun()).toBeNull();
+  });
+
+  test("nothing stashed, unreadable JSON or a storage that throws reads as no rerun", () => {
+    expect(takeRerun()).toBeNull();
+    store.set("conveyor.rerun", "{not json");
+    expect(takeRerun()).toBeNull();
+    const refusing = {
+      getItem: () => {
+        throw new Error("denied");
+      },
+      setItem: () => {
+        throw new Error("quota");
+      },
+      removeItem: () => {},
+    };
+    Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: refusing });
+    expect(() =>
+      stashRerun({ generatorId: "gridfinity", printerId: "voron", profileId: "pla" }),
+    ).not.toThrow();
+    expect(takeRerun()).toBeNull();
   });
 });

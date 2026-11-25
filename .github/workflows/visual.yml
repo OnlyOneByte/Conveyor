@@ -98,9 +98,7 @@ jobs:
         timeout-minutes: 10
         run: |
           bun run typecheck
-          for file in *.test.ts; do
-            timeout 120 bun test "./$file"
-          done
+          bun run test
 
       - name: Pick the scenes this change reaches
         id: pick

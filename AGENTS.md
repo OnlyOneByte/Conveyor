@@ -134,7 +134,7 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 - Every bug fix includes a test that fails on the parent commit. [review]
 - Prove a new test bites: break the production line it covers and watch it fail. [review]
 - Coverage target is 80% lines and functions. Until then coverage must not drop. [review]
-- Line coverage of `api`, `worker`, `shared` and `plugins` may not fall more than 0.5 percentage points
+- Line coverage of `api`, `worker`, `shared`, `plugins` and `web` (its TypeScript; `.svelte` files aren't measured) may not fall more than 0.5 percentage points
   below the base's `scripts/checks/coverage/baseline/`. [CI: `test`]
 
 ## 8. Commits, branches and PRs
@@ -212,7 +212,7 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
-`merge.sh` exempts `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR that only
+`merge.sh` exempts `scripts/checks/coverage/baseline/{api,worker,shared,plugins,web}.json`, so a PR that only
 raises coverage is not held. The comment check, and the cast and file-size ratchets, store nothing, so no PR touches them to
 record progress. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses

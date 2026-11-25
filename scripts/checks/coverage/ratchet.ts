@@ -65,6 +65,7 @@ export interface RatchetInput {
   committed: BaselineTexts;
   base: BaselineTexts;
   baseHasChecker: boolean;
+  basePackages?: readonly string[] | null;
   reclassifiedFloors?: Percents;
 }
 
@@ -76,6 +77,21 @@ interface Loaded {
   committed: CoverageBaseline;
   allowed: CoverageBaseline;
   bootstrap: boolean;
+  newPackages: ReadonlySet<string>;
+}
+
+export const newPackages = (basePackages: readonly string[] | null | undefined) =>
+  new Set(basePackages ? PACKAGES.filter((name) => !basePackages.includes(name)) : []);
+
+export const PACKAGES_PATH = "scripts/checks/coverage/summary.ts";
+
+const PACKAGES_LIST = /export const PACKAGES = \[([^\]]*)\]/;
+
+export function parsePackages(source: string | null): string[] | null {
+  const list = source === null ? undefined : PACKAGES_LIST.exec(source)?.[1];
+  if (list === undefined) return null;
+  const names = [...list.matchAll(/"([a-z]+)"/g)].map((match) => match[1] ?? "");
+  return names.length > 0 ? names : null;
 }
 
 function load(input: RatchetInput): Loaded | string {
@@ -86,10 +102,12 @@ function load(input: RatchetInput): Loaded | string {
   if (allowed === null && input.baseHasChecker) {
     return `base has ${CHECKER_PATH} but no ${BASELINE_DIR}/; refusing to bootstrap`;
   }
-  if (allowed === null) return { committed, allowed: committed, bootstrap: true };
+  const fresh = newPackages(input.basePackages);
+  if (allowed === null)
+    return { committed, allowed: committed, bootstrap: true, newPackages: fresh };
   if (typeof allowed === "string") return `base ${allowed}`;
   const lines = { ...allowed.lines, ...input.reclassifiedFloors };
-  return { committed, allowed: { lines }, bootstrap: false };
+  return { committed, allowed: { lines }, bootstrap: false, newPackages: fresh };
 }
 
 const fmt = (value: number) => `${round2(value).toFixed(2)}%`;
@@ -98,13 +116,19 @@ function packageErrors(name: string, current: number, loaded: Loaded): string[] 
   const floor = loaded.allowed.lines[name];
   const claimed = loaded.committed.lines[name];
   if (claimed === undefined) return [`${name}: ${baselinePath(name)} is missing`];
-  if (floor === undefined) return [`${name}: base ${baselinePath(name)} is missing`];
+  const added = floor === undefined && loaded.newPackages.has(name);
+  if (floor === undefined && !added) return [`${name}: base ${baselinePath(name)} is missing`];
+  if (floor === undefined) return claimErrors(name, current, claimed);
   if (!loaded.bootstrap && round2(current) < round2(floor - TOLERANCE)) {
     return [`${name}: line coverage ${fmt(current)} dropped below base ${fmt(floor)}`];
   }
   if (!loaded.bootstrap && round2(claimed) < round2(floor)) {
     return [`${name}: baseline lowered to ${fmt(claimed)} (base has ${fmt(floor)})`];
   }
+  return claimErrors(name, current, claimed);
+}
+
+function claimErrors(name: string, current: number, claimed: number): string[] {
   if (round2(claimed) > round2(current + TOLERANCE)) {
     return [`${name}: baseline claims ${fmt(claimed)} but measured ${fmt(current)}`];
   }
