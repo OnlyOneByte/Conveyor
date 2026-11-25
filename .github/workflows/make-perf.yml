@@ -76,6 +76,7 @@ jobs:
         run: tools/scripts/perf/make-ab.sh base head out
 
       - name: Summarize
+        if: always()
         run: |
           {
             echo "### Make (\`/\`), Lighthouse 12.8.2 mobile, simulated throttling, behind Caddy with compression"

@@ -334,8 +334,9 @@ CI's `bundle` job builds the web app and runs `scripts/checks/bundle.ts` on `pac
 
 An optional job compares how fast Make (`/`) loads on two refs, on a CI runner instead of a busy laptop. It runs only when asked: add the `measure:make` label to a PR (it compares the PR's base with its head), or run **Make performance** from the Actions tab with a `base` and a `head` ref.
 
-- It builds the web app at both refs and serves both through one Caddy configured like production: `encode gzip zstd`, TLS, and `/api` stripped and proxied, all on 127.0.0.1. One api (SQLite queue, auth disabled) serves both.
+- It builds the web app at both refs and serves both through one Caddy configured like production: `encode gzip zstd`, TLS, and `/api` stripped and proxied, all on 127.0.0.1 with Caddy's admin API off. One api (SQLite queue, auth disabled) serves both. Every port is picked free at start, so a run can't collide with anything else on the machine, including a local run of the script.
 - Lighthouse 12.8.2 runs on each with its default mobile settings and simulated throttling: one warm-up each, then `runs` rounds (10 by default) in alternating order, base first on odd rounds, head first on even ones.
-- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse reports as failed is left out, and the run counts show it. The raw reports are in the `make-perf` artifact.
+- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse fails or reports as failed is left out, the job carries on, and the run counts show it. The summary is written even when an earlier step fails. The raw reports are in the `make-perf` artifact.
+- Every label added to any PR starts a **Make performance** run, which skips at once unless the label is `measure:make`. GitHub can't filter `labeled` events by name before a run is created.
 - `scripts/perf/make-ab.sh` and `scripts/perf/summary.ts` do the work; the job runs them from the workflow's own commit, so either ref can predate them.
 

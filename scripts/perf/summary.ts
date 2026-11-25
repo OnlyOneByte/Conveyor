@@ -41,7 +41,7 @@ const ms = (value: number | null) =>
 
 function delta(base: number | null, head: number | null): string {
   if (base === null || head === null) return "n/a";
-  const diff = Math.round(head - base);
+  const diff = Math.round(head - base) || 0;
   return `${diff > 0 ? "+" : ""}${diff.toLocaleString("en-US")} ms`;
 }
 

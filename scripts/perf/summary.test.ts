@@ -41,4 +41,10 @@ describe("summarize", () => {
     expect(table).toContain("| Time to interactive | 3,200 ms | 3,000 ms | -200 ms |");
     expect(table).toContain("| First contentful paint | n/a | n/a | n/a |");
   });
+
+  test("shows a change under half a millisecond as 0, not -0", () => {
+    expect(summarize([{ interactive: 2703 }], [{ interactive: 2702.6 }])).toContain(
+      "| Time to interactive | 2,703 ms | 2,703 ms | 0 ms |",
+    );
+  });
 });
