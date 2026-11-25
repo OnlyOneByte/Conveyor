@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "bun";
-import { caddyRun, visualCaddyfile } from "./caddy.ts";
+import { assertLoopbackCaddy, caddyRun, visualCaddyfile } from "./caddy.ts";
 import { messageOf } from "./errors.ts";
 import { seedHistory } from "./seed.ts";
 import {
@@ -232,6 +232,7 @@ export async function bootStack(
     const caddyfile = join(dataDir, "Caddyfile");
     const source = await deps.caddyfile(root);
     await writeFile(caddyfile, visualCaddyfile(source, { port, apiPort, webPort }));
+    assertLoopbackCaddy(deps.spawnSync, caddyfile, { port, apiPort, webPort });
     startContainer(deps, handles, leftovers, "Caddy", caddyRun(caddyfile));
     const url = `http://127.0.0.1:${port}`;
     await waitHttp(`${url}/`, 30000, { exitCode: null });

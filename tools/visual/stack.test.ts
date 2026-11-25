@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CADDY_IMAGE } from "./caddy.ts";
-import { serveCaddy } from "./fixtures.ts";
+import { fakeAdapt, serveCaddy } from "./fixtures.ts";
 import { bootStack, redisContainer, type StackChild, type StackDeps, stackEnv } from "./stack.ts";
 import { EXIT_TRIGGERS } from "./teardown.ts";
 
@@ -85,11 +85,6 @@ function closedStream(): ReadableStream<Uint8Array> {
   return new ReadableStream({ start: (controller) => controller.close() });
 }
 
-function nameOf(cmd: string[]): string {
-  if (cmd.includes("build")) return "build";
-  return "service";
-}
-
 function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: number }): FakeStack {
   const emitter = new EventEmitter();
   const fake: FakeStack = {
@@ -120,6 +115,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
       spawnSync: (cmd) => {
         fake.dockerCalls.push(cmd);
         const isRm = cmd[1] === "rm";
+        if (cmd.includes("adapt")) return fakeAdapt(cmd);
         const caddy = cmd.includes(CADDY_IMAGE);
         if (caddy) fake.proxy = serveCaddy(cmd);
         if (isRm && cmd[3] === "cid-2") fake.proxy?.stop(true);
@@ -130,7 +126,7 @@ function fakeStack(options: { apiExitCode: number | null; dockerRmExitCode: numb
         };
       },
       spawn: ({ cmd, cwd, env }) => {
-        const name = cmd.includes("vite") ? nameOf(cmd) : (cwd.split("/").at(-1) ?? "");
+        const name = cmd.includes("vite") ? "build" : (cwd.split("/").at(-1) ?? "");
         fake.dataDirs.push(env.DATA_DIR ?? "");
         fake.listenersAtSpawn.push(EXIT_TRIGGERS.map((t) => emitter.listenerCount(t)));
         const record = { name, cmd, signals: [] as string[] };
