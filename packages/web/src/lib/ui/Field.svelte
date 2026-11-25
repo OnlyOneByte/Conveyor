@@ -9,7 +9,9 @@
   export let error = "";
   export let type: "text" | "password" = "text";
   const id = uid("field");
-  $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
+  $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`]
+    .filter(Boolean)
+    .join(" ");
 </script>
 
 <div class="field">

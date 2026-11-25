@@ -6,7 +6,14 @@ import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, fetch, parent }) => {
   const none: string | null = null;
-  const empty = { profile: null, content: null, slicers: [], failed: false, problem: "", detail: none };
+  const empty = {
+    profile: null,
+    content: null,
+    slicers: [],
+    failed: false,
+    problem: "",
+    detail: none,
+  };
   if (!signedIn((await parent()).auth)) return empty;
   try {
     const [profiles, slicers] = await Promise.all([
@@ -25,6 +32,10 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
   } catch (e) {
     if (unreachable(e)) return { ...empty, failed: true };
     const why = serverSaid(e);
-    return { ...empty, problem: why ? `Conveyor answered: ${why}` : saidOnLoad(e), detail: detailOf(e) };
+    return {
+      ...empty,
+      problem: why ? `Conveyor answered: ${why}` : saidOnLoad(e),
+      detail: detailOf(e),
+    };
   }
 };

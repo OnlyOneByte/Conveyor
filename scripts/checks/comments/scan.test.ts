@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { commentLines, languageOf, tallyFile } from "./tally";
+import { EXEMPTIONS, scanStart } from "./exemptions";
+import { commentLines, findComments, languageOf, tallyFile } from "./tally";
 
 const ts = (src: string) => commentLines(src, "script");
 const svelte = (src: string) => commentLines(src, "svelte");
@@ -193,5 +194,21 @@ describe("tally", () => {
     expect(languageOf("package.json")).toBeNull();
     expect(languageOf("README.md")).toBeNull();
     expect(languageOf("LICENSE")).toBeNull();
+  });
+});
+
+describe("the listed exemptions", () => {
+  test("are only the shebang, and a shebang anywhere else is a comment", () => {
+    expect(EXEMPTIONS.map((e) => e.name)).toEqual(["shebang"]);
+    expect(scanStart({ src: "#!/bin/sh\necho\n", from: 0, to: 15 })).toBe(9);
+    expect(scanStart({ src: "echo\n", from: 0, to: 5 })).toBe(0);
+    expect(findComments("a;\n#!x\n", "hash")).toHaveLength(1);
+  });
+
+  test("cover only #! and the interpreter path, not the rest of the line", () => {
+    expect(scanStart({ src: "#!/usr/bin/env bun\n", from: 0, to: 19 })).toBe(14);
+    expect(findComments("#!/bin/sh # x\necho\n", "hash")).toHaveLength(1);
+    expect(ts("#!/usr/bin/env bun // x\nconst a = 1;\n")).toEqual([1]);
+    expect(findComments("#!/bin/sh\necho\n", "hash")).toHaveLength(0);
   });
 });

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
   import ErrorDetails from "#lib/components/ErrorDetails.svelte";
   import ProfileEditor from "#lib/components/ProfileEditor.svelte";
   import { profileFacts, profileTag } from "#lib/profile-facts.js";
+  import { invalidateAll } from "$app/navigation";
   import type { PageData } from "./$types";
 
   export let data: PageData;

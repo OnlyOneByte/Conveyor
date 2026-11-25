@@ -1,7 +1,6 @@
 <script lang="ts">
   import { measured } from "#lib/ui/behaviour.js";
   import ErrorDetails from "./ErrorDetails.svelte";
-
   export let summary: string;
   export let detail: string;
   export let ready: boolean;

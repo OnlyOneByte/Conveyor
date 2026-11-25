@@ -1,4 +1,5 @@
-import { blockComment, type Hit, indexIn, lineComment, type Range, skipQuoted } from "./cursor";
+import { blockComment, type Hit, lineComment, type Range, skipQuoted } from "./cursor";
+import { scanStart } from "./exemptions";
 import { skipRegex, skipTemplateChunk, WORD_CHAR } from "./literals";
 
 export interface ScriptScan {
@@ -132,11 +133,11 @@ const punctuation = (s: State) => {
 const STEPS = [comment, quoted, template, templateResume, slash, word, whitespace, punctuation];
 
 export function scanScript(scan: ScriptScan): number {
-  const { src, from, to } = scan.range;
+  const { src, to } = scan.range;
   const state: State = {
     src,
     to,
-    i: src.startsWith("#!", from) ? indexIn(scan.range, "\n") : from,
+    i: scanStart(scan.range),
     previous: "",
     templateBraces: [],
     depth: 0,

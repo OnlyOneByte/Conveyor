@@ -10,11 +10,11 @@
     profilePayload,
   } from "#lib/profile-facts.js";
   import { detailOf, said } from "#lib/said.js";
-  import ErrorDetails from "./ErrorDetails.svelte";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
+  import ErrorDetails from "./ErrorDetails.svelte";
 
   export let open = false;
   export let slicers: CatalogSlicer[] = [];

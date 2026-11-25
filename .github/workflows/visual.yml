@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "tools/visual/**"
+      - "Caddyfile"
       - ".github/workflows/visual.yml"
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "tools/visual/**"
+      - "Caddyfile"
       - ".github/workflows/visual.yml"
 
 permissions: {}
@@ -93,9 +95,12 @@ jobs:
 
       - name: Typecheck and test visual tooling
         working-directory: head/tools/visual
+        timeout-minutes: 10
         run: |
           bun run typecheck
-          bun test
+          for file in *.test.ts; do
+            timeout 120 bun test "./$file"
+          done
 
       - name: Pick the scenes this change reaches
         id: pick

@@ -49,7 +49,10 @@ export function controlFor(key: string, p: JsonSchemaProp, ui: FormUiHints | nul
 }
 
 export function groupSummary(
-  gr: FormGroup, props: Props, value: Record<string, unknown>, ui: FormUiHints | null,
+  gr: FormGroup,
+  props: Props,
+  value: Record<string, unknown>,
+  ui: FormUiHints | null,
 ): string {
   const mm = ui?.unitMm ?? {};
   const fields = gr.fields.filter((f) => props[f]);

@@ -52,7 +52,7 @@ function lineOf(text: string, needle: RegExp): number {
 }
 
 const quoted = (message: string) => message.match(/setting ("(?:[^"\\]|\\.)*")/)?.[1];
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function orcaText(message: string): string {
   const key = quoted(message);
@@ -65,7 +65,7 @@ function orcaText(message: string): string {
 
 function orcaLine(text: string, message: string): number {
   const key = quoted(message);
-  if (key) return lineOf(text, new RegExp(`${escape(key)}\\s*:`));
+  if (key) return lineOf(text, new RegExp(`${escapeRegExp(key)}\\s*:`));
   return message.includes("has type") ? lineOf(text, /"type"\s*:/) : 1;
 }
 
@@ -104,7 +104,7 @@ function prusaLine(config: string, message: string): number {
   const numbered = message.match(/line (\d+)/)?.[1];
   if (numbered) return Number(numbered);
   const key = quoted(message);
-  return key ? lineOf(config, new RegExp(`^\\s*${escape(JSON.parse(key))}\\s*=`, "m")) : 1;
+  return key ? lineOf(config, new RegExp(`^\\s*${escapeRegExp(JSON.parse(key))}\\s*=`, "m")) : 1;
 }
 
 export function prusaProblem(config: string): Problem | null {

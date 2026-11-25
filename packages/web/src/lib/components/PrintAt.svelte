@@ -1,6 +1,9 @@
 <script lang="ts">
   import {
-    type CatalogPrinter, type CatalogProfile, fetchActiveJobs, fetchPrinterReachable,
+    type CatalogPrinter,
+    type CatalogProfile,
+    fetchActiveJobs,
+    fetchPrinterReachable,
   } from "#lib/api.js";
   import { printerStatus } from "#lib/make.js";
 

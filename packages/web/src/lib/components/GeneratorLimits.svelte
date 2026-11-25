@@ -5,7 +5,8 @@
   export let restrict = false;
   export let allowed: string[] = [];
 
-  const toggle = (id: string, on: boolean) => (allowed = on ? [...allowed, id] : allowed.filter((g) => g !== id));
+  const toggle = (id: string, on: boolean) =>
+    (allowed = on ? [...allowed, id] : allowed.filter((g) => g !== id));
 </script>
 
 <fieldset>
