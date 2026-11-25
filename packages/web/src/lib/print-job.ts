@@ -36,6 +36,7 @@ export function printJob(go: (to: string) => Promise<unknown>, send: Send = send
     label: string,
     printer: string,
   ) {
+    if (get(state).busy) return false;
     patch({ busy: true });
     try {
       const { jobId } = await send(request, retryOf);
@@ -50,6 +51,7 @@ export function printJob(go: (to: string) => Promise<unknown>, send: Send = send
     } finally {
       patch({ busy: false });
     }
+    return true;
   }
 
   return { subscribe: state.subscribe, run };

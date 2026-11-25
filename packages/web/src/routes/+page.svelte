@@ -103,12 +103,12 @@
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
   async function print() {
-    if (!ready || $job.busy || !printer || !profile) return;
+    if (!ready || !printer || !profile) return;
     const generator = upload
       ? { id: "passthrough", params: { uploadId, filename: file?.name ?? "" } }
       : { id: tab, params };
-    await job.run({ generator, printerId, profileId }, retryOf, jobLabel, printer.name);
-    handoff = null;
+    if (await job.run({ generator, printerId, profileId }, retryOf, jobLabel, printer.name))
+      handoff = null;
   }
 </script>
 

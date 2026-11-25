@@ -70,3 +70,16 @@ test("it is busy while the send is in flight", async () => {
   await sending;
   expect(get(job).busy).toBe(false);
 });
+
+test("a second run while one send is in flight sends nothing", async () => {
+  const releases: (() => void)[] = [];
+  const job = printJob(
+    async () => undefined,
+    () => new Promise((done) => releases.push(() => done({ jobId: "j4" }))),
+  );
+  const first = job.run(request, undefined, "Bin", "Neptune");
+  const second = job.run(request, undefined, "Bin", "Neptune");
+  for (const release of releases) release();
+  expect(await Promise.all([first, second])).toEqual([true, false]);
+  expect(releases).toHaveLength(1);
+});
