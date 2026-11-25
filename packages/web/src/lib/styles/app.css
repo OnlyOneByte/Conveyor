@@ -95,9 +95,9 @@ body:has(.shell) .boot { display: none; }
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
+    animation-duration: var(--t-instant) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    transition-duration: var(--t-instant) !important;
     scroll-behavior: auto !important;
   }
 }

@@ -9,6 +9,7 @@ const INTERACTIVE =
 
 interface Target {
   tagName: string;
+  className: unknown;
   textContent: string | null;
   getAttribute(name: string): string | null;
   getBoundingClientRect(): { x: number; y: number; width: number; height: number };
@@ -27,18 +28,37 @@ export interface SmallTarget {
   name: string;
   width: number;
   height: number;
+  coveredBy?: string;
 }
+
+const describe = (s: SmallTarget) =>
+  s.coveredBy
+    ? `${s.name} covered at its centre by ${s.coveredBy}`
+    : `${s.name} ${s.width}×${s.height}`;
 
 export const targetProblem = (within: string, small: readonly SmallTarget[]): string | null =>
   small.length === 0
     ? null
-    : `targets in ${within} under ${TAP_PX}×${TAP_PX} px of hit area: ${small.map((s) => `${s.name} ${s.width}×${s.height}`).join("; ")}`;
+    : `targets in ${within} under ${TAP_PX}×${TAP_PX} px of hit area: ${small.map(describe).join("; ")}`;
 
 export async function smallTargets(page: Page, within: string): Promise<SmallTarget[]> {
   return page.evaluate(
     ({ scope, selector, reach, tap }) => {
       const seen = new Set<Target>();
-      const small: { name: string; width: number; height: number }[] = [];
+      const small: { name: string; width: number; height: number; coveredBy?: string }[] = [];
+      const nameOf = (el: Target) =>
+        (el.getAttribute("aria-label") ?? el.textContent ?? "")
+          .trim()
+          .replace(/\s+/g, " ")
+          .slice(0, 40);
+      const label = (el: Target) => `${el.tagName.toLowerCase()} "${nameOf(el)}"`;
+      const tagOf = (el: Target) => {
+        const cls = String(el.className)
+          .replace(/svelte-\w+/g, "")
+          .trim()
+          .split(/\s+/)[0];
+        return `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ""}`;
+      };
       for (const area of [...document.querySelectorAll(scope)]) {
         for (const found of [...document.querySelectorAll(selector)]) {
           if (!area.contains(found)) continue;
@@ -60,15 +80,16 @@ export async function smallTargets(page: Page, within: string): Promise<SmallTar
             while (d < reach && hit(cx + dx * (d + 1), cy + dy * (d + 1))) d++;
             return d;
           };
-          if (!hit(cx, cy)) continue;
+          if (!hit(cx, cy)) {
+            const top = document.elementFromPoint(cx, cy);
+            const cover = top ? `${tagOf(top)} "${nameOf(top)}"` : "nothing";
+            small.push({ name: label(el), width: 0, height: 0, coveredBy: cover });
+            continue;
+          }
           const width = span(-1, 0) + span(1, 0) + 1;
           const height = span(0, -1) + span(0, 1) + 1;
           if (width >= tap - 1 && height >= tap - 1) continue;
-          const name = (el.getAttribute("aria-label") ?? el.textContent ?? "")
-            .trim()
-            .replace(/\s+/g, " ")
-            .slice(0, 40);
-          small.push({ name: `${el.tagName.toLowerCase()} "${name}"`, width, height });
+          small.push({ name: label(el), width, height });
         }
       }
       return small;

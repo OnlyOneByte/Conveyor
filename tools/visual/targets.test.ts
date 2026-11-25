@@ -21,6 +21,21 @@ test("a target counts its real hit area, so a pseudo-element that widens it pass
   });
 });
 
+test("a control whose centre a neighbour's widened area covers fails, naming the neighbour", async () => {
+  await withPage(async (p) => {
+    await p.setContent(
+      `<style>body { margin: 40px; } nav { display: flex; flex-direction: column; } button { padding: 0; border: 0; width: 120px; } .a { position: relative; height: 44px; } .a::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 26px; } .b { height: 20px; }</style><nav><button class="a">Above</button><button class="b">Below</button></nav>`,
+    );
+    const small = await smallTargets(p, "nav");
+    expect(small).toEqual([
+      { name: 'button "Below"', width: 0, height: 0, coveredBy: 'button.a "Above"' },
+    ]);
+    expect(targetProblem("nav", small)).toBe(
+      'targets in nav under 44×44 px of hit area: button "Below" covered at its centre by button.a "Above"',
+    );
+  });
+});
+
 test("an input is measured by its label, and targets outside the scope are ignored", async () => {
   await withPage(async (p) => {
     await p.setContent(

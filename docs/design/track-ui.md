@@ -112,6 +112,7 @@ never the only signal: every state also has an icon or a word.
 | `--t-hop` | 600 ms | A chip leaving the rail into a bin |
 | `--t-tread` | 1.3 s | One loop of the belt treads |
 | `--t-breathe` | 1.6 s | One breath of the 3D preview's loading cube |
+| `--t-instant` | 0.001 ms | What reduced motion sets every animation and transition to, so `transitionend` still fires |
 | `--ease-move` | `cubic-bezier(.65,0,.35,1)` | Movement |
 | `--ease-pop` | `cubic-bezier(.3,1.4,.5,1)` | Lift and press |
 

@@ -6,7 +6,7 @@
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --r-tiny: 4px; --r-inner: 11px; --r-control: 13px; --r-chip: 16px; --r-card: 18px; --r-panel: 26px; --r-pill: 999px;
   --tap: 44px;
-  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms; --t-tread: 1.3s; --t-breathe: 1.6s;
+  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms; --t-tread: 1.3s; --t-breathe: 1.6s; --t-instant: 0.001ms;
   --ease-move: cubic-bezier(0.65, 0, 0.35, 1); --ease-pop: cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 
