@@ -28,6 +28,5 @@
   .check input { flex: none; margin: 0; }
   .gens { display: flex; flex-direction: column; margin-left: 26px; }
   .hint { margin: 0; font-size: var(--fs-chip); color: var(--muted); }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (pointer: coarse) { .check { min-height: var(--tap); } }
 </style>

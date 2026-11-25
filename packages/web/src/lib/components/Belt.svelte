@@ -86,15 +86,15 @@
 </div>
 
 <style>
-  .bar { display: flex; align-items: center; gap: var(--s2); height: 40px; margin: 6px 0; padding: 0 6px 0 14px; border-radius: 20px; background: var(--belt); color: var(--belt-ink); }
-  b { font-weight: 750; font-size: 13.5px; }
-  .seg { display: flex; align-items: center; height: 30px; padding: 0 10px; border-radius: 15px; background: color-mix(in oklch, var(--belt-ink) 10%, transparent); color: var(--belt-ink); font: 500 12px var(--mono); white-space: nowrap; text-decoration: none; }
+  .bar { display: flex; align-items: center; gap: var(--s2); height: 40px; margin: 6px 0; padding: 0 6px 0 14px; border-radius: var(--r-pill); background: var(--belt); color: var(--belt-ink); }
+  b { font-weight: 750; font-size: var(--fs-chip); }
+  .seg { display: flex; align-items: center; height: 30px; padding: 0 10px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 10%, transparent); color: var(--belt-ink); font: 500 var(--fs-mono) var(--mono); white-space: nowrap; text-decoration: none; }
   .good { background: color-mix(in oklch, var(--ok) 30%, transparent); }
   .bad { min-height: 0; border: 0; background: color-mix(in oklch, var(--err) 40%, transparent); cursor: pointer; }
   .off { background: var(--paper); color: var(--ink); font-family: var(--display); font-weight: 700; }
   .stale { opacity: 0.45; }
   :global([data-theme="dark"]) .bar { box-shadow: 0 0 0 1px var(--faint); }
-  .mini { position: relative; flex: 1; height: 8px; margin: 0 var(--s2); border-radius: 4px; background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
+  .mini { position: relative; flex: 1; height: 8px; margin: 0 var(--s2); border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
   .mini u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: color-mix(in oklch, var(--belt-ink) 70%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
   .exp { display: grid; place-items: center; width: 30px; height: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
@@ -106,5 +106,4 @@
   .shut { position: absolute; top: 0; right: 0; z-index: 6; background: var(--belt); }
   .mobile { display: none; }
   @media (max-width: 759px) { .mobile { display: block; } .desktop { display: none; } }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>

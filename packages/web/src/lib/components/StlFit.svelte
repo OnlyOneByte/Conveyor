@@ -95,8 +95,8 @@
     font: 500 var(--fs-label) var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--muted);
   }
-  .dims { font: 600 17px var(--mono); letter-spacing: -0.01em; }
-  p { margin: 2px 0 0; color: var(--ink); font-size: 14px; line-height: 1.4; }
+  .dims { font: 600 var(--fs-section) var(--mono); letter-spacing: -0.01em; }
+  p { margin: 2px 0 0; color: var(--ink); font-size: var(--fs-body); line-height: 1.4; }
   .quiet p, .hint { color: var(--muted); }
-  .hint { font-size: 13px; }
+  .hint { font-size: var(--fs-chip); }
 </style>

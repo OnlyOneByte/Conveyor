@@ -50,7 +50,7 @@ input, select, textarea {
   background: var(--paper);
   color: var(--ink);
   border: 1.5px solid var(--field-line);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   padding: 0.4rem 0.6rem;
   min-height: var(--tap);
 }
@@ -67,7 +67,9 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: 0; accent-co
 }
 
 .muted { color: var(--muted); }
-kbd { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: 5px; background: var(--paper); color: var(--muted); font: 500 11px var(--mono); }
+kbd { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: var(--r-tiny); background: var(--paper); color: var(--muted); font: 500 var(--fs-label) var(--mono); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.label { font: 500 var(--fs-label) var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 .row { display: flex; gap: 0.75rem; align-items: center; }
 
 .btn {
@@ -93,9 +95,9 @@ body:has(.shell) .boot { display: none; }
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
+    animation-duration: var(--t-instant) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    transition-duration: var(--t-instant) !important;
     scroll-behavior: auto !important;
   }
 }

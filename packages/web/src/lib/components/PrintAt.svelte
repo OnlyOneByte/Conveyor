@@ -73,21 +73,17 @@
 <style>
   fieldset { display: grid; gap: var(--s2); margin: 0; padding: 0; border: 0; }
   fieldset + fieldset { margin-top: var(--s4); }
-  .label {
-    padding: 0; font: 500 var(--fs-label) var(--mono); text-transform: uppercase;
-    letter-spacing: 0.09em; color: var(--muted);
-  }
+  .label { padding: 0; }
   .pills { display: flex; flex-wrap: wrap; gap: var(--s2); }
   .pill {
     display: inline-flex; align-items: center; gap: var(--s2);
     min-height: 42px; padding: 0 var(--s4);
-    border: 1.5px solid var(--field-line); border-radius: 21px; font-weight: 600; cursor: pointer;
+    border: 1.5px solid var(--field-line); border-radius: var(--r-pill); font-weight: 600; cursor: pointer;
   }
-  .pill span { font: 500 12px var(--mono); color: var(--muted); }
+  .pill span { font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .pill:has(:checked) { background: var(--ink); border-color: var(--ink); color: var(--bg); }
   .pill:has(:checked) span { color: var(--bg); opacity: 0.85; }
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
   .warn { margin: 0; color: var(--err); font-weight: 600; }
