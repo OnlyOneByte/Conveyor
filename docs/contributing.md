@@ -45,6 +45,14 @@ The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when 
 fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
+A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
+removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. A test file that writes
+to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
+deletes the ones the file added, after the file's own teardown. CI's `test` job runs `bun run check:test-leaks`
+after both test runs; it fails if `$TMPDIR` holds a `conveyor-*` entry or Redis holds any key. To run it
+locally, point `TMPDIR` at an empty directory and `REDIS_URL` at a Redis of its own, since it reports every
+`conveyor-*` entry and every key it finds.
+
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
 tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
 command to check that commit out, and the command that reruns the order. On a pull request the commit is

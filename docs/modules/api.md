@@ -249,8 +249,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
     200, as before.
   - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
-    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
-    page.
+    ordered before it by `(updatedAt, id)`, so a job that finishes while someone pages back normally goes to the
+    front. Two cases can still land in a later page: a job that finishes in the same millisecond as the cursor's
+    `updatedAt` with a smaller id, and a job stamped after the host's clock stepped backwards.
   - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
     (`since` inclusive, `until` exclusive).
 - `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
