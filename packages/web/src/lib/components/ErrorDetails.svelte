@@ -5,7 +5,7 @@
 {#if detail}
   <details class="why">
     <summary>Details</summary>
-    <pre>{detail}</pre>
+    <pre tabindex="0">{detail}</pre>
   </details>
 {/if}
 
@@ -15,5 +15,6 @@
   pre {
     margin: var(--s2) 0 0; padding: var(--s3); border-radius: var(--r-inner); background: var(--sunk);
     font: 500 var(--fs-mono) var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
+    max-height: 12rem; overflow-y: auto;
   }
 </style>
