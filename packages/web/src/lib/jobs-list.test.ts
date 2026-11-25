@@ -32,6 +32,13 @@ describe("the Jobs list", () => {
     expect(settledRow(timed, null, now).status).toBe("printed in 1 h 13 min");
   });
 
+  test("a settled row carries the job's note, trimmed, and a blank note is left out", () => {
+    const noted = entry("n", "done", now, { notes: "  work dir not removed: /data/jobs/n  " });
+    expect(settledRow(noted, catalog, now).note).toBe("work dir not removed: /data/jobs/n");
+    expect(settledRow(entry("m", "failed", now, { notes: "   " }), catalog, now).note).toBeUndefined();
+    expect(settledRow(entry("o", "canceled", now), catalog, now).note).toBeUndefined();
+  });
+
   test("Retry and Cancel say what happened, and only act on a row they fit", async () => {
     const failed = settledRow(entry("f", "failed", now), catalog, now);
     const sent: string[] = [];

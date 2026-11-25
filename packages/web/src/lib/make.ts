@@ -54,5 +54,5 @@ export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
 export function knownParams(params: unknown, schema: JsonSchema | null): Record<string, unknown> {
   if (!params || typeof params !== "object") return {};
   const known = resolveRoot(schema)?.properties ?? {};
-  return Object.fromEntries(Object.entries(params).filter(([key]) => key in known));
+  return Object.fromEntries(Object.entries(params).filter(([key]) => Object.hasOwn(known, key)));
 }

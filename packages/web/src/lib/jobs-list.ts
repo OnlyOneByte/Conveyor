@@ -34,6 +34,7 @@ export interface Row {
   printer: string | undefined;
   status: string;
   why: string | undefined;
+  note?: string;
   time: string;
   at: number;
   request: JobHistoryEntry["request"] | undefined;
@@ -92,6 +93,7 @@ export function settledRow(entry: JobHistoryEntry, catalog: Catalog | null, now:
     printer: printerName(entry.request.printerId, catalog),
     status,
     why: entry.state === "failed" && entry.error ? failureText(entry.error.stage, entry.error.reason).detail : undefined,
+    note: entry.notes?.trim() || undefined,
     time: ago(entry.updatedAt, now),
     at: entry.updatedAt,
     request: entry.request,
