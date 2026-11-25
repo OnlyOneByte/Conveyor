@@ -54,6 +54,23 @@ const editor = (name: string, extra: Step[] = []): Scene => ({
   ],
 });
 
+const longError = (name: string, extra: Step[]): Scene => ({
+  name,
+  route: "/printers",
+  ready: "h1",
+  steps: [
+    {
+      fulfill: "**/api/catalog/profiles/*/content",
+      method: "GET",
+      status: 500,
+      json: { error: `  ${"databaseislocked".repeat(12_500)}  ` },
+    },
+    { follow: "/settings/profiles/orca/klipper-pla-0.2" },
+    { waitFor: "text=Conveyor hit a problem loading this.", timeout: 5000 },
+    ...extra,
+  ],
+});
+
 const added = (name: string) => ({
   id: `orca/${name.toLowerCase().replace(/\W+/g, "-")}`,
   slicerId: "orca",
@@ -174,22 +191,17 @@ export const scenes: Scene[] = [
       { unsent: "*" },
     ],
   },
-  {
-    name: "profile-editor-long-error",
-    route: "/printers",
-    ready: "h1",
-    steps: [
-      {
-        fulfill: "**/api/catalog/profiles/*/content",
-        method: "GET",
-        status: 500,
-        json: { error: `  ${"databaseislocked".repeat(12_500)}  ` },
-      },
-      { follow: "/settings/profiles/orca/klipper-pla-0.2" },
-      { waitFor: "text=Conveyor answered:", timeout: 5000 },
-      { fits: "text=Conveyor answered:" },
-    ],
-  },
+  longError("profile-editor-long-error", [
+    { absent: "details[open]" },
+    { absent: "text=Conveyor answered" },
+    { fits: "a:has-text('Back to Settings')" },
+  ]),
+  longError("profile-editor-long-error-open", [
+    { click: "summary >> text=Details" },
+    { waitFor: "pre >> text=databaseislocked" },
+    { fits: "pre" },
+    { wait: 300 },
+  ]),
   editor("profile-editor"),
   editor("profile-editor-error", [
     { click: ".cm-content" },

@@ -115,8 +115,13 @@ and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves. Unti
 change is ever made to text nobody can see. A profile whose content answers `404` (one just added, whose
 folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
 failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
-(`http-error.ts`). Any other error shows "Conveyor answered:" and the server's `error` message, trimmed and cut
-to 300 characters with an ellipsis, and the error text wraps rathe## lib/said.ts (what a failure says on screen)
+(`http-error.ts`). Any other error reads "Conveyor hit a problem loading this. Try again in a moment.", with
+**Try again** as the primary action and **Back to Settings** beside it. The server's own `error` message, trimmed
+and cut to 300 characters with an ellipsis, or the bare status line when there is none, is under a closed
+**Details** disclosure (`ErrorDetails.svelte`), where it wraps anywhere and scrolls past 12rem instead of widening
+the page.
+
+## lib/said.ts (what a failure says on screen)
 
 Every place that shows an error to the user goes through `said(e)`, `saidOnLoad(e)` or `couldnt(what, e)`, so the
 words follow the spec's Words rules. The server's own `error` message is shown as it is. Conveyor being
@@ -133,8 +138,10 @@ there is none. The thrown `Error` keeps its message, so code that matches on it 
 
 Whenever the page shows one of those plain sentences instead of the server's own words, `detailOf(e)` returns the
 original text (`POST /jobs 502`, `Failed to fetch`, `Internal Server Error`), and `ErrorDetails.svelte` shows it
-under the message in a closed **Details** disclosure, styled like the job receipt's (#37). When the server's own
-message is already on screen there is nothing more to say, so there is no disclosure. Make's dock and upload, the
+under the message in a closed **Details** disclosure, styled like the job receipt's (#37). Its text wraps
+anywhere and scrolls past 12rem, and it can take keyboard focus so it can be scrolled from the keyboard. When the
+server's own message is already on screen there is nothing more to say, so there is no disclosure. The profile
+page is the exception: it never leads with the server's words, so they go under **Details** too. Make's dock and upload, the
 printer, profile and delete dialogs, the profile editor and its page show it; the toast for a failed Undo does not,
 since a toast has no room for one.
 matches on it

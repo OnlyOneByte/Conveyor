@@ -24,16 +24,18 @@
 {#if failed}
   <div class="empty" role="alert">
     <p class="sub">The profile didn't load. Check that Conveyor is running, then try again.</p>
-    <div>
-      <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
+    <div class="actions">
+      <button class="btn primary big" type="button" on:click={() => invalidateAll()}>Try again</button>
+      <a class="btn big" href="/settings">Back to Settings</a>
     </div>
   </div>
 {:else if problem}
   <div class="empty" role="alert">
-    <p class="sub answer">{problem}</p>
+    <p class="sub">{problem}</p>
     <ErrorDetails {detail} />
-    <div>
-      <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
+    <div class="actions">
+      <button class="btn primary big" type="button" on:click={() => invalidateAll()}>Try again</button>
+      <a class="btn big" href="/settings">Back to Settings</a>
     </div>
   </div>
 {:else if !profile}
@@ -60,7 +62,10 @@
   .head { display: flex; flex-direction: column; gap: var(--s1); margin: 0 0 var(--s4); }
   h1, p { margin: 0; line-height: 1.1; }
   .sub { color: var(--muted); line-height: 1.45; }
-  .answer { overflow-wrap: anywhere; }
   .empty { display: flex; flex-direction: column; gap: var(--s3); }
-  .big { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
+  .actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .big {
+    display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 var(--s4);
+    font-size: var(--fs-body); text-decoration: none;
+  }
 </style>
