@@ -236,12 +236,8 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Comment ratchet against the base
-        env:
-          PREVIOUS: ${{ github.event.before || 'origin/main' }}
-        run: |
-          base=$(bun scripts/checks/base.ts --previous "$PREVIOUS")
-          bun scripts/checks/comments.ts --base "$base"
+      - name: No comments or suppressions anywhere
+        run: bun scripts/checks/comments.ts --strict
 
   file-size:
     name: file-size

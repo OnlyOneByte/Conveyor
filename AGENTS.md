@@ -23,7 +23,7 @@ packages/api/           Fastify REST + WebSocket front door, enqueues jobs
 packages/worker/        job worker (BullMQ, or SQLite via CONVEYOR_QUEUE + CONVEYOR_QUEUE_UNSTABLE), drives generate → slice → transport
 packages/web/           SvelteKit PWA (rewrite pending, see Stack (TBD))
 plugins/<kind>/<name>/  generators | slicers | transports
-scripts/checks/         house-rule checkers (no-comments, coverage and file-size ratchets)
+scripts/checks/         house-rule checkers (no-comments, plus the coverage and file-size ratchets)
 tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
@@ -41,7 +41,7 @@ wins. What it counts today:
   `*.cjs`, `*.svelte` (script, markup and style), `*.css`, `*.html` and JSONC (`tsconfig*.json`, `biome.json`,
   `*.jsonc`). [CI]
 - Any `#` comment, full-line or trailing, in `Dockerfile*` (including `# syntax=`), `Caddyfile`, `*.yml`,
-  `*.yaml`, `*.toml` and `*.sh`. Only a shebang on line 1 is allowed. [CI]
+  `*.yaml`, `*.toml` and `*.sh`. [CI]
 - Every suppression: `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `biome-ignore`, `eslint-disable`,
   `prettier-ignore`, `svelte-ignore`, `shellcheck disable`. A wrong rule is fixed in config. [CI]
 - Commented-out code is a comment. Delete it; git remembers. [CI]
@@ -50,16 +50,19 @@ wins. What it counts today:
 Instead of a comment, in order: rename the symbol, extract a named function, encode it in a type, write a
 test whose name states the rule, or write it in `docs/modules/<module>.md`.
 
-**How the ratchet works.** `scripts/checks/comments.ts` counts comment lines and suppressions in every file of
-the PR's tree and of the base branch's tree, and compares them file by file. Nothing is stored, so there is no
-baseline to update or to conflict on. The `no-comments` check:
+**How the check works.** The count reached 0, so `no-comments` runs `scripts/checks/comments.ts --strict`
+(`bun run check:comments`): one comment line or one suppression in any file fails it, and it prints each as
+`path:line`. There is no base and no allowance.
 
-| You did | Result |
+**Exemptions.** The only exemptions are the ones listed in `EXEMPTIONS` in
+`scripts/checks/comments/exemptions.ts`, and the check prints them on every run. Today the list has one entry:
+
+| Exemption | Where |
 |---|---|
-| Added a comment or a suppression to any file | `added: …` and the check fails |
-| Removed comments | passes; the base the next PR is checked against has the lower count |
+| shebang | `#!` and the interpreter path (up to the first space) at the very start of a script or shell file; a comment later on that line still counts |
 
-Counts only go down. The target is 0 everywhere; then the check switches to `--strict`.
+Nothing else is exempt: not `# syntax=`, `/// <reference>`, a license header or any suppression. Adding an
+exemption is a guardrail change (§12) and lists it in `EXEMPTIONS`.
 
 ## 3. Naming
 
@@ -76,7 +79,7 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 
 | Limit | Max | Tag |
 |---|---|---|
-| Lines per file | 250 | [CI: `file-size`]; also [review], S1, in `packages/web`, which Biome doesn't format |
+| Lines per file | 250 | [CI: `file-size`]; also [review], S1 |
 | Lines per UI component (`.svelte`) | 150 | [CI: `file-size`]; also [review], S1 |
 | Cognitive complexity per function | 12 | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Positional parameters | 3 (then pass one object) | [CI] in `scripts/**`; [review], S1, elsewhere |
@@ -89,9 +92,9 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 - Target flags, added by an infra PR: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
   `noImplicitOverride`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`. Never turn a flag
   off. [review]
-- No explicit `any`. [CI: `lint`, outside `packages/web`; review inside it] No implied `any` either (untyped
+- No explicit `any`. [CI: `lint`; review in Svelte markup, which Biome doesn't read] No implied `any` either (untyped
   `JSON.parse`, a `catch (e)` used as an object): use `unknown` and narrow. [review]
-- No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
+- No non-null `!`. [CI: `lint`; review in Svelte markup]
 - No `as` casts except `as const` (or `<const>`). Parse values; don't assert them. [CI: `lint`, through
   `bun run check:casts` over every `.ts` file and Svelte `<script>` block; a file may have no
   more casts than it has on the base branch, counted in both trees, so removing one needs no other change. A
@@ -210,7 +213,7 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
 `merge.sh` exempts `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR that only
-raises coverage is not held. The comment, cast and file-size ratchets store nothing, so no PR touches them to
+raises coverage is not held. The comment check, and the cast and file-size ratchets, store nothing, so no PR touches them to
 record progress. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that

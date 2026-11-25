@@ -1,6 +1,5 @@
 <script lang="ts">
   import Viewport from "#lib/components/Viewport.svelte";
-
   export let preview: boolean;
   export let params: Record<string, unknown>;
   export let file: File | null;

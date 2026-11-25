@@ -34,27 +34,46 @@ export interface Feed {
   clock(): string;
 }
 
+export const localClock = () =>
+  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
 export const titled = (id: string) => id.charAt(0).toUpperCase() + id.slice(1);
-const settled = (job: TrackJob) => job.state === "done" || job.state === "failed" || job.state === "canceled";
+const settled = (job: TrackJob) =>
+  job.state === "done" || job.state === "failed" || job.state === "canceled";
 
 export function named(generator: NonNullable<Status["generator"]>, catalog: Catalog | null) {
   const known = catalog?.generators.find((g) => g.id === generator.id);
-  return jobName(known?.name ?? titled(generator.id), generator.params, known?.paramSchema ?? null, known?.ui ?? null);
+  return jobName(
+    known?.name ?? titled(generator.id),
+    generator.params,
+    known?.paramSchema ?? null,
+    known?.ui ?? null,
+  );
 }
 
 export function trackJob(view: Status, was?: TrackJob, catalog: Catalog | null = null): TrackJob {
-  const job: TrackJob = { id: view.jobId, name: view.generator && (catalog || !was) ? named(view.generator, catalog) : (was?.name ?? "Job"), state: view.state };
+  const job: TrackJob = {
+    id: view.jobId,
+    name:
+      view.generator && (catalog || !was) ? named(view.generator, catalog) : (was?.name ?? "Job"),
+    state: view.state,
+  };
   if (view.progress !== undefined) job.progress = view.progress;
   const printer = catalog?.printers.find((p) => p.id === view.printerId)?.name ?? was?.printer;
   if (printer) job.printer = printer;
   if (view.error) job.reason = view.error.reason;
   const { generator, printerId, profileId } = view;
-  const request = generator && printerId && profileId ? { generator, printerId, profileId } : was?.request;
+  const request =
+    generator && printerId && profileId ? { generator, printerId, profileId } : was?.request;
   if (request) job.request = request;
   return job;
 }
 
-export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[], offline: boolean) => void, tell: (news: News[]) => void) {
+export function createBelt(
+  feed: Feed,
+  show: (jobs: TrackJob[], ended: TrackJob[], offline: boolean) => void,
+  tell: (news: News[]) => void,
+) {
   let known = new Map<string, TrackJob>();
   const sockets = new Map<string, Socket>();
   let failures = 0;
@@ -113,28 +132,39 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     const seen = new Set(live.map((view) => view.jobId));
     const gone = [...known.values()].filter((job) => !seen.has(job.id));
     const lost: News[] = [];
-    const ends = await Promise.all(gone.map(async (job) => {
-      const event = await feed.final(job.id).catch(() => {
-        lost.push({ level: "polite", text: `${shortName(job.name)} left the belt; its job page has how it ended`, ended: job.id });
-        return null;
-      });
-      return event ? [trackJob(event, job)] : [];
-    }));
+    const ends = await Promise.all(
+      gone.map(async (job) => {
+        const event = await feed.final(job.id).catch(() => {
+          lost.push({
+            level: "polite",
+            text: `${shortName(job.name)} left the belt; its job page has how it ended`,
+            ended: job.id,
+          });
+          return null;
+        });
+        return event ? [trackJob(event, job)] : [];
+      }),
+    );
     const fresh = (view: Status, was?: TrackJob) => {
       const job = trackJob(view, was, catalog);
-      return was && sockets.has(view.jobId) ? { ...was, name: job.name, ...(job.printer ? { printer: job.printer } : {}) } : job;
+      return was && sockets.has(view.jobId)
+        ? { ...was, name: job.name, ...(job.printer ? { printer: job.printer } : {}) }
+        : job;
     };
     if (mine < applied) return;
     applied = mine;
     const newer = (id: string) => (touched.get(id) ?? 0) >= mine;
     for (const [id, at] of touched) if (at < mine) touched.delete(id);
-    settle([
-      ...live
-        .filter((view) => !newer(view.jobId))
-        .map((view) => fresh(view, known.get(view.jobId))),
-      ...[...known.values()].filter((job) => newer(job.id)),
-      ...ends.flat().filter((job) => !newer(job.id)),
-    ], lost.filter((news) => !news.ended || !newer(news.ended)));
+    settle(
+      [
+        ...live
+          .filter((view) => !newer(view.jobId))
+          .map((view) => fresh(view, known.get(view.jobId))),
+        ...[...known.values()].filter((job) => newer(job.id)),
+        ...ends.flat().filter((job) => !newer(job.id)),
+      ],
+      lost.filter((news) => !news.ended || !newer(news.ended)),
+    );
   }
 
   function stop() {
@@ -142,12 +172,17 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     sockets.clear();
   }
 
-  const covered = () => known.size > 0 && [...known.values()].every((job) => onRail(job.state) && sockets.has(job.id));
+  const covered = () =>
+    known.size > 0 && [...known.values()].every((job) => onRail(job.state) && sockets.has(job.id));
 
   return { poll, stop, covered };
 }
 
-export function createTicker(belt: { poll(): Promise<void>; covered(): boolean }, ready: () => boolean, now = () => Date.now()) {
+export function createTicker(
+  belt: { poll(): Promise<void>; covered(): boolean },
+  ready: () => boolean,
+  now = () => Date.now(),
+) {
   let polling = false;
   let again = false;
   let last = Number.NEGATIVE_INFINITY;

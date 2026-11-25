@@ -1,7 +1,19 @@
 <script lang="ts">
-  import { afterNavigate } from "$app/navigation";
-  import { BINS, beltSummary, centre, IDLE, OFFLINE, onRail, shortName, status, today, type TrackJob, value } from "#lib/track.js";
+  import {
+    BINS,
+    beltSummary,
+    centre,
+    IDLE,
+    OFFLINE,
+    onRail,
+    shortName,
+    status,
+    type TrackJob,
+    today,
+    value,
+  } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
+  import { afterNavigate } from "$app/navigation";
   import NeedsYou from "./NeedsYou.svelte";
 
   export let jobs: TrackJob[];
@@ -14,10 +26,13 @@
   let toggle: HTMLButtonElement;
 
   afterNavigate(() => (open = false));
-  $: moving = jobs.flatMap((job) => (onRail(job.state) ? [{ job, x: centre(job.state, job.progress ?? 0) }] : [])).sort((a, b) => b.x - a.x);
+  $: moving = jobs
+    .flatMap((job) => (onRail(job.state) ? [{ job, x: centre(job.state, job.progress ?? 0) }] : []))
+    .sort((a, b) => b.x - a.x);
   $: waiting = jobs.filter((job) => job.state === "queued").length;
   function keys(event: KeyboardEvent) {
-    const tray = event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
+    const tray =
+      event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
     if (event.key !== "Escape" || !open || event.defaultPrevented || tray) return;
     open = false;
     toggle.focus();

@@ -1,3 +1,4 @@
+import { redirect } from "@sveltejs/kit";
 import {
   fetchCatalogPrinters,
   fetchCatalogProfiles,
@@ -7,7 +8,6 @@ import {
 } from "#lib/api.js";
 import { loadViewportCanvas } from "#lib/components/viewport-canvas.js";
 import { makeShown } from "#lib/make-shown.js";
-import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;

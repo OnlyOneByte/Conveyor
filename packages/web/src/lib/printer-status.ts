@@ -3,8 +3,8 @@ import { ago } from "./ago";
 import type { CatalogPrinter, PrinterReachable } from "./api";
 import { named } from "./belt";
 import type { Catalog } from "./catalog";
-import { duration } from "./job-settings";
 import { pillText } from "./job-live";
+import { duration } from "./job-settings";
 
 export type PrinterTone = "ready" | "busy" | "offline" | "checking";
 
@@ -68,17 +68,29 @@ export function printerCard(
   now: number,
 ): PrinterCard {
   const mine = active.filter((view) => view.printerId === printer.id).sort(byAge);
-  const waiting = mine.filter((view) => view.state === "queued").map((view) => jobOf(view, catalog));
+  const waiting = mine
+    .filter((view) => view.state === "queued")
+    .map((view) => jobOf(view, catalog));
   const running = mine.find((view) => view.state !== "queued");
-  const tone: PrinterTone = running ? "busy" : !reach ? "checking" : reach.reachable ? "ready" : "offline";
+  const tone: PrinterTone = running
+    ? "busy"
+    : !reach
+      ? "checking"
+      : reach.reachable
+        ? "ready"
+        : "offline";
   const card: PrinterCard = { tone, status: STATUS[tone], detail: "", waiting };
   if (running) {
     card.job = { ...jobOf(running, catalog), line: runningLine(running) };
-    if (running.state === "printing" && running.progress !== undefined) card.job.progress = running.progress;
+    if (running.state === "printing" && running.progress !== undefined)
+      card.job.progress = running.progress;
   } else if (tone === "checking") {
     card.detail = "Checking whether it answers…";
   } else if (reach?.reachable) {
-    card.detail = reach.latencyMs === undefined ? "Connected." : `Connected, answered in ${reach.latencyMs} ms.`;
+    card.detail =
+      reach.latencyMs === undefined
+        ? "Connected."
+        : `Connected, answered in ${reach.latencyMs} ms.`;
   } else {
     card.detail = `${unreachableText(reach?.reason)} ${lastSeen(printer, now)}`;
   }
@@ -87,7 +99,9 @@ export function printerCard(
 
 export function printersSummary(printers: CatalogPrinter[], active: JobView[]): string {
   const ids = new Set(printers.map((printer) => printer.id));
-  const waiting = active.filter((view) => view.state === "queued" && ids.has(view.printerId ?? "")).length;
+  const waiting = active.filter(
+    (view) => view.state === "queued" && ids.has(view.printerId ?? ""),
+  ).length;
   const count = `${printers.length} ${printers.length === 1 ? "printer" : "printers"}`;
   if (!waiting) return count;
   return `${count} · ${waiting} ${waiting === 1 ? "job" : "jobs"} waiting`;

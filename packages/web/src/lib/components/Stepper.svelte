@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { clamp, hi, lo, type JsonSchemaProp } from "#lib/form-schema.js";
+  import { clamp, hi, type JsonSchemaProp, lo } from "#lib/form-schema.js";
 
   export let label: string;
   export let prop: JsonSchemaProp;

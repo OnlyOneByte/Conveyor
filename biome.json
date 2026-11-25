@@ -17,7 +17,6 @@
       "**/*.jsonc",
       "**/*.svelte",
       "!scad",
-      "!packages/web",
       "!**/bun.lock"
     ]
   },

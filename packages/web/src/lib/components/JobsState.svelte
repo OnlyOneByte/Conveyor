@@ -9,7 +9,8 @@
   export let today = false;
   onMount(() => {
     if (kind === "loading") void announce("Loading jobs…");
-    else if (kind === "down") void announce("Can't reach Conveyor. The job history didn't load", "assertive");
+    else if (kind === "down")
+      void announce("Can't reach Conveyor. The job history didn't load", "assertive");
   });
 </script>
 

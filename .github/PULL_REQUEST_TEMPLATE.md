@@ -39,7 +39,7 @@ Provenance: <!-- the commit SHA the captures were taken from -->
 
 ## Checklist
 
-- [ ] No comments or suppressions added to code (the `no-comments` ratchet compares every file with the base)
+- [ ] No comments or suppressions in code (`no-comments` runs `--strict`: one anywhere fails it)
 - [ ] Docs updated in `docs/` where behaviour, config or setup changed
 - [ ] Conventional-commit PR title (`feat:`, `fix:`, `chore:`, ...)
 - [ ] Visuals attached for UI changes

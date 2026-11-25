@@ -10,16 +10,8 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
-    "types": [
-      "$app/types",
-      "bun"
-    ]
+    "types": ["$app/types", "bun"]
   },
-  "include": [
-    "src",
-    "*.ts"
-  ],
-  "exclude": [
-    "src/service-worker"
-  ]
+  "include": ["src", "*.ts"],
+  "exclude": ["src/service-worker"]
 }

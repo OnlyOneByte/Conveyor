@@ -1,8 +1,13 @@
 <script lang="ts">
   import { T } from "@threlte/core";
+  import { prefersReducedMotion, spinPreview } from "#lib/preferences.js";
+  import {
+    binHeight,
+    boundingRadius,
+    buildGeometry,
+    type GridfinityPreviewParams,
+  } from "#lib/previews/gridfinity.js";
   import Orbit from "./Orbit.svelte";
-  import { spinPreview, prefersReducedMotion } from "#lib/preferences.js";
-  import { buildGeometry, boundingRadius, binHeight, type GridfinityPreviewParams } from "#lib/previews/gridfinity.js";
 
   export let params: Partial<GridfinityPreviewParams> = {};
 
