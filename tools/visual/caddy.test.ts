@@ -1,7 +1,7 @@
-import { afterAll, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   adaptedProblem,
   assertLoopbackCaddy,
@@ -16,13 +16,52 @@ const ports = { port: 41000, apiPort: 41001, webPort: 41002 };
 const dir = mkdtempSync(join(tmpdir(), "conveyor-caddy-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-const docker = (cmd: string[]) => Bun.spawnSync(cmd);
-const checked = (source: string) => {
-  const file = join(dir, `Caddyfile-${Math.random().toString(36).slice(2)}`);
-  writeFileSync(file, visualCaddyfile(source, ports));
-  return () => assertLoopbackCaddy(docker, file, ports);
+const files = new Map<string, string>();
+const adapted = new Map<string, { exitCode: number; stdout: Buffer; stderr: Buffer }>();
+const fileOf = (cmd: string[]) => cmd[cmd.indexOf("-v") + 1]?.split(":")[0] ?? "";
+const fromBatch = (cmd: string[]) => {
+  const result = adapted.get(fileOf(cmd));
+  if (!result) throw new Error(`no batched caddy adapt for ${fileOf(cmd)}`);
+  return result;
 };
-const ADAPT_MS = 60000;
+const checked = (source: string) => {
+  const file = join(dir, "in", `Caddyfile-${files.size}`);
+  files.set(file, visualCaddyfile(source, ports));
+  return () => assertLoopbackCaddy(fromBatch, file, ports);
+};
+const ADAPT_MS = 120000;
+
+beforeAll(() => {
+  mkdirSync(join(dir, "in"));
+  mkdirSync(join(dir, "out"));
+  for (const [file, text] of files) writeFileSync(file, text);
+  const script =
+    'for f in /in/*; do n=$(basename "$f"); caddy adapt --config "$f" > "/out/$n.json" 2> "/out/$n.err"; echo $? > "/out/$n.code"; done';
+  const run = Bun.spawnSync([
+    "docker",
+    "run",
+    "--rm",
+    "--network",
+    "none",
+    "-v",
+    `${join(dir, "in")}:/in:ro`,
+    "-v",
+    `${join(dir, "out")}:/out`,
+    CADDY_IMAGE,
+    "sh",
+    "-c",
+    script,
+  ]);
+  if (run.exitCode !== 0) throw new Error(`batched caddy adapt failed: ${run.stderr.toString()}`);
+  for (const file of files.keys()) {
+    const out = (ext: string) => readFileSync(join(dir, "out", `${basename(file)}.${ext}`));
+    adapted.set(file, {
+      exitCode: Number(out("code").toString().trim()),
+      stdout: out("json"),
+      stderr: out("err"),
+    });
+  }
+}, ADAPT_MS);
 
 test("the visual Caddyfile is production's, served on loopback over http to the stack's ports", () => {
   const visual = visualCaddyfile(production, ports);
@@ -41,11 +80,9 @@ test("a Caddyfile that changed shape fails instead of serving something else", (
   );
 });
 
-test(
-  "caddy adapt of the rewritten production Caddyfile is loopback-only",
-  () => expect(checked(production)).not.toThrow(),
-  ADAPT_MS,
-);
+const productionCheck = checked(production);
+test("caddy adapt of the rewritten production Caddyfile is loopback-only", () =>
+  expect(productionCheck).not.toThrow());
 
 const variants: [string, string, string][] = [
   ["an extra site", `${production}\n:8099 {\n\trespond ok\n}\n`, "2 servers, not 1"],
@@ -122,12 +159,11 @@ const variants: [string, string, string][] = [
   ],
 ];
 
-for (const [name, source, message] of variants)
-  test(
-    `a production Caddyfile with ${name} refuses to start`,
-    () => expect(checked(source)).toThrow(message),
-    ADAPT_MS,
-  );
+for (const [name, source, message] of variants) {
+  const check = checked(source);
+  test(`a production Caddyfile with ${name} refuses to start`, () =>
+    expect(check).toThrow(message));
+}
 
 test("a module or option refusal names the allowlist to edit, and only that refusal does", () => {
   const config = (handler: Record<string, unknown>, admin: Record<string, unknown>) => ({
