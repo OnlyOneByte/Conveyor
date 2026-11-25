@@ -313,6 +313,9 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
 Conveyor's durable store, on `bun:sqlite` (synchronous, no native build, the same on aarch64 and x86_64).
 The API (config reads, job history) and the worker (print-target resolution, terminal job writes) open the
 same file on the shared `/data` volume. `openDb()` is a process-wide singleton, idempotent per path.
+Before it opens a file, `ownerOnlyDbFiles` (`db/owner-only.ts`) creates a missing database `0600` in a `0700`
+folder, and tightens an existing database, `-wal` or `-shm` that the process owns and others can read to
+`0600`. SQLite gives a new `-wal` and `-shm` the database file's mode.
 
 `db/index.ts` holds `openDb()` and seeding, and re-exports the queries, which live one table per module:
 
