@@ -61,10 +61,24 @@ const moves: Step[] = [
 
 const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
 
+const down = (route: string): Step => ({ fulfill: route, status: 503, json: { error: "down" } });
+
+const offline: Step[] = [
+  down("**/api/jobs/active"),
+  down("**/api/jobs-history?*"),
+  down("**/api/jobs-history/counts?*"),
+  down("**/api/jobs/needs-you"),
+  { waitFor: "text=Can't reach Conveyor >> visible=true", timeout: 15000 },
+  { wait: 400 },
+];
+
+const region: Step = { waitFor: 'role=region[name="On the belt"s] >> visible=true', timeout: 8000 };
+const collapsed: Step = { waitFor: "#belt .bar:visible, #belt section.m:visible", timeout: 8000 };
+
 export const scenes: Scene[] = [
   {
     name: "belt-mobile",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -72,7 +86,7 @@ export const scenes: Scene[] = [
   },
   {
     name: "belt-mobile-sheet",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -86,7 +100,7 @@ export const scenes: Scene[] = [
       { wait: 300 },
     ],
   },
-  { name: "belt-bar", route: "/history", ready: "h1", widths: [1440], steps: onBar },
+  { name: "belt-bar", route: "/jobs", ready: "h1", widths: [1440], steps: onBar },
   {
     name: "belt-bar-make",
     route: "/",
@@ -115,14 +129,16 @@ export const scenes: Scene[] = [
   },
   {
     name: "belt-expand",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [1440],
     record: true,
     steps: [
       ...onBar,
+      { hits: "#belt .bar .exp, #belt .bar a", viewports: [[1440, 900]] },
       { click: "#belt .bar .exp" },
       { waitFor: "#belt .shut:focus" },
+      { hits: "#belt .shut, #belt .bins a, #belt .bins button", viewports: [[1440, 900]] },
       { wait: 800 },
       { press: "Escape" },
       { waitFor: "#belt .bar .exp:focus" },
@@ -147,5 +163,39 @@ export const scenes: Scene[] = [
     record: true,
     reducedMotion: true,
     steps: [...moves, { still: "#belt", ms: 3000 }],
+  },
+  { name: "belt-offline", route: "/jobs", ready: "h1", steps: offline },
+  {
+    name: "belt-offline-make",
+    route: "/",
+    ready: "text=Configure",
+    widths: [1440],
+    fullPage: false,
+    steps: offline,
+  },
+  {
+    name: "belt-region",
+    route: "/",
+    ready: "text=Configure",
+    fullPage: false,
+    steps: [
+      region,
+      { follow: "/jobs" },
+      { wait: 800 },
+      region,
+      collapsed,
+      { follow: "/settings" },
+      { wait: 800 },
+      region,
+      collapsed,
+      { follow: "/monitor" },
+      { wait: 800 },
+      region,
+      collapsed,
+      { follow: "/jobs/seed-printed" },
+      { wait: 800 },
+      region,
+      collapsed,
+    ],
   },
 ];

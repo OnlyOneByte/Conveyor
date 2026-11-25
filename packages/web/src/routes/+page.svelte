@@ -9,7 +9,6 @@
     type CatalogProfile,
     type CatalogTransport,
   } from "#lib/api.js";
-  import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
   import { showMake } from "#lib/make-shown.js";
   import { goto } from "$app/navigation";
@@ -142,14 +141,6 @@
       const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
       jobId = res.jobId;
-      const profile = profiles.find((pr) => pr.id === selectedProfileId);
-      rememberJob({
-        jobId: res.jobId,
-        targetName: `${selectedPrinter?.name ?? selectedPrinterId} · ${profile?.name ?? selectedProfileId}`,
-        generatorId: generator.id,
-        submittedAt: Date.now(),
-        state: "queued",
-      });
     } catch (e) {
       error = (e as Error).message;
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
@@ -384,7 +375,7 @@
     {#if jobId}{#key jobId}
       <div class="card">
         <h3>Job</h3>
-        <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
+        <JobStatus {jobId} />
       </div>
     {/key}{/if}
 

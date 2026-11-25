@@ -40,6 +40,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
   const app = Fastify();
   let ids = { old: "", fresh: "", done: "", gone: "" };
   let mine = new Set<string>();
+  const reads: string[] = [];
 
   beforeEach(() => {
     ids = { old: randomUUID(), fresh: randomUUID(), done: randomUUID(), gone: randomUUID() };
@@ -66,7 +67,11 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     jobs = new Queue<JobRequest>(JOB_QUEUE, {
       connection: new Redis(url ?? "", { maxRetriesPerRequest: null }),
     });
-    await registerJobRoutes(app, jobs);
+    const getJob = (id: string) => {
+      reads.push(id);
+      return jobs.getJob(id);
+    };
+    await registerJobRoutes(app, { getJob });
     base = await app.listen({ host: "127.0.0.1", port: 0 });
   });
 
@@ -143,7 +148,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       });
       const one = await fetch(`${base}/jobs/${broken}`);
       expect(await one.json()).toEqual(bare(broken, "queued", 50));
-      const spy = spyOn(queue.jobQueue, "getJob").mockRejectedValueOnce(new Error("redis down"));
+      const spy = spyOn(jobs, "getJob").mockRejectedValueOnce(new Error("redis down"));
       const res = await fetch(`${base}/jobs/${failing}`);
       spy.mockRestore();
       expect([res.status, await res.json()]).toEqual([200, bare(failing, "slicing", 51)]);
@@ -184,6 +189,14 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       else process.env.DB_PATH = previous;
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test("reads each live job from BullMQ once per request", async () => {
+    await publishStatus(redis, { jobId: ids.old, state: "printing", at: 60 });
+    await publishStatus(redis, { jobId: ids.fresh, state: "queued", at: 61 });
+    reads.length = 0;
+    expect((await fetch(`${base}/jobs/active`)).status).toBe(200);
+    expect(reads.filter((id) => mine.has(id)).sort()).toEqual([ids.old, ids.fresh].sort());
   });
 
   test("serves the Needs-you list and dismiss routes", () => {

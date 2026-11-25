@@ -5,7 +5,8 @@
   import { page } from "$app/state";
   import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
-  import { createBelt, POLL_MS } from "#lib/belt.js";
+  import { shareActive, unwatched } from "#lib/active-jobs.js";
+  import { createBelt, createTicker, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
@@ -24,7 +25,7 @@
   const { polite, assertive } = announcements;
   const TABS = [
     { href: "/", label: "Make", icon: "M12 3 4 7.5v9L12 21l8-4.5v-9L12 3ZM4 7.5l8 4.5 8-4.5M12 12v9", on: (p: string) => p === "/" },
-    { href: "/history", label: "Jobs", icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01", on: (p: string) => p.startsWith("/history") || p.startsWith("/monitor") },
+    { href: "/jobs", label: "Jobs", icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01", on: (p: string) => p.startsWith("/jobs") || p.startsWith("/monitor") },
     { href: "/printers", label: "Printers", icon: "M5 3h14v4H5zM3 7h18v10H3zM8 17v4h8v-4", on: (p: string) => p.startsWith("/printers") || p.startsWith("/settings") },
   ];
 
@@ -38,7 +39,7 @@
   });
   $: dark = resolveTheme($theme, osDark) === "dark";
 
-  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [];
+  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [], beltOffline = false;
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const toasted = new Set<string>();
@@ -51,15 +52,10 @@
       location.assign("/?rerun=1");
     },
   }, { toasted });
-  const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
+  const refreshEnds = () => showApp && document.visibilityState === "visible" && void ends.refresh();
   const desk = createNewsDesk(announce, undefined, toasted);
-  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended) => ((beltJobs = jobs), (beltEnded = ended)), (news) => (desk(news), news.length && refreshEnds()));
-  let polling = false;
-  function tick() {
-    if (polling || !showApp || document.visibilityState !== "visible") return;
-    polling = true;
-    belt.poll().catch(() => {}).finally(() => (polling = false));
-  }
+  const belt = createBelt({ active: shareActive(fetchActiveJobs), final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended, offline) => ((beltJobs = jobs), (beltEnded = ended), (beltOffline = offline)), (news) => (desk(news), news.length && refreshEnds()));
+  const tick = createTicker({ poll: () => belt.poll(), covered: unwatched(() => belt.covered()) }, () => showApp && document.visibilityState === "visible");
   onMount(() => {
     tick();
     refreshEnds();
@@ -102,7 +98,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />

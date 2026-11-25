@@ -422,11 +422,14 @@ jobs:
             grep -qE "^$1 text/html" code.txt
             grep -qi '<!doctype html>' page.html
           }
-          page 200 /history
+          page 200 /jobs
+          gone=$(api -o /dev/null -w '%{http_code} %header{location}' https://localhost/history)
+          echo "history: $gone"
+          test "$gone" = "308 /jobs"
           moved=$(api -o /dev/null -w '%{http_code} %header{location}' "https://localhost/history/$id")
           echo "history/$id: $moved"
           test "$moved" = "308 /jobs/$id"
-          for path in "/jobs/$id" /jobs; do page '(200|404)' "$path"; done
+          page '(200|404)' "/jobs/$id"
       - name: The api keys the real client, not Caddy or a forged header
         run: |
           login() {

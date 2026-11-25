@@ -77,7 +77,7 @@
     <h1 id="job-title">{title}</h1>
     <p>It may have been removed, or the link is mistyped.</p>
     <div class="acts">
-      <a class="btn primary" href="/history">See your jobs</a>
+      <a class="btn primary" href="/jobs">See your jobs</a>
       <a class="btn" href="/">Go to Make</a>
     </div>
   </section>
@@ -103,7 +103,7 @@
       {/if}
     </div>
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} place={data.place} printer={data.printer} />{/if}
+      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
     </JobReceipt>
   </div>
 {/if}
