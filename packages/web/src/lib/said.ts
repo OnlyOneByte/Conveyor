@@ -3,6 +3,7 @@ import { Unreachable, unreachable } from "./http-error.js";
 const STATUS_LINE = /^(GET|POST|PUT|PATCH|DELETE) \S+ \d{3}$/;
 const STOCK = new Set([
   "Internal Server Error",
+  "internal error",
   "Bad Gateway",
   "Service Unavailable",
   "Gateway Timeout",
