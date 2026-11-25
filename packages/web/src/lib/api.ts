@@ -94,8 +94,8 @@ export interface AuthStatus {
   authenticated: boolean;
 }
 
-export const signedIn = (status: AuthStatus): boolean =>
-  !status.authEnabled || status.authenticated;
+export const signedIn = (status: AuthStatus | null): boolean =>
+  status !== null && (!status.authEnabled || status.authenticated);
 
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
   const r = await fetchFn(`${API}/auth/status`);

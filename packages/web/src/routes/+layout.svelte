@@ -1,5 +1,6 @@
 <script lang="ts">
   import Belt from "#lib/components/Belt.svelte";
+  import CantReach from "#lib/components/CantReach.svelte";
   import Keyboard from "#lib/components/Keyboard.svelte";
   import Login from "#lib/components/Login.svelte";
   import NavTabs from "#lib/components/NavTabs.svelte";
@@ -104,13 +105,11 @@
 <div class="shell">
   <header class="top">
     <a href="/" class="word"><span class="bars" aria-hidden="true"><b></b><b></b><b></b></span>Conveyor</a>
-    {#if showApp}
-      <NavTabs />
-    {/if}
+    {#if showApp}<NavTabs />{/if}
     <span class="sp"></span>
     {#if showApp}<Keyboard />{/if}
     <ThemeToggle />
-    {#if showApp && data.auth.authEnabled}
+    {#if showApp && data.auth?.authEnabled}
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
@@ -119,7 +118,7 @@
     {#if showApp}
       <slot />
     {:else}
-      <Login on:authed={() => invalidateAll()} />
+      {#if data.down}<CantReach down={data.down} />{:else}<Login on:authed={() => invalidateAll()} />{/if}
     {/if}
   </main>
   <div class="sr" aria-live="polite">{$polite}</div>

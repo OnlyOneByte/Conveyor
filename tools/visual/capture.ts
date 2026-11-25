@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { landsElsewhere, pageDirs } from "./affected.ts";
-import { stubSignedOut } from "./auth.ts";
+import { stubAuth } from "./auth.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
@@ -133,7 +133,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   });
   await pinHistoryRoute(context);
   await context.clock.setSystemTime(CAPTURE_NOW);
-  if (scene.signedOut) await stubSignedOut(context);
+  await stubAuth(context, scene);
   const page = await context.newPage();
   const landed = new Set<string>();
   page.on("framenavigated", (frame) => {

@@ -50,6 +50,7 @@ Each scene has:
 - an optional `touch`, which emulates a touch screen (`hover: none`);
 - an optional `fullPage`, which shoots the whole page rather than the viewport;
 - an optional `signedOut`, `reducedMotion` or `widths`, which stub a signed-out session, ask for reduced motion, or shoot only some widths;
+- an optional `authDown`, which answers `/api/auth/status` with its `status` (for its first `times` requests, if set) before the page loads;
 - an optional `visits`, listing every page the scene reaches by a click or a redirect rather than a `follow` or `history` step.
 
 When you add a page, add a scene for it, and keep selectors on stable text or roles. Capture fails a scene that lands on a page it doesn't list.
@@ -70,7 +71,7 @@ The `visual` job captures only the scenes a PR can change (`select.ts`, `affecte
 | only tests or Markdown | no scene |
 | a push to `main` | every scene |
 
-The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/api/auth/status` answers signed out, and `/api/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it; no other request is stubbed.
+The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/api/auth/status` answers signed out, and `/api/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it. A scene with `authDown` answers `/api/auth/status` with that status instead, so the `auth-down` and `auth-error` scenes show the "Can't reach Conveyor" gate, and `auth-down-retry` answers only the first check, then presses Try again and lands on Make. No other request is stubbed before the page loads.
 
 A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. No scene uses it today: `job-progress` waits for the receipt strictly, since the status stream no longer loses events (#52).
 
