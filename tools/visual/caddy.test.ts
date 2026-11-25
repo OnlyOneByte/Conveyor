@@ -6,6 +6,7 @@ import {
   adaptedProblem,
   assertLoopbackCaddy,
   CADDY_IMAGE,
+  caddyAdapt,
   caddyRun,
   composeCaddyImage,
   visualCaddyfile,
@@ -188,6 +189,23 @@ test("a module or option refusal names the allowlist to edit, and only that refu
   ).toContain(hint);
   expect(adaptedProblem(config({ handler: "headers" }, {}), ports)).not.toContain(hint);
   expect(adaptedProblem(config({ handler: "headers" }, disabled), ports)).toBeNull();
+});
+
+test("caddy adapt runs with no network and the file mounted read-only", () => {
+  expect(caddyAdapt("/tmp/x/Caddyfile")).toEqual([
+    "docker",
+    "run",
+    "--rm",
+    "--network",
+    "none",
+    "-v",
+    "/tmp/x/Caddyfile:/etc/caddy/Caddyfile:ro",
+    CADDY_IMAGE,
+    "caddy",
+    "adapt",
+    "--config",
+    "/etc/caddy/Caddyfile",
+  ]);
 });
 
 test("Caddy runs on the host network with the file mounted read-only", () => {
