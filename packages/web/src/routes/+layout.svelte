@@ -121,7 +121,7 @@
   .bars b:nth-child(3) { opacity: 0.3; }
   .tabs { display: flex; gap: var(--s1); padding: var(--s1); border-radius: 15px; background: var(--sunk); border: 1px solid var(--line); }
   .tabs a { position: relative; display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 var(--s4); border-radius: 11px; font-weight: 600; color: var(--muted); text-decoration: none; white-space: nowrap; }
-  .tabs a:hover { color: var(--ink); }
+  @media (hover: hover) { .tabs a:hover { color: var(--ink); } }
   .tabs a[aria-current="page"] { background: var(--paper); color: var(--ink); box-shadow: var(--lift); }
   .tabs a[aria-current="page"]::after { content: ""; position: absolute; inset: auto var(--s3) 3px; height: 3px; border-radius: 2px; background: var(--live); }
   svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }

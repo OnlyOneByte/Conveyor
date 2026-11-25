@@ -151,7 +151,6 @@
   .fields.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; }
   .cb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; min-height: 32px; }
   .cb input { margin: 0; }
-
   /* Editable stepper: −/+ flank a real number input, so ±1 is one tap and an exact
      value can still be typed. The wrapper carries the 44px tap target, so the inner
      input opts out of the global min-height. */
@@ -159,7 +158,9 @@
     border: 1.5px solid var(--field-line); border-radius: var(--r-control); overflow: hidden; }
   .stepper button { border: 0; background: transparent; border-radius: 0; width: 40px;
     padding: 0; font-size: 1.05rem; line-height: 1; color: var(--text); flex: none; }
-  .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
+  @media (hover: hover) {
+    .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
+  }
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
   .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 0.12rem; }
   .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
@@ -168,7 +169,6 @@
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-
   .stack1 { display: flex; flex-direction: column; gap: 0.3rem; width: 100%; }
   .stack1 label { font-size: 0.85rem; color: var(--muted); }
   .slider { display: flex; align-items: center; gap: 0.6rem; }

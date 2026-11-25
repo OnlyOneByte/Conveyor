@@ -148,7 +148,7 @@
   .jobactions { display: flex; justify-content: flex-end; }
   .mono { font-family: ui-monospace, monospace; font-size: 0.85em; }
   .jobid { color: var(--live); text-decoration: none; }
-  .jobid:hover { text-decoration: underline; }
+  @media (hover: hover) { .jobid:hover { text-decoration: underline; } }
   .elapsed { font-size: 0.85rem; }
   .small { min-height: 30px; padding: 0.15rem 0.55rem; font-size: 0.78rem; }
 

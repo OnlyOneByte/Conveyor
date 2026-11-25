@@ -143,4 +143,21 @@ describe("the belt's ticker", () => {
     expect(ended.filter((job) => job.id === "x")).toHaveLength(1);
     expect(told.filter((news) => news.ended === "x")).toHaveLength(1);
   });
+
+  test("steady socket updates for one job don't stop a poll ending another", async () => {
+    const { belt, queue, final, ended, told, set, send } = rig();
+    set([printing("a"), printing("b")]);
+    await belt.poll();
+    final.set("b", { jobId: "b", state: "done", at: 2 });
+    for (let round = 0; round < 3; round++) {
+      queue.hold();
+      const polled = belt.poll();
+      send({ jobId: "a", state: "printing", progress: round / 3, at: 3 + round });
+      queue.release[round]?.([printing("a")]);
+      await polled;
+    }
+    expect(ended.filter((job) => job.id === "b")).toHaveLength(1);
+    expect(told.filter((news) => news.ended === "b")).toHaveLength(1);
+    expect(ended.filter((job) => job.id === "a")).toHaveLength(0);
+  });
 });
