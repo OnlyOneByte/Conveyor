@@ -1,0 +1,31 @@
+{
+	skip_install_trust
+	auto_https disable_redirects
+	default_bind 127.0.0.1
+}
+
+(conveyor) {
+	encode gzip zstd
+
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+
+https://localhost:8443 {
+	tls internal
+	import conveyor
+
+	handle {
+		reverse_proxy 127.0.0.1:3001
+	}
+}
+
+https://localhost:8444 {
+	tls internal
+	import conveyor
+
+	handle {
+		reverse_proxy 127.0.0.1:3002
+	}
+}
