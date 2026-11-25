@@ -1,4 +1,5 @@
 import { fetchCatalogProfiles, fetchCatalogSlicers, signedIn } from "#lib/api.js";
+import { unreachable } from "#lib/http-error.js";
 import { loadContent } from "#lib/profile-content.js";
 import type { PageLoad } from "./$types";
 
@@ -19,7 +20,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
       problem: "",
     };
   } catch (e) {
-    if (e instanceof TypeError) return { ...empty, failed: true };
+    if (unreachable(e)) return { ...empty, failed: true };
     return { ...empty, problem: e instanceof Error ? e.message : String(e) };
   }
 };

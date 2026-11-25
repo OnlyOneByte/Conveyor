@@ -105,8 +105,10 @@ until it is fixed. Orca's three files are tabs, and a file with an error carries
 and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves. Until the editor has mounted
 (still loading, or its chunk failed to load offline), Save, Tidy layout, Reset and Ctrl S do nothing, so no
 change is ever made to text nobody can see. A profile whose content answers `404` (one just added, whose
-folder has no files yet) opens with empty files and a note to paste the slicer's settings; only a network
-failure reads "Can't reach Conveyor", and any other error shows the server's message.
+folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
+failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
+(`http-error.ts`). Any other error shows the server's `error` message, or the method, path and status when the
+body has none: `api.ts`'s `getJson` and the profile content fetch both read failures through `failure()`.
 
 ## lib/components/Viewport.svelte (the lazy 3D preview)
 
