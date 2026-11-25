@@ -1,7 +1,8 @@
 <script lang="ts">
   import { T } from "@threlte/core";
+  import { onDestroy } from "svelte";
   import * as THREE from "three";
-  import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+  import { parseStl } from "#lib/parse-stl.js";
   import { prefersReducedMotion, spinPreview, theme } from "#lib/preferences.js";
   import { tokenColor } from "#lib/token-color.js";
   import Orbit from "./Orbit.svelte";
@@ -10,21 +11,27 @@
 
   let geometry: THREE.BufferGeometry | null = null;
   let radius = 60;
+  let pending: AbortController | null = null;
 
-  const loader = new STLLoader();
+  $: loadFile(file);
 
-  $: if (file) loadFile(file);
-  $: if (!file) geometry = null;
-
-  async function loadFile(f: File) {
-    const buf = await f.arrayBuffer();
-    const geo = loader.parse(buf);
-    geo.center();
-    geo.computeVertexNormals();
-    geo.computeBoundingSphere();
-    radius = geo.boundingSphere?.radius ?? 60;
+  async function loadFile(f: File | null) {
+    pending?.abort();
+    geometry = null;
+    if (!f) return;
+    const controller = new AbortController();
+    pending = controller;
+    const parsed = await parseStl(f, controller.signal);
+    if (controller.signal.aborted || !parsed) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(parsed.position, 3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(parsed.normal, 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), parsed.radius);
+    radius = parsed.radius;
     geometry = geo;
   }
+
+  onDestroy(() => pending?.abort());
 
   $: camDist = radius * 2.6;
 
