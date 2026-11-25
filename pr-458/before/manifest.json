@@ -1,15 +1,15 @@
 {
-  "url": "http://127.0.0.1:45457",
+  "url": "http://127.0.0.1:35735",
   "warnings": [
-    "warm-up /: waitFor: Timeout 120000ms exceeded."
+    "warm-up /: waitFor: Timeout 5000ms exceeded."
   ],
   "results": [
     {
       "scene": "home",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 30000ms exceeded.",
-      "png": "home-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so home is new on this PR"
+      ]
     },
     {
       "scene": "nav-reach",
@@ -19,18 +19,53 @@
       "png": "nav-reach-1440.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so upload-empty is new on this PR"
+      ]
+    },
+    {
       "scene": "new-job",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "new-job-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so new-job is new on this PR"
+      ]
     },
     {
       "scene": "job-progress",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "job-progress-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-progress is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-fold",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-fold is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-bad",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-bad is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-good",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-good is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-print",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-print is new on this PR"
+      ]
     },
     {
       "scene": "history",
@@ -90,9 +125,9 @@
     {
       "scene": "job-switch",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "job-switch-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-switch is new on this PR"
+      ]
     },
     {
       "scene": "print-forward",
@@ -104,72 +139,37 @@
     {
       "scene": "receipt-queued",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-queued-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-queued is new on this PR"
+      ]
     },
     {
       "scene": "receipt-modelling",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-modelling-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-modelling is new on this PR"
+      ]
     },
     {
       "scene": "receipt-slicing",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-slicing-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-slicing is new on this PR"
+      ]
     },
     {
       "scene": "receipt-sending",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-sending-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-sending is new on this PR"
+      ]
     },
     {
       "scene": "receipt-printing",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-printing-1440.png"
-    },
-    {
-      "scene": "upload-empty",
-      "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "upload-empty-1440.png"
-    },
-    {
-      "scene": "make-fold",
-      "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-fold-1440.png"
-    },
-    {
-      "scene": "make-upload-bad",
-      "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-upload-bad-1440.png"
-    },
-    {
-      "scene": "make-upload-good",
-      "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-upload-good-1440.png"
-    },
-    {
-      "scene": "make-print",
-      "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-print-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-printing is new on this PR"
+      ]
     },
     {
       "scene": "monitor",
@@ -184,86 +184,32 @@
       "png": "settings-1440.png"
     },
     {
-      "scene": "printers",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-1440.png"
-    },
-    {
-      "scene": "printers-keys",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-keys-1440.png",
-      "gifBytes": 1044131,
-      "gif": "printers-keys-1440.gif"
-    },
-    {
-      "scene": "printers-add-invalid",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-add-invalid-1440.png"
-    },
-    {
-      "scene": "printers-add",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-add-1440.png",
-      "gifBytes": 808578,
-      "gif": "printers-add-1440.gif"
-    },
-    {
-      "scene": "printers-clear-secrets",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 700399,
-      "gif": "printers-clear-secrets-1440.gif"
-    },
-    {
-      "scene": "printers-delete",
-      "width": 1440,
-      "warnings": [],
-      "png": "printers-delete-1440.png"
-    },
-    {
-      "scene": "printer-form-elegoo",
-      "width": 1440,
-      "warnings": [],
-      "png": "printer-form-elegoo-1440.png"
-    },
-    {
-      "scene": "printer-form-moonraker",
-      "width": 1440,
-      "warnings": [],
-      "png": "printer-form-moonraker-1440.png"
-    },
-    {
       "scene": "command-menu",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-done",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-done-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-done is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-2x3",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-2x3-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-2x3 is new on this PR"
+      ]
     },
     {
       "scene": "shortcut-sheet",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "shortcut-sheet-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so shortcut-sheet is new on this PR"
+      ]
     },
     {
       "scene": "jobs-keys",
@@ -274,9 +220,9 @@
     {
       "scene": "keyboard",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "keyboard-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so keyboard is new on this PR"
+      ]
     },
     {
       "scene": "track-0",
@@ -341,45 +287,45 @@
     {
       "scene": "belt-bar-make",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "belt-bar-make-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-bar-make is new on this PR"
+      ]
     },
     {
       "scene": "belt-holds-make",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "belt-holds-make-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-holds-make is new on this PR"
+      ]
     },
     {
       "scene": "belt-expand",
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 646708,
+      "gifBytes": 646857,
       "gif": "belt-expand-1440.gif"
     },
     {
       "scene": "belt-motion",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "belt-motion-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-motion is new on this PR"
+      ]
     },
     {
       "scene": "belt-motion-reduced",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "belt-motion-reduced-1440.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-motion-reduced is new on this PR"
+      ]
     },
     {
       "scene": "track-keys",
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 309045,
+      "gifBytes": 309118,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -418,15 +364,69 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 848444,
+      "gifBytes": 423939,
       "gif": "primitives-keys-1440.gif"
+    },
+    {
+      "scene": "printers",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-1440.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-keys-1440.png",
+      "gifBytes": 998432,
+      "gif": "printers-keys-1440.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-invalid-1440.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-1440.png",
+      "gifBytes": 806790,
+      "gif": "printers-add-1440.gif"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-1440.png",
+      "gifBytes": 700682,
+      "gif": "printers-clear-secrets-1440.gif"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-delete-1440.png"
+    },
+    {
+      "scene": "printer-form-elegoo",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-elegoo-1440.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-form-moonraker-1440.png"
     },
     {
       "scene": "home",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "home-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so home is new on this PR"
+      ]
     },
     {
       "scene": "nav-reach",
@@ -436,18 +436,46 @@
       "png": "nav-reach-390.png"
     },
     {
+      "scene": "upload-empty",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so upload-empty is new on this PR"
+      ]
+    },
+    {
       "scene": "new-job",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "new-job-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so new-job is new on this PR"
+      ]
     },
     {
       "scene": "job-progress",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "job-progress-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-progress is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-fold",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-fold is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-bad",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-bad is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-upload-good",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so make-upload-good is new on this PR"
+      ]
     },
     {
       "scene": "history",
@@ -507,9 +535,9 @@
     {
       "scene": "job-switch",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "job-switch-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so job-switch is new on this PR"
+      ]
     },
     {
       "scene": "print-forward",
@@ -521,65 +549,37 @@
     {
       "scene": "receipt-queued",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-queued-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-queued is new on this PR"
+      ]
     },
     {
       "scene": "receipt-modelling",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-modelling-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-modelling is new on this PR"
+      ]
     },
     {
       "scene": "receipt-slicing",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-slicing-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-slicing is new on this PR"
+      ]
     },
     {
       "scene": "receipt-sending",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-sending-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-sending is new on this PR"
+      ]
     },
     {
       "scene": "receipt-printing",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "receipt-printing-390.png"
-    },
-    {
-      "scene": "upload-empty",
-      "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "upload-empty-390.png"
-    },
-    {
-      "scene": "make-fold",
-      "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-fold-390.png"
-    },
-    {
-      "scene": "make-upload-bad",
-      "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-upload-bad-390.png"
-    },
-    {
-      "scene": "make-upload-good",
-      "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "make-upload-good-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so receipt-printing is new on this PR"
+      ]
     },
     {
       "scene": "monitor",
@@ -594,86 +594,32 @@
       "png": "settings-390.png"
     },
     {
-      "scene": "printers",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-390.png"
-    },
-    {
-      "scene": "printers-keys",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-keys-390.png",
-      "gifBytes": 1315156,
-      "gif": "printers-keys-390.gif"
-    },
-    {
-      "scene": "printers-add-invalid",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-add-invalid-390.png"
-    },
-    {
-      "scene": "printers-add",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-add-390.png",
-      "gifBytes": 1092624,
-      "gif": "printers-add-390.gif"
-    },
-    {
-      "scene": "printers-clear-secrets",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-clear-secrets-390.png",
-      "gifBytes": 976560,
-      "gif": "printers-clear-secrets-390.gif"
-    },
-    {
-      "scene": "printers-delete",
-      "width": 390,
-      "warnings": [],
-      "png": "printers-delete-390.png"
-    },
-    {
-      "scene": "printer-form-elegoo",
-      "width": 390,
-      "warnings": [],
-      "png": "printer-form-elegoo-390.png"
-    },
-    {
-      "scene": "printer-form-moonraker",
-      "width": 390,
-      "warnings": [],
-      "png": "printer-form-moonraker-390.png"
-    },
-    {
       "scene": "command-menu",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-done",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-done-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-done is new on this PR"
+      ]
     },
     {
       "scene": "command-menu-2x3",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "command-menu-2x3-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so command-menu-2x3 is new on this PR"
+      ]
     },
     {
       "scene": "shortcut-sheet",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "shortcut-sheet-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so shortcut-sheet is new on this PR"
+      ]
     },
     {
       "scene": "jobs-keys",
@@ -684,9 +630,9 @@
     {
       "scene": "keyboard",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 2000ms exceeded.",
-      "png": "keyboard-390.png"
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so keyboard is new on this PR"
+      ]
     },
     {
       "scene": "track-0",
@@ -798,8 +744,62 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 1031653,
+      "gifBytes": 618127,
       "gif": "primitives-keys-390.gif"
+    },
+    {
+      "scene": "printers",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-390.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-keys-390.png",
+      "gifBytes": 1340516,
+      "gif": "printers-keys-390.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-invalid-390.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-390.png",
+      "gifBytes": 1093876,
+      "gif": "printers-add-390.gif"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-390.png",
+      "gifBytes": 976560,
+      "gif": "printers-clear-secrets-390.gif"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-delete-390.png"
+    },
+    {
+      "scene": "printer-form-elegoo",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-elegoo-390.png"
+    },
+    {
+      "scene": "printer-form-moonraker",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-form-moonraker-390.png"
     }
   ]
 }
