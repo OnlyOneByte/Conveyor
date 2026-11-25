@@ -10,12 +10,12 @@
     <span class="g" style="--p: {row.progress}" aria-hidden="true">{row.state === "done" ? "✓" : row.state === "failed" ? "!" : ""}</span>
     <span class="name">
       <b>{row.name}</b>
-      {#if row.why}<span class="sr">, </span><span class="why">{row.why}</span>{/if}
-      {#if row.note}<span class="sr">, </span><span class="note">Note: {row.note}</span>{/if}
+      {#if row.why}<span class="why"><span class="sr">, </span>{row.why}</span>{/if}
+      {#if row.note}<span class="note"><span class="sr">, </span>Note: {row.note}</span>{/if}
     </span>
-    {#if row.printer}<span class="sr">, on </span><span class="pr">{row.printer}</span>{/if}
-    <span class="sr">, </span><span class="st">{row.status}</span>
-    <span class="sr">, </span><span class="tm">{row.time}</span>
+    {#if row.printer}<span class="pr"><span class="sr">, on </span>{row.printer}</span>{/if}
+    <span class="st"><span class="sr">, </span>{row.status}</span>
+    <span class="tm"><span class="sr">, </span>{row.time}</span>
   </a>
 </li>
 

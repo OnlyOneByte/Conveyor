@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { JobView } from "@conveyor/shared";
 import type { JobHistoryEntry } from "./api";
 import type { Catalog } from "./catalog";
-import { cancelRow, canCancel, DAY_MS, FILTERS, groupRows, historyPath, latest, liveRow, mergeSettled, PAGE, pillCount, retryRow, settledRow } from "./jobs-list";
+import {
+  cancelRow, canCancel, DAY_MS, FILTERS, groupRows, historyPath, latest, liveRow, mergeSettled,
+  NOTE_CHARS, PAGE, pillCount, retryRow, settledRow,
+} from "./jobs-list";
 
 const NOW = new Date(2026, 10, 24, 15, 0);
 const now = NOW.getTime();
@@ -37,6 +40,9 @@ describe("the Jobs list", () => {
     expect(settledRow(noted, catalog, now).note).toBe("work dir not removed: /data/jobs/n");
     expect(settledRow(entry("m", "failed", now, { notes: "   " }), catalog, now).note).toBeUndefined();
     expect(settledRow(entry("o", "canceled", now), catalog, now).note).toBeUndefined();
+    const longNote = entry("l", "failed", now, { notes: "x ".repeat(1500) });
+    const long = settledRow(longNote, catalog, now).note;
+    expect([long?.length, long?.endsWith("…")]).toEqual([NOTE_CHARS, true]);
   });
 
   test("Retry and Cancel say what happened, and only act on a row they fit", async () => {

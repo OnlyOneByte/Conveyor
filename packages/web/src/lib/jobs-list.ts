@@ -55,6 +55,9 @@ const LIVE: Partial<Record<JobState, string>> = {
 
 const STAGES: Record<string, string> = { generator: "Model", slicer: "Slice", transport: "Send", print: "Print" };
 
+export const NOTE_CHARS = 120;
+const clip = (text: string, max: number) =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text || undefined;
 const percent = (progress: number | undefined) => `${Math.round((progress ?? 0) * 100)}%`;
 const printerName = (id: string | undefined, catalog: Catalog | null) => catalog?.printers.find((p) => p.id === id)?.name;
 
@@ -93,7 +96,7 @@ export function settledRow(entry: JobHistoryEntry, catalog: Catalog | null, now:
     printer: printerName(entry.request.printerId, catalog),
     status,
     why: entry.state === "failed" && entry.error ? failureText(entry.error.stage, entry.error.reason).detail : undefined,
-    note: entry.notes?.trim() || undefined,
+    note: clip(entry.notes?.trim() ?? "", NOTE_CHARS),
     time: ago(entry.updatedAt, now),
     at: entry.updatedAt,
     request: entry.request,
