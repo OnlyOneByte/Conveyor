@@ -17,7 +17,7 @@ fi
 
 if [ -d "$data_dir" ] && [ "$(stat -c %a "$data_dir")" != 700 ]; then
   echo "conveyor: $data_dir is readable by other users, making it owner-only once" >&2
-  chmod 700 "$data_dir"
+  setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups -- chmod 700 "$data_dir"
 fi
 
 exec setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups --no-new-privs -- "$@"
