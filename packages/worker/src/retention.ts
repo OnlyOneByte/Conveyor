@@ -22,7 +22,17 @@ export interface RetentionDeps {
   live: () => Promise<LiveJobs>;
   log: (line: string) => void;
   state: RetentionState;
+  process?: ProcessClock;
   remove?: (path: string) => Promise<void>;
+}
+
+export interface ProcessClock {
+  mark: () => number;
+  anchor?: { clock: number; at: number };
+}
+
+export function processClock(mark: () => number = () => performance.now()): ProcessClock {
+  return { mark };
 }
 
 export interface RetentionClock {
@@ -146,20 +156,29 @@ async function reapUploads(deps: RetentionDeps, cutoff: number, live: LiveJobs):
   return reaped;
 }
 
-export const REAPER_CLOCK_STEP_MS = 2 * RETENTION_INTERVAL_MS;
-
-function reaperClock(real: number, last: number | undefined): number {
-  if (last === undefined) return real;
-  return Math.max(last, Math.min(real, last + REAPER_CLOCK_STEP_MS));
+function anchor(clock: ProcessClock, at: number): void {
+  clock.anchor = { clock: at, at: clock.mark() };
 }
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
   const real = deps.now();
   const { startedAt, lastRunAt } = deps.state.read();
-  const now = reaperClock(real, lastRunAt);
-  if (now !== real)
+  const process = deps.process ?? processClock();
+  if (lastRunAt !== undefined && lastRunAt > real) {
+    deps.state.write({ startedAt: real, lastRunAt: real });
+    anchor(process, real);
     deps.log(
-      `[retention] the clock reads ${new Date(real).toISOString()}; ages are counted from ${new Date(now).toISOString()}, which moves at most 2 hours per run`,
+      `[retention] removed nothing: the stored reaper clock (${new Date(lastRunAt).toISOString()}) is ahead of the system clock (${new Date(real).toISOString()}); it is reset to now and the ${Math.round(deps.maxAgeMs / DAY_MS)}-day count starts again`,
+    );
+    return { dirs: [], uploads: [] };
+  }
+  const since = process.anchor ?? { clock: lastRunAt ?? real, at: process.mark() };
+  process.anchor = since;
+  const measured = since.clock + (process.mark() - since.at);
+  const now = lastRunAt === undefined ? real : Math.max(lastRunAt, Math.min(real, measured));
+  if (now < real)
+    deps.log(
+      `[retention] ages are counted from ${new Date(now).toISOString()}, behind the system clock's ${new Date(real).toISOString()}: the reaper clock only moves as fast as this worker has been up`,
     );
   const started = startedAt ?? now;
   deps.state.write({ startedAt: started, lastRunAt: now });
@@ -179,11 +198,16 @@ export function startRetention(
 ): () => void {
   const days = retentionDays(env);
   if (days === 0) return () => {};
+  const process = deps.process ?? processClock();
+  const stored = deps.state.read().lastRunAt;
+  anchor(process, stored !== undefined && stored <= Date.now() ? stored : Date.now());
   const run = () =>
-    void reapOnce({ ...deps, maxAgeMs: days * DAY_MS, now: Date.now }).catch((err: unknown) =>
-      deps.log(`[retention] skipped this run: ${err instanceof Error ? err.message : String(err)}`),
+    void reapOnce({ ...deps, process, maxAgeMs: days * DAY_MS, now: Date.now }).catch(
+      (err: unknown) =>
+        deps.log(
+          `[retention] skipped this run: ${err instanceof Error ? err.message : String(err)}`,
+        ),
     );
-  run();
   const timer = setInterval(run, RETENTION_INTERVAL_MS);
   return () => clearInterval(timer);
 }

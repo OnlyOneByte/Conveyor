@@ -119,7 +119,7 @@ test("CONVEYOR_RETENTION_DAYS defaults to 30, takes whole days, and 0 turns it o
     );
 });
 
-test("the reaper runs once when the worker starts, and not at all with 0 days", async () => {
+test("the reaper doesn't run at startup, and not at all with 0 days", async () => {
   const dirs = layout();
   let runs = 0;
   const counting = async () => {
@@ -134,8 +134,7 @@ test("the reaper runs once when the worker starts, and not at all with 0 days", 
     state: memoryState(),
   };
   startRetention({ CONVEYOR_RETENTION_DAYS: "0" }, base)();
+  startRetention({}, base)();
+  await Promise.resolve();
   expect(runs).toBe(0);
-  const stop = startRetention({}, base);
-  stop();
-  expect(runs).toBe(1);
 });

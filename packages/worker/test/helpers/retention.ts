@@ -42,7 +42,7 @@ export function upload(uploadDir: string, ageDays: number, id = randomUUID()): s
 export const none = (): LiveJobs => ({ ids: new Set(), uploads: new Set() });
 
 export function memoryState(
-  clock: RetentionClock = { startedAt: NOW - 365 * DAY, lastRunAt: NOW - 60 * 60 * 1000 },
+  clock: RetentionClock = { startedAt: NOW - 365 * DAY, lastRunAt: NOW },
 ) {
   const state = { ...clock };
   return {
