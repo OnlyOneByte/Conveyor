@@ -97,7 +97,12 @@ export const scenes: Scene[] = [
     name: "jobs",
     route: "/jobs",
     ready: "[data-id]",
-    steps: [active(LIVE), { waitFor: "text=On the belt · 3", timeout: 8000 }, { wait: 400 }],
+    steps: [
+      active(LIVE),
+      { waitFor: "text=On the belt · 3", timeout: 8000 },
+      { centred: "[data-id='j2'] b", in: "a.row" },
+      { wait: 400 },
+    ],
   },
   {
     name: "jobs-failed",
