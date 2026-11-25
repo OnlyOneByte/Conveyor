@@ -11,10 +11,8 @@ test("the api's Redis clients and job queue listen for errors, so a dropped Redi
   }
 });
 
-test("finished and failed BullMQ jobs are removed after a week or past 1000 of each", () => {
-  expect(jobQueue.defaultJobOptions).toMatchObject({
-    removeOnComplete: JOB_REMOVAL,
-    removeOnFail: JOB_REMOVAL,
-  });
-  expect(JOB_REMOVAL).toEqual({ age: 7 * 24 * 60 * 60, count: 1000 });
+test("finished and failed BullMQ jobs are removed after a week, with no count cap", () => {
+  expect(jobQueue.defaultJobOptions.removeOnComplete).toEqual({ age: 7 * 24 * 60 * 60 });
+  expect(jobQueue.defaultJobOptions.removeOnFail).toEqual({ age: 7 * 24 * 60 * 60 });
+  expect(JOB_REMOVAL).not.toHaveProperty("count");
 });

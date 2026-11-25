@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@conveyor/shared/db";
-import { sqliteFinishedBefore, sqliteLive } from "./retention";
+import { sqliteFinishedBefore, sqliteLive, sqliteRetentionState } from "./retention";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-retention-db-"));
 const db = openDb(join(dir, "conveyor.db"));
@@ -44,4 +44,10 @@ test("live jobs and the uploads they use come from every non-terminal row", () =
   expect(live.ids.has(broken)).toBe(true);
   expect(live.ids.has(done)).toBe(false);
   expect([...live.uploads]).toEqual([upload]);
+});
+
+test("the retention clock is kept in the meta table across restarts", () => {
+  expect(sqliteRetentionState(db).read()).toEqual({ startedAt: undefined, lastRunAt: undefined });
+  sqliteRetentionState(db).write({ startedAt: 1_000, lastRunAt: 2_000 });
+  expect(sqliteRetentionState(db).read()).toEqual({ startedAt: 1_000, lastRunAt: 2_000 });
 });

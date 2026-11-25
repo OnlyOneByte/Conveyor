@@ -254,7 +254,8 @@ both the database and the key.
 - Artifacts: a failed or canceled job's directory is removed when it settles (`worker/src/settle.ts`). A
   done job's `/data/<id>/` is kept for its downloads until the worker's retention reaper
   (`worker/src/retention.ts`) removes it, `CONVEYOR_RETENTION_DAYS` (default 30) after the job's `jobs` row
-  last changed. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
+  last changed, or after that long from the first retention run (`meta` key `retention:started_at`),
+  whichever is later, so an upgrade removes nothing at once. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
   `filesRemovedAfterDays` (the setting) when the job had files, is older than the setting and its folder is
   gone, so the job page can say so.
 - Uploads: `/data/uploads/<uploadId>.stl` is removed by the same reaper once it is older than
@@ -262,7 +263,7 @@ both the database and the key.
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.
 - `job_events` (SQLite mode): pruned 7 days after the job settles (`EVENT_RETENTION_MS`).
 - Redis: `job:<id>` and `job:<id>:seq` expire 7 days after the job settles; `job:<id>:cancel` already had a
-  TTL. BullMQ keeps at most 1000 completed and 1000 failed jobs, each for at most 7 days
+  TTL. BullMQ keeps completed and failed jobs for 7 days, with no count cap
   (`removeOnComplete`/`removeOnFail`, `JOB_REMOVAL`). SQLite is the durable record.
 
 ## Implementation status

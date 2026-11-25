@@ -190,7 +190,9 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 | A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS` (30 days by default). The job page then says "Files removed after 30 days." in place of the download buttons, and the download links answer `410`; its history stays |
 | An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` (30 days by default) and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
 | Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
-| BullMQ's record of a finished job | After 7 days, or once 1000 newer finished (or failed) jobs exist |
+| BullMQ's record of a finished job | After 7 days |
+
+**Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. If the clock reads earlier than the last run, or jumps further forward than two hours plus the retention period (a long outage or a wrong clock), that run removes nothing, logs why, and restarts the count from now.
 
 A job that isn't finished is never touched, and neither is anything the reaper didn't create: it only removes folders named by a job id and files named `<uploadId>.stl`, directly inside `./data` and `./data/uploads`, and never follows a symlink. If the worker stops partway through, the next run finishes the job. If the queue can't be read, that run removes nothing. `CONVEYOR_RETENTION_DAYS=0` turns the reaper off.
 
@@ -355,6 +357,10 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 ```
 
 `CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
+
+## Upgrading to a release with retention
+
+The first worker that runs retention removes nothing. It records the time instead, and job folders and uploads older than `CONVEYOR_RETENTION_DAYS` (default 30) start being removed 30 days after the upgrade ([Disk and Redis retention](#disk-and-redis-retention)). To keep everything, set `CONVEYOR_RETENTION_DAYS=0` before upgrading. Redis job snapshots and BullMQ's finished-job records expire after 7 days from the upgrade on; the job history in SQLite is untouched.
 
 ## Upgrading from v0.1.x
 

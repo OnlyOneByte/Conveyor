@@ -21,7 +21,40 @@ export interface RetentionDeps {
   finishedBefore: (cutoff: number) => string[];
   live: () => Promise<LiveJobs>;
   log: (line: string) => void;
+  state: RetentionState;
   remove?: (path: string) => Promise<void>;
+}
+
+export interface RetentionClock {
+  startedAt?: number;
+  lastRunAt?: number;
+}
+
+export interface RetentionState {
+  read: () => RetentionClock;
+  write: (clock: Required<RetentionClock>) => void;
+}
+
+const STARTED_KEY = "retention:started_at";
+const LAST_RUN_KEY = "retention:last_run_at";
+
+export function sqliteRetentionState(db: Database): RetentionState {
+  const get = (key: string) => {
+    const row = db
+      .query<{ value: string }, [string]>("SELECT value FROM meta WHERE key = ?")
+      .get(key);
+    const value = Number(row?.value);
+    return row && Number.isFinite(value) ? value : undefined;
+  };
+  const put = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
+  return {
+    read: () => ({ startedAt: get(STARTED_KEY), lastRunAt: get(LAST_RUN_KEY) }),
+    write: ({ startedAt, lastRunAt }) =>
+      db.transaction(() => {
+        put.run(STARTED_KEY, String(startedAt));
+        put.run(LAST_RUN_KEY, String(lastRunAt));
+      })(),
+  };
 }
 
 const removeTree = (path: string) => rm(path, { recursive: true, force: true });
@@ -113,8 +146,28 @@ async function reapUploads(deps: RetentionDeps, cutoff: number, live: LiveJobs):
   return reaped;
 }
 
+function clockProblem(now: number, last: number | undefined, maxAgeMs: number): string | undefined {
+  if (last === undefined) return undefined;
+  if (now < last)
+    return `the clock reads ${new Date(now).toISOString()}, before the last run at ${new Date(last).toISOString()}`;
+  if (now - last > 2 * RETENTION_INTERVAL_MS + maxAgeMs)
+    return `the clock jumped from ${new Date(last).toISOString()} to ${new Date(now).toISOString()}, further than a run interval plus the retention period`;
+  return undefined;
+}
+
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
-  const cutoff = deps.now() - deps.maxAgeMs;
+  const now = deps.now();
+  const { startedAt, lastRunAt } = deps.state.read();
+  const problem = clockProblem(now, lastRunAt, deps.maxAgeMs);
+  if (problem) {
+    deps.state.write({ startedAt: now, lastRunAt: now });
+    deps.log(`[retention] skipped this run and restarted the grace period: ${problem}`);
+    return { dirs: [], uploads: [] };
+  }
+  const started = startedAt ?? now;
+  deps.state.write({ startedAt: started, lastRunAt: now });
+  const cutoff = now - deps.maxAgeMs;
+  if (started > cutoff) return { dirs: [], uploads: [] };
   const live = await deps.live();
   const dirs = await reapDirs(deps, cutoff, live);
   const uploads = await reapUploads(deps, cutoff, live);

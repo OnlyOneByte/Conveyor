@@ -61,7 +61,7 @@ const terminalLua = TERMINAL_STATES.map((s) => `prev.state == '${s}'`).join(" or
 
 export const JOB_KEY_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-export const JOB_REMOVAL = { age: JOB_KEY_TTL_SECONDS, count: 1000 } as const;
+export const JOB_REMOVAL = { age: JOB_KEY_TTL_SECONDS } as const;
 
 export const PUBLISH_STATUS_SCRIPT = `
 local cur = redis.call('GET', KEYS[1])

@@ -2,7 +2,12 @@ import { queueMode, retentionDays } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { workerConcurrency } from "./mode.js";
-import { sqliteFinishedBefore, sqliteLive, startRetention } from "./retention.js";
+import {
+  sqliteFinishedBefore,
+  sqliteLive,
+  sqliteRetentionState,
+  startRetention,
+} from "./retention.js";
 
 export interface StartedWorker {
   mode: string;
@@ -17,6 +22,7 @@ export async function startWorker(env: Record<string, string | undefined>): Prom
     dataDir: env.DATA_DIR ?? "/data",
     uploadDir: uploadSettings(env).dir,
     finishedBefore: (cutoff: number) => sqliteFinishedBefore(db, cutoff),
+    state: sqliteRetentionState(db),
     log: (line: string) => console.log(line),
   };
   const concurrency = mode === "sqlite" ? workerConcurrency(env) : 0;

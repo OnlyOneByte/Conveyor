@@ -1,70 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  symlinkSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { retentionDays } from "@conveyor/shared";
-import { type LiveJobs, type RetentionDeps, reapOnce, startRetention } from "./retention";
+import {
+  cleanupRoots,
+  deps,
+  jobDir,
+  layout,
+  memoryState,
+  none,
+  upload,
+} from "../test/helpers/retention";
+import { type LiveJobs, reapOnce, startRetention } from "./retention";
 
-const DAY = 24 * 60 * 60 * 1000;
-const NOW = Date.parse("2026-11-25T12:00:00Z");
-const roots: string[] = [];
-
-afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
-});
-
-function layout() {
-  const root = mkdtempSync(join(tmpdir(), "conveyor-retention-"));
-  roots.push(root);
-  const dataDir = join(root, "data");
-  const uploadDir = join(dataDir, "uploads");
-  const outside = join(root, "outside");
-  mkdirSync(uploadDir, { recursive: true });
-  mkdirSync(outside);
-  writeFileSync(join(outside, "keep.txt"), "not Conveyor's");
-  return { root, dataDir, uploadDir, outside };
-}
-
-function jobDir(dataDir: string, id = randomUUID()): string {
-  mkdirSync(join(dataDir, id, "nested"), { recursive: true });
-  writeFileSync(join(dataDir, id, "model.gcode"), "G28\n");
-  writeFileSync(join(dataDir, id, "nested", "model.stl"), "solid\n");
-  return id;
-}
-
-function upload(uploadDir: string, ageDays: number, id = randomUUID()): string {
-  const path = join(uploadDir, `${id}.stl`);
-  writeFileSync(path, "solid\n");
-  const at = (NOW - ageDays * DAY) / 1000;
-  utimesSync(path, at, at);
-  return id;
-}
-
-const none = (): LiveJobs => ({ ids: new Set(), uploads: new Set() });
-
-function deps(
-  dirs: { dataDir: string; uploadDir: string },
-  finished: string[],
-  live: () => Promise<LiveJobs> = async () => none(),
-): RetentionDeps {
-  return {
-    ...dirs,
-    maxAgeMs: 7 * DAY,
-    now: () => NOW,
-    finishedBefore: (cutoff) => (cutoff === NOW - 7 * DAY ? finished : []),
-    live,
-    log: () => {},
-  };
-}
+afterEach(cleanupRoots);
 
 describe("job folders", () => {
   test("removes a finished job's folder once it is older than the setting", async () => {
@@ -176,7 +126,13 @@ test("the reaper runs once when the worker starts, and not at all with 0 days", 
     runs++;
     return none();
   };
-  const base = { ...dirs, finishedBefore: () => [], live: counting, log: () => {} };
+  const base = {
+    ...dirs,
+    finishedBefore: () => [],
+    live: counting,
+    log: () => {},
+    state: memoryState(),
+  };
   startRetention({ CONVEYOR_RETENTION_DAYS: "0" }, base)();
   expect(runs).toBe(0);
   const stop = startRetention({}, base);
