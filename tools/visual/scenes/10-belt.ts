@@ -170,7 +170,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-offline-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     steps: offline,
@@ -178,7 +178,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-region",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     fullPage: false,
     steps: [
       region,
