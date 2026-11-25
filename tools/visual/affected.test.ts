@@ -57,10 +57,14 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-keys",
     "printers-add-invalid",
     "printers-add",
-    "printers-clear-secrets",
-    "printers-clear-secrets-keep",
     "printers-touch",
     "printers-delete",
+    "printers-clear-secrets",
+    "printers-clear-secrets-keep",
+    "printers-clear-secrets-confirm",
+    "printers-clear-secrets-double",
+    "printers-clear-secrets-reset",
+    "printers-clear-secrets-fails",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");

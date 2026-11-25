@@ -117,10 +117,12 @@
       <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
       <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />
       <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretHint} />
-      {#if printer}
-        {@const saved = printer}
-        <SavedSecrets label={secretFieldFor(saved.transportId).label} saved={secretsSaved} {cleared} {busy} clear={() => clearSecrets(saved)} />
-      {/if}
+      {#key shown}
+        {#if printer}
+          {@const saved = printer}
+          <SavedSecrets label={secretFieldFor(saved.transportId).label} saved={secretsSaved} {cleared} {busy} clear={() => clearSecrets(saved)} />
+        {/if}
+      {/key}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     </form>
