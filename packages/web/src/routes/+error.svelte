@@ -1,14 +1,22 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { page } from "$app/state";
+  import { OFFLINE } from "#lib/track.js";
 
+  let unreachable = false;
   const missing = () => page.status === 404;
-  const heading = () => (missing() ? "Page not found" : "Something went wrong");
+  const heading = () => (missing() ? "Page not found" : unreachable ? OFFLINE : "Something went wrong");
+
+  onMount(() => {
+    if (missing()) return;
+    fetch("/_app/version.json", { cache: "no-store" }).catch(() => (unreachable = true));
+  });
 </script>
 
 <svelte:head><title>{heading()} · Conveyor</title></svelte:head>
 
 <section class="error" aria-labelledby="error-title">
-  <span class="code">{missing() ? "404" : `Error ${page.status}`}</span>
+  <span class="code">{missing() ? "404" : unreachable ? "Offline" : `Error ${page.status}`}</span>
   <h1 id="error-title">{heading()}</h1>
   {#if missing()}
     <p>There's nothing at <code>{page.url.pathname}</code>. It may have moved, or the link is mistyped.</p>
@@ -17,7 +25,7 @@
       <a class="btn" href="/jobs">See your jobs</a>
     </div>
   {:else}
-    <p>Conveyor couldn't load this page. Try again; if it keeps happening, check that Conveyor is running.</p>
+    <p>{unreachable ? "This page isn't saved on this device yet. It opens once Conveyor is back." : "Conveyor couldn't load this page. Try again; if it keeps happening, check that Conveyor is running."}</p>
     <div class="acts">
       <button class="btn primary" type="button" on:click={() => location.reload()}>Try again</button>
       <a class="btn" href="/">Go to Make</a>

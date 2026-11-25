@@ -202,4 +202,12 @@ export const scenes: Scene[] = [
       { wait: 400 },
     ],
   })),
+  {
+    name: "primary-hover",
+    route: "/printers",
+    ready: "h2:has-text('Elegoo Neptune')",
+    widths: [1440],
+    fullPage: false,
+    steps: [{ ring: "button.btn.primary:has-text('Add printer')" }],
+  },
 ];
