@@ -151,8 +151,10 @@ function claimFindings(name: string, current: number, claimed: number): Finding[
 export const updateRefusal = (env: Record<string, string | undefined>): string | null =>
   env.CI ? "--update is local only; commit the regenerated baseline instead" : null;
 
+const MAIN_EVENTS = new Set(["push", "schedule", "workflow_dispatch"]);
+
 export const riseIsWarning = (env: Record<string, string | undefined>): boolean =>
-  env.GITHUB_REF === "refs/heads/main" && env.GITHUB_EVENT_NAME !== "pull_request";
+  env.GITHUB_REF === "refs/heads/main" && MAIN_EVENTS.has(env.GITHUB_EVENT_NAME ?? "");
 
 export function checkRatchet(input: RatchetInput): RatchetResult {
   const loaded = load(input);

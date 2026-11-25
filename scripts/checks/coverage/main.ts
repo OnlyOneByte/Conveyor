@@ -11,11 +11,13 @@ import {
   newPackages,
   type Percents,
   parseBaseline,
+  type RatchetInput,
   riseIsWarning,
   updateRefusal,
 } from "./ratchet";
 import { parseReclassifications, RECLASSIFIED_PATH, reclassificationFloors } from "./reclassified";
 import {
+  type Base,
   changesSince,
   linesAt,
   ROOT,
@@ -131,6 +133,32 @@ function reclassified(summary: Summary, ref: string, base: BaselineTexts) {
   }
 }
 
+export interface CheckContext {
+  summary: Summary;
+  committed: BaselineTexts;
+  base: Base;
+  floors: Percents;
+  env: Record<string, string | undefined>;
+}
+
+export function ratchetInput({
+  summary,
+  committed,
+  base,
+  floors,
+  env,
+}: CheckContext): RatchetInput {
+  return {
+    current: percents(summary),
+    committed,
+    base: base.baseline,
+    baseHasChecker: base.hasChecker,
+    basePackages: base.packages,
+    reclassifiedFloors: floors,
+    riseIsWarning: riseIsWarning(env),
+  };
+}
+
 function check(summary: Summary, ref: string): number {
   const base = readBase(ref);
   if (base instanceof Error) {
@@ -138,15 +166,15 @@ function check(summary: Summary, ref: string): number {
     return 1;
   }
   const moves = reclassified(summary, ref, base.baseline);
-  const { errors, warnings } = checkRatchet({
-    current: percents(summary),
-    committed: readCommitted(),
-    base: base.baseline,
-    baseHasChecker: base.hasChecker,
-    basePackages: base.packages,
-    reclassifiedFloors: moves.floors,
-    riseIsWarning: riseIsWarning(process.env),
-  });
+  const { errors, warnings } = checkRatchet(
+    ratchetInput({
+      summary,
+      committed: readCommitted(),
+      base,
+      floors: moves.floors,
+      env: process.env,
+    }),
+  );
   for (const error of [...moves.errors, ...errors]) console.error(error);
   for (const warning of warnings) console.log(`::warning::${warning}`);
   for (const note of moves.notes) console.log(note);

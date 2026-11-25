@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ratchetInput } from "./main";
 import { checkRatchet, type Percents, riseIsWarning, serializePercent } from "./ratchet";
 
 const all = (value: number): Percents => ({
@@ -51,16 +52,72 @@ describe("checkRatchet on main", () => {
 });
 
 describe("riseIsWarning", () => {
-  test("only a run on main that isn't a pull request warns on a rise", () => {
-    const main = "refs/heads/main";
-    expect(riseIsWarning({ GITHUB_REF: main, GITHUB_EVENT_NAME: "push" })).toBe(true);
-    expect(riseIsWarning({ GITHUB_REF: main, GITHUB_EVENT_NAME: "schedule" })).toBe(true);
-    expect(riseIsWarning({ GITHUB_REF: main, GITHUB_EVENT_NAME: "pull_request" })).toBe(false);
+  const main = "refs/heads/main";
+
+  test("a push, the schedule or a manual run on main warns on a rise", () => {
+    for (const event of ["push", "schedule", "workflow_dispatch"]) {
+      expect(riseIsWarning({ GITHUB_REF: main, GITHUB_EVENT_NAME: event })).toBe(true);
+    }
+  });
+
+  test("any other event fails on a rise, even with GITHUB_REF on main", () => {
+    for (const event of [
+      "pull_request",
+      "pull_request_target",
+      "workflow_run",
+      "merge_group",
+      "repository_dispatch",
+      "",
+    ]) {
+      expect(riseIsWarning({ GITHUB_REF: main, GITHUB_EVENT_NAME: event })).toBe(false);
+    }
+    expect(riseIsWarning({ GITHUB_REF: main })).toBe(false);
+  });
+
+  test("a run off main fails on a rise", () => {
     const pr = { GITHUB_REF: "refs/pull/558/merge", GITHUB_EVENT_NAME: "pull_request" };
     expect(riseIsWarning(pr)).toBe(false);
-    expect(riseIsWarning({ GITHUB_REF: "refs/heads/feature", GITHUB_EVENT_NAME: "push" })).toBe(
-      false,
-    );
+    for (const ref of ["refs/heads/feature", "refs/heads/main-old", "refs/tags/v1"]) {
+      expect(riseIsWarning({ GITHUB_REF: ref, GITHUB_EVENT_NAME: "push" })).toBe(false);
+    }
     expect(riseIsWarning({})).toBe(false);
+  });
+});
+
+describe("ratchetInput", () => {
+  const summary = {
+    api: { hit: 1, found: 1 },
+    worker: { hit: 1, found: 1 },
+    shared: { hit: 1, found: 1 },
+    plugins: { hit: 1, found: 1 },
+    web: { hit: 1, found: 1 },
+  };
+  const base = { baseline: json(all(40)), hasChecker: true, packages: null };
+
+  test("passes the main-run flag the checker reads from the environment", () => {
+    const push = { GITHUB_REF: "refs/heads/main", GITHUB_EVENT_NAME: "push" };
+    const pr = { GITHUB_REF: "refs/pull/1/merge", GITHUB_EVENT_NAME: "pull_request" };
+    expect(
+      ratchetInput({ summary, committed: json(all(40)), base, floors: {}, env: push })
+        .riseIsWarning,
+    ).toBe(true);
+    expect(
+      ratchetInput({ summary, committed: json(all(40)), base, floors: {}, env: pr }).riseIsWarning,
+    ).toBe(false);
+  });
+
+  test("on a main push a rise warns end to end, and on a pull request it fails", () => {
+    const push = { GITHUB_REF: "refs/heads/main", GITHUB_EVENT_NAME: "push" };
+    const pr = { GITHUB_REF: "refs/pull/1/merge", GITHUB_EVENT_NAME: "pull_request" };
+    const onPush = checkRatchet(
+      ratchetInput({ summary, committed: json(all(40)), base, floors: {}, env: push }),
+    );
+    const onPr = checkRatchet(
+      ratchetInput({ summary, committed: json(all(40)), base, floors: {}, env: pr }),
+    );
+    expect(onPush.errors).toEqual([]);
+    expect(onPush.warnings).toHaveLength(5);
+    expect(onPr.errors).toHaveLength(5);
+    expect(onPr.warnings).toEqual([]);
   });
 });
