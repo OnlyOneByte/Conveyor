@@ -204,4 +204,11 @@ describe("the listed exemptions", () => {
     expect(scanStart({ src: "echo\n", from: 0, to: 5 })).toBe(0);
     expect(findComments("a;\n#!x\n", "hash")).toHaveLength(1);
   });
+
+  test("cover only #! and the interpreter path, not the rest of the line", () => {
+    expect(scanStart({ src: "#!/usr/bin/env bun\n", from: 0, to: 19 })).toBe(14);
+    expect(findComments("#!/bin/sh # x\necho\n", "hash")).toHaveLength(1);
+    expect(ts("#!/usr/bin/env bun // x\nconst a = 1;\n")).toEqual([1]);
+    expect(findComments("#!/bin/sh\necho\n", "hash")).toHaveLength(0);
+  });
 });

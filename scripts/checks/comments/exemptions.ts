@@ -1,18 +1,23 @@
-import { indexIn, type Range } from "./cursor";
+import type { Range } from "./cursor";
 
 export interface Exemption {
   name: string;
   where: string;
-  matches: (src: string, from: number) => boolean;
+  pattern: RegExp;
 }
 
 export const EXEMPTIONS: readonly Exemption[] = [
   {
     name: "shebang",
-    where: "a #! line at the very start of a script or shell file",
-    matches: (src, from) => src.startsWith("#!", from),
+    where: "#! and the interpreter path at the very start of a script or shell file",
+    pattern: /#!\S*/y,
   },
 ];
 
+const extent = (pattern: RegExp, range: Range) => {
+  pattern.lastIndex = range.from;
+  return pattern.exec(range.src)?.[0].length ?? 0;
+};
+
 export const scanStart = (range: Range) =>
-  EXEMPTIONS.some((e) => e.matches(range.src, range.from)) ? indexIn(range, "\n") : range.from;
+  range.from + Math.max(0, ...EXEMPTIONS.map((e) => extent(e.pattern, range)));

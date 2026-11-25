@@ -59,7 +59,7 @@ test whose name states the rule, or write it in `docs/modules/<module>.md`.
 
 | Exemption | Where |
 |---|---|
-| shebang | a `#!` line at the very start of a script or shell file |
+| shebang | `#!` and the interpreter path (up to the first space) at the very start of a script or shell file; a comment later on that line still counts |
 
 Nothing else is exempt: not `# syntax=`, `/// <reference>`, a license header or any suppression. Adding an
 exemption is a guardrail change (§12) and lists it in `EXEMPTIONS`.
