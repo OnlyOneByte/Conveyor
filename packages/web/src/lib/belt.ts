@@ -59,6 +59,8 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   const sockets = new Map<string, Socket>();
   let failures = 0;
   let offline = false;
+  let asked = 0;
+  let applied = 0;
 
   function settle(next: TrackJob[], extra: News[] = []) {
     tell([...changes(known, next, feed.clock()), ...extra]);
@@ -91,7 +93,9 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   }
 
   async function poll() {
+    const mine = ++asked;
     const live = await feed.active().catch(() => null);
+    if (mine < applied) return;
     if (!live) {
       if (++failures < FAILS_TO_CLEAR || offline) return;
       offline = true;
@@ -118,6 +122,8 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
       const job = trackJob(view, was, catalog);
       return was && sockets.has(view.jobId) ? { ...was, name: job.name, ...(job.printer ? { printer: job.printer } : {}) } : job;
     };
+    if (mine < applied) return;
+    applied = mine;
     settle([...live.map((view) => fresh(view, known.get(view.jobId))), ...ends.flat()], lost);
   }
 

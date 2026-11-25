@@ -72,4 +72,24 @@ describe("the belt's ticker", () => {
     expect(ended.filter((job) => job.id === "x")).toHaveLength(1);
     expect(told.filter((news) => news.ended === "x")).toHaveLength(1);
   });
+
+  test("the belt drops an answer older than one it already applied, whoever polls", async () => {
+    const { belt, queue, final, ended, told, set } = rig();
+    set([printing("x")]);
+    await belt.poll();
+    final.set("x", { jobId: "x", state: "done", at: 2 });
+    queue.hold();
+    queue.hold();
+    const first = belt.poll();
+    const second = belt.poll();
+    queue.release[1]?.([]);
+    await second;
+    queue.release[0]?.([printing("x")]);
+    await first;
+    set([]);
+    await belt.poll();
+    expect(ended.filter((job) => job.id === "x")).toHaveLength(1);
+    expect(told.filter((news) => news.ended === "x")).toHaveLength(1);
+  });
+
 });
