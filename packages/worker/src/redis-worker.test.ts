@@ -18,6 +18,7 @@ if (!url && process.env.CI)
 
 const NO_SUBSCRIBE_USER = `conveyor-test-nosub-${randomUUID()}`;
 const NO_SUBSCRIBE_PASSWORD = randomUUID();
+const KEY_PREFIX = `test-redis-worker-${randomUUID()}:`;
 
 const VALID = {
   generator: { id: "gridfinity", params: { gridX: 1, gridY: 1, heightUnits: 3 } },
@@ -44,7 +45,7 @@ function noSubscribeUrl(): string {
   return parsed.toString();
 }
 
-function track(target: string, options: RedisOptions = {}): Redis {
+function track(target: string, options: RedisOptions = { keyPrefix: KEY_PREFIX }): Redis {
   const client = new Redis(target, options);
   opened.push(client);
   return client;
@@ -81,7 +82,7 @@ async function run(data: unknown, over: Partial<RedisWorkerDeps> = {}) {
 
 beforeAll(async () => {
   if (!url) return;
-  admin = new Redis(url);
+  admin = new Redis(url, { keyPrefix: KEY_PREFIX });
   await admin.acl(
     "SETUSER",
     NO_SUBSCRIBE_USER,
