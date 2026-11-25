@@ -31,6 +31,19 @@ describe("buildGeometry", () => {
     expect(b.max.y).toBeCloseTo(21);
   });
 
+  test("the base is the spec's 4.75 mm, with the bin floor at one height unit", () => {
+    const flat = meshes(buildGeometry({ magnetHoles: false }))
+      .filter((m) => m instanceof THREE.Mesh)
+      .map((m) => {
+        m.geometry.computeBoundingBox();
+        return m.geometry.boundingBox;
+      })
+      .filter((b) => b !== null && b.max.y - b.min.y < 1e-6)
+      .map((b) => Math.round((b?.min.y ?? Number.NaN) * 100) / 100);
+    expect(flat).toContain(4.75);
+    expect(flat).toContain(7);
+  });
+
   test("grows with the grid", () => {
     const b = size(buildGeometry({ gridX: 1, gridY: 1, heightUnits: 3 }));
     expect(b.max.x - b.min.x).toBeCloseTo(41.5, 1);
