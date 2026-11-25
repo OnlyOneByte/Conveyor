@@ -59,6 +59,28 @@ describe("PUT /catalog/profiles", () => {
     );
   });
 
+  test("refuses renaming a bundled profile or changing its firmware, slicer or folder", async () => {
+    const shipped = {
+      id: "prusa/marlin-pla-0.2",
+      slicerId: "prusa",
+      name: "Marlin PLA 0.2mm (Prusa)",
+      path: "/profiles/prusa-marlin-pla-0.2",
+      gcodeFlavor: "marlin",
+    };
+    for (const change of [
+      { name: "Renamed" },
+      { gcodeFlavor: "klipper" },
+      { slicerId: "orca" },
+      { path: "/profiles/elsewhere" },
+    ]) {
+      const res = await put("/catalog/profiles", { ...shipped, ...change });
+      expect(res.status).toBe(409);
+      expect(String(res.body.error)).toContain("is bundled");
+    }
+    expect((await put("/catalog/profiles", shipped)).status).toBe(200);
+    expect(await list("/catalog/profiles")).toContainEqual({ ...shipped, bundled: true });
+  });
+
   test("lists each profile with whether it is bundled, and the slicers by name", async () => {
     await put("/catalog/profiles", profile({ id: "added-one" }));
     expect(await list("/catalog/profiles")).toEqual(

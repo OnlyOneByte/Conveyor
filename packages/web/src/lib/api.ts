@@ -195,12 +195,12 @@ export interface CatalogTransport {
 export const fetchCatalogTransports = (f?: typeof fetch) =>
   getJson<CatalogTransport[]>(`${API}/catalog/transports`, f);
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
-export const fetchCatalogSlicers = (f?: typeof fetch) =>
-  getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
+export const fetchCatalogSlicers = (f?: typeof fetch) => getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
 
-async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T> {
+async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T | null> {
   const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
   const r = await fetchFn(path);
+  if (r.status === 404) return null;
   if (!r.ok) {
     const body = (await r.json().catch(() => ({}))) as { error?: unknown };
     throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);

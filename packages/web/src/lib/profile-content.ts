@@ -16,6 +16,7 @@ export interface Content {
   lang: Lang;
   docs: Docs;
   edited: boolean;
+  missing: boolean;
 }
 
 const orcaDocs = (docs: Docs) => ({
@@ -30,21 +31,23 @@ export async function loadContent(
 ): Promise<Content | null> {
   const format = slicerFormat(profile.slicerId);
   if (format === "orca-json") {
-    const { documents, source } = await fetchOrcaProfileContent(profile.id, f);
+    const found = await fetchOrcaProfileContent(profile.id, f);
     return {
       files: [...ORCA_PROFILE_DOCUMENT_NAMES],
       lang: "json",
-      docs: { ...documents },
-      edited: source === "edited",
+      docs: found ? { ...found.documents } : orcaDocs({}),
+      edited: found?.source === "edited",
+      missing: !found,
     };
   }
   if (format !== "prusa-ini") return null;
-  const { document, source } = await fetchPrusaProfileContent(profile.id, f);
+  const found = await fetchPrusaProfileContent(profile.id, f);
   return {
     files: ["config"],
     lang: "ini",
-    docs: { config: document.config },
-    edited: source === "edited",
+    docs: { config: found?.document.config ?? "" },
+    edited: found?.source === "edited",
+    missing: !found,
   };
 }
 

@@ -133,6 +133,7 @@
     font-weight: 600;
   }
   .big { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
+  @media (pointer: coarse) { .links a { min-height: var(--tap); } }
   @media (max-width: 999px) { .cols { grid-template-columns: 1fr; } }
   @media (max-width: 759px) { .panel { padding: var(--s4); } }
 </style>

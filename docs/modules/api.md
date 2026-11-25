@@ -253,7 +253,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `acceptsFlavors` for the profile form's firmware picker.
 - `GET /catalog/slicers` lists the registered slicers as `{ id, name }` for the profile form.
 - `GET /catalog/profiles` marks each profile `bundled: true` when it ships in `DEFAULT_PROFILES`; those are the
-  ones `DELETE` refuses with `409`, so Settings offers no Delete for them.
+  ones `DELETE` refuses with `409`, so Settings offers no Delete for them. `PUT /catalog/profiles` also answers
+  `409` when it would change a bundled profile's `name`, `slicerId`, `path` or `gcodeFlavor`; sending the same
+  values back is a no-op `200`.
 - Profile content (`/catalog/profiles/:id/content`) dispatches on the slicer format: Orca serves three JSON
   documents, Prusa one `config.ini`, and a slicer with no editable format answers 409.
   - `GET` returns the stored edit if there is one, otherwise the bundled profile.
