@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:34895",
+  "url": "http://127.0.0.1:41683",
   "warnings": [
     "warm-up /: waitFor: Timeout 5000ms exceeded."
   ],
@@ -9,6 +9,13 @@
       "width": 1440,
       "warnings": [
         "not on the base: \"text=How big?\" didn't appear within 5 s, so home is new on this PR"
+      ]
+    },
+    {
+      "scene": "print-hover",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so print-hover is new on this PR"
       ]
     },
     {
@@ -114,7 +121,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 702682,
+      "gifBytes": 709188,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -226,6 +233,30 @@
       "width": 1440,
       "warnings": [],
       "png": "settings-1440.png"
+    },
+    {
+      "scene": "settings-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-add-1440.png"
+    },
+    {
+      "scene": "settings-delete",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-1440.png"
+    },
+    {
+      "scene": "profile-editor",
+      "width": 1440,
+      "warnings": [],
+      "png": "profile-editor-1440.png"
+    },
+    {
+      "scene": "profile-editor-error",
+      "width": 1440,
+      "warnings": [],
+      "png": "profile-editor-error-1440.png"
     },
     {
       "scene": "command-menu",
@@ -341,7 +372,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 520307,
+      "gifBytes": 453390,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -383,7 +414,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 313365,
+      "gifBytes": 313590,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -422,7 +453,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 430655,
+      "gifBytes": 429707,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -436,7 +467,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 961351,
+      "gifBytes": 967472,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -450,7 +481,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 818971,
+      "gifBytes": 787930,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -458,7 +489,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 680747,
+      "gifBytes": 676336,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -576,7 +607,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 976532,
+      "gifBytes": 952520,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -688,6 +719,30 @@
       "width": 390,
       "warnings": [],
       "png": "settings-390.png"
+    },
+    {
+      "scene": "settings-add",
+      "width": 390,
+      "warnings": [],
+      "png": "settings-add-390.png"
+    },
+    {
+      "scene": "settings-delete",
+      "width": 390,
+      "warnings": [],
+      "png": "settings-delete-390.png"
+    },
+    {
+      "scene": "profile-editor",
+      "width": 390,
+      "warnings": [],
+      "png": "profile-editor-390.png"
+    },
+    {
+      "scene": "profile-editor-error",
+      "width": 390,
+      "warnings": [],
+      "png": "profile-editor-error-390.png"
     },
     {
       "scene": "command-menu",
@@ -808,7 +863,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 509344,
+      "gifBytes": 509255,
       "gif": "track-keys-390.gif"
     },
     {
@@ -847,7 +902,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 623561,
+      "gifBytes": 623567,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -861,7 +916,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1344141,
+      "gifBytes": 1344559,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -875,7 +930,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1105760,
+      "gifBytes": 1095518,
       "gif": "printers-add-390.gif"
     },
     {
@@ -883,7 +938,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 977649,
+      "gifBytes": 980225,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
