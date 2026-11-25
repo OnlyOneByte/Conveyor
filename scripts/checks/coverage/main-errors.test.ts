@@ -59,17 +59,13 @@ describe("check:coverage's early exits", () => {
     () => {
       const baselines = PACKAGES.map((name) => join(ROOT, baselinePath(name)));
       const before = baselines.map((path) => readFileSync(path, "utf8"));
-      try {
-        const result = check(["--lcov", relative(ROOT, lcov), "--update"], {
-          ...ACTIONS,
-          CI: "true",
-        });
-        expect(result.code).toBe(1);
-        expect(result.text).toContain("::error::--update is local only;");
-        expect(baselines.map((path) => readFileSync(path, "utf8"))).toEqual(before);
-      } finally {
-        for (const [i, path] of baselines.entries()) writeFileSync(path, before[i] ?? "");
-      }
+      const result = check(["--lcov", relative(ROOT, lcov), "--update"], {
+        ...ACTIONS,
+        CI: "true",
+      });
+      expect(result.code).toBe(1);
+      expect(result.text).toContain("::error::--update is local only;");
+      expect(baselines.map((path) => readFileSync(path, "utf8"))).toEqual(before);
     },
     SLOW,
   );

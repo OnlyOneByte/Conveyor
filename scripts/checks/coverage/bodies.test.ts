@@ -66,6 +66,17 @@ describe("withoutUnrunBodies", () => {
     expect(corrected.get(17)).toBe(0);
   });
 
+  test("a header reading 0 zeroes nothing when the body has several statements", () => {
+    const source = "const f = () =>\n  {\n    run();\n    return 1;\n  };\n";
+    const run = new Map([
+      [1, 0],
+      [3, 2],
+      [4, 2],
+    ]);
+    expect(functionBodies("x.ts", source)).toEqual([{ header: 1, first: 3, last: 4 }]);
+    expect(withoutUnrunBodies(run, functionBodies("x.ts", source))).toEqual(run);
+  });
+
   test("a function that ran keeps every count bun gave it", () => {
     for (const line of [7, 8, 11, 12, 13]) expect(corrected.get(line)).toBe(BUN_RUN.get(line));
   });
