@@ -1,4 +1,21 @@
-export const CADDY_IMAGE = "caddy:2";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+export function composeCaddyImage(compose: string): string {
+  const images = [...compose.matchAll(/^\s*image:\s*(caddy:\S+)\s*$/gm)].map((m) => m[1]);
+  const [image] = images;
+  if (!image || images.some((other) => other !== image))
+    throw new Error(`docker-compose.yml names ${images.length} caddy images, not one`);
+  if (!/@sha256:[0-9a-f]{64}$/.test(image))
+    throw new Error(`docker-compose.yml's ${image} isn't pinned by digest`);
+  return image;
+}
+
+export const CADDY_IMAGE = composeCaddyImage(
+  readFileSync(join(import.meta.dir, "../../docker-compose.yml"), "utf8"),
+);
+
+const OUTBOUND = ["dynamic_upstreams", "forward_proxy_url", "network_proxy"];
 
 export interface CaddyPorts {
   port: number;
@@ -34,6 +51,8 @@ const unexpected = (value: unknown, allowed: string[], what: string): string[] =
     .map(([name]) => name)
     .filter((name) => !allowed.includes(name))
     .map((name) => `${what} "${name}"`);
+const keys = (value: unknown): string[] =>
+  entries(value).flatMap(([name, inner]) => [name, ...keys(inner)]);
 const dials = (value: unknown): string[] =>
   entries(value).flatMap(([name, inner]) =>
     name === "dial" && typeof inner === "string" ? [inner] : dials(inner),
@@ -66,6 +85,9 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
     ...dials(config)
       .filter((dial) => !upstreams.includes(dial))
       .map((dial) => `an upstream at ${dial}`),
+    ...[...new Set(keys(config))]
+      .filter((key) => OUTBOUND.includes(key))
+      .map((key) => `a proxy that can leave the stack ("${key}")`),
   ];
   return problems.length > 0
     ? `the visual Caddy config isn't loopback-only: ${problems.join("; ")}`

@@ -1,0 +1,1 @@
+`doubleClicks` double-clicks a control at each listed share of its width, at mid-height, clicks `reset` after each, and fails if any request other than a `GET` goes out, as `printers-clear-secrets-double` does so a double-click can't confirm a clear.

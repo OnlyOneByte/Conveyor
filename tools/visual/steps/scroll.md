@@ -1,0 +1,1 @@
+`scroll` scrolls its selector's first match into view. Playwright scrolls only once the target holds still for consecutive animation frames, so a `scroll` that times out appends what its target did over the next second (`scroll.ts`): frames seen, distinct positions, the range of `top`, `left`, `height` and `scrollY`, and whether it left the document.

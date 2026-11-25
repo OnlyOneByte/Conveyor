@@ -4,7 +4,30 @@ const GLOBALS = new Set(["globalThis", "window", "self", "global"]);
 const COMPILERS = new Set(["eval", "Function"]);
 const TIMERS = new Set(["setTimeout", "setInterval"]);
 
-const isGlobal = (node: ts.Expression) => ts.isIdentifier(node) && GLOBALS.has(node.text);
+const isGlobal = (node: ts.Expression): boolean => {
+  if (ts.isIdentifier(node)) return GLOBALS.has(node.text);
+  const name = memberName(node);
+  return (
+    name !== null &&
+    GLOBALS.has(name) &&
+    (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+    isGlobal(node.expression)
+  );
+};
+
+const unwrap = (node: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node;
+
+const isFunctionValue = (node: ts.Expression): boolean => {
+  const inner = unwrap(node);
+  if (ts.isFunctionExpression(inner) || ts.isArrowFunction(inner)) return true;
+  return (
+    ts.isCallExpression(inner) &&
+    memberName(inner.expression) === "getPrototypeOf" &&
+    inner.arguments[0] !== undefined &&
+    isFunctionValue(inner.arguments[0])
+  );
+};
 
 function memberName(node: ts.Expression): string | null {
   if (ts.isPropertyAccessExpression(node)) return node.name.text;
@@ -49,7 +72,8 @@ function compilerReference(node: ts.Node): boolean {
   if (ts.isIdentifier(node)) return COMPILERS.has(node.text) && !harmlessName(node);
   if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
     const name = globalMember(node);
-    return name !== null && COMPILERS.has(name);
+    if (name !== null && COMPILERS.has(name)) return true;
+    return memberName(node) === "constructor" && isFunctionValue(node.expression);
   }
   return false;
 }
