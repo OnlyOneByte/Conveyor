@@ -52,25 +52,36 @@ const block = (ring: string, lines: number) =>
 
 const keyScrolls = (ring: string, lines: number) =>
   withPage(async (page) => {
-    await page.setContent(block(ring, lines));
+    await page.goto(`data:text/html,${encodeURIComponent(block(ring, lines))}`);
     await page.keyboard.press("Tab");
     await assertKeyScrolls(page, "pre");
   });
 
-const RING = "outline: 3px solid #2a2118; outline-offset: 2px;";
+const ring = (px: number) => `outline: ${px}px solid #2a2118; outline-offset: 2px;`;
 
-test("an overflowing block with an offset focus ring that PageDown scrolls passes", async () => {
-  await keyScrolls(RING, 80);
-}, 30000);
+test.each([3, 2])(
+  "an overflowing block with a %i px focus ring that PageDown scrolls passes",
+  async (px) => {
+    await keyScrolls(ring(px), 80);
+  },
+  30000,
+);
 
-test("a focused block with no ring fails", async () => {
-  await expect(keyScrolls("outline: none;", 80)).rejects.toThrow(
-    "keyScrolls pre: focus shows a 3:1 ring within 6 px along 0% of its edge; 90% must",
-  );
-}, 30000);
+test.each([
+  ["no ring", "outline: none;", "0%"],
+  ["a 1 px ring", ring(1), "0%"],
+])(
+  "a focused block with %s fails",
+  async (_name, style, share) => {
+    await expect(keyScrolls(style, 80)).rejects.toThrow(
+      `keyScrolls pre: focus shows a 3:1 ring at least 2 px thick within 6 px along ${share} of its edge; 90% must`,
+    );
+  },
+  30000,
+);
 
 test("a focused block with nothing to scroll fails", async () => {
-  await expect(keyScrolls(RING, 2)).rejects.toThrow(
+  await expect(keyScrolls(ring(3), 2)).rejects.toThrow(
     "keyScrolls pre: PageDown left it at scrollTop 0 (was 0)",
   );
 }, 30000);

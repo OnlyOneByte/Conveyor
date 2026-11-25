@@ -6,7 +6,18 @@ export const RING_SHARE = 0.9;
 export const RING_PAD = 6;
 export const BEYOND = 3;
 
-declare const document: { activeElement: { blur(): void } | null };
+interface Scroller {
+  scrollTop: number;
+  focus(): void;
+  blur(): void;
+}
+
+declare const document: {
+  activeElement: Scroller | null;
+  querySelector(selector: string): Scroller | null;
+};
+
+export const KEY_STEP_MS = 5000;
 
 export interface Box {
   x: number;
@@ -144,38 +155,68 @@ export function focusRingProblem(rest: PNG, focused: PNG, box: Box): string | nu
   ];
   if (lines.length === 0) return "the target has no edge to sample";
   const changes = (p: Point) => contrast(luminance(rest, p), luminance(focused, p)) >= RING_RATIO;
-  const share = lines.filter((line) => line.some(changes)).length / lines.length;
+  const ringed = (line: Point[]) =>
+    line.some((p, i) => i > 0 && changes(p) && changes(line[i - 1] ?? p));
+  const share = lines.filter(ringed).length / lines.length;
   if (share >= RING_SHARE) return null;
-  return `focus shows a ${RING_RATIO}:1 ring within ${RING_PAD} px along ${Math.round(share * 100)}% of its edge; ${RING_SHARE * 100}% must`;
+  return `focus shows a ${RING_RATIO}:1 ring at least 2 px thick within ${RING_PAD} px along ${Math.round(share * 100)}% of its edge; ${RING_SHARE * 100}% must`;
 }
 
 export async function assertKeyScrolls(page: Page, selector: string): Promise<void> {
-  const target = page.locator(selector).first();
-  if (!(await target.evaluate((el) => el === document.activeElement)))
-    throw new Error(`keyScrolls ${selector}: it doesn't have focus; tabTo it first`);
+  const fail = (why: string) => new Error(`keyScrolls ${selector}: ${why}`);
+  const within = async <T>(what: string, call: Promise<T>): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(fail(`${what} gave no answer within ${KEY_STEP_MS} ms`)),
+        KEY_STEP_MS,
+      );
+    });
+    try {
+      return await Promise.race([call, late]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const read = (when: string) =>
+    within(
+      `reading the target ${when}`,
+      page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        return el ? { focused: el === document.activeElement, top: el.scrollTop } : null;
+      }, selector),
+    );
+  const start = await read("before PageDown");
+  if (!start) throw fail("not on the page");
+  if (!start.focused) throw fail("it doesn't have focus; tabTo it first");
   await Bun.sleep(300);
-  const found = await target.boundingBox();
-  if (!found) throw new Error(`keyScrolls ${selector}: not on the page`);
+  const found = await within(
+    "its box",
+    page.locator(selector).first().boundingBox({ timeout: KEY_STEP_MS }),
+  );
+  if (!found) throw fail("not on the page");
   const clip = around(found);
-  const shot = async () => PNG.sync.read(await page.screenshot({ clip }));
+  const shot = async () =>
+    PNG.sync.read(await within("a screenshot", page.screenshot({ clip, timeout: KEY_STEP_MS })));
   const focused = await shot();
-  const top = () => target.evaluate((el) => el.scrollTop);
-  const before = await top();
-  await page.keyboard.press("PageDown");
+  await within("PageDown", page.keyboard.press("PageDown"));
   await Bun.sleep(300);
-  const after = await top();
-  await page.evaluate(() => document.activeElement?.blur());
+  const after = (await read("after PageDown"))?.top ?? start.top;
+  await within(
+    "blurring it",
+    page.evaluate(() => document.activeElement?.blur()),
+  );
   await Bun.sleep(300);
   const rest = await shot();
-  await target.focus();
+  await within(
+    "focusing it again",
+    page.evaluate((sel) => document.querySelector(sel)?.focus(), selector),
+  );
   const problem = focusRingProblem(rest, focused, {
     ...found,
     x: found.x - clip.x,
     y: found.y - clip.y,
   });
-  if (problem) throw new Error(`keyScrolls ${selector}: ${problem}`);
-  if (after <= before)
-    throw new Error(
-      `keyScrolls ${selector}: PageDown left it at scrollTop ${after} (was ${before})`,
-    );
+  if (problem) throw fail(problem);
+  if (after <= start.top) throw fail(`PageDown left it at scrollTop ${after} (was ${start.top})`);
 }
