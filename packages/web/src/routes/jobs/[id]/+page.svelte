@@ -103,7 +103,7 @@
       {/if}
     </div>
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} place={data.place} printer={data.printer} />{/if}
+      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
     </JobReceipt>
   </div>
 {/if}

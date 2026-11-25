@@ -3,11 +3,12 @@ import { parseStatusEvent } from "@conveyor/shared/status-lite";
 import { changes, type News } from "./belt-news";
 import type { Catalog } from "./catalog";
 import { jobName } from "./job-settings";
-import { onRail, shortName, type TrackJob } from "./track";
+import { OFFLINE, onRail, shortName, type TrackJob } from "./track";
 
 export const POLL_MS = 2000;
 export const MAX_SOCKETS = 10;
 export const FAILS_TO_CLEAR = 2;
+export const COVERED_MS = 10_000;
 
 export interface Socket {
   onmessage: ((message: MessageEvent) => void) | null;
@@ -53,16 +54,17 @@ export function trackJob(view: Status, was?: TrackJob, catalog: Catalog | null =
   return job;
 }
 
-export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[]) => void, tell: (news: News[]) => void) {
+export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[], offline: boolean) => void, tell: (news: News[]) => void) {
   let known = new Map<string, TrackJob>();
   const sockets = new Map<string, Socket>();
   let failures = 0;
+  let offline = false;
 
   function settle(next: TrackJob[], extra: News[] = []) {
     tell([...changes(known, next, feed.clock()), ...extra]);
     const ended = next.filter(settled);
     known = new Map(next.filter((job) => !settled(job)).map((job) => [job.id, job]));
-    show([...known.values()], ended);
+    show([...known.values()], ended, offline);
     for (const [id, socket] of sockets) {
       const job = known.get(id);
       if (job && onRail(job.state)) continue;
@@ -91,14 +93,16 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   async function poll() {
     const live = await feed.active().catch(() => null);
     if (!live) {
-      if (++failures < FAILS_TO_CLEAR) return;
+      if (++failures < FAILS_TO_CLEAR || offline) return;
+      offline = true;
       stop();
-      show([], []);
-      if (known.size) tell([{ level: "polite", text: "The belt can't reach the server, so its jobs are hidden until it can" }]);
-      known = new Map();
+      show([...known.values()], [], true);
+      tell([{ level: "polite", text: `${OFFLINE}. The belt shows the last jobs it saw` }]);
       return;
     }
     failures = 0;
+    if (offline) tell([{ level: "polite", text: "Conveyor is back" }]);
+    offline = false;
     const catalog = await feed.catalog().catch(() => null);
     const seen = new Set(live.map((view) => view.jobId));
     const gone = [...known.values()].filter((job) => !seen.has(job.id));
@@ -122,5 +126,18 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     sockets.clear();
   }
 
-  return { poll, stop };
+  const covered = () => known.size > 0 && [...known.values()].every((job) => onRail(job.state) && sockets.has(job.id));
+
+  return { poll, stop, covered };
+}
+
+export function createTicker(belt: { poll(): Promise<void>; covered(): boolean }, ready: () => boolean, now = () => Date.now()) {
+  let polling = false;
+  let last = Number.NEGATIVE_INFINITY;
+  return () => {
+    if (polling || !ready() || (belt.covered() && now() - last < COVERED_MS)) return;
+    polling = true;
+    last = now();
+    void belt.poll().finally(() => (polling = false));
+  };
 }

@@ -70,8 +70,9 @@ async function enqueue(app: FastifyInstance, jobId: string, request: JobRequest)
   }
 }
 
-async function activeJob(jobs: JobLookup, event: JobStatusEvent): Promise<ActiveJob> {
-  const job = await jobs.getJob(event.jobId);
+type QueuedJob = Awaited<ReturnType<JobLookup["getJob"]>>;
+
+function activeJob(job: QueuedJob, event: JobStatusEvent): ActiveJob {
   const request = jobRequestSchema.safeParse(job?.data);
   return {
     event,
@@ -97,16 +98,18 @@ export async function registerJobRoutes(
     return reply.code(result.code).send(result.body);
   });
 
-  const withFields = async (snapshot: JobStatusEvent): Promise<JobView> => {
-    let fields: unknown;
+  const readJob = async (jobId: string): Promise<QueuedJob | null> => {
     try {
-      const job = await reach(jobQueue.getJob(snapshot.jobId));
-      fields = job && { ...job.data, createdAt: job.timestamp };
+      return await jobs.getJob(jobId);
     } catch (err) {
-      app.log.error({ err, jobId: snapshot.jobId }, "job request fields unreadable");
-      return snapshot;
+      app.log.error({ err, jobId }, "job request fields unreadable");
+      return null;
     }
-    const { view, complete } = jobView(snapshot, fields);
+  };
+
+  const withFields = (snapshot: JobStatusEvent, job: QueuedJob | null): JobView => {
+    if (job === null) return snapshot;
+    const { view, complete } = jobView(snapshot, job && { ...job.data, createdAt: job.timestamp });
     if (!complete) app.log.error({ jobId: snapshot.jobId }, "job request fields incomplete");
     return view;
   };
@@ -124,22 +127,27 @@ export async function registerJobRoutes(
     }
     if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
     active.sort((a, b) => b.at - a.at);
+    const queued = new Map(
+      await Promise.all(
+        active.map(async (event) => [event.jobId, await readJob(event.jobId)] as const),
+      ),
+    );
     let listed: JobStatusEvent[] = active;
     try {
-      const live = await Promise.all(active.map((event) => activeJob(jobs, event)));
+      const live = active.map((event) => activeJob(queued.get(event.jobId) ?? undefined, event));
       const typical = (job: ActiveJob) => dbTypicalStageMs(openDb(), job);
       listed = withEstimates(live, { typical, isHeld: () => false }, Date.now());
     } catch (err) {
       app.log.warn({ err }, "job estimates left out of /jobs/active");
     }
-    return Promise.all(listed.map(withFields));
+    return listed.map((event) => withFields(event, queued.get(event.jobId)));
   });
 
   app.get<{ Params: { id: string } }>("/jobs/:id", async (req, reply) => {
     if (!isJobId(req.params.id)) return reply.code(404).send({ error: "unknown job" });
     const snapshot = parseStatusEvent(await redis.get(jobSnapshotKey(req.params.id)));
     if (!snapshot) return reply.code(404).send({ error: "unknown job" });
-    return reply.send(await withFields(snapshot));
+    return reply.send(withFields(snapshot, await readJob(snapshot.jobId)));
   });
 
   registerArtifactRoute(app);

@@ -35,10 +35,12 @@ const asStatus = (job: JobHistoryEntry) => ({ ...job, jobId: job.id, generator: 
 export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(), toasted = new Set<string>() } = {}) {
   let failures = new Map<string, JobHistoryEntry>();
 
-  async function refresh() {
-    const [finished, needs, catalog] = await Promise.all([feed.finished(midnight(now())), feed.needsYou(), feed.catalog().catch(() => null)]);
+  async function refresh(): Promise<boolean> {
+    const [finished, needs, catalog] = await Promise.all([feed.finished(midnight(now())).catch(() => null), feed.needsYou().catch(() => null), feed.catalog().catch(() => null)]);
+    if (finished === null || needs === null) return false;
     failures = new Map(needs.map((job) => [job.id, job]));
     ui.show(finished, needs.map((job) => trackJob(asStatus(job), undefined, catalog)));
+    return true;
   }
 
   const runnable = (job: TrackJob) => (job.request ? rerunRequest({ state: "canceled", request: job.request }) : null);
@@ -73,7 +75,7 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(),
       ui.say(retried.ok ? `Retrying ${shortName(job.name)}.` : `${shortName(job.name)} is already being retried.`, "polite");
     } else if (action === "Dismiss") await feed.dismiss(job.id);
     else return;
-    if (action !== "Cancel" && action !== "Pick printer") await refresh().catch(() => {});
+    if (action !== "Cancel" && action !== "Pick printer") await refresh();
   }
 
   const act = (job: TrackJob, action: string): Promise<void> =>
