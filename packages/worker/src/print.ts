@@ -4,6 +4,7 @@ import {
   exhaustive,
   type GcodeArtifact,
   type JobTarget,
+  NOTE,
   type PrintHandle,
   PrintNotStartedError,
   type PrintStatus,
@@ -128,10 +129,10 @@ async function closeStream(
     }),
   ]);
   clearTimeout(timer);
-  return failure === undefined ? undefined : `status stream did not close cleanly: ${failure}`;
+  return failure === undefined ? undefined : `${NOTE.streamNotClosed}: ${failure}`;
 }
 
-export const SEEN_WRITE_FAILED = "printer last-seen time not recorded";
+export const SEEN_WRITE_FAILED = NOTE.seenNotRecorded;
 
 function markPrinterSeen(run: Run, printerId: string): void {
   try {

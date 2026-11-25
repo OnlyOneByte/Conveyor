@@ -1,23 +1,21 @@
-const PLAIN: [string, string][] = [
-  ["canceled on printer", "It was canceled on the printer."],
-  [
-    "cancel requested but the printer did not confirm the stop",
-    "The printer didn't confirm it stopped. Check the printer.",
-  ],
-  [
-    "cancel requested but transport",
-    "This printer can't be stopped from Conveyor. Stop it on the printer.",
-  ],
-  ["status stream did not close cleanly", "The printer's status updates didn't end cleanly."],
-  [
-    "printer last-seen time not recorded",
-    "Conveyor couldn't save when it last heard from the printer.",
-  ],
-  ["filament use not read", "Conveyor couldn't read how much filament this used."],
-  ["materialized profile not removed", "A temporary copy of the profile wasn't cleaned up."],
-  ["work dir not removed", "This job's working files weren't cleaned up."],
-  ["history not recorded after", "Conveyor had trouble saving this job to the history."],
-];
+import { NOTE, type NoteKind } from "@conveyor/shared/job-notes";
+
+export const SAID: Record<NoteKind, string> = {
+  canceledOnPrinter: "It was canceled on the printer.",
+  stopUnconfirmed: "The printer didn't confirm it stopped. Check the printer.",
+  cannotStop: "This printer can't be stopped from Conveyor. Stop it on the printer.",
+  streamNotClosed: "The printer's status updates didn't end cleanly.",
+  seenNotRecorded: "Conveyor couldn't save when it last heard from the printer.",
+  filamentNotRead: "Conveyor couldn't read how much filament this used.",
+  profileNotRemoved: "A temporary copy of the profile wasn't cleaned up.",
+  workDirNotRemoved: "This job's working files weren't cleaned up.",
+  historyNotRecorded: "Conveyor had trouble saving this job to the history.",
+};
+
+const isKind = (kind: string): kind is NoteKind => Object.hasOwn(SAID, kind);
+const PLAIN = Object.entries(NOTE).flatMap(([kind, prefix]): [string, string][] =>
+  isKind(kind) ? [[prefix, SAID[kind]]] : [],
+);
 
 const OTHER = "Conveyor noted something else about this job.";
 const BOUNDARY = new RegExp(`; (?=${PLAIN.map(([prefix]) => prefix).join("|")})`);

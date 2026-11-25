@@ -1,7 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { plainNote, readNote } from "./job-notes.js";
+import { NOTE } from "@conveyor/shared/job-notes";
+import { plainNote, readNote, SAID } from "./job-notes.js";
 
 describe("job notes", () => {
+  test("every note the worker writes maps to its own sentence, never the fallback", () => {
+    const sentences = Object.entries(NOTE).map(([kind, prefix]) => {
+      const note = readNote(`${prefix}: EBUSY /data/jobs/z`);
+      expect(note?.raw).toBe(`${prefix}: EBUSY /data/jobs/z`);
+      expect(note?.plain).toEqual([Object.entries(SAID).find(([k]) => k === kind)?.[1] ?? ""]);
+      return note?.plain[0];
+    });
+    expect(new Set(sentences).size).toBe(Object.keys(NOTE).length);
+    expect(sentences).not.toContain("Conveyor noted something else about this job.");
+  });
+
   test("worker notes read in plain words, with the raw text kept for Details", () => {
     const raw =
       "status stream did not close cleanly: socket hang up; work dir not removed: EBUSY: /data/jobs/x";

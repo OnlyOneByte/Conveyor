@@ -3,6 +3,7 @@ import {
   type GcodeArtifact,
   type JobTarget,
   type ModelArtifact,
+  NOTE,
   StageError,
 } from "@conveyor/shared";
 import { type PrintOutcome, printStage, ResumeFailedError, resumePrint } from "./print.js";
@@ -43,7 +44,7 @@ async function sliceStage(
   run.ctx.log(`profile ${target.profileId}: ${profile.source}`);
   const sliced = slicer.slice(model, profile.profile, run.ctx).finally(() =>
     profile.cleanup().catch((error: unknown) => {
-      run.notes.push(`materialized profile not removed: ${messageOf(error)}`);
+      run.notes.push(`${NOTE.profileNotRemoved}: ${messageOf(error)}`);
     }),
   );
   const gcode = await race(run, sliced);
@@ -52,7 +53,7 @@ async function sliceStage(
   return gcode;
 }
 
-export const FILAMENT_NOT_READ = "filament use not read";
+export const FILAMENT_NOT_READ = NOTE.filamentNotRead;
 
 async function noteFilament(run: Run, gcodePath: string | undefined): Promise<void> {
   if (!gcodePath) return;
@@ -111,7 +112,7 @@ export async function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promis
 function settleOutcome(run: Run, outcome: PrintOutcome): Promise<TerminalState> {
   switch (outcome) {
     case "canceled":
-      return settleCanceled(run, "canceled on printer");
+      return settleCanceled(run, NOTE.canceledOnPrinter);
     case "done":
       return settleDone(run);
     default:

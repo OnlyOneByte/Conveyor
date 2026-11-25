@@ -13,7 +13,8 @@
     "./node": "./src/node/index.ts",
     "./profile": "./src/profile.ts",
     "./profile-format": "./src/profile-format.ts",
-    "./status-lite": "./src/status-lite.ts"
+    "./status-lite": "./src/status-lite.ts",
+    "./job-notes": "./src/job-notes.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"

@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { computeStageTimings, StageError } from "@conveyor/shared";
+import { computeStageTimings, NOTE, StageError } from "@conveyor/shared";
 import { fallbackHandle, ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
@@ -20,14 +20,13 @@ async function stopPrinter(run: Run): Promise<string | undefined> {
   const attempt = run.print;
   if (!attempt || attempt.notStarted) return undefined;
   const { transport } = attempt;
-  if (!transport.cancel)
-    return `cancel requested but transport ${transport.id} cannot stop a print`;
+  if (!transport.cancel) return `${NOTE.cannotStop} ${transport.id} cannot stop a print`;
   try {
     await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer);
     run.ctx.log(`transport ${transport.id} cancel sent`);
     return undefined;
   } catch (e) {
-    const reason = `cancel requested but the printer did not confirm the stop: ${messageOf(e)}`;
+    const reason = `${NOTE.stopUnconfirmed}: ${messageOf(e)}`;
     run.ctx.log(reason);
     return reason;
   }
@@ -41,7 +40,7 @@ function noted(run: Run, text?: string): string | undefined {
 async function cleanup(run: Run): Promise<void> {
   const failure = await rm(run.opts.workDir, { recursive: true, force: true }).then(
     () => undefined,
-    (err: unknown) => `work dir not removed: ${messageOf(err)}`,
+    (err: unknown) => `${NOTE.workDirNotRemoved}: ${messageOf(err)}`,
   );
   if (failure) run.notes.push(failure);
 }
@@ -59,7 +58,7 @@ async function writeHistory(run: Run, outcome: TerminalRecord): Promise<Error | 
     }
   }
   return new Error(
-    `history not recorded after ${HISTORY_ATTEMPTS} attempts: ${messageOf(lastError)}`,
+    `${NOTE.historyNotRecorded} ${HISTORY_ATTEMPTS} attempts: ${messageOf(lastError)}`,
     { cause: lastError },
   );
 }
