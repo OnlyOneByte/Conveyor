@@ -52,49 +52,61 @@ case "$ARCH" in
   *) give_up "arch=$ARCH has no OrcaSlicer AppImage" ;;
 esac
 
-API="https://api.github.com/repos/${REPO}/releases/tags/v${RELEASE#v}"
+for_this_arch() {
+  [[ "$1" == *.AppImage && "$1" == *[Ll]inux* && ! "$1" =~ $EXCLUDE_RE && "$1" =~ $ARCH_RE ]]
+}
 
-echo "[install-orca] resolving ${RELEASE} release assets from ${API}"
-JSON=""
-fetch_api() { JSON="$(curl --proto '=https' --proto-redir '=https' -fsSL -H "Accept: application/vnd.github+json" "$API")"; }
-retry 4 fetch_api || give_up "failed to query the GitHub releases API ($API)"
-
-mapfile -t URLS < <(printf '%s' "$JSON" \
-  | grep -oE '"browser_download_url":[[:space:]]*"[^"]+"' \
-  | sed -E 's/.*"(https[^"]+)"/\1/')
-
-URL=""
-for u in "${URLS[@]}"; do
-  base="${u##*/}"
-  [[ "$base" == *.AppImage ]] || continue
-  [[ "$base" == *[Ll]inux* ]] || continue
-  [[ "$base" =~ $EXCLUDE_RE ]] && continue
-  if [[ "$base" =~ $ARCH_RE ]]; then URL="$u"; break; fi
-done
-
-if [[ -z "$URL" ]]; then
-  echo "[install-orca] assets seen in the ${RELEASE} release:" >&2
-  printf '  %s\n' "${URLS[@]##*/}" >&2
-  give_up "no Linux AppImage asset for arch=$ARCH in the ${RELEASE} release"
-fi
-
-SHA256="$(pinned_sha256 "${URL##*/}")"
-[[ -n "$SHA256" ]] || give_up "no pinned sha256 for ${URL##*/} (see docs/self-hosting.md, Bumping the OrcaSlicer pin)"
-
-echo "[install-orca] downloading ${URL##*/}"
 mkdir -p /opt/orca && cd /opt/orca
 img="orca.AppImage"
-download() { curl --proto '=https' --proto-redir '=https' -fSL "$URL" -o "$img"; }
-retry 3 download || give_up "failed to download ${URL##*/}"
+ASSET=""
+for cached in "${ORCA_CACHE:-/orca-cache}"/*.AppImage; do
+  if [[ ! -f "$cached" ]] || ! for_this_arch "${cached##*/}"; then continue; fi
+  ASSET="${cached##*/}"
+  echo "[install-orca] using ${ASSET} from the build cache"
+  cp "$cached" "$img"
+  break
+done
+
+if [[ -z "$ASSET" ]]; then
+  API="https://api.github.com/repos/${REPO}/releases/tags/v${RELEASE#v}"
+  echo "[install-orca] resolving ${RELEASE} release assets from ${API}"
+  JSON=""
+  fetch_api() { JSON="$(curl --proto '=https' --proto-redir '=https' -fsSL -H "Accept: application/vnd.github+json" "$API")"; }
+  retry 4 fetch_api || give_up "failed to query the GitHub releases API ($API)"
+
+  mapfile -t URLS < <(printf '%s' "$JSON" \
+    | grep -oE '"browser_download_url":[[:space:]]*"[^"]+"' \
+    | sed -E 's/.*"(https[^"]+)"/\1/')
+
+  URL=""
+  for u in "${URLS[@]}"; do
+    if for_this_arch "${u##*/}"; then URL="$u"; break; fi
+  done
+
+  if [[ -z "$URL" ]]; then
+    echo "[install-orca] assets seen in the ${RELEASE} release:" >&2
+    printf '  %s\n' "${URLS[@]##*/}" >&2
+    give_up "no Linux AppImage asset for arch=$ARCH in the ${RELEASE} release"
+  fi
+  ASSET="${URL##*/}"
+  [[ -n "$(pinned_sha256 "$ASSET")" ]] || give_up "no pinned sha256 for ${ASSET} (see docs/self-hosting.md, Bumping the OrcaSlicer pin)"
+
+  echo "[install-orca] downloading ${ASSET}"
+  download() { curl --proto '=https' --proto-redir '=https' -fSL "$URL" -o "$img"; }
+  retry 3 download || give_up "failed to download ${ASSET}"
+fi
+
+SHA256="$(pinned_sha256 "$ASSET")"
+[[ -n "$SHA256" ]] || give_up "no pinned sha256 for ${ASSET} (see docs/self-hosting.md, Bumping the OrcaSlicer pin)"
 if ! printf '%s  %s\n' "$SHA256" "$img" | sha256sum -c - >/dev/null; then
-  echo "[install-orca] ERROR: sha256 of ${URL##*/} does not match the pinned $SHA256" >&2
+  echo "[install-orca] ERROR: sha256 of ${ASSET} does not match the pinned $SHA256" >&2
   exit 1
 fi
 
 chmod +x "$img"
-./"$img" --appimage-extract >/dev/null || give_up "failed to extract ${URL##*/}"
+./"$img" --appimage-extract >/dev/null || give_up "failed to extract ${ASSET}"
 rm -rf /opt/orca/squashfs-root/resources/web
 ln -sf /opt/orca/squashfs-root/AppRun /opt/orca/AppRun
 chmod -R a+rX /opt/orca
 rm -f "$img" /opt/orca/NOT_INSTALLED
-echo "[install-orca] extracted ${URL##*/} (arch=$ARCH) → /opt/orca/AppRun"
+echo "[install-orca] extracted ${ASSET} (arch=$ARCH) → /opt/orca/AppRun"
