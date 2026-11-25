@@ -31,7 +31,7 @@ export interface ProfileDraft {
 
 export type ProfileErrors = Partial<Record<keyof ProfileDraft, string>>;
 
-export const profileId = ({ slicerId, name }: ProfileDraft) => `${slicerId}/${slugOf(name)}`;
+const profileId = ({ slicerId, name }: ProfileDraft) => `${slicerId}/${slugOf(name)}`;
 
 export const folderOf = (name: string) => `/profiles/${slugOf(name)}`;
 
