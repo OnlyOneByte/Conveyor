@@ -183,11 +183,14 @@ function anchor(clock: ProcessClock, at: number): void {
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
   const { clock, ...aged } = await reapAged(deps);
+  if (clock === null) return { ...aged, parts: [] };
   const partClock = Math.max(clock, deps.now() - PART_CLOCK_MAX_LAG_MS);
   return { ...aged, parts: await reapParts(deps, partClock) };
 }
 
-async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts"> & { clock: number }> {
+async function reapAged(
+  deps: RetentionDeps,
+): Promise<Omit<Reaped, "parts"> & { clock: number | null }> {
   const real = deps.now();
   const { startedAt, lastRunAt } = deps.state.read();
   const process = deps.process ?? processClock();
@@ -206,7 +209,7 @@ async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts"> & { 
       deps.log(
         "[retention] removed nothing: the stored reaper clock was missing, so the count starts again",
       );
-    return { dirs: [], uploads: [], clock: real };
+    return { dirs: [], uploads: [], clock: null };
   }
   const since = process.anchor ?? { clock: lastRunAt, at: process.mark() };
   process.anchor = since;
