@@ -8,7 +8,6 @@ import {
   PrintNotStartedError,
   type PrintStatus,
   StageError,
-  type TransportPlugin,
 } from "@conveyor/shared";
 import {
   checkpoint,
@@ -58,7 +57,7 @@ export async function printStage(
   await queue?.markSubmitted(attempt.handle);
   await checkpoint(run);
   run.state = "printing";
-  return watchPrint(run, transport, attempt.handle);
+  return watchPrint(run, attempt, attempt.handle);
 }
 
 export async function resumePrint(run: Run, handle: PrintHandle): Promise<PrintOutcome> {
@@ -67,13 +66,14 @@ export async function resumePrint(run: Run, handle: PrintHandle): Promise<PrintO
   const printer = await run.deps.resolvePrinter(handle.printerId).catch((err: unknown) => {
     throw new ResumeFailedError(messageOf(err));
   });
-  run.print = { transport, printer, ref: handle.ref, handle };
+  const attempt: PrintAttempt = { transport, printer, ref: handle.ref, handle };
+  run.print = attempt;
   await run.deps.publish(run.opts.jobId, "printing", {
     stage: "transport",
     message: RESUMED_MESSAGE,
     timings: computeStageTimings(run.enters),
   });
-  return watchPrint(run, transport, handle, true);
+  return watchPrint(run, attempt, handle, true);
 }
 
 function pollCancelFlag(run: Run): () => void {
@@ -145,7 +145,7 @@ function markPrinterSeen(run: Run, printerId: string): void {
 
 async function watchPrint(
   run: Run,
-  transport: TransportPlugin,
+  { transport, printer }: PrintAttempt,
   handle: PrintHandle,
   resuming = false,
 ): Promise<PrintOutcome> {
@@ -153,7 +153,7 @@ async function watchPrint(
   const stopPolling = pollCancelFlag(run);
   const closing = new AbortController();
   const signal = AbortSignal.any([run.signal, closing.signal]);
-  const statuses = transport.status(handle, signal)[Symbol.asyncIterator]();
+  const statuses = transport.status(handle, signal, printer)[Symbol.asyncIterator]();
   try {
     while (true) {
       const next = await race(run, statuses.next()).catch((err: unknown) => {
