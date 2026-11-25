@@ -24,40 +24,45 @@ const script = steps.map((step) => field(step, "run")).find((run) => typeof run 
 const bin = mkdtempSync(join(tmpdir(), "pr-meta-"));
 writeFileSync(
   join(bin, "gh"),
-  `#!/usr/bin/env bash\ncase "$2" in\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  */issues/503) echo "gh: Service Unavailable (HTTP 503)" >&2; exit 1 ;;\n  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;\nesac\n`,
+  `#!/usr/bin/env bash\ncase "$2" in\n  */pulls/7) printf '%s' "$FAKE_PR" ;;\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  */issues/503) echo "gh: Service Unavailable (HTTP 503)" >&2; exit 1 ;;\n  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;\nesac\n`,
 );
 chmodSync(join(bin, "gh"), 0o755);
 
 afterAll(() => rmSync(bin, { recursive: true, force: true }));
 
 interface Pr {
+  number?: number;
   author?: string;
   title?: string;
-  body?: string;
+  body?: string | null;
   labels?: string[];
 }
 
 function check(pr: Pr) {
+  const live = {
+    user: { login: pr.author ?? "OnlyOneByte" },
+    title: pr.title ?? "ci(guard): check PR metadata in CI",
+    body: pr.body === undefined ? "## What\r\n\r\nCloses #425\r\n" : pr.body,
+    labels: (pr.labels ?? ["agent", "area/infra"]).map((name) => ({ name })),
+  };
   const result = Bun.spawnSync(["bash", "-c", script], {
     env: {
       PATH: `${bin}:${process.env.PATH}`,
       REPO: "OnlyOneByte/Conveyor",
       AGENT_LOGIN: "OnlyOneByte",
-      PR_AUTHOR: pr.author ?? "OnlyOneByte",
-      PR_TITLE: pr.title ?? "ci(guard): check PR metadata in CI",
-      PR_BODY: pr.body ?? "## What\r\n\r\nCloses #425\r\n",
-      PR_LABELS: JSON.stringify(pr.labels ?? ["agent", "area/infra"]),
+      PR_NUMBER: String(pr.number ?? 7),
+      FAKE_PR: JSON.stringify(live),
     },
   });
   return { code: result.exitCode, out: result.stdout.toString() };
 }
 
 describe("the pr-meta job", () => {
-  test("re-runs when the title, body or labels change, and reads issues only", () => {
+  test("re-runs when the title, body or labels change, and only reads issues and PRs", () => {
     expect(field(field(field(workflow, "on"), "pull_request"), "types")).toEqual(
       expect.arrayContaining(["opened", "edited", "synchronize", "labeled", "unlabeled"]),
     );
-    expect(field(workflow, "permissions")).toEqual({ issues: "read" });
+    expect(field(workflow, "permissions")).toEqual({ issues: "read", "pull-requests": "read" });
     expect(steps.map((step) => String(field(step, "uses") ?? ""))).not.toContainEqual(
       expect.stringContaining("checkout"),
     );
@@ -66,6 +71,29 @@ describe("the pr-meta job", () => {
   test("never cancels its own runs, because a cancelled required check blocks the merge", () => {
     expect(field(workflow, "concurrency")).toBeUndefined();
     expect(field(field(field(workflow, "jobs"), "pr-meta"), "concurrency")).toBeUndefined();
+  });
+
+  test("reads the PR as it is now, not the event that started the run", () => {
+    const env = field(steps[0], "env");
+    expect(Object.keys(isRecord(env) ? env : {}).sort()).toEqual([
+      "AGENT_LOGIN",
+      "GH_TOKEN",
+      "PR_NUMBER",
+      "REPO",
+    ]);
+    expect(script).toContain('gh api "repos/$REPO/pulls/$PR_NUMBER"');
+  });
+
+  test("fails, asking for a re-run, when the PR can't be read", () => {
+    const { code, out } = check({ number: 8 });
+    expect(code).toBe(1);
+    expect(out).toContain("Could not read PR #8, so re-run this check.");
+  });
+
+  test("treats a PR with no body as having no issue line", () => {
+    const { code, out } = check({ body: null });
+    expect(code).toBe(1);
+    expect(out).toContain("needs a line");
   });
 
   test("passes a well-formed agent PR", () => {
