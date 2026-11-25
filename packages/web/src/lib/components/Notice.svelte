@@ -1,0 +1,39 @@
+<script lang="ts">
+  export let tone: "warn" | "err";
+  export let title: string;
+</script>
+
+<div class="notice {tone}" role={tone === "err" ? "alert" : "status"}>
+  <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
+    {#if tone === "err"}
+      <circle cx="10" cy="10" r="7.75" />
+      <path d="M10 6v4.75M10 13.75v.01" />
+    {:else}
+      <path d="M10 3 17.75 16.5H2.25Z" />
+      <path d="M10 8.25v3.5M10 14v.01" />
+    {/if}
+  </svg>
+  <div class="words">
+    <b>{title}</b>
+    <slot />
+  </div>
+  {#if $$slots.action}<div class="act"><slot name="action" /></div>{/if}
+</div>
+
+<style>
+  .notice {
+    --tone: var(--live);
+    display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) var(--s4) var(--s3) var(--s3);
+    border: 1.5px solid color-mix(in oklch, var(--tone) 82%, var(--bg)); border-radius: var(--r-control);
+    background: color-mix(in oklch, var(--tone) 8%, var(--paper)); color: var(--ink);
+    font-size: var(--fs-chip); line-height: 1.45;
+  }
+  .err { --tone: var(--err); }
+  .icon {
+    flex: none; width: 20px; height: 20px; margin-top: 1px;
+    fill: none; stroke: var(--tone); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .words { display: grid; flex: 1; gap: 2px; min-width: 0; color: var(--muted); }
+  .act { flex: none; }
+  b { color: var(--ink); font-size: var(--fs-body); font-weight: 650; line-height: 1.3; }
+</style>
