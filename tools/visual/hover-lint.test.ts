@@ -1,20 +1,13 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
-import { type Browser, chromium } from "playwright";
+import { expect, test } from "bun:test";
+import { browserPages } from "./fixtures.ts";
 import { hoverProblem } from "./hover-lint.ts";
 
-let browser: Browser;
-beforeAll(async () => {
-  browser = await chromium.launch();
-});
-afterAll(async () => {
-  await browser.close();
-});
+const withPage = browserPages();
 
 const ORIGIN = "http://lint.test";
 
-async function styled(css: string, imported = "") {
-  const page = await browser.newPage();
-  try {
+const styled = (css: string, imported = "") =>
+  withPage(async (page) => {
     await page.route(`${ORIGIN}/**`, (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path === "/a.css") return route.fulfill({ contentType: "text/css", body: imported });
@@ -24,11 +17,8 @@ async function styled(css: string, imported = "") {
       });
     });
     await page.goto(`${ORIGIN}/`);
-    return await hoverProblem(page);
-  } finally {
-    await page.close();
-  }
-}
+    return hoverProblem(page);
+  });
 
 const LOOSE = ":hover outside @media (hover: hover)";
 

@@ -1,4 +1,5 @@
-import { chromium, type Page } from "playwright";
+import { afterAll, beforeAll } from "bun:test";
+import { type Browser, chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
 
 export function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
@@ -12,11 +13,21 @@ export function solid(width: number, height: number, rgb: [number, number, numbe
   return PNG.sync.write(png);
 }
 
-export async function withPage<T>(run: (page: Page) => Promise<T>): Promise<T> {
-  const browser = await chromium.launch();
-  try {
-    return await run(await browser.newPage({ viewport: { width: 400, height: 300 } }));
-  } finally {
-    await browser.close();
-  }
+export function browserPages() {
+  let browser: Browser | undefined;
+  beforeAll(async () => {
+    browser = await chromium.launch();
+  });
+  afterAll(async () => {
+    await browser?.close();
+  });
+  return async <T>(run: (page: Page) => Promise<T>): Promise<T> => {
+    if (!browser) throw new Error("browserPages: call it at the top of a test file");
+    const context = await browser.newContext({ viewport: { width: 400, height: 300 } });
+    try {
+      return await run(await context.newPage());
+    } finally {
+      await context.close();
+    }
+  };
 }
