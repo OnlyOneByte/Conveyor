@@ -21,6 +21,7 @@ import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
+import { profileVolume } from "../profile-content.js";
 import { describeIssues, listSlicers, listTransports } from "../validate.js";
 import { registerProfileContentRoutes } from "./catalog-content.js";
 
@@ -99,9 +100,16 @@ export async function registerCatalogRoutes(
 
   app.get("/catalog/slicers", async () => listSlicers());
 
-  app.get("/catalog/profiles", async () =>
-    dbListProfiles(openDb()).map((p) => ({ ...p, bundled: BUNDLED_PROFILE_IDS.has(p.id) })),
-  );
+  app.get("/catalog/profiles", async () => {
+    const db = openDb();
+    return Promise.all(
+      dbListProfiles(db).map(async (p) => ({
+        ...p,
+        bundled: BUNDLED_PROFILE_IDS.has(p.id),
+        volume: (await profileVolume(db, p)) ?? undefined,
+      })),
+    );
+  });
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);

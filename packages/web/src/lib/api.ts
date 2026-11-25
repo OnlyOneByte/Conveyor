@@ -128,6 +128,7 @@ export interface CatalogProfile {
   gcodeFlavor: string;
   hasEditableContent?: boolean;
   bundled?: boolean;
+  volume?: { x: number; y: number; z: number };
 }
 
 export type CatalogSlicer = { id: string; name: string };

@@ -145,7 +145,7 @@
             <section>
               <h2>Which file?</h2>
               <UploadDrop
-                name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
+                {file} {uploading} ready={!!uploadId} bed={profile?.volume} printer={printer?.name}
                 error={uploadError} why={uploadWhy} on:file={choose} on:clear={clear}
               />
             </section>

@@ -7,6 +7,7 @@ export * from "./job-view.js";
 export * from "./log-errors.js";
 export * from "./param-schema.js";
 export * from "./plugins.js";
+export * from "./print-volume.js";
 export * from "./profile.js";
 export * from "./queue-mode.js";
 export * from "./registry.js";

@@ -1,10 +1,13 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { fileSize } from "#lib/make.js";
+  import type { Size } from "#lib/stl-size.js";
   import ErrorDetails from "./ErrorDetails.svelte";
+  import StlFit from "./StlFit.svelte";
 
-  export let name = "";
-  export let size = 0;
+  export let file: File | null = null;
+  export let bed: Size | undefined = undefined;
+  export let printer = "";
   export let uploading = false;
   export let ready = false;
   export let error = "";
@@ -12,6 +15,8 @@
 
   const dispatch = createEventDispatcher<{ file: File; clear: null }>();
 
+  $: fileName = file?.name ?? "";
+  $: size = file?.size ?? 0;
   let over = false;
   let input: HTMLInputElement;
 
@@ -34,14 +39,15 @@
     on:change={(event) => (take(event.currentTarget.files?.[0]), (event.currentTarget.value = ""))}
   />
   {#if uploading}
-    <b>Uploading {name}…</b>
+    <b>Uploading {fileName}…</b>
   {:else if ready}
-    <b>{name}</b><span>{fileSize(size)} · ready to print. Drop another file to replace it.</span>
+    <b>{fileName}</b><span>{fileSize(size)} · ready to print. Drop another file to replace it.</span>
   {:else}
     <b>Drop an STL file here</b><span>or click to choose one</span>
   {/if}
 </label>
 {#if error}<p id="upload-error" class="error" role="alert">{error}</p><ErrorDetails detail={why} />{/if}
+{#if ready && file}<StlFit {file} {bed} {printer} />{/if}
 {#if ready}
   <button type="button" class="btn clear" on:click={() => (dispatch("clear", null), input.focus())}>
     Remove file
