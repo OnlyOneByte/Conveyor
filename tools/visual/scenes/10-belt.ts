@@ -200,4 +200,16 @@ export const scenes: Scene[] = [
       collapsed,
     ],
   },
+  {
+    name: "belt-ends-down",
+    route: "/jobs",
+    ready: "h1",
+    steps: [
+      { fulfill: "**/api/jobs-history/counts*", method: "GET", status: 502, json: {} },
+      { fulfill: "**/api/jobs/needs-you", method: "GET", status: 502, json: {} },
+      { follow: "/printers" },
+      { waitFor: "text=Can't reach Conveyor >> visible=true", timeout: 15000 },
+      { wait: 400 },
+    ],
+  },
 ];

@@ -214,6 +214,6 @@ describe("moonraker status", () => {
     await expect(run).rejects.toThrow();
     expect(seen).toEqual(["transferring", "printing"]);
     expect(calls).toHaveLength(1);
-    expect(calls[0].init?.signal).toBe(controller.signal);
+    expect(calls[0].init?.signal?.aborted).toBe(true);
   });
 });

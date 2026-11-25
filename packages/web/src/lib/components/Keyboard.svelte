@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { fetchJobHistory } from "#lib/api.js";
+  import { shortcuts } from "#lib/app-shortcuts.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { type Command, jobCommands, printerCommands } from "#lib/commands.js";
   import { theme } from "#lib/preferences.js";
-  import { shortcuts } from "#lib/app-shortcuts.js";
+  import { goto } from "$app/navigation";
   import CommandMenu from "./CommandMenu.svelte";
   import ShortcutSheet from "./ShortcutSheet.svelte";
 
@@ -14,7 +14,8 @@
   let commands: Command[] = [];
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
-  const toggleTheme = () => theme.set(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  const toggleTheme = () =>
+    theme.set(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   const actions: Command[] = [
     { group: "Actions", label: "New print", hint: "N", run: () => goto("/") },
     { group: "Actions", label: "Go to Make", hint: "G M", run: () => goto("/") },
@@ -38,9 +39,13 @@
   }
 
   onMount(() => {
-    const off = [shortcuts.register("mod+k", openMenu), ...actions.map(({ hint, run }) => shortcuts.register(hint.toLowerCase(), run))];
+    const off = [
+      shortcuts.register("mod+k", openMenu),
+      ...actions.map(({ hint, run }) => shortcuts.register(hint.toLowerCase(), run)),
+    ];
     const listen = (event: KeyboardEvent) => {
-      if (!document.querySelector("dialog[open]") && shortcuts.handle(event)) event.preventDefault();
+      if (!document.querySelector("dialog[open]") && shortcuts.handle(event))
+        event.preventDefault();
     };
     window.addEventListener("keydown", listen);
     return () => {

@@ -1,12 +1,14 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { fileSize } from "#lib/make.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
 
   export let name = "";
   export let size = 0;
   export let uploading = false;
   export let ready = false;
   export let error = "";
+  export let why: string | null = null;
 
   const dispatch = createEventDispatcher<{ file: File; clear: null }>();
 
@@ -39,7 +41,7 @@
     <b>Drop an STL file here</b><span>or click to choose one</span>
   {/if}
 </label>
-{#if error}<p id="upload-error" class="error" role="alert">{error}</p>{/if}
+{#if error}<p id="upload-error" class="error" role="alert">{error}</p><ErrorDetails detail={why} />{/if}
 {#if ready}
   <button type="button" class="btn clear" on:click={() => (dispatch("clear", null), input.focus())}>
     Remove file

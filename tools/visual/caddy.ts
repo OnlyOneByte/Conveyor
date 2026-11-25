@@ -1,4 +1,29 @@
-export const CADDY_IMAGE = "caddy:2";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const entries = (value: unknown): [string, unknown][] =>
+  typeof value === "object" && value !== null ? Object.entries(value) : [];
+const field = (value: unknown, key: string): unknown =>
+  entries(value).find(([name]) => name === key)?.[1];
+
+export function composeCaddyImage(compose: string): string {
+  const image = field(field(field(Bun.YAML.parse(compose), "services"), "caddy"), "image");
+  if (typeof image !== "string" || !image.startsWith("caddy:"))
+    throw new Error("docker-compose.yml's caddy service has no caddy image");
+  if (!/^caddy:[^@\s]+@sha256:[0-9a-f]{64}$/.test(image))
+    throw new Error(`docker-compose.yml's ${image} isn't pinned by digest`);
+  return image;
+}
+
+export const CADDY_IMAGE = composeCaddyImage(
+  readFileSync(join(import.meta.dir, "../../docker-compose.yml"), "utf8"),
+);
+
+const MODULES: Record<string, string[]> = {
+  handler: ["encode", "headers", "reverse_proxy", "rewrite", "subroute"],
+  protocol: [],
+  provider: [],
+};
 
 export interface CaddyPorts {
   port: number;
@@ -25,18 +50,34 @@ export function visualCaddyfile(source: string, ports: CaddyPorts): string {
   return steps.reduce((text, [from, to]) => rewrite(text, from, to), source);
 }
 
-const entries = (value: unknown): [string, unknown][] =>
-  typeof value === "object" && value !== null ? Object.entries(value) : [];
-const field = (value: unknown, key: string): unknown =>
-  entries(value).find(([name]) => name === key)?.[1];
 const unexpected = (value: unknown, allowed: string[], what: string): string[] =>
   entries(value)
     .map(([name]) => name)
     .filter((name) => !allowed.includes(name))
     .map((name) => `${what} "${name}"`);
+const objects = (value: unknown): unknown[] =>
+  typeof value === "object" && value !== null
+    ? [value, ...entries(value).flatMap(([, inner]) => objects(inner))]
+    : [];
+const modules = (value: unknown): string[] =>
+  Object.entries(MODULES).flatMap(([kind, allowed]) => {
+    const name = field(value, kind);
+    return typeof name === "string" && !allowed.includes(name)
+      ? [`a ${kind} module production doesn't use ("${name}")`]
+      : [];
+  });
+const proxy = (value: unknown): string[] =>
+  field(value, "handler") === "reverse_proxy"
+    ? [
+        ...unexpected(value, ["handler", "upstreams"], "reverse_proxy option"),
+        ...entries(field(value, "upstreams")).flatMap(([, upstream]) =>
+          unexpected(upstream, ["dial"], "upstream option"),
+        ),
+      ]
+    : [];
 const dials = (value: unknown): string[] =>
   entries(value).flatMap(([name, inner]) =>
-    name === "dial" && typeof inner === "string" ? [inner] : dials(inner),
+    (name === "dial" || name === "upstream") && typeof inner === "string" ? [inner] : dials(inner),
   );
 
 export function adaptedProblem(config: unknown, ports: CaddyPorts): string | null {
@@ -66,6 +107,7 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
     ...dials(config)
       .filter((dial) => !upstreams.includes(dial))
       .map((dial) => `an upstream at ${dial}`),
+    ...objects(config).flatMap((value) => [...modules(value), ...proxy(value)]),
   ];
   return problems.length > 0
     ? `the visual Caddy config isn't loopback-only: ${problems.join("; ")}`

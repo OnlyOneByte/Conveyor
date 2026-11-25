@@ -91,7 +91,11 @@ export interface TransportPlugin extends PluginManifest {
   stage: "transport";
   acceptsFlavors: string[];
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
-  status(handle: PrintHandle, signal?: AbortSignal): AsyncIterable<PrintStatus>;
-  cancel?(handle: PrintHandle): Promise<void>;
+  status(
+    handle: PrintHandle,
+    signal?: AbortSignal,
+    target?: PrinterTarget,
+  ): AsyncIterable<PrintStatus>;
+  cancel?(handle: PrintHandle, target?: PrinterTarget): Promise<void>;
   handleFor?(target: PrinterTarget, ref: string): PrintHandle;
 }

@@ -23,7 +23,7 @@ async function stopPrinter(run: Run): Promise<string | undefined> {
   if (!transport.cancel)
     return `cancel requested but transport ${transport.id} cannot stop a print`;
   try {
-    await transport.cancel(attempt.handle ?? fallbackHandle(attempt));
+    await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer);
     run.ctx.log(`transport ${transport.id} cancel sent`);
     return undefined;
   } catch (e) {

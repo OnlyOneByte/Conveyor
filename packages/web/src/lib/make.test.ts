@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { FormUiHints } from "@conveyor/shared";
 import {
-  dockLine, fileSize, knownParams, latestOnly, measurements, printerStatus,
+  dockLine,
+  fileSize,
+  knownParams,
+  latestOnly,
+  measurements,
+  printerStatus,
 } from "./make.js";
 
 const ui: FormUiHints = {
@@ -31,7 +36,11 @@ describe("printerStatus", () => {
     const unreachable = new Set(["ender"]);
     const answered = new Set(["voron", "ender", "prusa"]);
     const status = (id: string, heard = answered) => printerStatus(id, busy, unreachable, heard);
-    expect(["voron", "ender", "prusa"].map((id) => status(id))).toEqual(["Busy", "Not reachable", "Ready"]);
+    expect(["voron", "ender", "prusa"].map((id) => status(id))).toEqual([
+      "Busy",
+      "Not reachable",
+      "Ready",
+    ]);
     expect(status("prusa", new Set())).toBe("");
     expect(status("voron", new Set())).toBe("Busy");
   });
@@ -77,7 +86,8 @@ describe("latestOnly", () => {
   });
 
   test("drops a pending run, and reports a failure of the latest", async () => {
-    const send = (fail: boolean) => (fail ? Promise.reject(new TypeError("x")) : Promise.resolve(1));
+    const send = (fail: boolean) =>
+      fail ? Promise.reject(new TypeError("x")) : Promise.resolve(1);
     const uploads = latestOnly(send);
     const dropped = uploads.run(false);
     uploads.drop();
@@ -99,5 +109,6 @@ describe("knownParams", () => {
     expect(knownParams({ gridY: 1, old: true }, ref)).toEqual({ gridY: 1 });
     expect(knownParams(undefined, schema)).toEqual({});
     expect(knownParams({ gridX: 2 }, null)).toEqual({});
+    expect(knownParams({ toString: 1, constructor: 2, gridX: 2 }, schema)).toEqual({ gridX: 2 });
   });
 });

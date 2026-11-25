@@ -25,7 +25,10 @@ export const scenes: Scene[] = [
     name: "receipt-failed",
     route: "/jobs/seed-failed",
     ready: "text=didn't finish",
-    steps: [{ wait: 1200 }],
+    steps: [
+      { waitFor: "section.note >> text=work dir not removed: /data/jobs/seed-failed is busy" },
+      { wait: 1200 },
+    ],
   },
   {
     name: "receipt-outside-bed",

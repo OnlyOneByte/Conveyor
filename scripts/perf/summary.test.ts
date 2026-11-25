@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { median, readRun, summarize } from "./summary";
+import { median, readRun, shortfall, summarize } from "./summary";
 
 const lighthouse = (values: Record<string, number>, extra: object = {}) =>
   JSON.stringify({
@@ -46,5 +46,20 @@ describe("summarize", () => {
     expect(summarize([{ interactive: 2703 }], [{ interactive: 2702.6 }])).toContain(
       "| Time to interactive | 2,703 ms | 2,703 ms | 0 ms |",
     );
+  });
+});
+
+describe("shortfall", () => {
+  test("names each side with fewer than half its runs", () => {
+    expect(shortfall({ main: 4, patch: 0 }, 10)).toEqual([
+      "main has 4 of 10 runs; at least half must succeed",
+      "patch has 0 of 10 runs; at least half must succeed",
+    ]);
+  });
+
+  test("passes at exactly half, rounding an odd count up", () => {
+    expect(shortfall({ main: 5, patch: 10 }, 10)).toEqual([]);
+    expect(shortfall({ main: 3 }, 5)).toEqual([]);
+    expect(shortfall({ main: 2 }, 5)).toEqual(["main has 2 of 5 runs; at least half must succeed"]);
   });
 });

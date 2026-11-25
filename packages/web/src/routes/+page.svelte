@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { jobSent, titled } from "#lib/belt.js";
@@ -14,10 +12,11 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
-  import { couldnt, said } from "#lib/said.js";
-  import {
-    AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
-  } from "#lib/rerun.js";
+  import type { RerunPayload } from "#lib/rerun.js";
+  import { AlreadyRetried, linkedRetry, sendJob, takeRerun } from "#lib/rerun.js";
+  import { detailOf, failed, said } from "#lib/said.js";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -65,10 +64,9 @@
     profileId = compatible[0].id;
   $: profile = compatible.find((pr) => pr.id === profileId);
 
-  let file: File | null = null;
-  let uploadId: string | null = null;
-  let uploading = false;
-  let uploadError = "";
+  let [file, uploadId]: [File | null, string | null] = [null, null];
+  let [uploading, uploadError] = [false, ""];
+  let [uploadWhy, errorWhy]: [string | null, string | null] = [null, null];
 
   const uploads = latestOnly(uploadStl);
 
@@ -83,25 +81,27 @@
     const done = await uploads.run(chosen);
     if (!done) return;
     uploading = false;
-    if (!done.ok) return void (uploadError = couldnt(`upload ${chosen.name}`, done.error));
+    if (!done.ok) {
+      [uploadError, uploadWhy] = failed(`upload ${chosen.name}`, done.error);
+      return;
+    }
     uploadId = done.value.uploadId;
     announce(`${chosen.name} is uploaded and ready to print.`);
   }
 
   function clear() {
     uploads.drop();
-    [file, uploadId, uploading, uploadError] = [null, null, false, ""];
+    [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
-  let busy = false;
-  let sent = false;
+  let [busy, sent] = [false, false];
   let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
 
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
-  $: name = upload ? (file?.name ?? "Your STL") : made;
-  $: summary = printer ? `${name} on ${printer.name}` : name;
+  $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
+  $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -116,13 +116,13 @@
       const res = await sendJob({ generator, printerId, profileId }, retryOf);
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
-      announce(`${name} sent to ${printer.name}.`);
+      announce(`${jobLabel} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = said(e);
+      [error, errorWhy] = [said(e), detailOf(e)];
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -146,7 +146,7 @@
               <h2>Which file?</h2>
               <UploadDrop
                 name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
-                error={uploadError} on:file={choose} on:clear={clear}
+                error={uploadError} why={uploadWhy} on:file={choose} on:clear={clear}
               />
             </section>
           {:else if gen}
@@ -175,7 +175,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} />
   </form>
 </section>
 

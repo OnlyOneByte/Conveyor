@@ -65,6 +65,10 @@ jobs:
         with:
           node-version: 26
 
+      - name: Install Lighthouse from its lockfile
+        working-directory: tools/scripts/perf
+        run: bun install --frozen-lockfile
+
       - name: Install and build both
         run: |
           for side in base head; do
@@ -79,7 +83,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "### Make (\`/\`), Lighthouse 12.8.2 mobile, simulated throttling, behind Caddy with compression"
+            echo "### Make (\`/\`), Lighthouse $(jq -r .dependencies.lighthouse tools/scripts/perf/package.json) mobile, simulated throttling, behind Caddy with compression"
             echo
             bun tools/scripts/perf/summary.ts out "base $(git -C base rev-parse --short HEAD)" "head $(git -C head rev-parse --short HEAD)"
           } | tee -a "$GITHUB_STEP_SUMMARY"

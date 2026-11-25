@@ -200,4 +200,17 @@ export const scenes: Scene[] = [
     { waitFor: "text=Machine, line 3: this isn't valid JSON." },
     { wait: 500 },
   ]),
+  {
+    name: "profile-load-details",
+    route: "/printers",
+    ready: "h1",
+    steps: [
+      { fulfill: "**/api/catalog/profiles", method: "GET", status: 500, json: {} },
+      { follow: "/settings/profiles/orca/klipper-pla-0.2" },
+      { waitFor: "text=Conveyor hit a problem loading this.", timeout: 5000 },
+      { click: "summary >> text=Details" },
+      { waitFor: "pre >> text=GET /api/catalog/profiles 500" },
+      { wait: 300 },
+    ],
+  },
 ];

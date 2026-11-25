@@ -11,7 +11,11 @@ head=$(cd "$2" && pwd)
 out="$3"
 runs="${RUNS:-10}"
 caddy_image="${CADDY_IMAGE:-caddy:2@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b}"
-lighthouse="${LIGHTHOUSE:-lighthouse@12.8.2}"
+lighthouse="${LIGHTHOUSE:-$here/node_modules/.bin/lighthouse}"
+if ! command -v "$lighthouse" > /dev/null; then
+  echo "$lighthouse not found: run bun install --frozen-lockfile in $here, or set LIGHTHOUSE to a Lighthouse command or path" >&2
+  exit 1
+fi
 mkdir -p "$out"
 data=$(mktemp -d)
 caddy="conveyor-perf-caddy-$$"
@@ -60,22 +64,22 @@ for port in "$BASE_PORT" "$HEAD_PORT"; do
 done
 
 measure() {
-  if ! npx --yes "$lighthouse" "$1" --quiet --only-categories=performance \
-    --output=json --output-path="$2" \
+  if ! "$lighthouse" "$1" --quiet --only-categories=performance \
+    --output=json --output-path="$out/$2.json" \
     --chrome-flags="--headless=new --ignore-certificate-errors --no-sandbox"; then
-    rm -f "$2"
+    if [ -f "$out/$2.json" ]; then mv "$out/$2.json" "$out/failed-$2.json"; fi
     return 1
   fi
 }
 port_of() { if [ "$1" = base ]; then echo "$BASE_PORT"; else echo "$HEAD_PORT"; fi; }
 
 for variant in base head; do
-  measure "https://localhost:$(port_of "$variant")/" "$out/warmup-$variant.json" || echo "warm-up $variant failed"
+  measure "https://localhost:$(port_of "$variant")/" "warmup-$variant" || echo "warm-up $variant failed"
 done
 for i in $(seq 1 "$runs"); do
   if [ $((i % 2)) -eq 1 ]; then order="base head"; else order="head base"; fi
   for variant in $order; do
-    if measure "https://localhost:$(port_of "$variant")/" "$out/$variant-$i.json"; then
+    if measure "https://localhost:$(port_of "$variant")/" "$variant-$i"; then
       echo "run $i $variant done"
     else
       echo "run $i $variant failed; left out"

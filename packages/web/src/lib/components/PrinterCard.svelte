@@ -10,7 +10,11 @@
   export let edit: () => void;
 
   $: stuck = card.tone === "offline" && card.waiting.length > 0;
-  $: waitTitle = !card.waiting.length ? "Nothing waiting" : stuck ? `${card.waiting.length} waiting · can't start until it's back` : `${card.waiting.length} waiting`;
+  $: waitTitle = !card.waiting.length
+    ? "Nothing waiting"
+    : stuck
+      ? `${card.waiting.length} waiting · can't start until it's back`
+      : `${card.waiting.length} waiting`;
 </script>
 
 <li class="card {card.tone}" aria-labelledby="printer-{printer.id}">

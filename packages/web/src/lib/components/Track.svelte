@@ -1,8 +1,22 @@
 <script lang="ts">
-  import { BINS, centre, type Group, IDLE, MIN_CHIP_PX, merge, OFFLINE, onRail, type RailState, SPANS, STAGE_LABELS, today, type TrackJob } from "#lib/track.js";
   import { type Departure, departures, hopDistance } from "#lib/motion.js";
   import { prefersReducedMotion } from "#lib/preferences.js";
   import { step } from "#lib/shortcuts.js";
+  import {
+    BINS,
+    type Group,
+    IDLE,
+    OFFLINE,
+    onRail,
+    placeGroups,
+    type RailState,
+    SPANS,
+    STAGE_LABELS,
+    type TrackJob,
+    today,
+    type Widths,
+  } from "#lib/track.js";
+  import { focusedIndex } from "#lib/ui/behaviour.js";
   import Chip from "./Chip.svelte";
   import NeedsYou from "./NeedsYou.svelte";
 
@@ -29,12 +43,15 @@
   $: failed = jobs.filter((j) => j.state === "failed").length;
   $: byId = new Map(jobs.map((j) => [j.id, j]));
   const RAIL: RailState[] = ["generating", "slicing", "transferring", "printing"];
-  $: stages = RAIL.map((state) => ({ state, start: SPANS[state][0], on: moving.some((j) => j.state === state) }));
+  $: stages = RAIL.map((state) => ({
+    state,
+    start: SPANS[state][0],
+    on: moving.some((j) => j.state === state),
+  }));
   $: layout(moving, railPx, widths, groupWidths);
 
-  function layout(list: TrackJob[], px: number, sizes: Record<string, number>, grouped: Record<string, number>) {
-    const placed = list.flatMap((j) => (onRail(j.state) ? [{ id: j.id, x: centre(j.state, j.progress ?? 0) * px, width: sizes[j.id] || MIN_CHIP_PX }] : []));
-    groups = merge(placed, px, groups, (m) => grouped[m.map((p) => p.id).join(" ")] || Math.max(...m.map((p) => p.width)));
+  function layout(list: TrackJob[], px: number, sizes: Widths, grouped: Widths) {
+    groups = placeGroups(list, px, sizes, grouped, groups);
     for (const g of groups) for (const id of g.ids) lefts.set(id, Math.round(g.x - g.width / 2));
   }
   $: if (ended.length) leave(ended);
@@ -50,7 +67,7 @@
     const by = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!by) return;
     const stops = [...rail.querySelectorAll<HTMLElement>("[data-stop]")];
-    const at = stops.findIndex((el) => el === document.activeElement);
+    const at = focusedIndex(stops);
     if (at < 0) return;
     const to = stops[step(at, by, stops.length)];
     if (to?.dataset.stop) active = Number(to.dataset.stop);

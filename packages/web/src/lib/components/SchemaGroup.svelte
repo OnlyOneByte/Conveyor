@@ -11,9 +11,10 @@
 
   $: fields = group.fields.filter((f) => schemaProps[f]);
   $: summary = groupSummary(group, schemaProps, value, ui);
-  $: cur = Object.fromEntries(
-    fields.map((f) => [f, numOf(schemaProps, value, f)]),
-  ) as Record<string, number>;
+  $: cur = Object.fromEntries(fields.map((f) => [f, numOf(schemaProps, value, f)])) as Record<
+    string,
+    number
+  >;
 </script>
 
 <div class="group">

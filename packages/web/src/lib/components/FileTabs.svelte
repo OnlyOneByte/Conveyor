@@ -1,6 +1,5 @@
 <script lang="ts">
   import { fileLabel } from "#lib/profile-check.js";
-
   export let files: string[];
   export let current: string;
   export let panel: string;

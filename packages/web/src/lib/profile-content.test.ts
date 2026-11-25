@@ -80,4 +80,3 @@ describe("the editor's actions", () => {
     expect(gate({ ...ready, tidied: false }).tidy).toBe(false);
   });
 });
-

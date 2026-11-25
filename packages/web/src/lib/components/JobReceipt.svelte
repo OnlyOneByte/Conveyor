@@ -35,6 +35,12 @@
 
 <div class="receipt">
   <slot />
+  {#if job.notes?.trim()}
+    <section class="note">
+      <h2>Note</h2>
+      <p>{job.notes.trim()}</p>
+    </section>
+  {/if}
   {#if rows.length}
     <section>
       <h2>Settings</h2>
@@ -100,6 +106,11 @@
   dd { margin: 0; text-align: right; font: 500 var(--fs-body) var(--mono); }
   .total { padding-top: 6px; border-top: 1.5px dashed var(--field-line); font-weight: 700; }
   dt.total { color: var(--ink); }
+  .note p {
+    margin: 0; padding: var(--s3) var(--s4); border-left: 3px solid var(--field-line);
+    border-radius: 0 var(--r-inner) var(--r-inner) 0; background: var(--sunk); white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
   .files { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .btn {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);

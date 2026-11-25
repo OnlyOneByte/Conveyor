@@ -56,9 +56,8 @@ passes the test files explicitly, sorted byte-wise so every locale gives the sam
 command to get the same order locally. A test that only fails there depends on what ran before it: make it
 set up its own state.
 
-How the comment ratchet works, and what each `check:comments` message means, is in
-[AGENTS.md §2](../AGENTS.md#2-no-comments). It counts both trees each run and stores nothing, so removing a
-comment needs no other change.
+`check:comments` is strict: one comment line or suppression anywhere fails it, and it prints each as
+`path:line`. The only exemptions, and how one is added, are in [AGENTS.md §2](../AGENTS.md#2-no-comments).
 
 The coverage baseline is one file per package, `scripts/checks/coverage/baseline/<package>.json`, each holding
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
@@ -123,11 +122,11 @@ the same. The checker parses each file with TypeScript and drops a line only whe
 a type (a type annotation, a type literal, an `interface` or a `type` alias), apart from bare `,` and `;`. A line
 with any other token stays counted, and so do `extends`/`implements` clauses and `enum`s.
 
-The file-size, comment and cast ratchets store no baseline. `check:lines` counts every file
+The file-size and cast ratchets store no baseline. `check:lines` counts every file
 ([AGENTS.md §4](../AGENTS.md#4-size-limits)) in the PR's tree and in the base commit's tree. In CI the base is
 the commit the PR's merge commit was built on (`HEAD^1`), the merge base with `main` for a manual run on another
 branch, and the previous commit on `main` for a push; `scripts/checks/base.ts` picks it, as it does for `audit`,
-the comment ratchet (`no-comments`), the cast ratchet (`lint`) and the coverage ratchet (`test`). Comparing
+the cast ratchet (`lint`) and the coverage ratchet (`test`). Comparing
 with `main`'s newer tip instead would judge a PR against a tree it was never built on. A file the base has over
 its limit may keep its length or shrink; any other file fails past 250 lines, or 150 for a `.svelte`
 component. Shrinking a file needs no other change, so two PRs that shrink different files never conflict.
@@ -149,7 +148,10 @@ instead, and also made every pair of PRs that shrank neighbouring entries confli
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
 6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, `file-size`, the three Docker builds and `compose`, which
-   brings the whole stack up and checks it through Caddy.
+   brings the whole stack up and checks it through Caddy. A new push cancels the older run for the same PR,
+   and a new push to `main` cancels any older `main` push run, queued or running, so runner slots go to the
+   newest commit. Scheduled runs, manual runs and re-runs of a `main` push run each get a group of their own:
+   they never cancel the head's push run, and pushes never cancel them.
 7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`, following
    [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
    `[S1]` finding, then push; the reviewer re-reviews the new head.
@@ -239,7 +241,7 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 
 | Ecosystem | Covers | Grouping | Title prefix |
 | --- | --- | --- | --- |
-| `bun` | `bun.lock` and every workspace `package.json`, plus `tools/visual`'s own `package.json` and `bun.lock` | minor and patch in one PR (`minor`) across both directories, majors one per PR per directory | `fix(deps)`, or `chore(deps)` for dev dependencies |
+| `bun` | `bun.lock` and every workspace `package.json`, plus the own `package.json` and `bun.lock` of `tools/visual` and `scripts/perf` | minor and patch in one PR (`minor`) across all three directories, majors one per PR per directory | `fix(deps)`, or `chore(deps)` for dev dependencies |
 | `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
 | `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | minor and patch in one PR (`images`), majors one per PR | `fix(deps)` |
 | `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | one PR per image | `fix(deps)` |
@@ -249,10 +251,12 @@ The group names are short, so a title for several updates, such as
 group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
 minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
 that title. Compose images get one PR each because their tags (`redis:8-alpine`, `caddy:2`) move only by
-major, so every compose bump is a major and should be reviewed on its own.
+major, so every compose bump is a major and should be reviewed on its own. `caddy` is also pinned by digest
+(`caddy:2@sha256:…`), so Dependabot opens a PR when the `caddy:2` image itself is rebuilt; `tools/visual` reads
+that same pinned image from the `caddy` service in `docker-compose.yml`, so one bump moves both.
 
 `tools/visual` isn't a workspace member, so the `bun` entry lists it as a second directory
-(`directories: [/, /tools/visual]`) rather than in a separate entry. Both then share one schedule, PR limit,
+(`directories: [/, /tools/visual, /scripts/perf]`) rather than in a separate entry, and `scripts/perf`, which holds only Lighthouse for the Make measurement, is listed the same way. Both then share one schedule, PR limit,
 `minor` group and set of ignores, and a shared tool such as `typescript` or `@types/bun` moves in both in the
 same grouped PR.
 
@@ -327,7 +331,7 @@ Pushing a `v*` tag, or running `.github/workflows/release.yml` by hand, builds t
 
 CI's `bundle` job builds the web app and runs `scripts/checks/bundle.ts` on `packages/web/.svelte-kit/output`. Run it locally after `bunx vite build` in `packages/web`.
 
-- **Initial JS** for a route is every chunk its first load fetches: the client entries plus the route's layout and page nodes (from the server manifest), and their static imports from `.vite/manifest.json`, gzip -9. Dynamic imports don't count. Every page route is measured, and finding none fails the check, as does a budgeted route the build doesn't have or no budget for `/`. Every route needs its own limit in `scripts/checks/bundle/budget.json`, so a new route fails until it has one (the error suggests about 10% over what it measures); the committed limits are about 10% over each route's measured size. No route's initial JS may contain Zod (its `ZodError` class) or build code at runtime, which the strict CSP refuses; this checks each route's own first-load graph, where `layout-bundle.ts` covers only the shared bundle. Building code is found in each chunk's syntax tree (`scripts/checks/bundle/builds-code.ts`, TypeScript's parser), so text inside strings, such as a CSP's `'unsafe-eval'`, never counts. It flags any reference to `eval` or `Function` as a value: called directly, through `globalThis`, `window`, `self` or `global` (`globalThis.eval(`, `window["eval"]`), destructured (`const { Function: F } = globalThis`) or in a shorthand object (`{ eval }`). It also flags `Function` read off any object (`root.Function("return this")()`, as lodash and core-js do). It also flags a function's `.constructor` called with a string, and `setTimeout` or `setInterval` given a string. It leaves alone `x instanceof Function`, `typeof Function`, `Function.prototype`, property and method names, and `eval` on any other object (`client.eval(...)`). It is still a heuristic, and these get past it: a global name assembled from runtime strings; `eval` read off a global through an alias (`const g = globalThis; g.eval(…)`) or through `top`, `parent` or `frames`; a compiler reached with `.call` or `.apply` (`setTimeout.call(null, "…")`); a timer whose string isn't a literal (`setTimeout(code)`); and code a page loads with `import()` from `onMount`, because only static imports count toward a route's first load. And no route's initial JS may contain three.js (a chunk counts as three.js when any module it was built from sits under `node_modules/three/`, or its code carries three's `__THREE__` signature, which also catches a vendored copy; `vite.config.ts`'s `chunkModules` plugin writes those module ids per chunk to `.svelte-kit/output/chunk-modules.json` on every client build).
+- **Initial JS** for a route is every chunk its first load fetches: the client entries plus the route's layout and page nodes (from the server manifest), and their static imports from `.vite/manifest.json`, gzip -9. Dynamic imports don't count. Every page route is measured, and finding none fails the check, as does a budgeted route the build doesn't have or no budget for `/`. Every route needs its own limit in `scripts/checks/bundle/budget.json`, so a new route fails until it has one (the error suggests about 10% over what it measures); the committed limits are about 10% over each route's measured size. No route's initial JS may contain Zod (its `ZodError` class) or build code at runtime, which the strict CSP refuses; this checks each route's own first-load graph, where `layout-bundle.ts` covers only the shared bundle. Building code is found in each chunk's syntax tree (`scripts/checks/bundle/builds-code.ts`, TypeScript's parser), so text inside strings, such as a CSP's `'unsafe-eval'`, never counts. It flags any reference to `eval` or `Function` as a value: called directly, through `globalThis`, `window`, `self` or `global` (`globalThis.eval(`, `window["eval"]`), destructured (`const { Function: F } = globalThis`) or in a shorthand object (`{ eval }`). It also flags `Function` read off any object (`root.Function("return this")()`, as lodash and core-js do). A global reached through another global counts as that global (`window.self.eval(`). Reading `.constructor` off a function, arrow, generator or async function, or off `Object.getPrototypeOf` of one, counts too, since that is a saved `Function`, `AsyncFunction` or `GeneratorFunction` (`const AsyncFunction = async function () {}.constructor`, as Vite's module runner does). It also flags a function's `.constructor` called with a string, and `setTimeout` or `setInterval` given a string. It leaves alone `x instanceof Function`, `typeof Function`, `Function.prototype`, property and method names, and `eval` on any other object (`client.eval(...)`). It is still a heuristic, and these get past it: a global name assembled from runtime strings; `eval` read off a global through an alias (`const g = globalThis; g.eval(…)`) or through `top`, `parent` or `frames`; a compiler reached with `.call` or `.apply` (`setTimeout.call(null, "…")`); a timer whose string isn't a literal (`setTimeout(code)`); a saved constructor read off anything but a function literal or `Object.getPrototypeOf` of one: a class expression (`(class {}).constructor`), a method read off an object (`[].map.constructor`), a bound function (`f.bind(x).constructor`), a function held in a variable (`const f = () => {}; f.constructor`), or a destructured `constructor` (`const { constructor: F } = () => {}`); and code a page loads with `import()` from `onMount`, because only static imports count toward a route's first load. And no route's initial JS may contain three.js (a chunk counts as three.js when any module it was built from sits under `node_modules/three/`, or its code carries three's `__THREE__` signature, which also catches a vendored copy; `vite.config.ts`'s `chunkModules` plugin writes those module ids per chunk to `.svelte-kit/output/chunk-modules.json` on every client build).
 - **Precache** is the exact list the built `service-worker.js` hands `cache.addAll` on install: the check runs the worker's install handler in a sandbox (`node:vm`) with stub `self` and `caches`, so any filter in the worker counts. The `precached` filter is tested on its own in `precache.test.ts`. A worker that registers no install handler, or precaches nothing, fails the check. It fails when an immutable `.js` or `.css` is left out (the editor chunks from `editor-chunks.json` excepted), when the build lists no editor chunk, when an editor chunk is precached, and when raw or gzip size grows more than 10% past the committed numbers. When the growth is wanted, run `bun run check:bundle:update` and commit `budget.json`; CI refuses `--update`. A `budget.json` without positive numbers fails the check instead of passing it. `budget.json` is also compared with the base branch, like the other ratchets: a route's limit may not rise or be dropped, and the precache numbers may not rise more than 10% in one change. CI passes the base with `--base`; locally it defaults to `origin/main`.
 
 ### Measuring Make (`make-perf.yml`)
@@ -335,8 +339,10 @@ CI's `bundle` job builds the web app and runs `scripts/checks/bundle.ts` on `pac
 An optional job compares how fast Make (`/`) loads on two refs, on a CI runner instead of a busy laptop. It runs only when asked: add the `measure:make` label to a PR (it compares the PR's base with its head), or run **Make performance** from the Actions tab with a `base` and a `head` ref.
 
 - It builds the web app at both refs and serves both through one Caddy configured like production: `encode gzip zstd`, TLS, and `/api` stripped and proxied, all on 127.0.0.1 with Caddy's admin API off. One api (SQLite queue, auth disabled) serves both. Every port is picked free at start, so a run can't collide with anything else on the machine, including a local run of the script.
-- Lighthouse 12.8.2 runs on each with its default mobile settings and simulated throttling: one warm-up each, then `runs` rounds (10 by default) in alternating order, base first on odd rounds, head first on even ones.
-- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse fails or reports as failed is left out, the job carries on, and the run counts show it. The summary is written even when an earlier step fails. The raw reports are in the `make-perf` artifact.
+- Lighthouse, at the version `scripts/perf/package.json` pins (`jq -r .dependencies.lighthouse scripts/perf/package.json`, the same value the job summary's header shows), runs on each with its default mobile settings and simulated throttling: one warm-up each, then `runs` rounds (10 by default) in alternating order, base first on odd rounds, head first on even ones.
+- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse fails or reports as failed is left out, the job carries on, and the run counts show it. The summary is written even when an earlier step fails. The raw reports are in the `make-perf` artifact, and a failed run's report, when Lighthouse wrote one, is kept there as `failed-<base|head>-<n>.json` (`failed-warmup-<base|head>.json` for a warm-up).
+- The job fails when either side has fewer than half of `runs` succeed (5 of 10, 3 of 5), so a run where Chrome never started can't pass with an empty table.
+- Lighthouse and its whole dependency tree are pinned by `scripts/perf/package.json` and `scripts/perf/bun.lock`, installed with `bun install --frozen-lockfile`. Dependabot's `bun` entry covers that directory too. To run the script locally, install there first; `LIGHTHOUSE` can point it at another Lighthouse, as a path or a command on `PATH` (`LIGHTHOUSE=lighthouse`).
 - Every label added to any PR starts a **Make performance** run, which skips at once unless the label is `measure:make`. GitHub can't filter `labeled` events by name before a run is created.
 - `scripts/perf/make-ab.sh` and `scripts/perf/summary.ts` do the work; the job runs them from the workflow's own commit, so either ref can predate them.
 

@@ -191,4 +191,52 @@ describe("moonraker status", () => {
     setTimeout(() => controller.abort(), 20);
     await expect(statuses.next()).rejects.toThrow("moonraker status aborted");
   });
+
+  test("sends the printer's own key on every poll and on cancel, ahead of the worker's env key", async () => {
+    withEnv("MOONRAKER_API_KEY", "env-key");
+    const { keys, handle } = printer([stats("printing"), stats("complete")]);
+    const target = {
+      id: "p1",
+      transportId: "moonraker",
+      address: handle.address,
+      secrets: { apiKey: "own" },
+    };
+    await collect(plugin.status(handle, undefined, target));
+    await plugin.cancel?.(handle, target);
+    expect(keys).toEqual(["own", "own", "own"]);
+  });
+
+  test("falls back to the worker's env key when the printer has none", async () => {
+    withEnv("MOONRAKER_API_KEY", "env-key");
+    const { keys, handle } = printer([stats("complete")]);
+    const target = { id: "p1", transportId: "moonraker", address: handle.address };
+    await collect(plugin.status(handle, undefined, target));
+    expect(keys).toEqual(["env-key"]);
+  });
+
+  test("gives up on a poll the printer never answers", async () => {
+    withEnv("MOONRAKER_STATUS_TIMEOUT_MS", "50");
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Promise(() => {}),
+    });
+    cleanups.push(() => server.stop(true));
+    const handle = {
+      transportId: "moonraker",
+      printerId: "p1",
+      ref: "a.gcode",
+      address: `127.0.0.1:${server.port}`,
+    };
+    await expect(collect(plugin.status(handle))).rejects.toThrow("moonraker status query failed");
+  });
 });
+
+function withEnv(name: string, value: string): void {
+  const previous = process.env[name];
+  process.env[name] = value;
+  cleanups.push(() => {
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
+  });
+}

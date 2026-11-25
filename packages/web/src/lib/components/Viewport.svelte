@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { announce } from "#lib/announce.js";
   import type ViewportCanvas from "./ViewportCanvas.svelte";
+  import { loadViewportCanvas } from "./viewport-canvas.js";
 
   export let params: Record<string, unknown> = {};
   export let file: File | null = null;
@@ -10,7 +11,7 @@
   let failed = false;
 
   onMount(() => {
-    import("./ViewportCanvas.svelte").then(
+    loadViewportCanvas().then(
       (module) => (canvas = module.default),
       () => {
         failed = true;

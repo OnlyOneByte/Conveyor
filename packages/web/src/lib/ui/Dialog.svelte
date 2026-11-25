@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { rememberFocus, TABBABLE, uid, wrapTab } from "./behaviour";
+  import { focusedIndex, rememberFocus, TABBABLE, uid, wrapTab } from "./behaviour";
 
   export let title: string;
   export let open = false;
@@ -7,7 +7,8 @@
   let dialog: HTMLDialogElement;
   let restore = () => {};
 
-  const active = () => (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const active = () =>
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   $: if (dialog && open && !dialog.open) {
     restore = rememberFocus(active);
@@ -22,8 +23,10 @@
 
   function trap(event: KeyboardEvent) {
     if (event.key !== "Tab") return;
-    const all = [...dialog.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => el.checkVisibility() && !el.closest("[inert]"));
-    const to = wrapTab(event.shiftKey, all.findIndex((el) => el === document.activeElement), all.length);
+    const all = [...dialog.querySelectorAll<HTMLElement>(TABBABLE)].filter(
+      (el) => el.checkVisibility() && !el.closest("[inert]"),
+    );
+    const to = wrapTab(event.shiftKey, focusedIndex(all), all.length);
     if (to === null) return;
     event.preventDefault();
     all[to]?.focus();

@@ -44,7 +44,10 @@ submit it themselves.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
     on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
-    so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
+    so once. When `GET /jobs-history/counts` or Needs you fails, the end counts keep their last values and the belt
+    shows its offline state too ("Can't reach Conveyor", with the last jobs), until a refresh answers again:
+    `createEnds` reports each refresh through `down()`, and the layout passes `offline || endsDown`. So a failed
+    poll never reads as an empty belt (#530).
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
   isn't an upload (an upload's file isn't kept), and still has a printer and a profile.
   - **Users:** the receipt and the belt's Print-again toast both decide with it.
@@ -113,23 +116,28 @@ change is ever made to text nobody can see. A profile whose content answers `404
 folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
 failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
 (`http-error.ts`). Any other error shows "Conveyor answered:" and the server's `error` message, trimmed and cut
-to 300 characters with an ellipsis, and the error text wraps rather than widening the page. `api.ts`'s
-`getJson`, `putJson`, `del` and the profile content fetch all read failures through `failure()`. When the body
-has no message, the page says "Conveyor hit a problem loading this. Try again in a moment." instead of the method, path and
-status.
-
-## lib/said.ts (what a failure says on screen)
+to 300 characters with an ellipsis, and the error text wraps rathe## lib/said.ts (what a failure says on screen)
 
 Every place that shows an error to the user goes through `said(e)`, `saidOnLoad(e)` or `couldnt(what, e)`, so the
 words follow the spec's Words rules. The server's own `error` message is shown as it is. Conveyor being
-unreachable, by `http-error.ts`'s `unreachable(e)` (a network `TypeError`, or an `Unreachable` for a `502`, `503` or
-`504` from the proxy in front of a stopped api), reads "Can't reach Conveyor. Check your connection, then try
-again." Every status throw in `api.ts`, `belt-ends.ts` and `jobs-list.ts` gives a gateway status an `Unreachable`,
-through `failure()` or `statusError()`. A `GET /path 500`-style line (any of GET, POST, PUT, PATCH or DELETE), or a
-stock status text such as Fastify's `Internal Server Error`, becomes "Conveyor couldn't do that just now. Try
-again." after an action, and "Conveyor hit a problem loading this. Try again in a moment." on a page load
-(`saidOnLoad`). `couldnt("upload cube.stl", e)` reads "Couldn't upload cube.stl: <server message>", or "Couldn't
-upload cube.stl. Try again." when there is none. The thrown `Error` keeps its message, so code that matches on it
+unreachable, by `http-error.ts`'s `unreachable(e)`, has two sentences: a `502`, `503` or `504` from the proxy in front
+of a stopped api (an `Unreachable`) reads "Can't reach Conveyor. Check that it's running, then try again.", and a
+network `TypeError` reads "Can't reach Conveyor. Check your connection, then try again." Every status throw in
+`api.ts`, `belt-ends.ts` and `jobs-list.ts` gives a gateway status an `Unreachable`, through `failure()` or
+`statusError()`. A `GET /path 500`-style line (any of GET, POST, PUT, PATCH or DELETE), or a stock status text such
+as Fastify's `Internal Server Error`, becomes "Conveyor couldn't do that just now. Try again." after an action, and
+"Conveyor hit a problem loading this. Try again in a moment." on a page load (`saidOnLoad`). `couldnt("upload
+cube.stl", e)` reads "Couldn't upload cube.stl: <server message>", or "Couldn't upload cube.stl. Try again." when
+there is none. The thrown `Error` keeps its message, so code that matches on it (a profile or printer with jobs
+"queued or running") is unchanged.
+
+Whenever the page shows one of those plain sentences instead of the server's own words, `detailOf(e)` returns the
+original text (`POST /jobs 502`, `Failed to fetch`, `Internal Server Error`), and `ErrorDetails.svelte` shows it
+under the message in a closed **Details** disclosure, styled like the job receipt's (#37). When the server's own
+message is already on screen there is nothing more to say, so there is no disclosure. Make's dock and upload, the
+printer, profile and delete dialogs, the profile editor and its page show it; the toast for a failed Undo does not,
+since a toast has no room for one.
+matches on it
 (a profile or printer with jobs "queued or running") is unchanged, and the method, path and status stay in the
 browser's Network panel and the api's request log. Make's dock and upload, the printer, profile and delete
 dialogs, the profile editor and its page use it.
@@ -141,7 +149,7 @@ three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load 
 The job page renders `Viewport` only for a Gridfinity job, so any other job's page never fetches three.js. Orbit controls come from three's own `OrbitControls` through `Orbit.svelte` (damping on, auto-rotate from the preference). `@threlte/extras` is gone: its barrel pulled in three's Draco and KTX2 loaders, whose `new URL(...)` emitted 1.9 MB of decoders into the build. `bun run check:bundle` holds both budgets ([contributing.md](../contributing.md#bundle-budget-bun-run-checkbundle)).
 
 
-## lib/previews/gridfinity.ts (the Gridfinity bin preview)
+## lib/previews/gridfinity.ts and gridfinity-mesh.ts (the Gridfinity bin preview)
 
 `buildGeometry` builds the bin the Make page previews: a faithful approximation, drawn on the client in well under a millisecond, not the manufacturing-exact STL ([ADR 0002](../adr/0002-dual-model-preview.md)). It is centred at the origin with Y up, then moved down by half its height so it sits in frame. `binHeight` is the overall height (the stacking lip sits inside it, as the spec has it), and `boundingRadius` is the half-diagonal the camera uses to frame any bin size.
 
@@ -155,7 +163,7 @@ The constants come from `scad/gridfinity-rebuilt-openscad/src/core/standard.scad
 | `HEIGHT_UNIT` | 7 mm | `BASE_HEIGHT`, which is also the height unit |
 | `FOOT_WIDTH` | 41.5 mm | `BASE_TOP_DIMENSIONS`, leaving the spec's 0.5 mm gap (`FOOT_GAP`) between cells |
 | `CORNER_RADIUS` | 3.75 mm | `BASE_TOP_RADIUS` (7.5 / 2) |
-| `BASE_HEIGHT` | 4.75 mm | the top of `BASE_PROFILE` |
+| `BASE_PROFILE_HEIGHT` | 4.75 mm | the top of `BASE_PROFILE` |
 | `LIP_HEIGHT`, `LIP_FILLET` | 4.4, 0.6 mm | `STACKING_LIP_HEIGHT`, `STACKING_LIP_FILLET_RADIUS` |
 | `MAGNET_RADIUS`, `MAGNET_DEPTH` | 3.25, 2.4 mm | `MAGNET_HOLE_RADIUS` (6.5 / 2), `MAGNET_HOLE_DEPTH` (the magnet plus 2 layers) |
 | `MAGNET_CENTRE_OFFSET` | 13 mm | `base_bottom_dimensions / 2 - HOLE_DISTANCE_FROM_BOTTOM_EDGE` = 35.6 / 2 − 4.8 |
@@ -175,10 +183,10 @@ The base and the stacking lip are built the way the library builds them: a 2D pr
   6. a point 0.01 mm proud of the body wall and 0.4 mm into the bridge above.
 
   The first and last stations exist so that those two edges can be rounded too, and the last one avoids a coplanar seam.
-- **`LIP_PROFILE`** is the spec's `STACKING_LIP`, `[[0,0], [0.7,0.7], [0.7,2.5], [2.6,4.4]]`: the socket the next bin's feet drop into. Its inset is measured from the bin's outer face, so it traces the lip's inner surface. The first station is the deepest point of the ledge. The spec's top point is a knife edge that it then fillets, so the code keeps a flat of half the fillet radius there instead of a zero-width strip.
+- **`LIP_PROFILE`** is the spec's `STACKING_LIP_LINE`, `[[0,0], [0.7,0.7], [0.7,2.5], [2.6,4.4]]`: the socket the next bin's feet drop into. Its inset is measured from the bin's outer face, so it traces the lip's inner surface. The first station is the deepest point of the ledge. The spec's top point is a knife edge that it then fillets, so the code keeps a flat of half the fillet radius there instead of a zero-width strip.
 - **Edge rounding** (`roundProfile`, `EDGE_ROUNDING` 0.4 mm over `EDGE_ROUNDING_STEPS` 3): the spec profiles are pure chamfers. Swept as they are, every junction is a hard crease, and the base reads as folded cardboard. A printed part has extrusion rounding at those edges, so each interior station gets a tangent arc of constant radius. The tangent length is clamped to 45 % of each neighbouring segment, so an arc can't overrun one, and a collinear or doubled-back station is left as it is. The base uses `EDGE_ROUNDING`; the lip uses half its fillet radius.
 
-### How the meshes are built
+### How the meshes are built (`gridfinity-mesh.ts`)
 
 - **`ring`** is a closed rounded rectangle in the XZ plane, walked counter-clockwise. It always has `4 × (QUADS_PER_CORNER + 1)` points, whatever its radius, so any two rings can be stitched 1:1. That is what makes the sweep work.
 - **`sweepSolid`** sweeps a rounded profile into one smooth-shaded geometry. Vertices are shared between bands, so `computeVertexNormals` shows the rounded junctions as real curvature. Flats are unaffected, because averaging across a tangent join gives back the same normal.
@@ -189,7 +197,7 @@ The base and the stacking lip are built the way the library builds them: a 2D pr
 ### Parts
 
 - **Base:** one swept foot per grid cell, smooth-shaded, plus its underside face. With magnet holes, each foot gets four bores at ±`MAGNET_CENTRE_OFFSET`. Each bore is an open cylinder for its wall, seen through the hole, and a disc for its floor (a `CircleGeometry` rotated from +Z to face −Y). The bore materials are much darker than the body on purpose: the scene has no ambient occlusion, so a 2.4 mm pocket can't shadow itself and would vanish into the surface around it. The floor is darker still, which gives the pocket depth. The bore wall is double-sided, so the far inside wall shows when you look up into it.
-- **Bridge:** the slab from `BASE_HEIGHT` to `HEIGHT_UNIT` that ties the feet together and forms the interior floor.
+- **Bridge:** the slab from `BASE_PROFILE_HEIGHT` to `HEIGHT_UNIT` that ties the feet together and forms the interior floor.
 - **Walls:** from `HEIGHT_UNIT` to the top, or to `LIP_HEIGHT` below it when there is a stacking lip. The lip then owns the top `LIP_HEIGHT`, and the two meet back to back. The touching faces point opposite ways, so they don't z-fight.
 - **Stacking lip:**
   - the swept socket;

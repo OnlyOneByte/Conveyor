@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { tick } from "svelte";
   import { slicerFormat } from "@conveyor/shared/profile-format";
+  import { tick } from "svelte";
   import type { CatalogProfile, CatalogSlicer } from "#lib/api.js";
   import { profileFacts, profileTag } from "#lib/profile-facts.js";
   import DeleteProfile from "./DeleteProfile.svelte";
