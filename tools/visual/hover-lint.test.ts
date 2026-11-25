@@ -1,11 +1,20 @@
-import { expect, test } from "bun:test";
-import { withPage } from "./fixtures.ts";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { type Browser, chromium } from "playwright";
 import { hoverProblem } from "./hover-lint.ts";
+
+let browser: Browser;
+beforeAll(async () => {
+  browser = await chromium.launch();
+});
+afterAll(async () => {
+  await browser.close();
+});
 
 const ORIGIN = "http://lint.test";
 
-const styled = (css: string, imported = "") =>
-  withPage(async (page) => {
+async function styled(css: string, imported = "") {
+  const page = await browser.newPage();
+  try {
     await page.route(`${ORIGIN}/**`, (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path === "/a.css") return route.fulfill({ contentType: "text/css", body: imported });
@@ -15,8 +24,11 @@ const styled = (css: string, imported = "") =>
       });
     });
     await page.goto(`${ORIGIN}/`);
-    return hoverProblem(page);
-  });
+    return await hoverProblem(page);
+  } finally {
+    await page.close();
+  }
+}
 
 const LOOSE = ":hover outside @media (hover: hover)";
 
@@ -32,6 +44,8 @@ test("a media list that can match a device without hover counts as unwrapped", a
   expect(
     await styled("@media (hover: none), (hover: hover) { .x:hover { color: red; } }"),
   ).toContain(LOOSE);
+  for (const media of ["(hover: hover) or (pointer: coarse)", "(hover: hover) or (hover: none)"])
+    expect(await styled(`@media ${media} { .x:hover { color: red; } }`)).toContain(LOOSE);
 });
 
 test("imported sheets are walked, under the import's own media", async () => {

@@ -28,7 +28,7 @@ export function looseHovers(page: Page): Promise<LooseHover[]> {
   return page.evaluate(() => {
     const only = (media: string) =>
       media
-        .split(",")
+        .split(/,|\bor\b/)
         .map((query) => query.trim().toLowerCase())
         .every((query) => /\(\s*hover\s*:\s*hover\s*\)/.test(query) && !/(^|\s)not\b/.test(query));
     const out: { selector: string; media: string }[] = [];
