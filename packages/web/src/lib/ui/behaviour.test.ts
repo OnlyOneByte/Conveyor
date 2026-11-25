@@ -6,6 +6,7 @@ import {
   focusedIndex,
   nextIndex,
   rememberFocus,
+  syncTabStop,
   TABBABLE,
   TOAST_MS,
   wrapTab,
@@ -155,4 +156,31 @@ test("focusedIndex finds the focused element among the stops, or -1", () => {
   expect([focusedIndex([a, b], b), focusedIndex([a, b], null), focusedIndex([a], b)]).toEqual([
     1, -1, -1,
   ]);
+});
+
+describe("a scrolling text block's Tab stop", () => {
+  const block = (scrollHeight: number, clientHeight: number) => {
+    const attrs = new Map<string, string>([["tabindex", "0"]]);
+    return {
+      attrs,
+      node: {
+        scrollHeight,
+        clientHeight,
+        setAttribute: (name: string, value: string) => void attrs.set(name, value),
+        removeAttribute: (name: string) => void attrs.delete(name),
+      },
+    };
+  };
+
+  test("text taller than its box is a Tab stop, so it can be scrolled from the keyboard", () => {
+    const { node, attrs } = block(900, 192);
+    syncTabStop(node);
+    expect(attrs.get("tabindex")).toBe("0");
+  });
+
+  test("text that fits is not a Tab stop", () => {
+    const { node, attrs } = block(40, 40);
+    syncTabStop(node);
+    expect(attrs.has("tabindex")).toBe(false);
+  });
 });

@@ -201,6 +201,7 @@ export const scenes: Scene[] = [
     { waitFor: "pre >> text=databaseislocked" },
     { fits: "pre" },
     { wait: 300 },
+    { absent: "pre[tabindex]" },
   ]),
   editor("profile-editor"),
   editor("profile-editor-error", [
@@ -223,6 +224,7 @@ export const scenes: Scene[] = [
       { click: "summary >> text=Details" },
       { waitFor: "pre >> text=GET /api/catalog/profiles 500" },
       { wait: 300 },
+      { absent: "pre[tabindex]" },
     ],
   },
 ];
