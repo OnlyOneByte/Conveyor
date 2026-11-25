@@ -123,8 +123,10 @@ export const scenes: Scene[] = [
     record: true,
     steps: [
       ...onBar,
+      { hits: "#belt .bar .exp, #belt .bar a", viewports: [[1440, 900]] },
       { click: "#belt .bar .exp" },
       { waitFor: "#belt .shut:focus" },
+      { hits: "#belt .shut, #belt .bins a, #belt .bins button", viewports: [[1440, 900]] },
       { wait: 800 },
       { press: "Escape" },
       { waitFor: "#belt .bar .exp:focus" },
