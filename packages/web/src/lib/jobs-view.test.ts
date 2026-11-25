@@ -25,6 +25,9 @@ let asked: string[];
 let fetchSpy: ReturnType<typeof spyOn>;
 let visibility: DocumentVisibilityState;
 
+const asFetch = (fake: (input: string | URL | Request) => Promise<Response>) =>
+  Object.assign(fake, { preconnect: fetch.preconnect });
+
 const answer = (path: string): Response => {
   const key = Object.keys(routes)
     .filter((prefix) => path.startsWith(prefix))
@@ -44,11 +47,13 @@ beforeEach(() => {
     "/api/jobs-history/counts": counts,
     "/api/jobs-history?": [entry("d1", "done", at(9)), entry("f1", "failed", at(8))],
   };
-  fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async (input: RequestInfo | URL) => {
-    const path = String(input);
-    asked.push(path);
-    return answer(path);
-  }) as typeof fetch);
+  fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+    asFetch(async (input) => {
+      const path = String(input);
+      asked.push(path);
+      return answer(path);
+    }),
+  );
   Object.defineProperty(globalThis, "document", {
     configurable: true,
     value: {
@@ -184,16 +189,18 @@ describe("createJobsView", () => {
       release = done;
     });
     let calls = 0;
-    fetchSpy.mockImplementation((async (input: RequestInfo | URL) => {
-      const path = String(input);
-      if (path !== "/api/jobs/active") return answer(path);
-      calls += 1;
-      if (calls === 1) {
-        await held;
-        return Response.json([live("p1")]);
-      }
-      return Response.json([live("p2")]);
-    }) as typeof fetch);
+    fetchSpy.mockImplementation(
+      asFetch(async (input) => {
+        const path = String(input);
+        if (path !== "/api/jobs/active") return answer(path);
+        calls += 1;
+        if (calls === 1) {
+          await held;
+          return Response.json([live("p1")]);
+        }
+        return Response.json([live("p2")]);
+      }),
+    );
     const view = createJobsView(() => null);
     const first = view.load();
     await Bun.sleep(10);

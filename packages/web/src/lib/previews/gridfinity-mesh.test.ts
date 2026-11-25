@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import * as THREE from "three";
+import type * as THREE from "three";
 import {
   annulus,
   band,

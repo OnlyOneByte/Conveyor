@@ -77,13 +77,13 @@ describe("whether a job can run again", () => {
 
   test("a job that isn't a retry goes to POST /jobs as a fresh submission", async () => {
     const posted: unknown[] = [];
-    const spy = spyOn(globalThis, "fetch").mockImplementation((async (
-      _: RequestInfo | URL,
-      init?: RequestInit,
-    ) => {
+    const fake = async (_: string | URL | Request, init?: RequestInit) => {
       posted.push(JSON.parse(String(init?.body)));
       return Response.json({ jobId: "j9" }, { status: 202 });
-    }) as typeof fetch);
+    };
+    const spy = spyOn(globalThis, "fetch").mockImplementation(
+      Object.assign(fake, { preconnect: fetch.preconnect }),
+    );
     try {
       expect(await sendJob(request)).toEqual({ jobId: "j9" });
       expect(posted).toEqual([request]);

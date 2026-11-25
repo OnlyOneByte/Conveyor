@@ -76,9 +76,9 @@ describe("boundingRadius", () => {
 
   test("encloses the built bin", () => {
     const params = { gridX: 3, gridY: 2, heightUnits: 4 };
-    const sphere = new THREE.Box3().setFromObject(buildGeometry(params)).getBoundingSphere(
-      new THREE.Sphere(),
-    );
+    const sphere = new THREE.Box3()
+      .setFromObject(buildGeometry(params))
+      .getBoundingSphere(new THREE.Sphere());
     expect(sphere.radius).toBeLessThanOrEqual(boundingRadius(params));
   });
 });

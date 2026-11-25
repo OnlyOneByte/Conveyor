@@ -96,7 +96,10 @@ describe("primaryGroups", () => {
   test("fields no group or advanced group names land in a last stack", () => {
     const ui: FormUiHints = {
       groups: [{ title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" }],
-      advanced: { groups: [{ title: "Extras", fields: ["scoop"], layout: "stack" }] },
+      advanced: {
+        title: "More options",
+        groups: [{ title: "Extras", fields: ["scoop"], layout: "stack" }],
+      },
     };
     expect(primaryGroups(props, ui)).toEqual([
       { title: "Footprint", fields: ["gridX", "gridY"], layout: "pair" },
@@ -105,9 +108,7 @@ describe("primaryGroups", () => {
   });
 
   test("groups that name every field are used as they are", () => {
-    const ui: FormUiHints = {
-      groups: [{ title: "All", fields: Object.keys(props), layout: "stack" }],
-    };
-    expect(primaryGroups(props, ui)).toBe(ui.groups);
+    const groups = [{ title: "All", fields: Object.keys(props), layout: "stack" as const }];
+    expect(primaryGroups(props, { groups })).toBe(groups);
   });
 });
