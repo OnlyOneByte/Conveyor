@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { PrintStatus } from "@conveyor/shared";
+import { type PrintStatus, StageError } from "@conveyor/shared";
 import { moonraker as plugin } from "./index.ts";
 
 const cleanups: (() => void)[] = [];
@@ -117,9 +117,17 @@ describe("moonraker refuses metadata addresses", () => {
   };
 
   test("status and cancel refuse before sending anything, naming the override", async () => {
-    await expect(states(plugin.status(metadata))).rejects.toThrow(
-      "Conveyor won't connect to metadata.google.internal",
+    const seen: string[] = [];
+    const refused = await (async () => {
+      for await (const s of plugin.status(metadata)) seen.push(s.state);
+    })().catch((err: unknown) => err);
+    expect(refused).toBeInstanceOf(StageError);
+    const reason = refused instanceof StageError ? refused.reason : "";
+    expect(reason).toBe(
+      "Conveyor won't connect to metadata.google.internal: it is the Google Cloud metadata service, not a printer on your network. If it really is your printer, add metadata.google.internal to PRINTER_ADDRESS_ALLOW.",
     );
+    expect(reason).not.toContain("in a row");
+    expect(seen).toEqual(["transferring"]);
     await expect(plugin.cancel?.(metadata) ?? Promise.resolve()).rejects.toThrow(
       "add metadata.google.internal to PRINTER_ADDRESS_ALLOW",
     );
