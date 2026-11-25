@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
-import { withPage } from "./fixtures.ts";
+import { browserPages } from "./fixtures.ts";
 import { assertHolds, holdProblem, MAX_SHIFT_PX, SETTLE_MS, settleProblem } from "./holds.ts";
+
+const withPage = browserPages();
 
 const held = (top: number) => ({ present: true, top });
 

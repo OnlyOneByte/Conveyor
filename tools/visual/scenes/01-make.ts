@@ -43,6 +43,18 @@ export const scenes: Scene[] = [
     steps: [{ wait: 800 }, { ring: ".dock button.print" }],
   },
   {
+    name: "focus-clear",
+    route: "/",
+    ready: "text=How big?",
+    widths: [390],
+    fullPage: false,
+    steps: [
+      { wait: 800 },
+      { tabTo: "button[aria-label^='Increase Height']" },
+      { tabTo: "button[aria-label^='Increase Compartments']" },
+    ],
+  },
+  {
     name: "print-tap",
     route: "/",
     ready: "text=How big?",

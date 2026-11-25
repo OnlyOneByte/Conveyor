@@ -51,6 +51,21 @@ export async function assertHits(
   if (failures.length) throw new Error(`hits ${selector}: ${failures.join("; ")}`);
 }
 
+export async function tabTo(page: Page, selector: string, presses = 80): Promise<void> {
+  const covered: string[] = [];
+  for (let press = 0; press < presses; press++) {
+    await page.keyboard.press("Tab");
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    covered.push(...(await coveredTargets(page, ":focus")));
+    const there = await page.evaluate((sel) => document.querySelector(`${sel}:focus`), selector);
+    if (there) {
+      if (covered.length) throw new Error(`tabTo ${selector}: ${covered.join("; ")}`);
+      return;
+    }
+  }
+  throw new Error(`tabTo ${selector}: not reached in ${presses} presses of Tab`);
+}
+
 export async function titleMismatch(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     const h1 = document.querySelector("h1")?.textContent?.trim();
