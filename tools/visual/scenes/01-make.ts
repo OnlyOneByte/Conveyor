@@ -157,6 +157,8 @@ export const scenes: Scene[] = [
       { upload: "input[type=file]", name: "bin.stl", text: STL },
       { waitFor: "text=Ready to print" },
       { waitFor: "[aria-live=polite] >> text=bin.stl is uploaded and ready to print." },
+      { waitFor: "section.fit >> text=40 × 40 × 0 mm" },
+      { waitFor: "section.fit >> text=Fits Elegoo Neptune's 220 × 220 × 250 mm bed." },
       { wait: 1200 },
     ],
   },
