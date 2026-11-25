@@ -115,11 +115,19 @@ describe("the pr-meta job", () => {
   test.each([
     ["a newline", "bad title\n::warning::injected"],
     ["a carriage return", "bad title\r::warning::injected"],
+    ["a CRLF", "bad title\r\n::warning::injected"],
   ])("keeps a bad title's error on one line when it holds %s", (_name, title) => {
-    const { out } = check({ title });
+    const { code, out } = check({ title });
+    expect(code).toBe(1);
     const lines = out.split(/\r?\n|\r/).filter(Boolean);
     expect(lines.every((line) => line.startsWith("::error::"))).toBe(true);
-    expect(out).toContain("<summary>: bad title ::warning::injected");
+    expect(out).toContain(`<summary>: ${title.replace(/[\r\n]/g, " ")}`);
+  });
+
+  test("passes a title whose only line break is a trailing newline, which bash drops before any check or echo", () => {
+    const { code, out } = check({ title: "ci(guard): check PR metadata in CI\n" });
+    expect(code).toBe(0);
+    expect(out).not.toContain("::error::");
   });
 
   test("treats a PR with no body as having no issue line", () => {
