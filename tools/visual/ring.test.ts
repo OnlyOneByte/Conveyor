@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { PNG } from "pngjs";
-import { withPage } from "./fixtures.ts";
+import { browserPages } from "./fixtures.ts";
 import { assertRing, ringBand, ringShown } from "./ring.ts";
+
+const withPage = browserPages();
 
 test("the band runs along each straight edge, two pixels deep, and skips the rounded corners", () => {
   const band = ringBand({ x: 10, y: 10, width: 100, height: 30 });
