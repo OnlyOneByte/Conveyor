@@ -312,6 +312,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: typecheck
     timeout-minutes: 30
+    env:
+      ORCA_RELEASE: "2.4.1"
+      ORCA_ASSET: OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.4.1.AppImage
+      ORCA_SHA256: 7aff29a0ac6bb906f11c069eefe83459781c3364bac20ba9529eb9937a231402
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -320,6 +324,25 @@ jobs:
       - name: Pick this week's OS package refresh
         id: refresh
         run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore the verified OrcaSlicer AppImage
+        id: orca-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: orca-cache
+          key: orca-appimage-${{ env.ORCA_RELEASE }}-${{ env.ORCA_SHA256 }}
+      - name: Download the OrcaSlicer AppImage with the job's token
+        if: steps.orca-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p orca-cache
+          for attempt in 1 2 3 4; do
+            if gh release download "v$ORCA_RELEASE" -R OrcaSlicer/OrcaSlicer -p "$ORCA_ASSET" -D orca-cache --clobber; then break; fi
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 15))
+          done
+      - name: Check the AppImage against the pinned sha256
+        run: echo "$ORCA_SHA256  orca-cache/$ORCA_ASSET" | sha256sum -c -
       - name: Build the worker with OrcaSlicer
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -331,6 +354,7 @@ jobs:
           build-args: |
             ORCA_ENABLE=1
             OS_REFRESH=${{ steps.refresh.outputs.week }}
+          build-contexts: orca-cache=orca-cache
           cache-from: type=gha,scope=worker
       - name: Scan the worker with OrcaSlicer for vulnerabilities with a fix
         env:
