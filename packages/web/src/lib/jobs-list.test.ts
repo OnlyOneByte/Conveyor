@@ -132,7 +132,9 @@ describe("the Jobs list", () => {
   test("a settled row carries the job's note, trimmed, and a blank note is left out", () => {
     const noted = entry("n", "done", now, { notes: "  work dir not removed: /data/jobs/n  " });
     expect(settledRow(noted, catalog, now).note).toBe("work dir not removed: /data/jobs/n");
-    expect(settledRow(entry("m", "failed", now, { notes: "   " }), catalog, now).note).toBeUndefined();
+    expect(
+      settledRow(entry("m", "failed", now, { notes: "   " }), catalog, now).note,
+    ).toBeUndefined();
     expect(settledRow(entry("o", "canceled", now), catalog, now).note).toBeUndefined();
     const longNote = entry("l", "failed", now, { notes: "x ".repeat(1500) });
     const long = settledRow(longNote, catalog, now).note;
