@@ -5,7 +5,6 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { jobSent, titled } from "#lib/belt.js";
-  import JobStatus from "#lib/components/JobStatus.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
@@ -96,7 +95,6 @@
     [file, uploadId, uploading, uploadError] = [null, null, false, ""];
   }
 
-  $: jobId = data.initialJobId ?? null;
   let busy = false;
   let sent = false;
   let last: { id: string; printer: string } | null = null;
@@ -120,7 +118,6 @@
       const res = await sendJob({ generator, printerId, profileId }, retryOf);
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
-      jobId = res.jobId;
       announce(`${name} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
@@ -179,12 +176,6 @@
           <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
         {/if}
       </section>
-      {#if jobId}{#key jobId}
-        <section class="job">
-          <h3>Job</h3>
-          <JobStatus {jobId} />
-        </section>
-      {/key}{/if}
     </div>
     <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
   </form>
@@ -200,13 +191,8 @@
   .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }
-  h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }
   .questions { display: flex; flex-direction: column; gap: var(--s5); }
   .note { margin: 0; color: var(--muted); }
-  .job {
-    padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card);
-    background: var(--paper);
-  }
   @media (min-width: 1200px) {
     .make { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
     .fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
