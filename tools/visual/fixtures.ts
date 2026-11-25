@@ -23,11 +23,28 @@ export async function closeOrKill(
   pid: number | undefined,
   kill: (pid: number) => void = (id) => process.kill(id, "SIGKILL"),
   ms = BROWSER_CLOSE_MS,
-): Promise<"closed" | "killed"> {
-  const closed = await Promise.race([close().then(() => true), Bun.sleep(ms).then(() => false)]);
-  if (closed || pid === undefined) return "closed";
+): Promise<"closed" | "killed" | "hung"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<false>((done) => {
+    timer = setTimeout(() => done(false), ms);
+  });
+  const closed = await Promise.race([close().then(() => true), late]);
+  clearTimeout(timer);
+  if (closed) return "closed";
+  if (pid === undefined) return "hung";
   kill(pid);
   return "killed";
+}
+
+const LAUNCHED = Symbol.for("conveyor.visual.browserLaunched");
+const registry: Record<symbol, boolean | undefined> = globalThis;
+
+export const SECOND_BROWSER =
+  "browserPages: a second Chromium in one bun test process hangs (Bun closes the first one's descriptors again when it collects them, and by then the second one owns those numbers). Run each test file in its own process: bun run test";
+
+export function claimBrowser(store: Record<symbol, boolean | undefined> = registry): void {
+  if (store[LAUNCHED]) throw new Error(SECOND_BROWSER);
+  store[LAUNCHED] = true;
 }
 
 export function childPids(parent = process.pid): number[] {
@@ -49,6 +66,8 @@ export function browserPages() {
   let pid: number | undefined;
   let failed = "";
   beforeAll(async () => {
+    failed = SECOND_BROWSER;
+    claimBrowser();
     failed = `Chromium was still launching after ${BROWSER_SETUP_MS / 1000} s`;
     const before = new Set(childPids());
     browser = await chromium.launch().catch((err: unknown) => {
@@ -62,9 +81,10 @@ export function browserPages() {
   afterAll(async () => {
     const opened = browser;
     if (!opened) return;
-    if ((await closeOrKill(() => opened.close(), pid)) === "killed")
-      console.error(
-        `browserPages: Chromium ${pid} didn't close in ${BROWSER_CLOSE_MS / 1000} s, killed it`,
+    const outcome = await closeOrKill(() => opened.close(), pid);
+    if (outcome !== "closed")
+      throw new Error(
+        `browserPages: Chromium didn't close in ${BROWSER_CLOSE_MS / 1000} s; ${outcome === "killed" ? `killed ${pid}` : "no PID to kill"}`,
       );
   }, BROWSER_SETUP_MS);
   return async <T>(run: (page: Page) => Promise<T>): Promise<T> => {
