@@ -22,7 +22,6 @@
 
   function connect(id: string) {
     ws?.close();
-    // Reconnect-safe: pull the snapshot first, then stream live.
     fetchJobSnapshot(id).then((s) => {
       if (s && !evt) evt = s;
     }).catch(() => {});

@@ -12,6 +12,8 @@ submit it themselves.
   once on mount with `takeRerun`, which also clears it, so a refresh doesn't apply it again.
   - **Why not the URL:** generator params are arbitrary JSON, which is fragile and size-limited in a query string.
   - **Why `sessionStorage`:** it is scoped to the tab, so a stale prefill never leaks into a later visit.
+  - **Best effort:** when storage is blocked (private mode, a full quota), `stashRerun` does nothing and the
+    button just doesn't pre-fill.
 - **Applying it.** Make applies the stash after the catalog has loaded, so its selections win over the reactive
   defaults, which only fill empty selections. A printer or profile that no longer exists is set anyway. The
   eligibility filters then fall back to a valid default, and the user picks again.
@@ -116,3 +118,99 @@ three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load 
 
 The job page renders `Viewport` only for a Gridfinity job, so any other job's page never fetches three.js. Orbit controls come from three's own `OrbitControls` through `Orbit.svelte` (damping on, auto-rotate from the preference). `@threlte/extras` is gone: its barrel pulled in three's Draco and KTX2 loaders, whose `new URL(...)` emitted 1.9 MB of decoders into the build. `bun run check:bundle` holds both budgets ([contributing.md](../contributing.md#bundle-budget-bun-run-checkbundle)).
 
+
+## lib/previews/gridfinity.ts (the Gridfinity bin preview)
+
+`buildGeometry` builds the bin the Make page previews: a faithful approximation, drawn on the client in well under a millisecond, not the manufacturing-exact STL ([ADR 0002](../adr/0002-dual-model-preview.md)). It is centred at the origin with Y up, then moved down by half its height so it sits in frame. `binHeight` is the overall height (the stacking lip sits inside it, as the spec has it), and `boundingRadius` is the half-diagonal the camera uses to frame any bin size.
+
+### Dimensions
+
+The constants come from `scad/gridfinity-rebuilt-openscad/src/core/standard.scad`:
+
+| Constant | Value | Spec name |
+| --- | --- | --- |
+| `GRID_PITCH` | 42 mm | `GRID_DIMENSIONS_MM` |
+| `HEIGHT_UNIT` | 7 mm | `BASE_HEIGHT`, which is also the height unit |
+| `FOOT_WIDTH` | 41.5 mm | `BASE_TOP_DIMENSIONS`, leaving the spec's 0.5 mm gap (`FOOT_GAP`) between cells |
+| `CORNER_RADIUS` | 3.75 mm | `BASE_TOP_RADIUS` (7.5 / 2) |
+| `BASE_HEIGHT` | 4.75 mm | the top of `BASE_PROFILE` |
+| `LIP_HEIGHT`, `LIP_FILLET` | 4.4, 0.6 mm | `STACKING_LIP_HEIGHT`, `STACKING_LIP_FILLET_RADIUS` |
+| `MAGNET_RADIUS`, `MAGNET_DEPTH` | 3.25, 2.4 mm | `MAGNET_HOLE_RADIUS` (6.5 / 2), `MAGNET_HOLE_DEPTH` (the magnet plus 2 layers) |
+| `MAGNET_CENTRE_OFFSET` | 13 mm | `base_bottom_dimensions / 2 - HOLE_DISTANCE_FROM_BOTTOM_EDGE` = 35.6 / 2 − 4.8 |
+
+`WALL_THICKNESS` is 1.2 mm. `QUADS_PER_CORNER` is 12, enough for corner radii of at most 3.75 mm.
+
+### Swept profiles
+
+The base and the stacking lip are built the way the library builds them: a 2D profile swept around a rounded-rectangle path, so chamfers are true angled surfaces and corners are real fillets. An earlier version stacked boxes, which looked stepped.
+
+- **`BASE_PROFILE`** is the spec's `[[0,0], [0.8,0.8], [0.8,2.6], [2.95,4.75]]`. The spec gives it as an outward offset from the innermost bottom point; the code carries it as an inset from the footprint (inset = 2.95 − offset). From the bottom, the stations are:
+  1. a short run of the flat underside;
+  2. the innermost bottom point;
+  3. up and out at 45°;
+  4. straight up;
+  5. up and out at 45° to the full footprint;
+  6. a point 0.01 mm proud of the body wall and 0.4 mm into the bridge above.
+
+  The first and last stations exist so that those two edges can be rounded too, and the last one avoids a coplanar seam.
+- **`LIP_PROFILE`** is the spec's `STACKING_LIP`, `[[0,0], [0.7,0.7], [0.7,2.5], [2.6,4.4]]`: the socket the next bin's feet drop into. Its inset is measured from the bin's outer face, so it traces the lip's inner surface. The first station is the deepest point of the ledge. The spec's top point is a knife edge that it then fillets, so the code keeps a flat of half the fillet radius there instead of a zero-width strip.
+- **Edge rounding** (`roundProfile`, `EDGE_ROUNDING` 0.4 mm over `EDGE_ROUNDING_STEPS` 3): the spec profiles are pure chamfers. Swept as they are, every junction is a hard crease, and the base reads as folded cardboard. A printed part has extrusion rounding at those edges, so each interior station gets a tangent arc of constant radius. The tangent length is clamped to 45 % of each neighbouring segment, so an arc can't overrun one, and a collinear or doubled-back station is left as it is. The base uses `EDGE_ROUNDING`; the lip uses half its fillet radius.
+
+### How the meshes are built
+
+- **`ring`** is a closed rounded rectangle in the XZ plane, walked counter-clockwise. It always has `4 × (QUADS_PER_CORNER + 1)` points, whatever its radius, so any two rings can be stitched 1:1. That is what makes the sweep work.
+- **`sweepSolid`** sweeps a rounded profile into one smooth-shaded geometry. Vertices are shared between bands, so `computeVertexNormals` shows the rounded junctions as real curvature. Flats are unaffected, because averaging across a tangent join gives back the same normal.
+- **`band`** is one quad strip between two rings, used for the walls and the bridge. Each band is its own geometry, so vertices are shared around the ring (corner fillets shade smoothly) but not between bands (joins stay crisp). `inward` flips the winding for surfaces seen from inside the bin.
+- **`annulus`** is a flat ring between two rings at one height, and **`face`** a solid rounded rectangle, fanned from the centre.
+- **`undersideFace`** is the downward-facing underside of a foot, with the magnet bores cut out of it. There is no CSG here, so without real holes the face would cover the bore pockets from below. `ShapeGeometry` triangulates a contour with holes; a hole is an arc drawn clockwise. The shape lies in XY facing +Z, and a rotation of π/2 about X maps it to XZ facing −Y.
+
+### Parts
+
+- **Base:** one swept foot per grid cell, smooth-shaded, plus its underside face. With magnet holes, each foot gets four bores at ±`MAGNET_CENTRE_OFFSET`. Each bore is an open cylinder for its wall, seen through the hole, and a disc for its floor (a `CircleGeometry` rotated from +Z to face −Y). The bore materials are much darker than the body on purpose: the scene has no ambient occlusion, so a 2.4 mm pocket can't shadow itself and would vanish into the surface around it. The floor is darker still, which gives the pocket depth. The bore wall is double-sided, so the far inside wall shows when you look up into it.
+- **Bridge:** the slab from `BASE_HEIGHT` to `HEIGHT_UNIT` that ties the feet together and forms the interior floor.
+- **Walls:** from `HEIGHT_UNIT` to the top, or to `LIP_HEIGHT` below it when there is a stacking lip. The lip then owns the top `LIP_HEIGHT`, and the two meet back to back. The touching faces point opposite ways, so they don't z-fight.
+- **Stacking lip:**
+  - the swept socket;
+  - an outer face flush with the walls;
+  - the underside of the ledge;
+  - the top flat.
+- **Dividers:** `divisionsX − 1` and `divisionsY − 1` boxes across the interior.
+- **Label tab:** a small angled shelf along the back top of the first compartment.
+- **Scoop:** a quarter-cylinder ramp along the front of the interior floor.
+
+## lib/components/SchemaForm.svelte and SchemaGroup.svelte (the generated form)
+
+Make's Configure card is generated from the generator's JSON Schema (`paramJsonSchema` from `@conveyor/shared`), one control per property, with no per-generator UI code. `form-schema.ts` holds the schema shapes the form reads and the pure helpers both components share:
+- `paramJsonSchema` wraps the object behind `$ref` → `definitions[name]`; the helper resolves it.
+- A field's current number falls back to its default, then its minimum.
+- An explicit control hint wins; otherwise the control is inferred from the schema.
+- **The readout beside a group heading:** when every field in the group maps units to millimetres, it shows real millimetres, the number you measure a drawer against. A numeric pair without that mapping echoes its values, such as "1 × 1".
+- **Hints are optional** (`ui`: grouping, advanced fields, preferred controls, unit-to-mm mapping). Without them every field renders in one flat group. A field the hints forget is appended as a visible group rather than dropped: a stray control fails better than a silently missing parameter.
+
+`SchemaForm` seeds defaults from the schema once, when it first resolves. It dispatches that first `change` from `onMount` when it isn't mounted yet: a dispatch from a reactive statement can run during component init, before the parent has attached its listener. When it was dropped, printing without touching the form posted `params: {}`, and the job's history row recorded no parameters.
+
+`SchemaGroup` renders one group, the optional heading and readout and then its fields laid out per `group.layout`, the same way in the primary section and inside More options. The parent owns mutation, so the whole form dispatches one change event.
+- **The value per field is a reactive statement, not a `num(key)` call in the markup.** Svelte tracks only the identifiers named in a template expression, so `value={num(key)}` would depend on `num` and `key`, never on `value`. The stepper's number would then stay frozen while everything else updated.
+- **Typing commits only while the value is legal**, so a half-typed "1" on a field with a minimum of 2 isn't pulled out from under the caret. On blur or Enter the value is clamped and the input is forced back in sync: an out-of-range entry was never committed, so the state may not have changed, and Svelte would otherwise leave the stale text in the box.
+- **Layout:** booleans sit in a compact two-column grid. The stepper's − and + flank a real number input, so ±1 is one tap and an exact value can still be typed. The wrapper carries the 44 px tap target, so the inner input opts out of the global minimum height.
+
+## lib/components/PreviewScene.svelte and MeshScene.svelte (the 3D scenes)
+
+- **`PreviewScene`** rebuilds the procedural bin (`previews/gridfinity.ts`) whenever the params change. That takes well under a millisecond, with no network or server round trip, and Threlte's `is` mounts the prebuilt `THREE.Group` directly. `buildGeometry` centres the bin on the origin, so its underside sits at −h/2. The ground grid, there for scale, is placed at that height; at −radius (the bounding sphere) it used to float tens of millimetres below the model.
+- **`MeshScene`** renders the user's real uploaded STL (the passthrough source), as opposed to the procedural preview. It re-parses whenever the file changes: `STLLoader.parse()` is a synchronous local decode of an `ArrayBuffer`. It recentres the geometry on the origin so the orbit controls frame it.
+- **Auto-spin** is opt-in (Settings → Preferences) and off by default in both scenes. Users who asked the OS for reduced motion never get it.
+
+## lib/preferences.ts (per-browser preferences)
+
+Preferences describe how this browser renders, not anything about the catalog, so they live in `localStorage`, not SQLite, and are per device: the same choice on a phone and a desktop is two settings. When storage is blocked (private mode), a read falls back to the default and a failed write is dropped, so the choice just doesn't survive a reload.
+- **Auto-spin** (`spinPreview`) is off by default. A model that keeps rotating is distracting while you dial in parameters, and it fights manual orbiting: the camera drifts the moment you let go. The toggle is on `/settings` and the viewer on `/`, so the two are often open in separate tabs. The `storage` event fires only in other tabs, so listening to it keeps them in sync without looping on the tab's own writes.
+- **Reduced motion** (`prefersReducedMotion`) overrides the preference. `autoRotate` is a render-loop prop, not a CSS animation, so the global `@media (prefers-reduced-motion)` rule in `app.css` can't reach it.
+
+## lib/api.ts, JobStatus.svelte and /monitor (fetching job state)
+
+- **`fetchJobHistoryEntry`** doesn't use `getJson`, which throws the same error for every non-ok status. The job page has to tell "no job with this id" (a not-found page) apart from a server failure (shown as an error), so only `404` becomes `null` and anything else still throws.
+- **Deleting** a printer or profile surfaces the server's `error` message, so a refusal explains itself. A body that isn't JSON falls back to the method, path and status.
+- **`uploadStl`** uploads an STL for the passthrough generator and returns an opaque `uploadId`.
+- **`JobStatus`** is reconnect-safe: it pulls the job's snapshot first, then streams live updates.
+- **`/monitor`** shows the time spent in a job's current stage, from the timing entry that is still open (no `durationMs` yet). A worker stamps `enteredAt` with `Date.now()`, so an elapsed time over about 24 hours, or a negative one, means a bad or skewed timestamp, not a day-long stage, and the counter is hidden.
+- **Client-rendered pages:** `/settings` and `/monitor` set `ssr = false`. Settings' cookies and fetches run in the browser, and Monitor polls live job and printer state there.

@@ -30,14 +30,10 @@
     clearInterval(clockTimer);
   });
 
-  /** Milliseconds spent in the job's currently-open stage (the last timing entry). */
   function currentStageElapsed(j: JobStatusEvent): number | null {
     const open = j.timings?.find((t) => t.durationMs === undefined);
     if (!open) return null;
     const ms = now - open.enteredAt;
-    // Sanity clamp: a real worker stamps enteredAt with Date.now(), so an elapsed
-    // over ~24h (or negative) means a bad/clock-skewed timestamp, not a day-long
-    // stage — suppress it rather than render a nonsensical counter.
     if (ms < 0 || ms > 24 * 60 * 60 * 1000) return null;
     return ms;
   }
@@ -76,7 +72,6 @@
     <h1>Monitor</h1>
   </div>
 
-  <!-- ── Active jobs ─────────────────────────────────────────────────────── -->
   <section class="card">
     <div class="secthead">
       <h2>Active jobs</h2>
@@ -163,7 +158,6 @@
 
   .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
   .fill { height: 100%; background: var(--accent); transition: width 0.3s; }
-
 
   .state { font-size: 0.8rem; padding: 0.1rem 0.45rem; border-radius: 99px; border: 1px solid var(--border); }
   .state.printing, .state.generating, .state.slicing, .state.transferring { color: var(--live); border-color: var(--accent); }
