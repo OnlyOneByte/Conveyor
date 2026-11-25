@@ -15,6 +15,7 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
+  import { couldnt, said } from "#lib/said.js";
   import {
     AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
   } from "#lib/rerun.js";
@@ -23,9 +24,6 @@
   export let data: PageData;
 
   const UPLOAD = "upload";
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-  const upFailed = (e: unknown) =>
-    e instanceof TypeError ? "check your connection and try again." : message(e);
   const SENT_MS = 2500;
 
   $: generators = data.generators ?? [];
@@ -88,7 +86,7 @@
     if (!done) return;
     uploading = false;
     if (done.ok) uploadId = done.value.uploadId;
-    else uploadError = `Couldn't upload ${chosen.name}: ${upFailed(done.error)}`;
+    else uploadError = couldnt(`upload ${chosen.name}`, done.error);
   }
 
   function clear() {
@@ -127,7 +125,7 @@
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = message(e);
+      error = said(e);
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -165,7 +163,7 @@
         </div>
       {:else}
         <p class="note">
-          Conveyor can't reach its server right now. Check that the api service is running.
+          Can't reach Conveyor right now. Check that it's running, then reload the page.
         </p>
       {/if}
       <section id="make-where" class="where" tabindex="-1">

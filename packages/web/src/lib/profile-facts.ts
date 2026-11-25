@@ -40,7 +40,7 @@ export function profileErrors(draft: ProfileDraft, taken: string[]): ProfileErro
   if (!slugOf(draft.name)) errors.name = "Give the profile a name.";
   else if (taken.includes(profileId(draft))) errors.name = "Another profile already has this name.";
   if (!isBundledProfilePath(draft.path.trim()))
-    errors.path = "Use a folder in the profiles volume, like /profiles/voron-petg.";
+    errors.path = "Use a folder under /profiles, like /profiles/voron-petg.";
   return errors;
 }
 
