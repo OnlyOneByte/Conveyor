@@ -172,15 +172,24 @@ export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
     );
     return { dirs: [], uploads: [] };
   }
-  const since = process.anchor ?? { clock: lastRunAt ?? real, at: process.mark() };
+  if (lastRunAt === undefined) {
+    deps.state.write({ startedAt: real, lastRunAt: real });
+    anchor(process, real);
+    if (startedAt !== undefined)
+      deps.log(
+        "[retention] removed nothing: the stored reaper clock was missing, so the count starts again",
+      );
+    return { dirs: [], uploads: [] };
+  }
+  const since = process.anchor ?? { clock: lastRunAt, at: process.mark() };
   process.anchor = since;
   const measured = since.clock + (process.mark() - since.at);
-  const now = lastRunAt === undefined ? real : Math.max(lastRunAt, Math.min(real, measured));
+  const now = Math.max(lastRunAt, Math.min(real, measured));
   if (now < real)
     deps.log(
       `[retention] ages are counted from ${new Date(now).toISOString()}, behind the system clock's ${new Date(real).toISOString()}: the reaper clock only moves as fast as this worker has been up`,
     );
-  const started = startedAt ?? now;
+  const started = startedAt ?? lastRunAt;
   deps.state.write({ startedAt: started, lastRunAt: now });
   const cutoff = now - deps.maxAgeMs;
   if (started > cutoff) return { dirs: [], uploads: [] };
@@ -194,19 +203,17 @@ export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
 
 export function startRetention(
   env: Record<string, string | undefined>,
-  deps: Omit<RetentionDeps, "maxAgeMs" | "now">,
+  deps: Omit<RetentionDeps, "maxAgeMs" | "now"> & { now?: () => number },
 ): () => void {
   const days = retentionDays(env);
   if (days === 0) return () => {};
   const process = deps.process ?? processClock();
+  const now = deps.now ?? Date.now;
   const stored = deps.state.read().lastRunAt;
-  anchor(process, stored !== undefined && stored <= Date.now() ? stored : Date.now());
+  if (stored !== undefined && stored <= now()) anchor(process, stored);
   const run = () =>
-    void reapOnce({ ...deps, process, maxAgeMs: days * DAY_MS, now: Date.now }).catch(
-      (err: unknown) =>
-        deps.log(
-          `[retention] skipped this run: ${err instanceof Error ? err.message : String(err)}`,
-        ),
+    void reapOnce({ ...deps, process, maxAgeMs: days * DAY_MS, now }).catch((err: unknown) =>
+      deps.log(`[retention] skipped this run: ${err instanceof Error ? err.message : String(err)}`),
     );
   const timer = setInterval(run, RETENTION_INTERVAL_MS);
   return () => clearInterval(timer);

@@ -17,6 +17,7 @@ import {
   type Reaped,
   type RetentionDeps,
   reapOnce,
+  startRetention,
 } from "./retention";
 
 afterEach(cleanupRoots);
@@ -133,5 +134,46 @@ describe("the reaper clock", () => {
     expect(state.clock.lastRunAt).toBe(NOW - 34 * DAY);
     process.advance(30 * DAY);
     expect((await reapOnce(at(dirs, settled, NOW + 36 * DAY, state, process))).dirs).toEqual([id]);
+  });
+
+  test("a missing or unreadable last run is a first run: no advance, nothing removed", async () => {
+    const dirs = layout();
+    const old = jobDir(dirs.dataDir);
+    const lines: string[] = [];
+    const process = fakeProcess();
+    const state = memoryState({ startedAt: NOW - 365 * DAY });
+    const settled = { [old]: NOW - 400 * DAY };
+    expect(await reapOnce(at(dirs, settled, NOW + THIRTY, state, process, lines))).toEqual({
+      dirs: [],
+      uploads: [],
+    });
+    expect(state.clock).toEqual({ startedAt: NOW + THIRTY, lastRunAt: NOW + THIRTY });
+    expect(lines.join("\n")).toContain("the stored reaper clock was missing");
+    process.advance(HOUR);
+    expect((await reapOnce(at(dirs, settled, NOW + THIRTY + HOUR, state, process))).dirs).toEqual(
+      [],
+    );
+    expect(existsSync(join(dirs.dataDir, old))).toBe(true);
+  });
+
+  test("a worker anchors to the stored reaper clock at start-up, not to a wrong system clock", async () => {
+    const dirs = layout();
+    const process = fakeProcess();
+    const state = memoryState({ startedAt: NOW - 365 * DAY, lastRunAt: NOW });
+    const ahead = () => NOW + THIRTY;
+    const base = {
+      ...dirs,
+      finishedBefore: () => [],
+      live: async () => ({ ids: new Set<string>(), uploads: new Set<string>() }),
+      log: () => {},
+      state,
+      process,
+      now: ahead,
+    };
+    startRetention({}, base)();
+    expect(process.anchor?.clock).toBe(NOW);
+    process.advance(HOUR);
+    await reapOnce(at(dirs, {}, NOW + THIRTY, state, process));
+    expect(state.clock.lastRunAt).toBe(NOW + HOUR);
   });
 });
