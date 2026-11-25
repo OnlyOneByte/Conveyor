@@ -6,8 +6,8 @@
     overBy,
     type Size,
     sizeLine,
-    stlSize,
   } from "#lib/stl-size.js";
+  import { measureStl } from "#lib/measure-stl.js";
 
   export let file: File;
   export let bed: Size | undefined = undefined;
@@ -21,9 +21,9 @@
   async function measure(chosen: File) {
     measuring = chosen;
     size = undefined;
-    const buffer = await chosen.arrayBuffer().catch(() => null);
+    const measured = await measureStl(chosen);
     if (measuring !== chosen) return;
-    size = buffer ? stlSize(buffer) : null;
+    size = measured;
   }
 
   $: flat = size ? Math.max(size.x, size.y, size.z) === 0 : false;

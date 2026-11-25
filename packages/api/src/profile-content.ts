@@ -168,7 +168,8 @@ export async function profileVolume(db: Database, profile: Profile): Promise<Pri
       default:
         return null;
     }
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ProfileContentError && error.statusCode === 404) return null;
+    throw error;
   }
 }
