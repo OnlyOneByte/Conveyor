@@ -122,6 +122,7 @@ describe("the ratchet ignores how a type is written", () => {
       sweep: new Map([[path, nonBlankLines(source)]]),
       fallback: () => new Map(),
       typeLines: () => typeOnlyLines(path, source),
+      bodies: () => [],
     });
     return summarize(merged.coverage).shared.found;
   };
@@ -144,6 +145,7 @@ describe("the ratchet ignores how a type is written", () => {
       sweep: new Map([[path, nonBlankLines(INLINE)]]),
       fallback: () => new Map(),
       typeLines: () => typeOnlyLines(path, INLINE),
+      bodies: () => [],
     });
     expect(summarize(merged.coverage).shared).toEqual({ found: 6, hit: 0 });
   });
@@ -190,6 +192,7 @@ describe("against the real bun sweep", () => {
         sweep: sweep.coverage,
         fallback: () => new Map(),
         typeLines: (file) => typeOnlyLines(file, source),
+        bodies: () => [],
       });
       const kept = [...(merged.coverage.get(key ?? "")?.keys() ?? [])];
       expect(kept).toEqual(mapped.filter((line) => ![4, 5, 6].includes(line)));

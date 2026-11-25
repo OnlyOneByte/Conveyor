@@ -113,9 +113,7 @@ describe("runSweep", () => {
         writeFileSync(join(dir, "double.ts"), module);
         writeFileSync(join(dir, "fake.ts"), module);
         const paths = ["double.ts", "fake.ts"].map((name) => relative(ROOT, join(dir, name)));
-        for (const path of paths) {
-          expect(isSource(path)).toBe(true);
-        }
+        expect(paths.map((path) => isSource(path))).toEqual([true, true]);
         const sweep = shownIfUnfinished(runSweep(paths));
         expect(sweep.completed).toBe(true);
         const merged = mergeCoverage({
@@ -124,6 +122,7 @@ describe("runSweep", () => {
           sweep: sweep.coverage,
           fallback: () => new Map(),
           typeLines: () => new Set(),
+          bodies: () => [],
         });
         expect(merged.estimated).toEqual([]);
         expect(summarize(merged.coverage).shared).toEqual({ found: 2, hit: 0 });

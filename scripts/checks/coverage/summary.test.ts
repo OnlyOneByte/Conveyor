@@ -133,6 +133,7 @@ describe("coverage totals", () => {
       sweep,
       fallback: () => nonBlankLines("x\n\ny\n"),
       typeLines: () => new Set(),
+      bodies: () => [],
     });
 
   test("counts unloaded files at zero using the sweep line map", () => {
@@ -176,6 +177,24 @@ describe("coverage totals", () => {
     expect(summarize(merged.coverage).worker).toEqual({ found: 2, hit: 0 });
   });
 
+  test("a loaded file's function that never ran counts 0 on every line, its last included", () => {
+    const merged = mergeCoverage({
+      sources: [A],
+      measured: lcov({
+        [A]: [
+          [1, 4],
+          [2, 0],
+          [3, 2],
+        ],
+      }),
+      sweep,
+      fallback: () => new Map(),
+      typeLines: () => new Set(),
+      bodies: () => [{ header: 1, first: 2, last: 3 }],
+    });
+    expect(summarize(merged.coverage).api).toEqual({ found: 3, hit: 1 });
+  });
+
   test("removing comment lines cannot lower a file's coverage", () => {
     const path = "packages/shared/src/x.ts";
     const percentOf = (sweepLines: number[], run: [number, number][]) => {
@@ -185,6 +204,7 @@ describe("coverage totals", () => {
         sweep: new Map([[path, new Map(sweepLines.map((line) => [line, 0]))]]),
         fallback: () => new Map(),
         typeLines: () => new Set(),
+        bodies: () => [],
       });
       return percents(summarize(merged.coverage)).shared;
     };
