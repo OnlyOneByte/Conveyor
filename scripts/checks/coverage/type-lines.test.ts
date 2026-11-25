@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runSweep } from "./runner";
-import { mergeCoverage, nonBlankLines, summarize } from "./summary";
+import { mergeCoverage, nonBlankLines, printSweepLog, summarize } from "./summary";
 import { typeOnlyLines } from "./type-lines";
 
 const lines = (source: string) => [...typeOnlyLines("packages/shared/src/x.ts", source)].sort();
@@ -174,6 +174,7 @@ describe("against the real bun sweep", () => {
       ].join("\n");
       const path = fixture("inline-type.ts", source);
       const sweep = runSweep([path]);
+      printSweepLog(sweep, console.error);
       const key = [...sweep.coverage.keys()].find((file) => file.endsWith("inline-type.ts"));
       expect(key).not.toBeUndefined();
       const mapped = [...(sweep.coverage.get(key ?? "")?.keys() ?? [])];

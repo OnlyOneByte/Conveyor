@@ -39,6 +39,7 @@ import {
   PACKAGES,
   percent,
   percents,
+  printSweepLog,
   type Summary,
   summarize,
   sweepErrors,
@@ -68,6 +69,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   const measured = parseLcov(lcov);
   const all = sources();
   const sweep = runSweep(all);
+  printSweepLog(sweep, console.error);
   const fallback = (path: string) => nonBlankLines(readOrNull(join(ROOT, path)) ?? "");
   const typeLines = (path: string) => typeOnlyLines(path, readOrNull(join(ROOT, path)) ?? "");
   const merged = mergeCoverage({

@@ -103,6 +103,19 @@ export function sweepErrors({ completed, failed, estimated }: SweepOutcome): str
   ];
 }
 
+export interface SweepRun {
+  completed: boolean;
+  failed: string[];
+  output: string;
+}
+
+export function printSweepLog(
+  { completed, failed, output }: SweepRun,
+  print: (text: string) => void,
+): void {
+  if (!completed || failed.length > 0) print(output);
+}
+
 export interface LineTotals {
   found: number;
   hit: number;

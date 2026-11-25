@@ -49,6 +49,7 @@ export interface Sweep {
   coverage: Coverage;
   completed: boolean;
   failed: string[];
+  output: string;
 }
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -89,12 +90,12 @@ export function runSweep(files: string[]): Sweep {
       stdout: "pipe",
       stderr: "pipe",
     });
-    if (result.exitCode !== 0) console.error(result.stderr.toString());
     const failures = readFailures(readOrNull(join(dir, "report.json")));
     return {
       coverage: parseLcov(readOrNull(join(dir, "lcov.info")) ?? ""),
       completed: result.exitCode === 0 && failures !== null,
       failed: failures ?? [],
+      output: `${result.stdout.toString()}${result.stderr.toString()}`,
     };
   } finally {
     rmSync(dir, { recursive: true, force: true });

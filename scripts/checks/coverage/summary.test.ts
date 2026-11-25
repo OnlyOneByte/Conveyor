@@ -8,6 +8,7 @@ import {
   nonBlankLines,
   packageOf,
   percents,
+  printSweepLog,
   SWEEP_TIMEOUT_ENV,
   summarize,
   sweepErrors,
@@ -28,6 +29,29 @@ describe("sweepErrors", () => {
       "coverage sweep: b.ts threw while importing",
     ]);
     expect(sweepErrors({ completed: false, failed: [], estimated: [] })).toHaveLength(1);
+  });
+});
+
+describe("printSweepLog", () => {
+  const printed = (run: Parameters<typeof printSweepLog>[0]) => {
+    const lines: string[] = [];
+    printSweepLog(run, (text) => lines.push(text));
+    return lines;
+  };
+  const reason = "sweep could not load packages/api/src/x.ts: Error: boom on import\n";
+
+  test("prints why a file failed to import", () => {
+    expect(printed({ completed: true, failed: ["packages/api/src/x.ts"], output: reason })).toEqual(
+      [reason],
+    );
+  });
+
+  test("prints the sweep's own output when it did not finish", () => {
+    expect(printed({ completed: false, failed: [], output: "timed out" })).toEqual(["timed out"]);
+  });
+
+  test("prints nothing for a clean sweep, whatever it wrote", () => {
+    expect(printed({ completed: true, failed: [], output: "1 pass\n" })).toEqual([]);
   });
 });
 
