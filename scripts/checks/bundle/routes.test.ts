@@ -61,6 +61,12 @@ describe("finding code built at runtime", () => {
       'setTimeout("tick()",10)',
       "setInterval(`tick()`,10)",
       'window.setTimeout("tick()"+x,10)',
+      'root.Function("return this")()',
+      "(n.g||n.self).Function(`return this`)()",
+      "x.Function",
+      "const o={eval};o.eval(`1`)",
+      "const o={Function};o.Function(`return 1`)",
+      "const{Function}=globalThis;Function(`return 1`)",
     ])
       expect(buildsCode(code)).toBe(true);
   });
@@ -81,6 +87,8 @@ describe("finding code built at runtime", () => {
       "setInterval(tick,10)",
       "class Calc{eval(x){return x}}",
       "const o={eval:1,Function:2}",
+      "typeof Function==`function`",
+      "if(typeof Function!==`undefined`)x()",
     ])
       expect(buildsCode(code)).toBe(false);
   });

@@ -28,6 +28,9 @@ const isText = (node: ts.Expression | undefined): boolean =>
 
 function harmlessName(node: ts.Identifier): boolean {
   const { parent } = node;
+  if (ts.isShorthandPropertyAssignment(parent)) return false;
+  if (ts.isPropertyAccessExpression(parent) && parent.name === node)
+    return node.text !== "Function";
   if (!ts.isBindingElement(parent) && "name" in parent && parent.name === node) return true;
   if (
     ts.isBinaryExpression(parent) &&
@@ -48,8 +51,6 @@ function compilerReference(node: ts.Node): boolean {
     const name = globalMember(node);
     return name !== null && COMPILERS.has(name);
   }
-  if (ts.isBindingElement(node) && node.propertyName && ts.isIdentifier(node.propertyName))
-    return COMPILERS.has(node.propertyName.text);
   return false;
 }
 
