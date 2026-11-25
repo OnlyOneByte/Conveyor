@@ -46,6 +46,12 @@ experimental. The api reads the flag through the same `queueMode`, so the two ca
 Compose passes one `${CONVEYOR_QUEUE:-redis}` and one `${CONVEYOR_QUEUE_UNSTABLE:-}` to both the api and the
 worker, so in a normal install they always run the same queue; `queue-mode.test.ts` checks both services.
 
+In both modes `main.ts` starts `startHeartbeat` (`heartbeat.ts`). It writes `{ at, engines }` to the
+`worker_heartbeat` row of the `meta` table at start and every 15 seconds. `engines` says whether each engine's
+binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`) was
+found at start, or `stub` with `CONVEYOR_ENGINE_STUB=1`. A write that fails is logged and never stops the
+worker. The api's `GET /health/deep` reads that row.
+
 ## sqlite.ts
 
 `startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the
@@ -101,6 +107,11 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
 
 ## pipeline.ts
 
+- `runJob` and `resumeJob` log the job's lifecycle as one JSON line per event through
+  `PipelineDeps.event`, which defaults to `jsonLine` (`job-log.ts`, stdout). They log a `stage` line each time
+  the job enters a stage, and one `settled` line when it ends. That line carries the outcome (`done`,
+  `canceled`, `failed` or `lease lost`), the stage it ended in, the total duration, each stage's duration and,
+  for `failed`, the reason.
 - Every status a transport yields while a print is watched calls `printerSeen(printerId)` before it is handled,
   so a printer that is printing keeps a fresh `lastSeenAt` without a probe. `index.ts` and `sqlite.ts` wire it
   to `markPrinterSeen` (`printer-target.ts`). `transferring` does not count: Moonraker and Elegoo yield it

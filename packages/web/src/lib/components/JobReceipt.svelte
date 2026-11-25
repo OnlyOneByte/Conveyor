@@ -103,12 +103,12 @@
   }
   dl { display: grid; grid-template-columns: 1fr auto; gap: 6px var(--s4); margin: 0; }
   dt { color: var(--muted); }
-  dd { margin: 0; text-align: right; font: 500 14px var(--mono); }
+  dd { margin: 0; text-align: right; font: 500 var(--fs-body) var(--mono); }
   .total { padding-top: 6px; border-top: 1.5px dashed var(--field-line); font-weight: 700; }
   dt.total { color: var(--ink); }
   .note p {
     margin: 0; padding: var(--s3) var(--s4); border-left: 3px solid var(--field-line);
-    border-radius: 0 10px 10px 0; background: var(--sunk); white-space: pre-wrap;
+    border-radius: 0 var(--r-inner) var(--r-inner) 0; background: var(--sunk); white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .files { display: flex; gap: var(--s2); flex-wrap: wrap; }
@@ -117,9 +117,10 @@
     text-decoration: none; border-color: var(--field-line);
   }
   summary { padding: 6px 0; font-weight: 600; color: var(--muted); cursor: pointer; }
+  @media (pointer: coarse) { summary { padding: 11px 0; } }
   pre {
-    margin: var(--s2) 0 0; padding: var(--s3); border-radius: 10px; background: var(--sunk);
-    font: 500 12px var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
+    margin: var(--s2) 0 0; padding: var(--s3); border-radius: var(--r-inner); background: var(--sunk);
+    font: 500 var(--fs-mono) var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
   }
   .idrow { display: flex; align-items: center; gap: var(--s3); color: var(--muted); }
 </style>

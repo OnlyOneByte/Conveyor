@@ -31,10 +31,10 @@
   legend { padding: 0 0 var(--s1); font-weight: 650; }
   .seg {
     display: inline-flex; justify-self: start; gap: 4px; padding: 4px;
-    border: 1.5px solid var(--field-line); border-radius: 15px; background: var(--sunk);
+    border: 1.5px solid var(--field-line); border-radius: var(--r-chip); background: var(--sunk);
   }
   label {
-    display: flex; align-items: center; min-height: 36px; padding: 0 var(--s3); border-radius: 11px;
+    display: flex; align-items: center; min-height: 36px; padding: 0 var(--s3); border-radius: var(--r-inner);
     color: var(--muted); font-weight: 600; cursor: pointer;
   }
   label:has(:checked) { background: var(--ink); color: var(--bg); }

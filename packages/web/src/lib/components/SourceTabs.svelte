@@ -30,11 +30,11 @@
 
 <style>
   .tabs {
-    display: flex; gap: var(--s1); padding: var(--s1); border-radius: 22px;
+    display: flex; gap: var(--s1); padding: var(--s1); border-radius: var(--r-pill);
     background: var(--sunk); border: 1.5px solid var(--field-line); width: fit-content;
   }
   button {
-    min-height: 38px; padding: 0 var(--s4); border: 0; border-radius: 17px;
+    min-height: 38px; padding: 0 var(--s4); border: 0; border-radius: var(--r-pill);
     background: transparent; color: var(--ink); font-weight: 650;
   }
   @media (hover: hover) { button:hover:not([aria-selected="true"]) { background: var(--paper); } }

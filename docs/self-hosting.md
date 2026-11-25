@@ -184,6 +184,26 @@ A refused address gets a plain error, for example `Conveyor won't connect to 169
 
 Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds from inside each container. `docker compose ps` shows them `healthy` or `unhealthy`, and `docker compose up -d --wait` waits for both. `web` starts once the api is healthy, and Caddy once both are, so Caddy never answers `502` while the stack boots. An api that can't start, such as one missing `CONVEYOR_PASSWORD`, never turns healthy, and `docker compose logs api` names the problem.
 
+`GET /health` only says the api is running. For the whole stack, sign in and open `https://<your Conveyor address>/api/health/deep`. Without a session it answers `401`. It reports:
+
+| Field | Values | Means |
+| --- | --- | --- |
+| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer; `degraded` (HTTP `200`) when no worker has checked in within 45 seconds, or when the worker has no OpenSCAD or no slicer |
+| `db` | `ok`, `down` | the api ran `SELECT 1` on the database |
+| `redis` | `ok`, `down` | Redis answered `PING` within 2 seconds; absent with `CONVEYOR_QUEUE=sqlite` |
+| `worker` | `state`: `ok`, `stale`, `missing`; `lastSeenSecondsAgo` | the worker writes a heartbeat to the database every 15 seconds. `missing` means none was ever written, and `stale` means the last is over 45 seconds old |
+| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether the worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) when it started. `stub` with `CONVEYOR_ENGINE_STUB=1` |
+
+The report carries only these states, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
+
+The worker logs one JSON line each time a job enters a stage, and one when the job ends:
+
+```json
+{"time":"2026-11-25T10:00:03.120Z","level":"error","event":"settled","jobId":"…","outcome":"failed","stage":"slicer","durationMs":4810,"stages":[{"stage":"generator","durationMs":2210},{"stage":"slicer","durationMs":2600}],"reason":"orca-slicer exited 1: …"}
+```
+
+`outcome` is `done`, `canceled`, `failed` or `lease lost`, and `level` is `error` for the last two. `reason` is the failure reason the job page shows; for an engine that exits with an error, it ends with the last 500 characters of what the engine wrote to stderr. To follow one job: `docker compose logs worker | grep '"jobId":"<id>"'`.
+
 Every service logs through Docker's `json-file` driver capped at 3 files of 10 MB, so logs can't fill a small SD card. `docker compose logs <service>` reads them.
 
 `docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second. The `worker` stops taking jobs and exits as soon as no job is running. On the default Redis queue it waits for a running job to finish, for up to its 60 s grace period (`stop_grace_period`); then Docker kills it. That job is not run again: within a couple of minutes of the worker coming back, it's recorded as failed and shows in **Needs you**. BullMQ's stalled check fails it within about 30 seconds, and the reaper records it on its next sweep, which runs every minute. Its reason reads "the worker stopped before recording how this job ended; check the printer before you retry". Look at the printer before you retry it, since the print may already be on the bed. So the whole stack stops in about 3 seconds when idle, and in up to a minute mid-job.
