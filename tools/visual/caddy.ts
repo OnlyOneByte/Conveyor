@@ -7,11 +7,17 @@ const field = (value: unknown, key: string): unknown =>
   entries(value).find(([name]) => name === key)?.[1];
 
 export function composeCaddyImage(compose: string): string {
-  const image = field(field(field(Bun.YAML.parse(compose), "services"), "caddy"), "image");
+  const services = field(Bun.YAML.parse(compose), "services");
+  const image = field(field(services, "caddy"), "image");
   if (typeof image !== "string" || !image.startsWith("caddy:"))
     throw new Error("docker-compose.yml's caddy service has no caddy image");
   if (!/^caddy:[^@\s]+@sha256:[0-9a-f]{64}$/.test(image))
     throw new Error(`docker-compose.yml's ${image} isn't pinned by digest`);
+  const init = field(field(services, "caddy-init"), "image");
+  if (init !== undefined && init !== image)
+    throw new Error(
+      `docker-compose.yml's caddy-init runs ${init}, not the caddy service's ${image}`,
+    );
   return image;
 }
 
@@ -87,6 +93,7 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
   const servers = entries(field(http, "servers"));
   const listen = JSON.stringify([`127.0.0.1:${ports.port}`]);
   const upstreams = [`127.0.0.1:${ports.apiPort}`, `127.0.0.1:${ports.webPort}`];
+  const unlisted = objects(config).flatMap((value) => [...modules(value), ...proxy(value)]);
   const problems = [
     ...unexpected(config, ["admin", "apps"], "top-level"),
     ...unexpected(apps, ["http"], "app"),
@@ -107,7 +114,12 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
     ...dials(config)
       .filter((dial) => !upstreams.includes(dial))
       .map((dial) => `an upstream at ${dial}`),
-    ...objects(config).flatMap((value) => [...modules(value), ...proxy(value)]),
+    ...unlisted,
+    ...(unlisted.length > 0
+      ? [
+          "if production's Caddyfile needs it, add it to MODULES (or the reverse_proxy options) in tools/visual/caddy.ts",
+        ]
+      : []),
   ];
   return problems.length > 0
     ? `the visual Caddy config isn't loopback-only: ${problems.join("; ")}`

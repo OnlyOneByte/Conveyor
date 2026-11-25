@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  adaptedProblem,
   assertLoopbackCaddy,
   CADDY_IMAGE,
   caddyRun,
@@ -128,6 +129,31 @@ for (const [name, source, message] of variants)
     ADAPT_MS,
   );
 
+test("a module or option refusal names the allowlist to edit, and only that refusal does", () => {
+  const config = (handler: Record<string, unknown>, admin: Record<string, unknown>) => ({
+    admin,
+    apps: {
+      http: {
+        servers: {
+          srv0: {
+            listen: ["127.0.0.1:41000"],
+            automatic_https: { disable: true },
+            routes: [{ handle: [handler] }],
+          },
+        },
+      },
+    },
+  });
+  const hint = "add it to MODULES (or the reverse_proxy options) in tools/visual/caddy.ts";
+  const disabled = { disabled: true };
+  expect(adaptedProblem(config({ handler: "acme_server" }, disabled), ports)).toContain(hint);
+  expect(
+    adaptedProblem(config({ handler: "reverse_proxy", health_checks: {} }, disabled), ports),
+  ).toContain(hint);
+  expect(adaptedProblem(config({ handler: "headers" }, {}), ports)).not.toContain(hint);
+  expect(adaptedProblem(config({ handler: "headers" }, disabled), ports)).toBeNull();
+});
+
 test("Caddy runs on the host network with the file mounted read-only", () => {
   expect(caddyRun("/tmp/x/Caddyfile")).toEqual([
     "docker",
@@ -151,8 +177,11 @@ test("the stack runs compose's caddy image, pinned by digest so Dependabot moves
 test("compose's caddy image is read from the caddy service, quoted or commented", () => {
   const pinned = `caddy:2@sha256:${"a".repeat(64)}`;
   const other = `caddy:2@sha256:${"b".repeat(64)}`;
-  const compose = (caddy: string) =>
-    `services:\n  caddy-init:\n    image: ${other}\n  caddy:\n    image: ${caddy}\n  redis:\n    image: redis:8\n`;
+  const compose = (caddy: string, init = pinned) =>
+    `services:\n  caddy-init:\n    image: ${init}\n  caddy:\n    image: ${caddy}\n  redis:\n    image: redis:8\n`;
+  expect(() => composeCaddyImage(compose(pinned, other))).toThrow(
+    `docker-compose.yml's caddy-init runs ${other}, not the caddy service's ${pinned}`,
+  );
   expect(composeCaddyImage(compose(`"${pinned}"`))).toBe(pinned);
   expect(composeCaddyImage(compose(`'${pinned}' # bumped by Dependabot`))).toBe(pinned);
   expect(composeCaddyImage(compose(`${pinned}  # bumped by Dependabot`))).toBe(pinned);

@@ -177,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       redis:
-        image: redis:8-alpine
+        image: redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483
         ports:
           - 6379:6379
         options: >-
@@ -397,6 +397,12 @@ jobs:
           echo "::add-mask::$secret"
           echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
           echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
+      - name: Use compose's digest-pinned caddy image for every Caddy check
+        run: |
+          image=$(docker compose config --format json | jq -er '.services.caddy.image')
+          echo "caddy: $image"
+          [[ "$image" =~ ^caddy:[^@]+@sha256:[0-9a-f]{64}$ ]]
+          echo "CADDY_IMAGE=$image" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Pick this week's OS package refresh
         id: refresh
@@ -433,18 +439,18 @@ jobs:
               --label com.docker.compose.volume="$volume" "conveyor_$volume"
           done
           docker run -d --name seed-caddy --user 0:0 -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            -v conveyor_caddy_data:/data -v conveyor_caddy_config:/config caddy:2
+            -v conveyor_caddy_data:/data -v conveyor_caddy_config:/config "$CADDY_IMAGE"
           leaf=/data/caddy/certificates/local/localhost/localhost.crt
           for _ in $(seq 30); do docker exec seed-caddy test -s "$leaf" && break; sleep 1; done
           docker rm -f seed-caddy
-          docker run --rm --network none -v conveyor_caddy_data:/data alpine sh -c \
+          docker run --rm --network none -v conveyor_caddy_data:/data "$CADDY_IMAGE" sh -c \
             "stat -c '%u:%g %n' $leaf && sha256sum /data/caddy/pki/authorities/local/root.crt $leaf" | tee caddy-before.txt
           grep -q '^0:0 ' caddy-before.txt
       - name: The Caddyfile is valid for localhost, a LAN address, a home.arpa name and a public name
         run: |
           for domain in localhost 192.168.1.20 conveyor.home.arpa conveyor.example.com; do
             docker run --rm --network none -e CONVEYOR_DOMAIN="$domain" -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
-              caddy:2 caddy validate --config /etc/caddy/Caddyfile > validate.txt 2>&1 || { cat validate.txt; exit 1; }
+              "$CADDY_IMAGE" caddy validate --config /etc/caddy/Caddyfile > validate.txt 2>&1 || { cat validate.txt; exit 1; }
             echo "$domain: valid"
           done
       - name: docker compose up
@@ -526,7 +532,7 @@ jobs:
           done
           test "$(login)" = 429
           test "$(login -H 'X-Forwarded-For: 198.51.100.7')" = 429
-          other=$(docker run --rm --network conveyor_default curlimages/curl:8.11.1 \
+          other=$(docker run --rm --network conveyor_default curlimages/curl:8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69 \
             -sk -o /dev/null -w '%{http_code}' --resolve localhost:443:172.31.250.2 \
             -H 'content-type: application/json' -d "$WRONG" "$LOGIN_URL")
           echo "another client on the network: $other"
@@ -568,12 +574,12 @@ jobs:
           docker compose run --rm caddy-init | tee again.txt
           grep -qx 'caddy-init: 0 paths handed to 10002:10002' again.txt
           leaf=/data/caddy/certificates/local/localhost/localhost.crt
-          docker run --rm --network none -v conveyor_caddy_data:/data alpine sh -c \
+          docker run --rm --network none -v conveyor_caddy_data:/data "$CADDY_IMAGE" sh -c \
             "sha256sum /data/caddy/pki/authorities/local/root.crt $leaf" > after.txt
           test "$(tail -n 2 caddy-before.txt)" = "$(cat after.txt)"
           served=$(openssl s_client -connect 127.0.0.1:443 -servername localhost </dev/null 2>/dev/null \
             | openssl x509 -outform der | sha256sum)
-          stored=$(docker run --rm --network none -v conveyor_caddy_data:/data alpine cat "$leaf" | openssl x509 -outform der | sha256sum)
+          stored=$(docker run --rm --network none -v conveyor_caddy_data:/data "$CADDY_IMAGE" cat "$leaf" | openssl x509 -outform der | sha256sum)
           echo "served $served stored $stored"
           test "$served" = "$stored"
       - name: Caddy and Redis run with no capabilities on a read-only root
