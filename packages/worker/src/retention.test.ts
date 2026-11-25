@@ -11,13 +11,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  type LiveJobs,
-  type RetentionDeps,
-  reapOnce,
-  retentionDays,
-  startRetention,
-} from "./retention";
+import { retentionDays } from "@conveyor/shared";
+import { type LiveJobs, type RetentionDeps, reapOnce, startRetention } from "./retention";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-11-25T12:00:00Z");
@@ -163,9 +158,9 @@ describe("uploads", () => {
   });
 });
 
-test("CONVEYOR_RETENTION_DAYS defaults to 7, takes whole days, and 0 turns it off", () => {
-  expect(retentionDays({})).toBe(7);
-  expect(retentionDays({ CONVEYOR_RETENTION_DAYS: " " })).toBe(7);
+test("CONVEYOR_RETENTION_DAYS defaults to 30, takes whole days, and 0 turns it off", () => {
+  expect(retentionDays({})).toBe(30);
+  expect(retentionDays({ CONVEYOR_RETENTION_DAYS: " " })).toBe(30);
   expect(retentionDays({ CONVEYOR_RETENTION_DAYS: "30" })).toBe(30);
   expect(retentionDays({ CONVEYOR_RETENTION_DAYS: "0" })).toBe(0);
   for (const bad of ["-1", "1.5", "week"])

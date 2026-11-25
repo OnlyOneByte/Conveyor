@@ -1,8 +1,8 @@
-import { queueMode } from "@conveyor/shared";
+import { queueMode, retentionDays } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { workerConcurrency } from "./mode.js";
-import { retentionDays, sqliteFinishedBefore, sqliteLive, startRetention } from "./retention.js";
+import { sqliteFinishedBefore, sqliteLive, startRetention } from "./retention.js";
 
 export interface StartedWorker {
   mode: string;

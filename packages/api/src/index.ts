@@ -1,4 +1,4 @@
-import { queueMode } from "@conveyor/shared";
+import { queueMode, retentionDays } from "@conveyor/shared";
 import { dbListPrinters, openDb } from "@conveyor/shared/db";
 import { allowList, loopbackPrinters } from "@conveyor/shared/node";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
@@ -26,6 +26,7 @@ try {
   queue = queueMode(process.env);
   trustProxy = parseTrustedProxies(process.env.CONVEYOR_TRUSTED_PROXIES);
   allowList(process.env);
+  retentionDays(process.env);
   openDb();
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));

@@ -1,12 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { lstat, readdir, rm } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { TERMINAL_STATES } from "@conveyor/shared";
+import { DAY_MS, retentionDays, TERMINAL_STATES } from "@conveyor/shared";
 
-export const RETENTION_SETTING = "CONVEYOR_RETENTION_DAYS";
-export const DEFAULT_RETENTION_DAYS = 7;
 export const RETENTION_INTERVAL_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl$/i;
@@ -32,16 +29,6 @@ const removeTree = (path: string) => rm(path, { recursive: true, force: true });
 export interface Reaped {
   dirs: string[];
   uploads: string[];
-}
-
-export function retentionDays(env: Record<string, string | undefined>): number {
-  const raw = env[RETENTION_SETTING];
-  if (raw === undefined || raw.trim() === "") return DEFAULT_RETENTION_DAYS;
-  if (!/^\d+$/.test(raw.trim()))
-    throw new Error(
-      `${RETENTION_SETTING} must be a whole number of days (0 turns it off), got ${raw}`,
-    );
-  return Number(raw.trim());
 }
 
 function inside(root: string, name: string): string | undefined {

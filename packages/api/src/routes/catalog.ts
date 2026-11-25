@@ -1,4 +1,6 @@
-import { isTerminal } from "@conveyor/shared";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { DAY_MS, isTerminal, type Job, retentionDays } from "@conveyor/shared";
 import {
   DEFAULT_PROFILES,
   dbCountJobs,
@@ -61,7 +63,7 @@ export async function registerCatalogRoutes(
     if (!job || !isTerminal(job.state)) {
       return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
     }
-    return job;
+    return withRemovedFiles(job);
   });
 
   app.get("/catalog/printers", async () => dbListPrinters(openDb()));
@@ -157,4 +159,12 @@ async function refusal(address: string): Promise<string | undefined> {
     if (err instanceof PrinterAddressRefusedError) return err.message;
     throw err;
   }
+}
+
+function withRemovedFiles(job: Job): Job & { filesRemovedAfterDays?: number } {
+  const days = retentionDays(process.env);
+  const hadFiles = Boolean(job.artifacts?.model || job.artifacts?.gcode);
+  if (days === 0 || !hadFiles || job.updatedAt >= Date.now() - days * DAY_MS) return job;
+  const folder = join(resolve(process.env.DATA_DIR ?? "/data"), job.id);
+  return existsSync(folder) ? job : { ...job, filesRemovedAfterDays: days };
 }

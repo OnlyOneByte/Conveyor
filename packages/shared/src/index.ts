@@ -11,4 +11,5 @@ export * from "./print-volume.js";
 export * from "./profile.js";
 export * from "./queue-mode.js";
 export * from "./registry.js";
+export * from "./retention.js";
 export * from "./status.js";

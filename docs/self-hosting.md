@@ -160,7 +160,7 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
 | `PRINTER_ADDRESS_ALLOW` | none | Hosts and CIDRs the api and worker may reach even though they fall in a refused range ([Printer addresses](#printer-addresses)), separated by commas or spaces, for example `169.254.10.0/24, printer.example`. An entry that isn't a valid CIDR stops the api at startup and fails a job's transport stage, naming the variable. |
 | `MOONRAKER_STATUS_TIMEOUT_MS` | `30000` | Longest the worker waits for one Moonraker status reply. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
-| `CONVEYOR_RETENTION_DAYS` | `7` | Days the worker keeps a finished job's folder (its STL and g-code downloads) and an upload no queued or running job uses ([Disk and Redis retention](#disk-and-redis-retention)). `0` keeps everything. Unset or empty uses the default; any other value must be a whole number, or the worker stops at startup naming the variable. |
+| `CONVEYOR_RETENTION_DAYS` | `30` | Days the worker keeps a finished job's folder (its STL and g-code downloads) and an upload no queued or running job uses ([Disk and Redis retention](#disk-and-redis-retention)). `0` keeps everything. Compose passes it to the api and the worker. Unset or empty uses the default; any other value must be a whole number, or the api and worker stop at startup naming the variable. |
 | `MOONRAKER_STATUS_FAILURES` | `5` | Status polls in a row that may fail (a timeout, a refused connection or an error reply) before the worker gives up on a running print. A successful poll resets the count. Same rules as above. |
 
 ## Printer addresses
@@ -187,9 +187,9 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 
 | What | Removed when |
 | --- | --- |
-| A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS`. Its downloads then answer `410`; its history stays |
-| An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
-| Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles |
+| A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS` (30 days by default). The job page then says "Files removed after 30 days." in place of the download buttons, and the download links answer `410`; its history stays |
+| An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` (30 days by default) and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
+| Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
 | BullMQ's record of a finished job | After 7 days, or once 1000 newer finished (or failed) jobs exist |
 
 A job that isn't finished is never touched, and neither is anything the reaper didn't create: it only removes folders named by a job id and files named `<uploadId>.stl`, directly inside `./data` and `./data/uploads`, and never follows a symlink. If the worker stops partway through, the next run finishes the job. If the queue can't be read, that run removes nothing. `CONVEYOR_RETENTION_DAYS=0` turns the reaper off.

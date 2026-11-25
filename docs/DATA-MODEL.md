@@ -253,8 +253,10 @@ both the database and the key.
 
 - Artifacts: a failed or canceled job's directory is removed when it settles (`worker/src/settle.ts`). A
   done job's `/data/<id>/` is kept for its downloads until the worker's retention reaper
-  (`worker/src/retention.ts`) removes it, `CONVEYOR_RETENTION_DAYS` (default 7) after the job's `jobs` row
-  last changed. The artifact routes then answer `410`.
+  (`worker/src/retention.ts`) removes it, `CONVEYOR_RETENTION_DAYS` (default 30) after the job's `jobs` row
+  last changed. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
+  `filesRemovedAfterDays` (the setting) when the job had files, is older than the setting and its folder is
+  gone, so the job page can say so.
 - Uploads: `/data/uploads/<uploadId>.stl` is removed by the same reaper once it is older than
   `CONVEYOR_RETENTION_DAYS` and no queued or running job names it.
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.

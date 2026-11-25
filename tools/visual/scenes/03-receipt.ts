@@ -22,6 +22,41 @@ export const scenes: Scene[] = [
     steps: [{ wait: 1200 }],
   },
   {
+    name: "receipt-files-removed",
+    route: "/jobs",
+    ready: "h1",
+    steps: [
+      {
+        fulfill: "**/api/jobs-history/seed-printed",
+        status: 200,
+        json: {
+          id: "seed-printed",
+          request: {
+            generator: {
+              id: "gridfinity",
+              params: { gridX: 2, gridY: 3, heightUnits: 6, divisionsX: 2, magnetHoles: true },
+            },
+            printerId: "elegoo-1",
+            profileId: "orca/klipper-pla-0.2",
+          },
+          state: "done",
+          stage: "transport",
+          artifacts: {
+            model: "/data/jobs/seed-printed/model.stl",
+            gcode: "/data/jobs/seed-printed/model.gcode",
+          },
+          filesRemovedAfterDays: 30,
+          filament: { grams: 12.4, metres: 4.1 },
+          createdAt: 1767225600000,
+          updatedAt: 1767225600000,
+        },
+      },
+      { follow: "/jobs/seed-printed" },
+      { waitFor: "text=Files removed after 30 days." },
+      { wait: 1200 },
+    ],
+  },
+  {
     name: "receipt-failed",
     route: "/jobs/seed-failed",
     ready: "text=didn't finish",
