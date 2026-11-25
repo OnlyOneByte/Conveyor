@@ -113,9 +113,18 @@ when it imports the file, all at 0 hits.
 
 Bun reports the last line of some functions that never ran as hit. The checker corrects that: in a loaded
 file, a function whose first statement has 0 hits never ran, so every line of its body counts 0
-(`scripts/checks/coverage/bodies.ts`, which finds function bodies with TypeScript's parser). One bun
-over-count is left as it is: when `if (x) return 1;` sits on one line, a later `return -1;` that never ran
-reads as hit. That function did run, and bun's lcov has no branch records to tell which return was taken.
+(`scripts/checks/coverage/bodies.ts`, which finds function bodies with TypeScript's parser). A body with a
+single statement has no earlier line to read, so there the function's own header line decides: listed with 0
+hits, the statement counts 0 too. A first statement bun doesn't list at all (a `"use strict"`, an empty `;`)
+proves nothing, so that body is left as bun reported it.
+
+Two bun over-counts are left as they are:
+
+- When `if (x) return 1;` sits on one line, a later `return -1;` that never ran reads as hit. That function
+  did run, and bun's lcov has no branch records to tell which return was taken.
+- A function whose first statement, or for a single statement its header, shares a line with code outside
+  it (`items.map((x) => { return f(x); })` on one line) takes that outside code's count. It is never
+  zeroed, so the check can only under-correct here, never zero code that ran.
 
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load

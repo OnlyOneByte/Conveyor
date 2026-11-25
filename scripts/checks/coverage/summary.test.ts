@@ -190,7 +190,7 @@ describe("coverage totals", () => {
       sweep,
       fallback: () => new Map(),
       typeLines: () => new Set(),
-      bodies: () => [{ first: 2, last: 3 }],
+      bodies: () => [{ header: 1, first: 2, last: 3 }],
     });
     expect(summarize(merged.coverage).api).toEqual({ found: 3, hit: 1 });
   });

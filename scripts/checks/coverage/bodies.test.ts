@@ -4,6 +4,7 @@ import { functionBodies, withoutUnrunBodies } from "./bodies";
 const MODULE = [
   "export const arrow = (n: number) => {",
   "  const doubled = n * 2;",
+  "",
   "  return doubled + 1;",
   "};",
   "",
@@ -16,48 +17,70 @@ const MODULE = [
   "  return -1;",
   "}",
   "",
+  "export function exhaustive(value: never): never {",
+  "  throw new Error(String(value));",
+  "}",
+  "",
 ].join("\n");
 
 const BUN_RUN = new Map([
   [1, 0],
   [2, 0],
-  [3, 2],
-  [6, 11],
-  [7, 9],
-  [10, 15],
-  [11, 21],
-  [12, 1],
+  [4, 2],
+  [7, 11],
+  [8, 9],
+  [11, 15],
+  [12, 21],
+  [13, 1],
+  [16, 0],
+  [17, 1],
 ]);
 
+const corrected = withoutUnrunBodies(BUN_RUN, functionBodies("x.ts", MODULE));
+
 describe("functionBodies", () => {
-  test("finds each block body's first and last statement lines", () => {
+  test("finds each block body's header, first and last statement lines", () => {
     expect(functionBodies("x.ts", MODULE)).toEqual([
-      { first: 2, last: 3 },
-      { first: 7, last: 7 },
-      { first: 11, last: 12 },
+      { header: 1, first: 2, last: 4 },
+      { header: 7, first: 8, last: 8 },
+      { header: 11, first: 12, last: 13 },
+      { header: 16, first: 17, last: 17 },
     ]);
   });
 
   test("starts a body at its first statement that runs, past a hoisted function", () => {
     const source = "function outer() {\n  function inner() {}\n  return 1;\n}\n";
-    expect(functionBodies("x.ts", source)[0]).toEqual({ first: 3, last: 3 });
+    expect(functionBodies("x.ts", source)[0]).toEqual({ header: 1, first: 3, last: 3 });
   });
 });
 
 describe("withoutUnrunBodies", () => {
-  const corrected = withoutUnrunBodies(BUN_RUN, functionBodies("x.ts", MODULE));
-
   test("an arrow function that never ran has its last line counted 0, not hit", () => {
-    expect(BUN_RUN.get(3)).toBe(2);
-    expect(corrected.get(3)).toBe(0);
+    expect(BUN_RUN.get(4)).toBe(2);
+    expect(corrected.get(4)).toBe(0);
     expect(corrected.get(2)).toBe(0);
   });
 
-  test("a function that ran keeps every count bun gave it", () => {
-    for (const line of [6, 7, 10, 11, 12]) expect(corrected.get(line)).toBe(BUN_RUN.get(line));
+  test("a single-statement function whose header reads 0 counts its statement 0", () => {
+    expect(BUN_RUN.get(17)).toBe(1);
+    expect(corrected.get(17)).toBe(0);
   });
 
-  test("adds no line bun did not list", () => {
+  test("a function that ran keeps every count bun gave it", () => {
+    for (const line of [7, 8, 11, 12, 13]) expect(corrected.get(line)).toBe(BUN_RUN.get(line));
+  });
+
+  test("adds no line bun did not list, even inside a body it zeroes", () => {
+    expect(corrected.has(3)).toBe(false);
     expect([...corrected.keys()]).toEqual([...BUN_RUN.keys()]);
+  });
+
+  test("a body whose first statement bun does not list keeps its counts", () => {
+    const source = 'function strict() {\n  "use strict";\n  return 1;\n}\n';
+    const run = new Map([
+      [1, 3],
+      [3, 3],
+    ]);
+    expect(withoutUnrunBodies(run, functionBodies("x.ts", source))).toEqual(run);
   });
 });

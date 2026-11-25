@@ -2,6 +2,7 @@ import * as ts from "typescript";
 import type { LineHits } from "./lcov";
 
 export interface Body {
+  header: number;
   first: number;
   last: number;
 }
@@ -20,8 +21,13 @@ export function functionBodies(path: string, source: string): Body[] {
       const statements = node.body.statements;
       const first = statements.find(runs);
       const last = statements.at(-1);
-      if (first && last)
-        bodies.push({ first: lineOf(first.getStart(file)), last: lineOf(last.getEnd()) });
+      if (first && last) {
+        bodies.push({
+          header: lineOf(node.getStart(file)),
+          first: lineOf(first.getStart(file)),
+          last: lineOf(last.getEnd()),
+        });
+      }
     }
     ts.forEachChild(node, visit);
   };
@@ -29,11 +35,14 @@ export function functionBodies(path: string, source: string): Body[] {
   return bodies;
 }
 
+const neverRan = (lines: LineHits, { header, first, last }: Body) =>
+  lines.get(first) === 0 || (first === last && header !== first && lines.get(header) === 0);
+
 export function withoutUnrunBodies(lines: LineHits, bodies: Body[]): LineHits {
   const out = new Map(lines);
-  for (const { first, last } of bodies) {
-    if (lines.get(first) !== 0) continue;
-    for (let line = first; line <= last; line++) if (out.has(line)) out.set(line, 0);
+  for (const body of bodies) {
+    if (!neverRan(lines, body)) continue;
+    for (let line = body.first; line <= body.last; line++) if (out.has(line)) out.set(line, 0);
   }
   return out;
 }
