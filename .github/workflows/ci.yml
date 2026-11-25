@@ -321,10 +321,7 @@ jobs:
           tags: conveyor-worker
           build-args: |
             ORCA_ENABLE=1
-          cache-from: |
-            type=gha,scope=worker-orca
-            type=gha,scope=worker
-          cache-to: type=gha,mode=max,scope=worker-orca
+          cache-from: type=gha,scope=worker
       - name: Scan the worker with OrcaSlicer for vulnerabilities with a fix
         env:
           TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
