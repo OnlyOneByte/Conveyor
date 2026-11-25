@@ -8,6 +8,7 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
+import type { AuthStatus } from "@conveyor/shared/auth-status";
 import { failure, statusError } from "./http-error.js";
 
 export const API = "/api";
@@ -89,19 +90,8 @@ export interface PrinterReachable {
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
   getJson<PrinterReachable>(`${API}/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
-export interface AuthStatus {
-  authEnabled: boolean;
-  authenticated: boolean;
-}
-
 export const signedIn = (status: AuthStatus | null): boolean =>
   status !== null && (!status.authEnabled || status.authenticated);
-
-export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
-  const r = await fetchFn(`${API}/auth/status`);
-  if (!r.ok) throw statusError(r, "GET /auth/status");
-  return r.json();
-}
 
 export async function logout(): Promise<void> {
   await fetch(`${API}/auth/logout`, { method: "POST" });

@@ -1,17 +1,33 @@
 import { describe, expect, test } from "bun:test";
-import { NOTE } from "@conveyor/shared/job-notes";
+import { NOTE, type NoteKind, note, noteText } from "@conveyor/shared/job-notes";
 import { plainNote, readNote, SAID } from "./job-notes.js";
 
+const KINDS = Object.keys(NOTE).filter((k): k is NoteKind => Object.hasOwn(NOTE, k));
+
 describe("job notes", () => {
-  test("every note the worker writes maps to its own sentence, never the fallback", () => {
-    const sentences = Object.entries(NOTE).map(([kind, prefix]) => {
-      const note = readNote(`${prefix}: EBUSY /data/jobs/z`);
-      expect(note?.raw).toBe(`${prefix}: EBUSY /data/jobs/z`);
-      expect(note?.plain).toEqual([Object.entries(SAID).find(([k]) => k === kind)?.[1] ?? ""]);
-      return note?.plain[0];
-    });
-    expect(new Set(sentences).size).toBe(Object.keys(NOTE).length);
+  test("every note the worker can build maps to its own sentence, never the fallback", () => {
+    const sentences = KINDS.flatMap((kind) =>
+      [undefined, "EBUSY /data/jobs/z"].map((detail) => {
+        const built = noteText(note(kind, detail));
+        const read = readNote(`${built}; ${noteText(note("workDirNotRemoved", "x"))}`);
+        expect(read?.raw).toStartWith(built);
+        expect(read?.plain[0]).toBe(SAID[kind]);
+        return read?.plain[0];
+      }),
+    );
+    expect(KINDS.length).toBe(Object.keys(NOTE).length);
+    expect(new Set(sentences).size).toBe(KINDS.length);
     expect(sentences).not.toContain("Conveyor noted something else about this job.");
+  });
+
+  test("a resume failure reads in plain words, whatever the transport said", () => {
+    expect(plainNote(noteText(note("resumeError", "ECONNREFUSED 10.0.0.9:7125")))).toBe(
+      "After a restart, Conveyor couldn't reach the printer to check on this print.",
+    );
+    expect(plainNote(noteText(note("resumeUnknownTransport", "octoprint")))).toBe(
+      "After a restart, Conveyor no longer knew how to talk to this printer.",
+    );
+    expect(plainNote(noteText(note("resumeNoHandle")))).not.toContain("handle");
   });
 
   test("worker notes read in plain words, with the raw text kept for Details", () => {

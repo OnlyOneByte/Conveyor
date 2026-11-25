@@ -10,6 +10,11 @@ export const SAID: Record<NoteKind, string> = {
   profileNotRemoved: "A temporary copy of the profile wasn't cleaned up.",
   workDirNotRemoved: "This job's working files weren't cleaned up.",
   historyNotRecorded: "Conveyor had trouble saving this job to the history.",
+  resumeNoHandle:
+    "After a restart, Conveyor had no record of this print, so it couldn't check on it.",
+  resumeUnknownTransport: "After a restart, Conveyor no longer knew how to talk to this printer.",
+  resumeConnectionLost: "After a restart, the printer stopped answering before the print finished.",
+  resumeError: "After a restart, Conveyor couldn't reach the printer to check on this print.",
 };
 
 const isKind = (kind: string): kind is NoteKind => Object.hasOwn(SAID, kind);

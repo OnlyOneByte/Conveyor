@@ -14,7 +14,8 @@
     "./profile": "./src/profile.ts",
     "./profile-format": "./src/profile-format.ts",
     "./status-lite": "./src/status-lite.ts",
-    "./job-notes": "./src/job-notes.ts"
+    "./job-notes": "./src/job-notes.ts",
+    "./auth-status": "./src/auth-status.ts"
   },
   "dependencies": {
     "zod": "^4.6.7"

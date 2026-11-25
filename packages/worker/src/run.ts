@@ -5,6 +5,7 @@ import {
   type JobState,
   type JobStatusEvent,
   type JobTarget,
+  type Note,
   type PrinterTarget,
   type PrintHandle,
   type Registry,
@@ -114,7 +115,7 @@ export interface Run {
   gcodePath?: string;
   filament?: FilamentUse;
   print?: PrintAttempt;
-  notes: string[];
+  notes: Note[];
 }
 
 export function messageOf(err: unknown): string {

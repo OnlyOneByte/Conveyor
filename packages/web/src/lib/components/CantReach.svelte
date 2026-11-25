@@ -37,9 +37,8 @@
 
 <style>
   .down { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); max-width: 520px; padding: 12vh 0 var(--s6); }
-  h1 { margin: 0; font-size: 40px; }
+  h1 { margin: 0; font-size: var(--fs-title); }
   p { margin: 0; color: var(--muted); }
   .down :global(.why) { align-self: stretch; margin: 0; }
   .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
-  @media (max-width: 759px) { h1 { font-size: 32px; } }
 </style>

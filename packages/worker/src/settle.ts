@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { computeStageTimings, NOTE, StageError } from "@conveyor/shared";
+import { computeStageTimings, type Note, note, noteText, StageError } from "@conveyor/shared";
 import { fallbackHandle, ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
@@ -16,36 +16,39 @@ import {
 const HISTORY_ATTEMPTS = 3;
 const DEFAULT_HISTORY_RETRY_MS = 250;
 
-async function stopPrinter(run: Run): Promise<string | undefined> {
+async function stopPrinter(run: Run): Promise<Note | undefined> {
   const attempt = run.print;
   if (!attempt || attempt.notStarted) return undefined;
   const { transport } = attempt;
-  if (!transport.cancel) return `${NOTE.cannotStop} ${transport.id} cannot stop a print`;
+  if (!transport.cancel) return note("cannotStop", `${transport.id} cannot stop a print`);
   try {
     await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer);
     run.ctx.log(`transport ${transport.id} cancel sent`);
     return undefined;
   } catch (e) {
-    const reason = `${NOTE.stopUnconfirmed}: ${messageOf(e)}`;
-    run.ctx.log(reason);
+    const reason = note("stopUnconfirmed", messageOf(e));
+    run.ctx.log(noteText(reason));
     return reason;
   }
 }
 
-function noted(run: Run, text?: string): string | undefined {
-  const parts = text ? [text, ...run.notes] : run.notes;
-  return parts.length ? parts.join("; ") : undefined;
+function noted(run: Run, first?: Note): string | undefined {
+  const parts = first ? [first, ...run.notes] : run.notes;
+  return parts.length ? parts.map(noteText).join("; ") : undefined;
 }
 
 async function cleanup(run: Run): Promise<void> {
   const failure = await rm(run.opts.workDir, { recursive: true, force: true }).then(
     () => undefined,
-    (err: unknown) => `${NOTE.workDirNotRemoved}: ${messageOf(err)}`,
+    (err: unknown) => note("workDirNotRemoved", messageOf(err)),
   );
   if (failure) run.notes.push(failure);
 }
 
-async function writeHistory(run: Run, outcome: TerminalRecord): Promise<Error | undefined> {
+async function writeHistory(
+  run: Run,
+  outcome: TerminalRecord,
+): Promise<{ error: Error; note: Note } | undefined> {
   const baseMs = run.opts.historyRetryMs ?? DEFAULT_HISTORY_RETRY_MS;
   let lastError: unknown;
   for (let attempt = 0; attempt < HISTORY_ATTEMPTS; attempt++) {
@@ -57,10 +60,8 @@ async function writeHistory(run: Run, outcome: TerminalRecord): Promise<Error | 
       lastError = err;
     }
   }
-  return new Error(
-    `${NOTE.historyNotRecorded} ${HISTORY_ATTEMPTS} attempts: ${messageOf(lastError)}`,
-    { cause: lastError },
-  );
+  const lost = note("historyNotRecorded", `${HISTORY_ATTEMPTS} attempts: ${messageOf(lastError)}`);
+  return { error: new Error(noteText(lost), { cause: lastError }), note: lost };
 }
 
 async function recordThenPublish(
@@ -69,9 +70,9 @@ async function recordThenPublish(
   extra: () => PublishExtra,
 ): Promise<Error | undefined> {
   const failure = await writeHistory(run, outcome);
-  if (failure) run.notes.push(failure.message);
+  if (failure) run.notes.push(failure.note);
   await run.deps.publish(run.opts.jobId, outcome.state, extra());
-  return failure;
+  return failure?.error;
 }
 
 export async function settleDone(run: Run): Promise<TerminalState> {
@@ -94,8 +95,8 @@ export async function settleDone(run: Run): Promise<TerminalState> {
 async function settleQueuedCancel(
   run: Run,
   queue: QueueHooks,
-  stopError?: string,
-  message?: string,
+  stopError?: Note,
+  message?: Note,
 ): Promise<TerminalState> {
   await cleanup(run);
   const failure = await writeHistory(run, {
@@ -107,23 +108,23 @@ async function settleQueuedCancel(
     timings: computeStageTimings(run.enters, Date.now()),
   });
   const state = await queue.settleCancel(stopError === undefined);
-  if (failure) throw failure;
+  if (failure) throw failure.error;
   return state;
 }
 
 async function settleResumeFailed(
   run: Run,
   queue: QueueHooks,
-  reason: string,
+  reason: Note,
 ): Promise<TerminalState> {
   await cleanup(run);
   const failure = await writeHistory(run, { state: "failed", notes: noted(run, reason) });
   const state = await queue.failResume();
-  if (failure) throw failure;
+  if (failure) throw failure.error;
   return state;
 }
 
-export async function settleCanceled(run: Run, message?: string): Promise<TerminalState> {
+export async function settleCanceled(run: Run, message?: Note): Promise<TerminalState> {
   if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue, undefined, message);
   await cleanup(run);
   const timings = computeStageTimings(run.enters, Date.now());
@@ -160,12 +161,12 @@ export async function settleError(run: Run, err: unknown): Promise<TerminalState
     throw lost;
   }
   if (err instanceof ResumeFailedError && run.deps.queue) {
-    return settleResumeFailed(run, run.deps.queue, err.message);
+    return settleResumeFailed(run, run.deps.queue, err.note);
   }
   if (err instanceof JobCanceledError || run.signal.aborted) {
     const stopError = await stopPrinter(run);
     if (run.deps.queue) return settleQueuedCancel(run, run.deps.queue, stopError);
-    if (stopError) return settleFailed(run, new StageError("transport", stopError));
+    if (stopError) return settleFailed(run, new StageError("transport", noteText(stopError)));
     return settleCanceled(run);
   }
   const se =

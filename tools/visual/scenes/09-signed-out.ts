@@ -43,6 +43,18 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "auth-malformed",
+    route: "/",
+    ready: "h1 >> text=Can't reach Conveyor",
+    authDown: { status: 200 },
+    widths: [1440],
+    steps: [
+      { absent: "nav[aria-label='Main']" },
+      { click: "summary:has-text('Details')" },
+      { waitFor: "text=GET /auth/status answered in an unexpected shape >> visible=true" },
+    ],
+  },
+  {
     name: "auth-down-retry",
     route: "/",
     ready: "h1 >> text=Can't reach Conveyor",

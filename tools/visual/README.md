@@ -71,7 +71,7 @@ The `visual` job captures only the scenes a PR can change (`select.ts`, `affecte
 | only tests or Markdown | no scene |
 | a push to `main` | every scene |
 
-The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/api/auth/status` answers signed out, and `/api/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it. A scene with `authDown` answers `/api/auth/status` with that status instead, so the `auth-down` and `auth-error` scenes show the "Can't reach Conveyor" gate, and `auth-down-retry` answers only the first check, then presses Try again and lands on Make. No other request is stubbed before the page loads.
+The stack runs with auth off, so a scene with `signedOut: true` stubs it in the browser instead (`auth.ts`): `/api/auth/status` answers signed out, and `/api/auth/login` answers `401 invalid password`. The `sign-in` and `sign-in-wrong` scenes use it. A scene with `authDown` answers `/api/auth/status` with that status and an empty `{}` body instead, so the `auth-down`, `auth-error` and `auth-malformed` (a `200` with `{}`) scenes show the "Can't reach Conveyor" gate, and `auth-down-retry` answers only the first check, then presses Try again and lands on Make. No other request is stubbed before the page loads.
 
 A `waitFor` with `warn` does not fail the scene on timeout. It records the warning, which then shows in the PR comment. No scene uses it today: `job-progress` waits for the receipt strictly, since the status stream no longer loses events (#52).
 

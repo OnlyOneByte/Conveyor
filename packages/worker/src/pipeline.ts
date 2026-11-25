@@ -5,6 +5,7 @@ import {
   type JobTarget,
   type ModelArtifact,
   NOTE,
+  note,
   StageError,
 } from "@conveyor/shared";
 import { stageDurations } from "./job-log.js";
@@ -48,7 +49,7 @@ async function sliceStage(
   run.ctx.log(`profile ${target.profileId}: ${profile.source}`);
   const sliced = slicer.slice(model, profile.profile, run.ctx).finally(() =>
     profile.cleanup().catch((error: unknown) => {
-      run.notes.push(`${NOTE.profileNotRemoved}: ${messageOf(error)}`);
+      run.notes.push(note("profileNotRemoved", messageOf(error)));
     }),
   );
   const gcode = await race(run, sliced);
@@ -64,7 +65,7 @@ async function noteFilament(run: Run, gcodePath: string | undefined): Promise<vo
   try {
     run.filament = await run.deps.readFilament(gcodePath);
   } catch (err) {
-    run.notes.push(`${FILAMENT_NOT_READ}: ${messageOf(err)}`);
+    run.notes.push(note("filamentNotRead", messageOf(err)));
   }
 }
 
@@ -134,7 +135,7 @@ async function runResumed(run: Run): Promise<TerminalState> {
   let outcome: PrintOutcome;
   try {
     const resumed = deps.queue?.resumeState();
-    if (!resumed) throw new ResumeFailedError("no stored print handle");
+    if (!resumed) throw new ResumeFailedError(note("resumeNoHandle"));
     run.modelPath = resumed.modelPath;
     run.gcodePath = resumed.gcodePath;
     await noteFilament(run, resumed.gcodePath);
@@ -149,7 +150,7 @@ async function runResumed(run: Run): Promise<TerminalState> {
 function settleOutcome(run: Run, outcome: PrintOutcome): Promise<TerminalState> {
   switch (outcome) {
     case "canceled":
-      return settleCanceled(run, NOTE.canceledOnPrinter);
+      return settleCanceled(run, note("canceledOnPrinter"));
     case "done":
       return settleDone(run);
     default:

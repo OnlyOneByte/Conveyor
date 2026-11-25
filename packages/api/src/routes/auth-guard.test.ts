@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { authStatusSchema } from "@conveyor/shared/auth-status";
 import { job, jobRows, login } from "../../test/booted-api.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-"));
@@ -96,6 +97,17 @@ describe("the global auth guard on a booted api", () => {
     expect((await send("GET", "/healthz")).status).toBe(401);
     expect((await send("GET", "/authx")).status).toBe(401);
     expect((await send("GET", "/auth-foo")).status).toBe(401);
+  });
+
+  test("answers /auth/status in the shared schema, signed out and signed in", async () => {
+    const out = authStatusSchema.parse(await (await send("GET", "/auth/status")).json());
+    expect(out).toEqual({ authEnabled: true, authenticated: false });
+    const cookie = await login(base, "guard-test-password");
+    const signed = await fetch(`${base}/auth/status`, { headers: { cookie } });
+    expect(authStatusSchema.parse(await signed.json())).toEqual({
+      authEnabled: true,
+      authenticated: true,
+    });
   });
 
   test("matches the route without its query string, so a query can neither open nor close one", async () => {

@@ -8,6 +8,23 @@ export const NOTE = {
   profileNotRemoved: "materialized profile not removed",
   workDirNotRemoved: "work dir not removed",
   historyNotRecorded: "history not recorded after",
+  resumeNoHandle: "resume failed: no stored print handle",
+  resumeUnknownTransport: "resume failed: unknown transport",
+  resumeConnectionLost: "resume failed: connection lost before completion",
+  resumeError: "resume failed",
 } as const;
 
 export type NoteKind = keyof typeof NOTE;
+
+const JOIN: Partial<Record<NoteKind, string>> = { cannotStop: " ", historyNotRecorded: " " };
+
+export interface Note {
+  kind: NoteKind;
+  detail?: string;
+}
+
+export const note = (kind: NoteKind, detail?: string): Note =>
+  detail === undefined ? { kind } : { kind, detail };
+
+export const noteText = ({ kind, detail }: Note): string =>
+  detail === undefined ? NOTE[kind] : `${NOTE[kind]}${JOIN[kind] ?? ": "}${detail}`;
