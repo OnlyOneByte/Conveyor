@@ -182,6 +182,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `'self'`, can still open the job status socket. That `csp` option is fixed at build time and cannot name the host,
   hence the hook. A host that is not a plain name or IPv4 address with an optional port leaves the policy at
   `'self'`.
+- `script-src` never allows `'unsafe-eval'`. Zod probes `new Function` once to decide whether to JIT its
+  parsers, and the CSP logs that probe as a violation, so Settings and the profile editor import only
+  `@conveyor/shared/profile`, which has no Zod in it.
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
   successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
@@ -246,7 +249,11 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   nothing probes on a timer.
 - A busy printer's time left is not a printer field. It is `print.secondsLeft` on the printer's active job's
   latest `printing` event.
-- `GET /catalog/transports` feeds the Settings printer form's transport picker.
+- `GET /catalog/transports` feeds the printer form's transport picker; Settings also reads each transport's
+  `acceptsFlavors` for the profile form's firmware picker.
+- `GET /catalog/slicers` lists the registered slicers as `{ id, name }` for the profile form.
+- `GET /catalog/profiles` marks each profile `bundled: true` when it ships in `DEFAULT_PROFILES`; those are the
+  ones `DELETE` refuses with `409`, so Settings offers no Delete for them.
 - Profile content (`/catalog/profiles/:id/content`) dispatches on the slicer format: Orca serves three JSON
   documents, Prusa one `config.ini`, and a slicer with no editable format answers 409.
   - `GET` returns the stored edit if there is one, otherwise the bundled profile.

@@ -52,3 +52,7 @@ export function listTransports(): { id: string; name: string; acceptsFlavors: st
     acceptsFlavors: [...t.acceptsFlavors],
   }));
 }
+
+export function listSlicers(): { id: string; name: string }[] {
+  return [...apiRegistry.slicers.values()].map(({ id, name }) => ({ id, name }));
+}

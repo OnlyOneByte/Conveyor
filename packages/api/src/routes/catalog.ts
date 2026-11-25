@@ -21,7 +21,7 @@ import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
-import { describeIssues, listTransports } from "../validate.js";
+import { describeIssues, listSlicers, listTransports } from "../validate.js";
 import { registerProfileContentRoutes } from "./catalog-content.js";
 
 const BUNDLED_PROFILE_IDS: ReadonlySet<string> = new Set(DEFAULT_PROFILES.map((p) => p.id));
@@ -97,7 +97,11 @@ export async function registerCatalogRoutes(
 
   app.get("/catalog/transports", async () => listTransports());
 
-  app.get("/catalog/profiles", async () => dbListProfiles(openDb()));
+  app.get("/catalog/slicers", async () => listSlicers());
+
+  app.get("/catalog/profiles", async () =>
+    dbListProfiles(openDb()).map((p) => ({ ...p, bundled: BUNDLED_PROFILE_IDS.has(p.id) })),
+  );
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);

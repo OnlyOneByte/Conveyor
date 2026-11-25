@@ -21,11 +21,12 @@ async function measured(): Promise<Measured> {
   const routes = Object.fromEntries(
     routesOf(OUTPUT).map((route) => [route, initialJs(OUTPUT, route)]),
   );
-  const { raw, gzip, files, missing } = await precache(OUTPUT);
+  const { raw, gzip, files, missing, editor, editorKept } = await precache(OUTPUT);
   for (const [route, sizes] of Object.entries(routes))
     console.log(`${route}: initial JS ${kb(sizes.gzip)} gzip`);
   console.log(`precache: ${files} files, ${kb(raw)} raw, ${kb(gzip)} gzip`);
-  return { initialJs: routes, precache: { raw, gzip, missing } };
+  console.log(`on demand, not precached: ${editor.join(", ") || "none"}`);
+  return { initialJs: routes, precache: { raw, gzip, missing, editor, editorKept } };
 }
 
 function baseErrors(baseRef: string, current: string): string[] {

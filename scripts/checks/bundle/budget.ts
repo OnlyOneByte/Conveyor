@@ -11,7 +11,7 @@ export interface Budget {
 
 export interface Measured {
   initialJs: Record<string, Sizes & { three: boolean }>;
-  precache: Sizes & { missing: string[] };
+  precache: Sizes & { missing: string[]; editor: string[]; editorKept: string[] };
 }
 
 const size = z.number().positive().finite();
@@ -71,7 +71,18 @@ function precacheErrors(measured: Measured, budget: Budget): string[] {
     (key) =>
       `service-worker precache is ${kb(measured.precache[key])} ${key}, more than 10% over the committed ${kb(budget.precache[key])}; run \`bun run check:bundle:update\` if the growth is wanted`,
   );
-  return [...missing, ...grown];
+  return [...missing, ...editorErrors(measured.precache), ...grown];
+}
+
+export function editorErrors({ editor, editorKept }: Measured["precache"]): string[] {
+  if (editor.length === 0)
+    return [
+      "found no profile editor chunk (CodeMirror reached only through import()); has the build changed?",
+    ];
+  return editorKept.map(
+    (path) =>
+      `service-worker precache keeps ${path}, the profile editor's code; it loads on demand`,
+  );
 }
 
 export const budgetErrors = (measured: Measured, budget: Budget): string[] => [

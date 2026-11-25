@@ -1,13 +1,19 @@
+import { ORCA_PROFILE_DOCUMENT_NAMES } from "./profile-format.js";
 import { ORCA_CONFIG_KEYS, PRUSA_CONFIG_KEYS } from "./slicer-keys.js";
+
+export {
+  isBundledProfilePath,
+  ORCA_PROFILE_DOCUMENT_NAMES,
+  type OrcaProfileDocumentName,
+  type SlicerProfileFormat,
+  slicerFormat,
+} from "./profile-format.js";
 
 export interface OrcaProfileDocuments {
   machine: string;
   process: string;
   filament: string;
 }
-
-export const ORCA_PROFILE_DOCUMENT_NAMES = ["machine", "process", "filament"] as const;
-export type OrcaProfileDocumentName = (typeof ORCA_PROFILE_DOCUMENT_NAMES)[number];
 
 export const MAX_ORCA_DOCUMENT_BYTES = 256 * 1024;
 export const MAX_ORCA_CONTENT_BYTES = MAX_ORCA_DOCUMENT_BYTES * 3;
@@ -108,22 +114,5 @@ export function validatePrusaProfileContent(document: PrusaProfileDocument): voi
   }
   if (assignments === 0) {
     throw new PrusaProfileValidationError("config.ini has no key = value settings");
-  }
-}
-
-export function isBundledProfilePath(path: string): boolean {
-  return /^\/profiles\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(path) && !path.includes("..");
-}
-
-export type SlicerProfileFormat = "orca-json" | "prusa-ini";
-
-export function slicerFormat(slicerId: string): SlicerProfileFormat | null {
-  switch (slicerId) {
-    case "orca":
-      return "orca-json";
-    case "prusa":
-      return "prusa-ini";
-    default:
-      return null;
   }
 }

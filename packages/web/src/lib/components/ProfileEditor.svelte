@@ -1,0 +1,150 @@
+<script lang="ts">
+  import { beforeNavigate, goto } from "$app/navigation";
+  import type { CatalogProfile } from "#lib/api.js";
+  import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
+  import * as editing from "#lib/profile-content.js";
+  import { toasts, uid } from "#lib/ui/behaviour.js";
+  import CodeEditor from "./CodeEditor.svelte";
+  import Confirm from "./Confirm.svelte";
+  import EditorBar from "./EditorBar.svelte";
+  import FileTabs from "./FileTabs.svelte";
+
+  export let profile: CatalogProfile;
+  export let content: editing.Content;
+
+  let [docs, saved] = [{ ...content.docs }, { ...content.docs }];
+  let edited = content.edited;
+  let file = content.files[0] ?? "";
+  let [busy, discarding, letGo] = [false, false, false];
+  let [failure, leaving]: [string, URL | null] = ["", null];
+  let version = 0;
+  const [errorId, panelId] = [uid("editor-error"), uid("editor-panel")];
+  const tabbed = content.files.length > 1;
+  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+  $: problem = problemOf(content.lang, docs);
+  $: dirty = editing.changed(docs, saved);
+  $: status = editing.status(problem !== null, busy, dirty);
+  $: label = tabbed ? `${fileLabel(file)} settings, JSON` : "Settings, config.ini";
+  $: tidied = content.lang === "json" ? editing.formatted(docs[file] ?? "") : null;
+
+  function diagnose(text: string) {
+    const found = problemOf(content.lang, { ...docs, [file]: text });
+    return found?.file === file ? { line: found.line, message: found.text } : null;
+  }
+
+  beforeNavigate((nav) => {
+    if (letGo || !dirty) return;
+    nav.cancel();
+    if (nav.type === "leave" || !nav.to) return;
+    [leaving, discarding] = [nav.to.url, true];
+  });
+
+  async function attempt(work: () => Promise<void>) {
+    [busy, failure] = [true, ""];
+    try {
+      await work();
+    } catch (e) {
+      failure = `Conveyor didn't take it: ${message(e)}`;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function save() {
+    if (problem || !dirty || busy) return;
+    await attempt(async () => {
+      await editing.saveContent(profile, content.lang, docs);
+      [saved, edited] = [{ ...docs }, true];
+      toasts.show(`Saved ${profile.name}`);
+    });
+  }
+
+  const reset = () =>
+    attempt(async () => {
+      await editing.resetContent(profile);
+      const fresh = await editing.loadContent(profile);
+      if (fresh) [docs, saved, edited] = [{ ...fresh.docs }, { ...fresh.docs }, fresh.edited];
+      version += 1;
+      toasts.show(`Reset ${profile.name}`);
+    });
+
+  function tidy() {
+    if (tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
+  }
+
+  function leave() {
+    [letGo, discarding] = [true, false];
+    if (leaving) void goto(leaving);
+  }
+
+  function keys(event: KeyboardEvent) {
+    if (event.key !== "s" || !(event.metaKey || event.ctrlKey)) return;
+    event.preventDefault();
+    void save();
+  }
+</script>
+
+<svelte:window on:keydown={keys} />
+
+{#if tabbed}
+  <FileTabs
+    files={content.files}
+    bind:current={file}
+    panel={panelId}
+    flagged={problem?.file ?? null}
+  />
+{/if}
+<p id={errorId} class="problem" class:shown={problem} aria-live="polite">
+  {#if problem}
+    {describe(problem)}
+    {#if problem.file !== file}
+      {@const other = problem.file}
+      <button class="btn" type="button" on:click={() => (file = other)}>
+        Show {fileLabel(other)}
+      </button>
+    {/if}
+  {/if}
+</p>
+{#if failure}<p class="problem shown" role="alert">{failure}</p>{/if}
+<div id={panelId} role={tabbed ? "tabpanel" : undefined} aria-label={fileLabel(file)}>
+  <CodeEditor
+    file="{file}:{version}"
+    text={docs[file] ?? ""}
+    lang={content.lang}
+    {label}
+    described={errorId}
+    invalid={problem?.file === file}
+    {diagnose}
+    change={(text) => (docs = { ...docs, [file]: text })}
+  />
+</div>
+
+<EditorBar
+  name={profile.name}
+  {status}
+  {busy}
+  {edited}
+  canSave={!problem && dirty && !busy}
+  tidy={content.lang === "json" ? tidied !== null ? tidy : null : undefined}
+  {save}
+  {reset}
+/>
+
+<Confirm
+  bind:open={discarding}
+  title="Leave without saving?"
+  keep="Keep editing"
+  go="Discard changes"
+  run={leave}
+>
+  <p>Your changes to {profile.name} aren't saved yet.</p>
+</Confirm>
+
+<style>
+  p { margin: 0; }
+  .problem {
+    display: flex; align-items: center; flex-wrap: wrap; gap: var(--s3); color: var(--err);
+  }
+  .problem.shown { margin: var(--s3) 0; font-weight: 600; }
+</style>

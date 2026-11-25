@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": {
-      "comments": 15,
+      "comments": 14,
       "suppressions": 0
     },
     "packages/web/src/lib/components/JobStatus.svelte": {
@@ -46,10 +46,6 @@
     },
     "packages/web/src/routes/monitor/+page.ts": {
       "comments": 1,
-      "suppressions": 0
-    },
-    "packages/web/src/routes/settings/+page.svelte": {
-      "comments": 14,
       "suppressions": 0
     },
     "packages/web/src/routes/settings/+page.ts": {

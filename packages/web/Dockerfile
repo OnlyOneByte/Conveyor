@@ -14,6 +14,7 @@ COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
 COPY plugins/registry/builtin/package.json plugins/registry/builtin/
 RUN bun install --frozen-lockfile
 COPY . .
+ARG CONVEYOR_VERSION=""
 RUN cd packages/web && bunx vite build
 
 FROM node:26-bookworm-slim
