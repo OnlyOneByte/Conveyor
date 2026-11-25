@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35457",
+  "url": "http://127.0.0.1:34213",
   "warnings": [],
   "results": [
     {
@@ -55,7 +55,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 684960,
+      "gifBytes": 621692,
       "gif": "new-job-1440.gif"
     },
     {
@@ -63,7 +63,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 360021,
+      "gifBytes": 385791,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -95,7 +95,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 534666,
+      "gifBytes": 533961,
       "gif": "make-print-1440.gif"
     },
     {
@@ -145,7 +145,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 762666,
+      "gifBytes": 772175,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -357,7 +357,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 865338,
+      "gifBytes": 821806,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -437,7 +437,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 527844,
+      "gifBytes": 582324,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -445,7 +445,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1198109,
+      "gifBytes": 1619602,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -453,7 +453,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1618092,
+      "gifBytes": 1357416,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -485,7 +485,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 311494,
+      "gifBytes": 311091,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -523,7 +523,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 416367,
+      "gifBytes": 424893,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -537,7 +537,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1022351,
+      "gifBytes": 1032439,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -595,7 +595,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 852263,
+      "gifBytes": 827444,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -699,7 +699,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 654920,
+      "gifBytes": 645540,
       "gif": "new-job-390.gif"
     },
     {
@@ -707,7 +707,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 410225,
+      "gifBytes": 382690,
       "gif": "job-progress-390.gif"
     },
     {
@@ -781,7 +781,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1092439,
+      "gifBytes": 1101086,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -969,7 +969,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 973329,
+      "gifBytes": 973383,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1061,7 +1061,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 524559,
+      "gifBytes": 524548,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1113,7 +1113,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1331761,
+      "gifBytes": 1333168,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1127,7 +1127,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1094768,
+      "gifBytes": 1094770,
       "gif": "printers-add-390.gif"
     },
     {
