@@ -1,8 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "bun";
+import { caddyRun, visualCaddyfile } from "./caddy.ts";
 import { messageOf } from "./errors.ts";
 import { seedHistory } from "./seed.ts";
 import {
@@ -39,6 +40,7 @@ export interface StackDeps {
   exit: (code: number) => void;
   sleep: (ms: number) => Promise<void>;
   seed: (root: string, env: Record<string, string | undefined>) => Promise<void>;
+  caddyfile: (root: string) => Promise<string>;
 }
 
 const KILL_AFTER_MS = 5000;
@@ -50,6 +52,7 @@ const defaultDeps: StackDeps = {
   exit: (code) => process.exit(code),
   sleep: (ms) => Bun.sleep(ms),
   seed: seedHistory,
+  caddyfile: (root) => readFile(join(root, "Caddyfile"), "utf8"),
 };
 
 async function freePort(): Promise<number> {
@@ -92,21 +95,32 @@ export function redisContainer(port: number): { url: string; dockerRun: string[]
   };
 }
 
+function startContainer(
+  deps: StackDeps,
+  handles: StackHandles,
+  leftovers: string[],
+  name: string,
+  dockerRun: string[],
+): string {
+  const run = deps.spawnSync(dockerRun);
+  if (run.exitCode !== 0) throw new Error(`docker run ${name} failed: ${run.stderr.toString()}`);
+  const id = run.stdout.toString().trim();
+  leftovers.push(`${name} container ${id} (remove it with: docker rm -f ${id})`);
+  handles.cleanups.push(async () => {
+    const removed = deps.spawnSync(["docker", "rm", "-f", id]);
+    if (removed.exitCode !== 0)
+      throw new Error(`docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
+  });
+  return id;
+}
+
 async function startRedis(
   deps: StackDeps,
   handles: StackHandles,
   leftovers: string[],
 ): Promise<string> {
   const container = redisContainer(await freePort());
-  const run = deps.spawnSync(container.dockerRun);
-  if (run.exitCode !== 0) throw new Error(`docker run redis failed: ${run.stderr.toString()}`);
-  const id = run.stdout.toString().trim();
-  leftovers.push(`Redis container ${id} (remove it with: docker rm -f ${id})`);
-  handles.cleanups.push(async () => {
-    const removed = deps.spawnSync(["docker", "rm", "-f", id]);
-    if (removed.exitCode !== 0)
-      throw new Error(`docker rm -f ${id} failed: ${removed.stderr.toString().trim()}`);
-  });
+  const id = startContainer(deps, handles, leftovers, "Redis", container.dockerRun);
   const until = Date.now() + 30000;
   let ready = false;
   while (!ready && Date.now() < until) {
@@ -185,8 +199,13 @@ export async function bootStack(
     const webPort = await freePort();
     const env = stackEnv(process.env, { root, redisUrl, dataDir, apiPort });
     await deps.seed(root, env);
-    const launch = (name: string, cmd: string[], cwd: string) => {
-      const proc = deps.spawn({ cmd, cwd, env });
+    const launch = (
+      name: string,
+      cmd: string[],
+      cwd: string,
+      extra: Record<string, string> = {},
+    ) => {
+      const proc = deps.spawn({ cmd, cwd, env: { ...env, ...extra } });
       handles.children.push(proc);
       running.set(proc.pid, name);
       proc.exited.then(() => running.delete(proc.pid));
@@ -204,23 +223,18 @@ export async function bootStack(
     const webDir = join(root, "packages/web");
     const buildExit = await launch("build", ["bun", "x", "vite", "build"], webDir).exited;
     if (buildExit !== 0) throw new Error(`vite build exited with ${buildExit}`);
-    const web = launch(
-      "web",
-      [
-        "bun",
-        "x",
-        "vite",
-        "preview",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        String(webPort),
-        "--strictPort",
-      ],
-      webDir,
-    );
-    const url = `http://127.0.0.1:${webPort}`;
-    await waitHttp(`${url}/`, 90000, web);
+    const web = launch("web", ["node", "build/index.js"], webDir, {
+      HOST: "127.0.0.1",
+      PORT: String(webPort),
+    });
+    await waitHttp(`http://127.0.0.1:${webPort}/`, 90000, web);
+    const port = await freePort();
+    const caddyfile = join(dataDir, "Caddyfile");
+    const source = await deps.caddyfile(root);
+    await writeFile(caddyfile, visualCaddyfile(source, { port, apiPort, webPort }));
+    startContainer(deps, handles, leftovers, "Caddy", caddyRun(caddyfile));
+    const url = `http://127.0.0.1:${port}`;
+    await waitHttp(`${url}/`, 30000, { exitCode: null });
     return { url, stop };
   } catch (err) {
     await stop().catch((stopErr: unknown) => {

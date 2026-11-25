@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
 
@@ -19,4 +20,10 @@ export async function withPage<T>(run: (page: Page) => Promise<T>): Promise<T> {
   } finally {
     await browser.close();
   }
+}
+
+export function serveCaddy(cmd: string[]): ReturnType<typeof Bun.serve> {
+  const file = cmd[cmd.indexOf("-v") + 1]?.split(":")[0] ?? "";
+  const port = Number(readFileSync(file, "utf8").match(/http:\/\/127\.0\.0\.1:(\d+)/)?.[1]);
+  return Bun.serve({ hostname: "127.0.0.1", port, fetch: () => new Response("ok") });
 }

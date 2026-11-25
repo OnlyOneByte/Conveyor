@@ -9,7 +9,7 @@ Every UI PR must show what changed, as before/after screenshots and GIFs. Agents
 
 ## Decision
 
-- **Capture with Playwright (`playwright`)** against the real stack in stub mode: api, worker, `vite build` + `vite preview`, and Redis in Docker. Everything binds to `127.0.0.1`. Playwright is the standard headless-browser driver, and it brings its own Chromium.
+- **Capture with Playwright (`playwright`)** against the real stack in stub mode: api, worker, `vite build` served by adapter-node behind the repo's `Caddyfile` (Caddy in Docker), and Redis in Docker. Everything binds to `127.0.0.1`. Playwright is the standard headless-browser driver, and it brings its own Chromium.
 - **Encode GIFs in pure JS** with `pngjs` (decoding the screenshots) and `gifenc` (quantising and encoding them). GitHub's hosted runners have no ffmpeg, and installing it on every run costs time and widens the supply chain. `gifenc` has a single maintainer but no dependencies and about 1,200 lines of source, and it is pinned in `tools/visual/bun.lock`. If it goes stale it can be vendored or swapped for ffmpeg without changing `capture.ts`'s output contract. There is no ffmpeg path, so the one GIF path is the one CI runs.
 - **Keep the tooling a standalone package** (`tools/visual`, with its own lockfile). Its dependencies stay out of the app's workspace and Docker images.
 - **Host the images on an orphan `pr-assets` branch** under `pr-<number>/`, linked through `raw.githubusercontent.com` at a pinned commit. Images have to sit at a public URL to render in a comment. Workflow artifacts don't render inline, and committing images to the PR branch would put them into `main`'s history. Pinning to the commit keeps older comments valid.
