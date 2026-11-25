@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { CANCEL_TTL_SECONDS, jobCancelKey } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
 import { registerErrorReplies } from "../error-replies.js";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerJobRoutes } from "./jobs.js";
@@ -55,12 +56,16 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  await app.close();
-  mock.restore();
-  openDb().close();
-  if (previous === undefined) delete process.env.DB_PATH;
-  else process.env.DB_PATH = previous;
-  rmSync(dir, { recursive: true, force: true });
+  try {
+    await app.close();
+    mock.restore();
+    openDb().close();
+    if (previous === undefined) delete process.env.DB_PATH;
+    else process.env.DB_PATH = previous;
+    rmSync(dir, { recursive: true, force: true });
+  } finally {
+    await closeQueue();
+  }
 });
 
 const submit = () => app.inject({ method: "POST", url: "/jobs", payload: request });

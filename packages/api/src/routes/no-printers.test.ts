@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbDeletePrinter, dbListPrinters, openDb } from "@conveyor/shared/db";
 import Fastify, { type FastifyInstance } from "fastify";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerJobRoutes } from "./jobs.js";
@@ -36,13 +37,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app.close();
-  await jobQueue.close();
-  mock.restore();
-  openDb(dbPath).close();
-  if (previousDbPath === undefined) delete process.env.DB_PATH;
-  else process.env.DB_PATH = previousDbPath;
-  rmSync(dir, { recursive: true, force: true });
+  try {
+    await app.close();
+    mock.restore();
+    openDb(dbPath).close();
+    if (previousDbPath === undefined) delete process.env.DB_PATH;
+    else process.env.DB_PATH = previousDbPath;
+    rmSync(dir, { recursive: true, force: true });
+  } finally {
+    await closeQueue();
+  }
 });
 
 describe("API with zero printers", () => {

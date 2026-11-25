@@ -7,6 +7,7 @@ import { JOB_QUEUE } from "@conveyor/shared";
 import { Redis } from "ioredis";
 import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 import { type BootedApi, bootApi, job } from "../../test/helpers/booted-api.ts";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
 import { SOCKET_TIMEOUT_MS } from "../queue.js";
 
 const url = process.env.REDIS_URL;
@@ -163,5 +164,7 @@ describe.skipIf(!url)("the api on the Redis queue across Redis restarts", () => 
     RECOVERS_WITHIN_MS * 3,
   );
 });
+
+afterAll(() => closeQueue());
 
 dropsItsRedisKeys();
