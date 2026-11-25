@@ -3,6 +3,7 @@
   import type { CatalogProfile } from "#lib/api.js";
   import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
   import * as editing from "#lib/profile-content.js";
+  import { couldnt } from "#lib/said.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import CodeEditor from "./CodeEditor.svelte";
   import Confirm from "./Confirm.svelte";
@@ -20,7 +21,6 @@
   let version = 0;
   const [errorId, panelId] = [uid("editor-error"), uid("editor-panel")];
   const tabbed = content.files.length > 1;
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   $: problem = problemOf(content.lang, docs);
   $: dirty = editing.changed(docs, saved);
@@ -41,13 +41,13 @@
     [leaving, discarding] = [nav.to.url, true];
   });
 
-  async function attempt(work: () => Promise<void>, allowed = true) {
+  async function attempt(work: () => Promise<void>, what: string, allowed = true) {
     if (!allowed) return;
     [busy, failure] = [true, ""];
     try {
       await work();
     } catch (e) {
-      failure = `Conveyor didn't take it: ${message(e)}`;
+      failure = couldnt(what, e);
     } finally {
       busy = false;
     }
@@ -59,7 +59,7 @@
       await editing.saveContent(profile, content.lang, docs);
       [saved, edited] = [{ ...docs }, true];
       toasts.show(`Saved ${profile.name}`);
-    });
+    }, "save your changes");
   }
 
   const reset = () =>
@@ -69,7 +69,7 @@
       if (fresh) [docs, saved, edited] = [{ ...fresh.docs }, { ...fresh.docs }, fresh.edited];
       version += 1;
       toasts.show(`Reset ${profile.name}`);
-    }, can.reset);
+    }, `reset ${profile.name}`, can.reset);
 
   function tidy() {
     if (can.tidy && tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];

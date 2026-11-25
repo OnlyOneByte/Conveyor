@@ -1,4 +1,4 @@
-export interface FailureText {
+interface FailureText {
   title: string;
   detail: string;
 }
@@ -28,6 +28,6 @@ export function failureText(stage: string, reason: string): FailureText {
     title,
     detail: known
       ? known[1]
-      : "Something went wrong at this step. Retry, or open Details to see what the server said.",
+      : "Something went wrong at this step. Retry, or open Details to see what Conveyor said.",
   };
 }

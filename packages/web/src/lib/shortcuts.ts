@@ -1,4 +1,4 @@
-export interface KeyInput {
+interface KeyInput {
   key: string;
   metaKey?: boolean;
   ctrlKey?: boolean;

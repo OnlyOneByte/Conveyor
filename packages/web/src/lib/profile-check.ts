@@ -6,7 +6,7 @@ import {
 } from "@conveyor/shared/profile";
 import { parser } from "@lezer/json";
 
-export interface Problem {
+interface Problem {
   file: string;
   line: number;
   text: string;

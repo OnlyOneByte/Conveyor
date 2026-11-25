@@ -9,6 +9,7 @@
     profileErrors,
     profilePayload,
   } from "#lib/profile-facts.js";
+  import { said } from "#lib/said.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
@@ -26,7 +27,6 @@
   let problem = "";
   let form: HTMLFormElement;
   const formId = uid("profile-form");
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   function blank(): ProfileDraft {
     return { name: "", slicerId: slicers[0]?.id ?? "", gcodeFlavor: flavors[0] ?? "", path: "" };
@@ -64,7 +64,7 @@
       open = false;
       changed();
     } catch (e) {
-      problem = message(e);
+      problem = said(e);
     } finally {
       busy = false;
     }
@@ -76,7 +76,7 @@
     <Field
       label="Name"
       bind:value={draft.name}
-      hint="Say the material and layer height, like Voron PETG 0.25mm."
+      hint="Say the material and layer height, like Voron PETG 0.2 mm."
       error={errors.name ?? ""}
     />
     <Select label="Slicer" bind:value={draft.slicerId} options={slicerOptions} />
@@ -90,7 +90,7 @@
       label="Folder"
       bind:value={draft.path}
       on:input={() => (folderEdited = true)}
-      hint="The folder in the profiles volume that holds this profile's files."
+      hint="The folder under /profiles that holds this profile's files."
       error={errors.path ?? ""}
     />
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
