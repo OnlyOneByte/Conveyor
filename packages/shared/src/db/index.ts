@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { migrate } from "./migrate.js";
+import { ownerOnlyDbFiles } from "./owner-only.js";
 import { bindSecretsKey, encryptPlaintextSecrets, resolveSecretsKey } from "./printer-secrets.js";
 import { SCHEMA_SQL } from "./schema.sql.js";
 import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
@@ -30,6 +31,7 @@ export function openDb(
   env: Record<string, string | undefined> = process.env,
 ): Database {
   if (singleton && singletonPath === path && isOpen(singleton)) return singleton;
+  ownerOnlyDbFiles(path);
   const key = resolveSecretsKey(path, env);
   const db = new Database(path, { create: true });
   bindSecretsKey(db, key);
