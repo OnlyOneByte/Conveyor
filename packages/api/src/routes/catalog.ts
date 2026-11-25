@@ -16,6 +16,7 @@ import {
   openDb,
   PrinterSecretsWriteError,
 } from "@conveyor/shared/db";
+import { checkPrinterAddress, PrinterAddressRefusedError } from "@conveyor/shared/node";
 import type { FastifyInstance } from "fastify";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
@@ -68,6 +69,8 @@ export async function registerCatalogRoutes(
     const parsed = parsePrinter(req.body);
     if (!parsed.success)
       return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    const refused = await refusal(parsed.data.address);
+    if (refused) return reply.code(400).send({ error: refused });
     try {
       dbUpsertPrinter(openDb(), parsed.data);
     } catch (err) {
@@ -90,6 +93,8 @@ export async function registerCatalogRoutes(
   app.get<{ Params: { id: string } }>("/catalog/printers/:id/reachable", async (req, reply) => {
     const printer = dbGetPrinter(openDb(), req.params.id);
     if (!printer) return reply.code(404).send({ error: `unknown printer ${req.params.id}` });
+    const refused = await refusal(printer.address);
+    if (refused) return reply.code(400).send({ error: refused });
     const result = await probePrinter(printer.address, printer.transportId);
     dbRecordPrinterCheck(openDb(), printer.id, { at: Date.now(), reachable: result.reachable });
     return reply.send(result);
@@ -134,4 +139,14 @@ export async function registerCatalogRoutes(
     dbDeleteProfile(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
+}
+
+async function refusal(address: string): Promise<string | undefined> {
+  try {
+    await checkPrinterAddress(address);
+    return undefined;
+  } catch (err) {
+    if (err instanceof PrinterAddressRefusedError) return err.message;
+    throw err;
+  }
 }

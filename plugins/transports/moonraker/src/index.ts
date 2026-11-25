@@ -10,13 +10,14 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
-import { multipartFileUpload, uploadSignal } from "@conveyor/shared/node";
+import { multipartFileUpload, requirePrinterAddress, uploadSignal } from "@conveyor/shared/node";
 import { parseQuery, printProgressOf } from "./query.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
-const POLL_MS = Number(process.env.MOONRAKER_POLL_MS ?? 2000);
+const POLL_MS = 2000;
 const CANCEL_TIMEOUT_MS = 15000;
 const STATUS_TIMEOUT_MS = 30000;
+const STATUS_FAILURES = 5;
 
 export const moonraker: TransportPlugin = {
   id: "moonraker",
@@ -38,6 +39,7 @@ export const moonraker: TransportPlugin = {
     }
 
     const base = baseUrl(target.address);
+    await requirePrinterAddress(target.address);
     const headers = apiKeyHeaders(target);
 
     const upload = multipartFileUpload(
@@ -93,15 +95,27 @@ export const moonraker: TransportPlugin = {
     const base = baseUrl(handle.address);
     const query = `${base}/printer/objects/query?print_stats&virtual_sdcard&display_status`;
     const headers = statusKeyHeaders(target);
+    const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
+    const failuresAllowed = positiveSetting("MOONRAKER_STATUS_FAILURES", STATUS_FAILURES);
+    const pollMs = positiveSetting("MOONRAKER_POLL_MS", POLL_MS);
 
     yield { state: "transferring" };
     let printingSeen = false;
+    let failures = 0;
     while (true) {
-      const res = await fetch(query, { headers, signal: pollSignal(signal) }).catch((e) => {
-        throw new StageError("transport", `moonraker status query failed: ${(e as Error).message}`);
-      });
-      if (!res.ok)
-        throw new StageError("transport", `moonraker status query failed: ${res.status}`);
+      await requirePrinterAddress(handle.address);
+      const res = await poll(query, headers, timeoutMs, signal);
+      if (typeof res === "string") {
+        failures++;
+        if (failures >= failuresAllowed || signal?.aborted)
+          throw new StageError(
+            "transport",
+            `moonraker status query failed: ${res} (${failures} in a row)`,
+          );
+        await sleep(pollMs, signal);
+        continue;
+      }
+      failures = 0;
 
       const objects = parseQuery(await res.json());
       const ps = objects.print_stats;
@@ -137,7 +151,7 @@ export const moonraker: TransportPlugin = {
         default:
           break;
       }
-      await sleep(POLL_MS, signal);
+      await sleep(pollMs, signal);
     }
   },
 
@@ -146,6 +160,7 @@ export const moonraker: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "moonraker cancel: missing printer address on handle");
     const base = baseUrl(handle.address);
+    await requirePrinterAddress(handle.address);
     const res = await fetch(`${base}/printer/print/cancel`, {
       method: "POST",
       headers: statusKeyHeaders(target),
@@ -179,10 +194,28 @@ function statusKeyHeaders(target?: PrinterTarget): Record<string, string> {
   return key ? { "X-Api-Key": key } : {};
 }
 
-function pollSignal(signal?: AbortSignal): AbortSignal {
-  const ms = Number(process.env.MOONRAKER_STATUS_TIMEOUT_MS) || STATUS_TIMEOUT_MS;
-  const timeout = AbortSignal.timeout(ms);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+function positiveSetting(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0)
+    throw new StageError("transport", `${name} must be a whole number above 0, got ${raw}`);
+  return value;
+}
+
+async function poll(
+  query: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Response | string> {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const res = await fetch(query, {
+    headers,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  }).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
+  if (typeof res === "string" || res.ok) return res;
+  return String(res.status);
 }
 
 function clamp01(n: number): number {

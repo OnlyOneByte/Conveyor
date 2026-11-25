@@ -50,8 +50,8 @@ const handle: PrintHandle = {
 describe("elegoo printer addresses", () => {
   test("a bare IPv6 address is bracketed in the WebSocket URL", async () => {
     useAckingSocket();
-    await elegoo.cancel?.({ ...handle, address: "fe80::1" });
-    expect(AckingSocket.urls).toEqual(["ws://[fe80::1]:3030/websocket"]);
+    await elegoo.cancel?.({ ...handle, address: "fd00::1" });
+    expect(AckingSocket.urls).toEqual(["ws://[fd00::1]:3030/websocket"]);
   });
 
   test("a bare IPv6 address is bracketed in the upload URL", async () => {
@@ -74,11 +74,11 @@ describe("elegoo printer addresses", () => {
       report: () => {},
       log: () => {},
     };
-    const target = { id: "p", transportId: "elegoo", address: "fe80::1", secrets: {} };
+    const target = { id: "p", transportId: "elegoo", address: "fd00::1", secrets: {} };
     await expect(elegoo.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
       PrintNotStartedError,
     );
-    expect(urls).toEqual(["http://[fe80::1]:3030/uploadFile/upload"]);
+    expect(urls).toEqual(["http://[fd00::1]:3030/uploadFile/upload"]);
   });
 
   test("an ambiguous address fails the command with the parser's reason", async () => {

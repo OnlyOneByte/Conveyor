@@ -158,6 +158,24 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
+| `PRINTER_ADDRESS_ALLOW` | none | Hosts and CIDRs the api and worker may reach even though they fall in a refused range ([Printer addresses](#printer-addresses)), separated by commas or spaces, for example `169.254.10.0/24, printer.example`. An entry that isn't a valid CIDR stops the api at startup and fails a job's transport stage, naming the variable. |
+| `MOONRAKER_STATUS_TIMEOUT_MS` | `30000` | Longest the worker waits for one Moonraker status reply. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
+| `MOONRAKER_STATUS_FAILURES` | `5` | Status polls in a row that may fail (a timeout, a refused connection or an error reply) before the worker gives up on a running print. A successful poll resets the count. Same rules as above. |
+
+## Printer addresses
+
+Conveyor connects only where a self-hosted printer can be:
+
+| Address | Result |
+| --- | --- |
+| Private LAN ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`), `.local` names, public names | Allowed |
+| Loopback (`localhost`, `127.0.0.0/8`, `::1`), for a printer proxy on the same host | Allowed. The api logs the printers that use it once at startup |
+| The documented forms: `host:port`, `http(s)://…`, `//host/path`, `user:pass@host[/path]` | Allowed; the host inside them is what gets checked |
+| Link-local `169.254.0.0/16` (including `169.254.169.254`) and `fe80::/10`, the AWS (`fd00:ec2::254`) and Alibaba (`100.100.100.200`) metadata addresses, and `metadata.google.internal` | Refused |
+
+The host is checked when a printer is saved, before the reachability check, and before every request the worker sends to the printer: each Moonraker upload, status poll and cancel, and each Elegoo connection. A name is resolved and every address it resolves to is checked, so a name that points at a metadata address is refused too, including one that changes what it resolves to after it was saved. A name that doesn't resolve is left to the connection to fail.
+
+A refused address gets a plain error, for example `Conveyor won't connect to 169.254.169.254: it is a link-local address, where cloud metadata services listen, not a printer on your network. If it really is your printer, add 169.254.169.254 to PRINTER_ADDRESS_ALLOW.` Saving answers `400` with it, and a job fails at the transport stage with it. To let a printer through, set `PRINTER_ADDRESS_ALLOW` on both the api and the worker (compose passes it to both).
 
 ## Health checks, logs and stopping
 

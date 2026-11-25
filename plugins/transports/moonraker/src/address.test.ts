@@ -27,12 +27,12 @@ function fakeFetch() {
 
 describe("moonraker printer addresses", () => {
   test.each([
-    ["fe80::1", "http://[fe80::1]:80/printer/print/cancel"],
-    ["[fe80::1]:7125", "http://[fe80::1]:7125/printer/print/cancel"],
-    ["http://[fe80::1]:7125/", "http://[fe80::1]:7125/printer/print/cancel"],
+    ["fd00::1", "http://[fd00::1]:80/printer/print/cancel"],
+    ["[fd00::1]:7125", "http://[fd00::1]:7125/printer/print/cancel"],
+    ["http://[fd00::1]:7125/", "http://[fd00::1]:7125/printer/print/cancel"],
     ["printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
     ["10.0.0.9:7125/moonraker/", "http://10.0.0.9:7125/moonraker/printer/print/cancel"],
-    ["[fe80::1]:7125/moonraker", "http://[fe80::1]:7125/moonraker/printer/print/cancel"],
+    ["[fd00::1]:7125/moonraker", "http://[fd00::1]:7125/moonraker/printer/print/cancel"],
     ["//printer.local/moonraker", "http://printer.local:80/moonraker/printer/print/cancel"],
     ["HTTP://printer.local:7125/", "HTTP://printer.local:7125/printer/print/cancel"],
     ["printer.local\n", "http://printer.local:80/printer/print/cancel"],
