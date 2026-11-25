@@ -25,7 +25,9 @@ export function orcaPrintVolume(machine: string): PrintVolume | null {
     return null;
   }
   if (!parsed || typeof parsed !== "object") return null;
-  const { printable_area: area, printable_height: height } = parsed as Record<string, unknown>;
+  const { printable_area: area, printable_height: height } = Object.fromEntries(
+    Object.entries(parsed),
+  );
   if (!Array.isArray(area) || !area.every((p) => typeof p === "string")) return null;
   return volume(
     area,
