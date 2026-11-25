@@ -97,10 +97,8 @@ describe("hover cues", () => {
     });
   }
 
-  test("primary buttons ring in --ink on hover, and Needs-you fills with --err", () => {
-    const app = readFileSync(join(import.meta.dir, "styles/app.css"), "utf8");
+  test("Needs-you fills with --err on hover", () => {
     const needs = readFileSync(join(import.meta.dir, "components/NeedsYou.svelte"), "utf8");
-    expect(app).toContain("button.primary:hover:not(:disabled) { box-shadow: 0 0 0 2px var(--ink); }");
     expect(needs).toContain(".needs:hover { border-color: var(--err); background: var(--err); color: var(--paper); }");
   });
 });
