@@ -21,7 +21,7 @@ import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
-import { describeIssues, listTransports } from "../validate.js";
+import { describeIssues, listSlicers, listTransports } from "../validate.js";
 import { registerProfileContentRoutes } from "./catalog-content.js";
 
 const BUNDLED_PROFILE_IDS: ReadonlySet<string> = new Set(DEFAULT_PROFILES.map((p) => p.id));
@@ -97,12 +97,25 @@ export async function registerCatalogRoutes(
 
   app.get("/catalog/transports", async () => listTransports());
 
-  app.get("/catalog/profiles", async () => dbListProfiles(openDb()));
+  app.get("/catalog/slicers", async () => listSlicers());
+
+  app.get("/catalog/profiles", async () =>
+    dbListProfiles(openDb()).map((p) => ({ ...p, bundled: BUNDLED_PROFILE_IDS.has(p.id) })),
+  );
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);
     if (!parsed.success)
       return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    const shipped = BUNDLED_PROFILE_IDS.has(parsed.data.id)
+      ? dbGetProfile(openDb(), parsed.data.id)
+      : null;
+    const fields = ["name", "slicerId", "path", "gcodeFlavor"] as const;
+    if (shipped && fields.some((field) => shipped[field] !== parsed.data[field])) {
+      return reply.code(409).send({
+        error: `profile ${parsed.data.id} is bundled, so its name, slicer, folder and firmware can't change`,
+      });
+    }
     dbUpsertProfile(openDb(), parsed.data);
     return reply.code(200).send({ ok: true });
   });

@@ -1,5 +1,5 @@
-import { PNG } from "pngjs";
 import type { Page } from "playwright";
+import { PNG } from "pngjs";
 
 export const RING_RATIO = 3;
 export const RING_SHARE = 0.9;
@@ -40,10 +40,22 @@ export function ringBand(box: Box): Point[][] {
   const xs = span(Math.ceil(box.x) + inset, Math.floor(box.x + box.width) - inset);
   const ys = span(Math.ceil(box.y) + across, Math.floor(box.y + box.height) - across);
   return [
-    ...xs.map((x): Point[] => [[x, top], [x, top - 1]]),
-    ...xs.map((x): Point[] => [[x, bottom], [x, bottom + 1]]),
-    ...ys.map((y): Point[] => [[left, y], [left - 1, y]]),
-    ...ys.map((y): Point[] => [[right, y], [right + 1, y]]),
+    ...xs.map((x): Point[] => [
+      [x, top],
+      [x, top - 1],
+    ]),
+    ...xs.map((x): Point[] => [
+      [x, bottom],
+      [x, bottom + 1],
+    ]),
+    ...ys.map((y): Point[] => [
+      [left, y],
+      [left - 1, y],
+    ]),
+    ...ys.map((y): Point[] => [
+      [right, y],
+      [right + 1, y],
+    ]),
   ];
 }
 

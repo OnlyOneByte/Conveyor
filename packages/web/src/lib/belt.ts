@@ -59,6 +59,8 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   const sockets = new Map<string, Socket>();
   let failures = 0;
   let offline = false;
+  let asked = 0;
+  let applied = 0;
 
   function settle(next: TrackJob[], extra: News[] = []) {
     tell([...changes(known, next, feed.clock()), ...extra]);
@@ -91,7 +93,9 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   }
 
   async function poll() {
+    const mine = ++asked;
     const live = await feed.active().catch(() => null);
+    if (mine < applied) return;
     if (!live) {
       if (++failures < FAILS_TO_CLEAR || offline) return;
       offline = true;
@@ -118,6 +122,8 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
       const job = trackJob(view, was, catalog);
       return was && sockets.has(view.jobId) ? { ...was, name: job.name, ...(job.printer ? { printer: job.printer } : {}) } : job;
     };
+    if (mine < applied) return;
+    applied = mine;
     settle([...live.map((view) => fresh(view, known.get(view.jobId))), ...ends.flat()], lost);
   }
 
@@ -133,11 +139,33 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
 
 export function createTicker(belt: { poll(): Promise<void>; covered(): boolean }, ready: () => boolean, now = () => Date.now()) {
   let polling = false;
+  let again = false;
   let last = Number.NEGATIVE_INFINITY;
-  return () => {
-    if (polling || !ready() || (belt.covered() && now() - last < COVERED_MS)) return;
+  const run = () => {
     polling = true;
     last = now();
-    void belt.poll().finally(() => (polling = false));
+    void belt.poll().finally(() => {
+      polling = false;
+      if (again && ready()) run();
+      again = false;
+    });
   };
+  const tick = () => {
+    if (polling || !ready() || (belt.covered() && now() - last < COVERED_MS)) return;
+    run();
+  };
+  const force = () => {
+    if (polling) again = true;
+    else if (ready()) run();
+  };
+  return Object.assign(tick, { force });
+}
+
+const JOB_SENT = "conveyor:job-sent";
+
+export const jobSent = () => dispatchEvent(new Event(JOB_SENT));
+
+export function onJobSent(run: () => void): () => void {
+  addEventListener(JOB_SENT, run);
+  return () => removeEventListener(JOB_SENT, run);
 }

@@ -79,6 +79,37 @@ in plain words.
 Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
 page's **More** menu links there. `/monitor` keeps its active-jobs list only.
 
+### Settings
+
+`/settings` has three panels: **Profiles**, **This browser** and **About**.
+
+- **Profiles** lists each profile by name with its facts (`profileFacts` in `profile-facts.ts`: material and
+  layer height read from the name, then firmware and slicer, like "PLA · 0.20 mm · Klipper · OrcaSlicer") and a
+  tag: Bundled, Added, and ", edited" when its content was changed. Bundled profiles have no Delete.
+- **Add profile** is a dialog with selects for the slicer (`GET /catalog/slicers`) and the firmware (every
+  transport's `acceptsFlavors`). The ID is `<slicer>/<slug of the name>`, and the folder follows the name until
+  you edit it. `profileErrors` checks the name, a free ID and a `/profiles/<bundle>` folder.
+- **Delete** asks in a dialog that names the profile. The toast after it offers **Undo**, which registers the
+  profile again and restores its edited content, read before the delete. Focus then moves to the next row's
+  last action (the previous row's when the last row went), or to **Add profile** once the list is empty.
+- **This browser** holds the theme, the preview spin and the single-key shortcuts switch from
+  `preferences.ts`. **About** shows the release (kit's `version.name`, set from `CONVEYOR_VERSION` at build
+  time; release images pass the tag) and links to the source, docs, issues and license.
+
+`/settings/profiles/<id>` edits a profile's content in CodeMirror 6, loaded only on that route
+(`code-editor.ts`): JSON or INI highlighting, line numbers, and a lint mark on the line with the problem. Tab
+leaves the editor, so focus is never trapped. `profile-check.ts` runs the API's own validators from
+`@conveyor/shared/profile` (no Zod) on every change and finds the line: the Lezer JSON parser locates a syntax error, and a
+refused setting is found by its key. The error shows above the editor in plain words, and Save stays disabled
+until it is fixed. Orca's three files are tabs, and a file with an error carries a dot. **Reset to original**
+and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves. Until the editor has mounted
+(still loading, or its chunk failed to load offline), Save, Tidy layout, Reset and Ctrl S do nothing, so no
+change is ever made to text nobody can see. A profile whose content answers `404` (one just added, whose
+folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
+failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
+(`http-error.ts`). Any other error shows the server's `error` message, or the method, path and status when the
+body has none: `api.ts`'s `getJson` and the profile content fetch both read failures through `failure()`.
+
 ## lib/components/Viewport.svelte (the lazy 3D preview)
 
 three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load first. `Viewport.svelte` is the only thing pages import: it fills its parent with a placeholder (a breathing cube and "Loading the 3D preview…") and, on mount, `import()`s `ViewportCanvas.svelte`, which holds the `Canvas`, the tone mapping and `PreviewScene` or `MeshScene`. The placeholder is absolutely positioned in the same box the canvas takes, so nothing shifts when it swaps. A failed import says so and asks for a reload.

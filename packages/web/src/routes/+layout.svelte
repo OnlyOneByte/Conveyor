@@ -6,7 +6,7 @@
   import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
   import { shareActive, unwatched } from "#lib/active-jobs.js";
-  import { createBelt, createTicker, POLL_MS } from "#lib/belt.js";
+  import { createBelt, createTicker, onJobSent, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
@@ -15,7 +15,7 @@
   import Belt from "#lib/components/Belt.svelte";
   import { stashRerun } from "#lib/rerun.js";
   import type { TrackJob } from "#lib/track.js";
-  import { toasts } from "#lib/ui/behaviour.js";
+  import { measured, toasts } from "#lib/ui/behaviour.js";
   import { resolveTheme, theme } from "#lib/preferences.js";
   import Toasts from "#lib/ui/Toasts.svelte";
   import type { LayoutData } from "./$types";
@@ -61,13 +61,13 @@
     refreshEnds();
     const timers = [setInterval(tick, POLL_MS), setInterval(refreshEnds, ENDS_MS)];
     document.addEventListener("visibilitychange", tick);
+    const unsent = onJobSent(() => (tick.force(), refreshEnds()));
     return () => {
       for (const timer of timers) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
-      belt.stop();
+      for (const stop of [belt.stop, unsent]) stop();
     };
   });
-
   async function signOut() {
     await logout();
     await invalidateAll();
@@ -98,7 +98,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />

@@ -14,7 +14,7 @@ function live(name: string, ready: string, view: object, extra: Step[] = []): Sc
   return {
     name: `receipt-${name}`,
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [
       {
         fulfill: `**/api/jobs/${jobId}`,

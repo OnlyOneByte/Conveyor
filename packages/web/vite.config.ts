@@ -7,6 +7,8 @@ import { defineConfig, type Plugin } from "vite";
 
 const API = process.env.CONVEYOR_API_TARGET ?? "http://127.0.0.1:3000";
 
+const VERSION = process.env.CONVEYOR_VERSION;
+
 const ALLOWED_HOSTS = (process.env.CONVEYOR_DEV_ALLOWED_HOSTS ?? "")
   .split(",")
   .map((h) => h.trim())
@@ -26,12 +28,50 @@ const chunkModules = (): Plugin => ({
   },
 });
 
+const EDITOR_MODULE = /[\\/]@codemirror[\\/]/;
+const EDITOR_CHUNKS = "virtual:editor-chunks";
+
+const editorChunks = (): Plugin => {
+  let files: string[] = [];
+  return {
+    name: "conveyor:editor-chunks",
+    apply: "build",
+    generateBundle(_, bundle) {
+      if (this.environment.name !== "client") return;
+      const chunks = Object.values(bundle).flatMap((c) => (c.type === "chunk" ? [c] : []));
+      const reached = new Set<string>();
+      const reach = (file: string) => {
+        if (reached.has(file)) return;
+        reached.add(file);
+        const chunk = bundle[file];
+        if (chunk?.type === "chunk") chunk.imports.forEach(reach);
+      };
+      for (const chunk of chunks) if (chunk.isEntry) reach(chunk.fileName);
+      files = chunks
+        .filter((c) => !reached.has(c.fileName))
+        .filter((c) => Object.keys(c.modules).some((id) => EDITOR_MODULE.test(id)))
+        .map((c) => c.fileName);
+    },
+    writeBundle(options) {
+      if (this.environment.name !== "client" || !options.dir) return;
+      writeFileSync(join(options.dir, "..", "editor-chunks.json"), JSON.stringify(files));
+    },
+    resolveId: (id) => (id === EDITOR_CHUNKS ? `\0${EDITOR_CHUNKS}` : null),
+    load: (id) => {
+      if (id !== `\0${EDITOR_CHUNKS}`) return null;
+      return `export default ${JSON.stringify(files.map((f) => `/${f}`))};`;
+    },
+  };
+};
+
 export default defineConfig({
   plugins: [
     chunkModules(),
+    editorChunks(),
     sveltekit({
       preprocess: vitePreprocess(),
       adapter: adapter(),
+      ...(VERSION ? { version: { name: VERSION } } : {}),
       csp: {
         mode: "auto",
         directives: {

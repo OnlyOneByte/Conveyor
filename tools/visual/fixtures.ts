@@ -1,4 +1,4 @@
-import { type Page, chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
 
 export function solid(width: number, height: number, rgb: [number, number, number]): Buffer {

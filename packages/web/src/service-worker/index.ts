@@ -1,9 +1,10 @@
 import { version } from "$app/env";
 import { assets, immutable } from "$app/manifest";
+import editorChunks from "virtual:editor-chunks";
 import { precached } from "./precache";
 
 const CACHE = `conveyor-cache-${version}`;
-const ASSETS = precached([...immutable, ...assets].map(({ path }) => path));
+const ASSETS = precached([...immutable, ...assets].map(({ path }) => path), editorChunks);
 
 self.addEventListener("install", (event) => {
   const e = event as ExtendableEvent;
