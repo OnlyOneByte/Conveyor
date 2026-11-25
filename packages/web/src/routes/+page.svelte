@@ -163,13 +163,13 @@
 <style>
   .make {
     display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: 28px; align-items: start;
+    gap: var(--s6); align-items: start;
   }
   .order { min-width: 0; }
   .fields { display: flex; flex-direction: column; gap: var(--s5); }
   .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
-  h2 { margin: 0 0 10px; font-size: var(--fs-section); }
+  h2 { margin: 0 0 var(--s2-5); font-size: var(--fs-section); }
   .questions { display: flex; flex-direction: column; gap: var(--s5); }
   .note { margin: 0; color: var(--muted); }
   @media (min-width: 1200px) {
@@ -180,7 +180,7 @@
     .fields > .where { grid-column: 2; grid-row: 3; }
   }
   @media (max-width: 759px) {
-    .make { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-    .order { padding-bottom: calc(var(--dock-h, 120px) + var(--s4)); }
+    .make { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+    .order { padding-bottom: calc(var(--dock-h, calc(var(--s5) * 5)) + var(--s4)); }
   }
 </style>

@@ -39,7 +39,7 @@
   .code { color: var(--faint); }
   h1 { margin: 0; font-size: var(--fs-title); }
   p { margin: 0; color: var(--muted); }
-  code { font: 500 var(--fs-body) var(--mono); color: var(--ink); background: var(--sunk); padding: 2px 6px; border-radius: var(--r-tiny); }
+  code { font: 500 var(--fs-body) var(--mono); color: var(--ink); background: var(--sunk); padding: var(--s0) var(--s1-5); border-radius: var(--r-tiny); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .acts .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
 </style>

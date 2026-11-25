@@ -69,7 +69,7 @@
   button:disabled { opacity: 0.35; cursor: not-allowed; }
   button:focus-visible { outline-offset: -3px; }
   .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center;
-    gap: 0.12rem; }
+    gap: var(--s0); }
   .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
     text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;
     color: var(--ink); -moz-appearance: textfield; appearance: textfield; }

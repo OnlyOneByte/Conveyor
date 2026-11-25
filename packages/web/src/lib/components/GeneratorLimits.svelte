@@ -26,7 +26,7 @@
   fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: var(--s1); }
   .check { display: flex; align-items: center; gap: var(--s2); min-height: 30px; }
   .check input { flex: none; margin: 0; }
-  .gens { display: flex; flex-direction: column; margin-left: 26px; }
+  .gens { display: flex; flex-direction: column; margin-left: var(--s5); }
   .hint { margin: 0; font-size: var(--fs-chip); color: var(--muted); }
   @media (pointer: coarse) { .check { min-height: var(--tap); } }
 </style>

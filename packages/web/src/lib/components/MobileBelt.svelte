@@ -65,28 +65,28 @@
 
 <style>
   .m { padding: var(--s1) 0 var(--s2); }
-  .chip { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: var(--s2) 10px var(--s2) 14px; border-radius: var(--r-card); background: var(--belt); color: var(--belt-ink); }
+  .chip { display: flex; align-items: center; gap: var(--s2-5); min-height: 56px; padding: var(--s2) var(--s2-5) var(--s2) var(--s3-5); border-radius: var(--r-card); background: var(--belt); color: var(--belt-ink); }
   .tx { flex: 1; min-width: 0; }
   b { display: block; overflow: hidden; font-size: var(--fs-body); text-overflow: ellipsis; white-space: nowrap; }
   .tx > span { display: block; font: 500 var(--fs-label) var(--mono); }
   .bad { color: var(--belt-err); font-weight: 700; }
   .stale { opacity: 0.45; }
   :global([data-theme="dark"]) .chip { box-shadow: 0 0 0 1px var(--faint); }
-  .mini { position: relative; height: 8px; margin-top: 6px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
+  .mini { position: relative; height: 8px; margin-top: var(--s1-5); border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
   .exp { display: grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }
   .chip :focus-visible { outline-color: var(--belt-ink); }
   .exp svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-  .sheet { display: grid; gap: 6px; max-height: 60vh; margin: var(--s2) -5px 0; padding: 5px; overflow-y: auto; }
-  .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px var(--s2); min-height: 48px; padding: 6px 14px; border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
+  .sheet { display: grid; gap: var(--s1-5); max-height: 60vh; margin: var(--s2) calc(-1 * var(--s1-5)) 0; padding: var(--s1-5); overflow-y: auto; }
+  .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s0) var(--s2); min-height: 48px; padding: var(--s1-5) var(--s3-5); border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
   .t { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .v { font: 500 var(--fs-mono) var(--mono); color: var(--live); }
   .st { grid-column: 1 / -1; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s2) 0; color: var(--muted); }
-  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1-5); }
   .bins :global(.wrap) { display: contents; }
   .bins :global(.needs) { min-height: 44px; }
   .bins :global(.tray) { position: static; grid-column: 1 / -1; width: auto; box-shadow: none; }
-  .done { display: flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 10px; border: 1.5px solid var(--ok); border-radius: var(--r-inner); background: var(--paper); color: var(--ok); font-size: var(--fs-chip); font-weight: 700; text-decoration: none; }
+  .done { display: flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s2-5); border: 1.5px solid var(--ok); border-radius: var(--r-inner); background: var(--paper); color: var(--ok); font-size: var(--fs-chip); font-weight: 700; text-decoration: none; }
   .n { margin-left: auto; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
 </style>

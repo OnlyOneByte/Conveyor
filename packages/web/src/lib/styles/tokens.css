@@ -3,7 +3,7 @@
   --mono: "DM Mono", ui-monospace, monospace;
   --fs-title: 36px; --fs-section: 18px; --fs-body: 15px; --fs-chip: 13px; --fs-mono: 12px; --fs-label: 11px;
   --fs-brand: 22px;
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --s0: 2px; --s1: 4px; --s1-5: 6px; --s2: 8px; --s2-5: 10px; --s3: 12px; --s3-5: 14px; --s4: 16px; --s5: 24px; --s6: 32px;
   --r-tiny: 4px; --r-inner: 11px; --r-control: 13px; --r-chip: 16px; --r-card: 18px; --r-panel: 26px; --r-pill: 999px;
   --tap: 44px;
   --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms; --t-tread: 1.3s; --t-breathe: 1.6s; --t-instant: 0.001ms;

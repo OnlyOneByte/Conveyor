@@ -86,9 +86,9 @@
 </div>
 
 <style>
-  .bar { display: flex; align-items: center; gap: var(--s2); height: 40px; margin: 6px 0; padding: 0 6px 0 14px; border-radius: var(--r-pill); background: var(--belt); color: var(--belt-ink); }
+  .bar { display: flex; align-items: center; gap: var(--s2); height: 40px; margin: var(--s1-5) 0; padding: 0 var(--s1-5) 0 var(--s3-5); border-radius: var(--r-pill); background: var(--belt); color: var(--belt-ink); }
   b { font-weight: 750; font-size: var(--fs-chip); }
-  .seg { display: flex; align-items: center; height: 30px; padding: 0 10px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 10%, transparent); color: var(--belt-ink); font: 500 var(--fs-mono) var(--mono); white-space: nowrap; text-decoration: none; }
+  .seg { display: flex; align-items: center; height: 30px; padding: 0 var(--s2-5); border-radius: var(--r-pill); background: color-mix(in oklch, var(--belt-ink) 10%, transparent); color: var(--belt-ink); font: 500 var(--fs-mono) var(--mono); white-space: nowrap; text-decoration: none; }
   .good { background: color-mix(in oklch, var(--ok) 30%, transparent); }
   .bad { min-height: 0; border: 0; background: color-mix(in oklch, var(--err) 40%, transparent); cursor: pointer; }
   .off { background: var(--paper); color: var(--ink); font-family: var(--display); font-weight: 700; }
@@ -102,7 +102,7 @@
   .mini u:last-of-type { transform: translateX(-100%); }
   .exp svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .full { position: relative; }
-  .full.opened { padding-right: 38px; }
+  .full.opened { padding-right: calc(var(--s6) + var(--s1-5)); }
   .shut { position: absolute; top: 0; right: 0; z-index: 6; background: var(--belt); }
   .mobile { display: none; }
   @media (max-width: 759px) { .mobile { display: block; } .desktop { display: none; } }

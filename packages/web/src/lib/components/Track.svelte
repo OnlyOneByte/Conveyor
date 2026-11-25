@@ -111,10 +111,10 @@
 <style>
   .belt { display: grid; grid-template-columns: 150px minmax(0, 1fr) 170px; gap: var(--s4); align-items: end; min-height: 110px; }
   .queue { display: grid; gap: var(--s1); }
-  .slot { display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 10px; border: 1.5px dashed var(--muted); border-radius: var(--r-inner); background: var(--sunk); font-size: var(--fs-chip); font-weight: 700; white-space: nowrap; }
+  .slot { display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 var(--s2-5); border: 1.5px dashed var(--muted); border-radius: var(--r-inner); background: var(--sunk); font-size: var(--fs-chip); font-weight: 700; white-space: nowrap; }
   .n { margin-left: auto; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   @media (pointer: coarse) { .slot { min-height: var(--tap); } }
-  .bins { display: grid; gap: 6px; }
+  .bins { display: grid; gap: var(--s1-5); }
   .done { border-style: solid; border-color: var(--ok); background: var(--paper); color: var(--ok); text-decoration: none; }
   .needs { border-style: solid; border-color: var(--err); background: var(--paper); color: var(--err); }
   .lane { position: relative; height: 110px; }

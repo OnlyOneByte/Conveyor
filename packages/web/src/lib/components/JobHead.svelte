@@ -33,7 +33,7 @@
     margin: 0; color: var(--muted);
   }
   .pill {
-    display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
+    display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--s2-5);
     border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700;
   }
   .pill.done { color: var(--ok); }

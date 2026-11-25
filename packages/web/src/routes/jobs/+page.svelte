@@ -119,8 +119,8 @@
 <style>
   .jobs { display: grid; gap: var(--s3); }
   h1 { margin: 0; font: 800 var(--fs-title) / 1.1 var(--display); letter-spacing: -0.03em; }
-  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
-  .pill { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border: 1.5px solid var(--line-2); border-radius: var(--r-pill); background: transparent; color: var(--ink); font: 600 var(--fs-body) var(--display); white-space: nowrap; cursor: pointer; }
+  .pills { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .pill { display: inline-flex; align-items: center; gap: var(--s2); height: 42px; padding: 0 var(--s4); border: 1.5px solid var(--line-2); border-radius: var(--r-pill); background: transparent; color: var(--ink); font: 600 var(--fs-body) var(--display); white-space: nowrap; cursor: pointer; }
   .pill[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
   .n { font: 500 var(--fs-mono) var(--mono); }
   .older { justify-self: start; min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }

@@ -90,13 +90,13 @@
   .warn .model {
     fill: color-mix(in oklch, var(--accent) 55%, var(--paper)); stroke: var(--live);
   }
-  .words { display: grid; gap: 2px; min-width: 0; }
+  .words { display: grid; gap: var(--s0); min-width: 0; }
   .label {
     font: 500 var(--fs-label) var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--muted);
   }
   .dims { font: 600 var(--fs-section) var(--mono); letter-spacing: -0.01em; }
-  p { margin: 2px 0 0; color: var(--ink); font-size: var(--fs-body); line-height: 1.4; }
+  p { margin: var(--s0) 0 0; color: var(--ink); font-size: var(--fs-body); line-height: 1.4; }
   .quiet p, .hint { color: var(--muted); }
   .hint { font-size: var(--fs-chip); }
 </style>

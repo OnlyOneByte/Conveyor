@@ -52,7 +52,7 @@
     list-style: none; padding: 0; margin: 0;
   }
   .steps li {
-    display: flex; flex-direction: column; gap: 6px; font-weight: 600; color: var(--muted);
+    display: flex; flex-direction: column; gap: var(--s1-5); font-weight: 600; color: var(--muted);
   }
   .steps li::before { content: ""; height: 6px; border-radius: var(--r-pill); background: var(--field-line); }
   .steps li.past::before { background: var(--ok); }

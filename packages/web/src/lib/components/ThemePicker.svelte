@@ -30,7 +30,7 @@
   fieldset { display: grid; gap: var(--s1); margin: 0; padding: 0; border: 0; }
   legend { padding: 0 0 var(--s1); font-weight: 650; }
   .seg {
-    display: inline-flex; justify-self: start; gap: 4px; padding: 4px;
+    display: inline-flex; justify-self: start; gap: var(--s1); padding: var(--s1);
     border: 1.5px solid var(--field-line); border-radius: var(--r-chip); background: var(--sunk);
   }
   label {

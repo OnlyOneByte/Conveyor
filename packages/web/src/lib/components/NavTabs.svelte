@@ -39,8 +39,8 @@
   .tabs a[aria-current="page"]::after { content: ""; position: absolute; inset: auto var(--s3) 3px; height: 3px; border-radius: var(--r-pill); background: var(--live); }
   svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   @media (max-width: 759px) {
-    .tabs { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; height: var(--tabbar); display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: var(--s2) 10px calc(var(--s2) + env(safe-area-inset-bottom)); border-radius: 0; border-width: 1px 0 0; border-color: var(--line-2); background: var(--paper); }
-    .tabs a { flex-direction: column; justify-content: center; gap: 3px; min-height: 56px; padding: 0; border-radius: var(--r-card); font-size: var(--fs-mono); }
+    .tabs { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; height: var(--tabbar); display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: var(--s2) var(--s2-5) calc(var(--s2) + env(safe-area-inset-bottom)); border-radius: 0; border-width: 1px 0 0; border-color: var(--line-2); background: var(--paper); }
+    .tabs a { flex-direction: column; justify-content: center; gap: var(--s1); min-height: 56px; padding: 0; border-radius: var(--r-card); font-size: var(--fs-mono); }
     .tabs a[aria-current="page"] { background: var(--sunk); box-shadow: none; }
     .tabs a[aria-current="page"]::after { inset: 0 30% auto; }
     .tabs svg { width: 22px; height: 22px; }
