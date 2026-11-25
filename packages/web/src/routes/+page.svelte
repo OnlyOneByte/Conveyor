@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
-  import { jobSent, titled } from "#lib/belt.js";
+  import { titled } from "#lib/belt.js";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
@@ -12,9 +12,10 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
+  import { printJob } from "#lib/print-job.js";
   import type { RerunPayload } from "#lib/rerun.js";
-  import { AlreadyRetried, linkedRetry, sendJob, takeRerun } from "#lib/rerun.js";
-  import { detailOf, failed, said } from "#lib/said.js";
+  import { linkedRetry, takeRerun } from "#lib/rerun.js";
+  import { failed } from "#lib/said.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
@@ -22,7 +23,6 @@
   export let data: PageData;
 
   const UPLOAD = "upload";
-  const SENT_MS = 2500;
 
   $: generators = data.generators ?? [];
   $: pickable = generators.filter((g) => g.id !== "passthrough");
@@ -66,7 +66,7 @@
 
   let [file, uploadId]: [File | null, string | null] = [null, null];
   let [uploading, uploadError] = [false, ""];
-  let [uploadWhy, errorWhy]: [string | null, string | null] = [null, null];
+  let uploadWhy: string | null = null;
 
   const uploads = latestOnly(uploadStl);
 
@@ -94,10 +94,7 @@
     [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
-  let [busy, sent, failures] = [false, false, 0];
-  let last: { id: string; printer: string } | null = null;
-  let error: string | null = null;
-  let retried: string | null = null;
+  const job = printJob((to) => goto(to, { replace: true, reset: false }));
 
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
@@ -106,28 +103,12 @@
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
   async function print() {
-    if (!ready || busy || !printer || !profile) return;
-    busy = true;
+    if (!ready || $job.busy || !printer || !profile) return;
     const generator = upload
       ? { id: "passthrough", params: { uploadId, filename: file?.name ?? "" } }
       : { id: tab, params };
-    try {
-      const res = await sendJob({ generator, printerId, profileId }, retryOf);
-      const to = `/?job=${encodeURIComponent(res.jobId)}`;
-      await goto(to, { replace: true, reset: false });
-      announce(`${jobLabel} sent to ${printer.name}.`);
-      error = retried = null;
-      last = { id: res.jobId, printer: printer.name };
-      jobSent();
-      sent = true;
-      setTimeout(() => (sent = false), SENT_MS);
-    } catch (e) {
-      [error, errorWhy, failures] = [said(e), detailOf(e), failures + 1];
-      retried = e instanceof AlreadyRetried ? e.retriedBy : null;
-    } finally {
-      busy = false;
-      handoff = null;
-    }
+    await job.run({ generator, printerId, profileId }, retryOf, jobLabel, printer.name);
+    handoff = null;
   }
 </script>
 
@@ -175,7 +156,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} attempt={failures} />
+    <PrintDock {summary} {detail} {ready} {...$job} />
   </form>
 </section>
 
