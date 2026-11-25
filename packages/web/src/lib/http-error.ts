@@ -1,4 +1,10 @@
 const GATEWAY = new Set([502, 503, 504]);
+export const MESSAGE_MAX = 300;
+
+export const shown = (text: string) => {
+  const trimmed = text.trim();
+  return trimmed.length > MESSAGE_MAX ? `${trimmed.slice(0, MESSAGE_MAX - 1).trimEnd()}…` : trimmed;
+};
 
 export class Unreachable extends Error {}
 
@@ -9,5 +15,6 @@ export async function failure(r: Response, label: string): Promise<Error> {
   if (GATEWAY.has(r.status)) return new Unreachable(fallback);
   const body: unknown = await r.json().catch(() => null);
   const error = body && typeof body === "object" && "error" in body ? body.error : null;
-  return new Error(typeof error === "string" && error ? error : fallback);
+  const message = typeof error === "string" ? shown(error) : "";
+  return new Error(message || fallback);
 }

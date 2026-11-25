@@ -15,7 +15,6 @@ export interface GeneratorSummary {
   id: string;
   name: string;
   paramSchema: Record<string, unknown>;
-  /** optional grouping / advanced / control hints for the generated form */
   ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
@@ -44,7 +43,6 @@ interface UploadResult {
   bytes: number;
 }
 
-/** Upload an STL for the passthrough generator. Returns an opaque uploadId. */
 export async function uploadStl(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file, file.name);
@@ -149,7 +147,6 @@ export interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
 
-/** Response of GET /catalog/profiles/:id/content for a Prusa (prusa-ini) profile. */
 export interface PrusaProfileContent {
   format: "prusa-ini";
   source: "bundled" | "edited";
@@ -179,11 +176,7 @@ async function putJson(path: string, body: unknown): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    const msg = (err as { error?: unknown }).error;
-    throw new Error(typeof msg === "string" ? msg : `PUT ${path} ${r.status}`);
-  }
+  if (!r.ok) throw await failure(r, `PUT ${path}`);
 }
 
 export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>(`${API}/catalog/printers`, f);
@@ -226,12 +219,6 @@ export const savePrusaProfileContent = (id: string, document: PrusaProfileDocume
 
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
 
-/**
- * One settled job, or null when there is no such record. Deliberately NOT getJson():
- * that throws the same generic Error for every non-ok status, and the detail page has
- * to tell "no job with this id" (render a not-found page) apart from a genuine server
- * failure (surface the error). Only 404 becomes null; everything else still throws.
- */
 export async function fetchJobHistoryEntry(
   id: string,
   fetchFn: typeof fetch = fetch,
@@ -246,21 +233,9 @@ export async function fetchJobHistoryEntry(
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
 
-/**
- * DELETE that surfaces the server's message instead of flattening it to a status code,
- * so a refusal explains itself in the UI.
- */
 async function del(path: string): Promise<void> {
   const r = await fetch(path, { method: "DELETE" });
-  if (r.ok) return;
-  let detail = "";
-  try {
-    const body = (await r.json()) as { error?: unknown };
-    if (typeof body.error === "string") detail = body.error;
-  } catch {
-    /* non-JSON body — fall back to the status line */
-  }
-  throw new Error(detail || `DELETE ${path} ${r.status}`);
+  if (!r.ok) throw await failure(r, `DELETE ${path}`);
 }
 
 export const deletePrinter = (id: string) =>

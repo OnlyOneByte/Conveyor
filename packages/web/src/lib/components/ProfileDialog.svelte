@@ -103,5 +103,5 @@
 
 <style>
   .form { display: flex; flex-direction: column; gap: var(--s4); }
-  .problem { margin: 0; color: var(--err); font-weight: 600; }
+  .problem { margin: 0; color: var(--err); font-weight: 600; overflow-wrap: anywhere; }
 </style>
