@@ -12,8 +12,8 @@ out="$3"
 runs="${RUNS:-10}"
 caddy_image="${CADDY_IMAGE:-caddy:2@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b}"
 lighthouse="${LIGHTHOUSE:-$here/node_modules/.bin/lighthouse}"
-if [ ! -x "$lighthouse" ]; then
-  echo "$lighthouse is missing: run bun install --frozen-lockfile in $here" >&2
+if ! command -v "$lighthouse" > /dev/null; then
+  echo "$lighthouse not found: run bun install --frozen-lockfile in $here, or set LIGHTHOUSE to a Lighthouse command or path" >&2
   exit 1
 fi
 mkdir -p "$out"
