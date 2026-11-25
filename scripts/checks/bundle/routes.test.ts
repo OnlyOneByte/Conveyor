@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { budgetErrors } from "./budget";
-import { EVAL_SIGNATURE } from "./measure";
+import { buildsCode } from "./measure";
 
 const ok = { raw: 300_000, gzip: 100_000, three: false, zod: false, evals: false };
 const editor = { editor: ["_app/immutable/chunks/e.js"], editorKept: [] };
@@ -27,7 +27,7 @@ describe("every route's first load", () => {
   test("fails Zod or new Function in one route's first load, not only the shared bundle", () => {
     expect(check({ zod: true, evals: true })).toEqual([
       "/settings: Zod is in the initial JS; import the Zod-free shared modules instead",
-      "/settings: the initial JS builds code with Function(), which the strict CSP refuses",
+      "/settings: the initial JS builds code at runtime (Function, eval or a function's constructor), which the strict CSP refuses",
     ]);
   });
 
@@ -43,14 +43,28 @@ describe("every route's first load", () => {
 });
 
 describe("finding code built at runtime", () => {
-  test("matches Function(), with or without new, as minifiers leave it", () => {
+  test("matches Function and eval however a minifier leaves them", () => {
     for (const code of [
       'new Function("return 1")',
       "try{return Function(``),!0}",
-      ";Function(a,b)",
+      "globalThis.Function(`return 1`)()",
+      "const q=Function;q(`return 1`)()",
+      "(()=>{}).constructor(`return 1`)()",
+      "eval(`1 + 1`)",
+      "(0,eval)(`1 + 1`)",
     ])
-      expect(EVAL_SIGNATURE.test(code)).toBe(true);
-    for (const code of ["isFunction(x)", "x.Function(y)", "$Function(z)", "typeof f==`function`"])
-      expect(EVAL_SIGNATURE.test(code)).toBe(false);
+      expect(buildsCode(code)).toBe(true);
+  });
+
+  test("leaves ordinary uses of the names alone", () => {
+    for (const code of [
+      "isFunction(x)",
+      "r=n.map(t=>t instanceof Function?t(e):t)",
+      "typeof e==`function`&&Function.prototype.toString.call(e)",
+      "clone(){return new this.constructor(this.x,this.y)}",
+      "page.evaluate(f)",
+      "client.eval(script)",
+    ])
+      expect(buildsCode(code)).toBe(false);
   });
 });

@@ -11,7 +11,9 @@ export const step: StepRunner = {
   kind: "unsent",
   run: async (page, step) => {
     if (!("unsent" in step)) throw wrongKind("unsent", step);
-    const sent = sentSince(page).filter((write) => write.startsWith(`${step.unsent} `));
+    const sent = sentSince(page).filter(
+      (write) => step.unsent === "*" || write.startsWith(`${step.unsent} `),
+    );
     if (sent.length) throw new Error(`sent ${sent.join(", ")} while the editor was offline`);
   },
 };

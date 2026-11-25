@@ -53,6 +53,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "settings-add",
     "settings-delete",
     "settings-delete-focus-next",
+    "settings-delete-focus-middle",
     "settings-delete-focus-previous",
     "settings-delete-focus-empty",
     "belt-region",

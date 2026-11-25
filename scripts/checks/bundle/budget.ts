@@ -58,7 +58,7 @@ function routeErrors(measured: Measured, budget: Budget): string[] {
       errors.push(`${route}: Zod is in the initial JS; import the Zod-free shared modules instead`);
     if (sizes.evals)
       errors.push(
-        `${route}: the initial JS builds code with Function(), which the strict CSP refuses`,
+        `${route}: the initial JS builds code at runtime (Function, eval or a function's constructor), which the strict CSP refuses`,
       );
     if (limit === undefined)
       errors.push(

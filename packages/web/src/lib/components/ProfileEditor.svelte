@@ -27,6 +27,7 @@
   $: status = editing.status(problem !== null, busy, dirty);
   $: label = tabbed ? `${fileLabel(file)} settings, JSON` : "Settings, config.ini";
   $: tidied = content.lang === "json" ? editing.formatted(docs[file] ?? "") : null;
+  $: can = editing.gate({ ready, problem: problem !== null, dirty, busy, tidied: tidied !== null });
 
   function diagnose(text: string) {
     const found = problemOf(content.lang, { ...docs, [file]: text });
@@ -40,7 +41,8 @@
     [leaving, discarding] = [nav.to.url, true];
   });
 
-  async function attempt(work: () => Promise<void>) {
+  async function attempt(work: () => Promise<void>, allowed = true) {
+    if (!allowed) return;
     [busy, failure] = [true, ""];
     try {
       await work();
@@ -52,7 +54,7 @@
   }
 
   async function save() {
-    if (problem || !dirty || busy || !ready) return;
+    if (!can.save) return;
     await attempt(async () => {
       await editing.saveContent(profile, content.lang, docs);
       [saved, edited] = [{ ...docs }, true];
@@ -67,10 +69,10 @@
       if (fresh) [docs, saved, edited] = [{ ...fresh.docs }, { ...fresh.docs }, fresh.edited];
       version += 1;
       toasts.show(`Reset ${profile.name}`);
-    });
+    }, can.reset);
 
   function tidy() {
-    if (ready && tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
+    if (can.tidy && tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
   }
 
   function leave() {
@@ -123,10 +125,10 @@
 <EditorBar
   name={profile.name}
   {status}
-  busy={busy || !ready}
+  busy={!can.reset}
   {edited}
-  canSave={ready && !problem && dirty && !busy}
-  tidy={content.lang === "json" ? ready && tidied !== null ? tidy : null : undefined}
+  canSave={can.save}
+  tidy={content.lang === "json" ? can.tidy ? tidy : null : undefined}
   {save}
   {reset}
 />

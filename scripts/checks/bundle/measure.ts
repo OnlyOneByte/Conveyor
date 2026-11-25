@@ -42,7 +42,14 @@ export const parseChunkModules = (text: string): Record<string, string[]> =>
 
 export const THREE_SIGNATURE = "__THREE__";
 export const ZOD_SIGNATURE = "ZodError";
-export const EVAL_SIGNATURE = /(?<![\w$.])Function\(/;
+export const EVAL_SIGNATURES = [
+  /(?<![\w$])Function\(/,
+  /[=(,:?]\s*Function(?![\w$.(])/,
+  /(?<![\w$.])eval(?![\w$])/,
+  /\.constructor\(\s*[`"']/,
+];
+
+export const buildsCode = (source: string) => EVAL_SIGNATURES.some((re) => re.test(source));
 
 export interface RouteJs extends Sizes {
   three: boolean;
@@ -169,7 +176,7 @@ export function initialJs(output: string, route: string): RouteJs {
     ...sizeOf(client, files),
     three: bundlesThree(files, modules, code),
     zod: sources.some((source) => source.includes(ZOD_SIGNATURE)),
-    evals: sources.some((source) => EVAL_SIGNATURE.test(source)),
+    evals: sources.some(buildsCode),
   };
 }
 
