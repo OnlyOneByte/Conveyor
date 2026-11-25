@@ -78,7 +78,7 @@ const collapsed: Step = { waitFor: "#belt .bar:visible, #belt section.m:visible"
 export const scenes: Scene[] = [
   {
     name: "belt-mobile",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -86,7 +86,7 @@ export const scenes: Scene[] = [
   },
   {
     name: "belt-mobile-sheet",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [390],
     fullPage: false,
@@ -100,7 +100,7 @@ export const scenes: Scene[] = [
       { wait: 300 },
     ],
   },
-  { name: "belt-bar", route: "/history", ready: "h1", widths: [1440], steps: onBar },
+  { name: "belt-bar", route: "/jobs", ready: "h1", widths: [1440], steps: onBar },
   {
     name: "belt-bar-make",
     route: "/",
@@ -131,7 +131,7 @@ export const scenes: Scene[] = [
   },
   {
     name: "belt-expand",
-    route: "/history",
+    route: "/jobs",
     ready: "h1",
     widths: [1440],
     record: true,
@@ -166,7 +166,7 @@ export const scenes: Scene[] = [
     reducedMotion: true,
     steps: [...moves, { still: "#belt", ms: 3000 }],
   },
-  { name: "belt-offline", route: "/history", ready: "h1", steps: offline },
+  { name: "belt-offline", route: "/jobs", ready: "h1", steps: offline },
   {
     name: "belt-offline-make",
     route: "/",
@@ -182,7 +182,7 @@ export const scenes: Scene[] = [
     fullPage: false,
     steps: [
       region,
-      { follow: "/history" },
+      { follow: "/jobs" },
       { wait: 800 },
       region,
       collapsed,

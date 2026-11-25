@@ -326,13 +326,13 @@ empty one as `—`, instead of hiding the row.
 
 Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those are the only rows; in
 SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
-`/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
-localStorage strip on `/history` alongside the durable table. `/jobs/<id>` reads that 404 as "not
+`/jobs-history/:id` answers 404 until it settles. That is why the Jobs page (`/jobs`) lists live jobs from
+`/jobs/active` in its On the belt group, above the settled ones, and shows each job once. `/jobs/<id>` reads that 404 as "not
 settled yet" and shows the live job from `/jobs/:id` and its socket instead, with place in line from
 `/jobs/active` while it waits. A `/?job=<id>` link that opens Make goes on to `/jobs/<id>`; only a
-`?job=` change from inside Make, such as Print, keeps the job's panel on Make. The old `/history/<id>`
-answers 308 with a Location of `/jobs/<id>`. It is the one route the web server renders, so scripts
-and crawlers get the redirect too, not just the browser.
+`?job=` change from inside Make, such as Print, keeps the job's panel on Make. The old `/history` and
+`/history/<id>` answer 308 with a Location of `/jobs` and `/jobs/<id>`. They are the only routes the web server
+renders, so scripts and crawlers get the redirects too, not just the browser.
 
 > The browser reaches the API under `/api/`: the vite proxy and Caddy strip that prefix, so the API's
 > own routes (`/jobs-history/:id`, `/catalog/printers/:id`) stay as written here. Every other path is a

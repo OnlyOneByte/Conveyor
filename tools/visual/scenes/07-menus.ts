@@ -25,25 +25,15 @@ export const scenes: Scene[] = [
     steps: [{ wait: 500 }, ...keys("?"), { click: "dialog[open] >> [role=switch]" }, { wait: 300 }],
   },
   {
-    name: "jobs-keys",
-    route: "/history",
-    ready: "a.jobid",
-    steps: [
-      { wait: 500 },
-      ...keys("j", "j"),
-      { waitFor: "tr:nth-child(2) a.jobid:focus", timeout: 5000 },
-    ],
-  },
-  {
     name: "keyboard",
     route: "/",
-    visits: ["/history"],
+    visits: ["/jobs"],
     ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },
       ...keys("Control+k", "j", "o", "b", "s", "Enter"),
-      { waitFor: "a.jobid" },
+      { waitFor: "[data-id]" },
       ...keys("j", "j", "j", "k", "?"),
     ],
   },

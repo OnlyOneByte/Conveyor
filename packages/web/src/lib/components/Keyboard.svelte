@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { afterNavigate, goto } from "$app/navigation";
+  import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { fetchJobHistory } from "#lib/api.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { type Command, jobCommands, printerCommands } from "#lib/commands.js";
   import { theme } from "#lib/preferences.js";
-  import { jobKeys, shortcuts } from "#lib/app-shortcuts.js";
+  import { shortcuts } from "#lib/app-shortcuts.js";
   import CommandMenu from "./CommandMenu.svelte";
   import ShortcutSheet from "./ShortcutSheet.svelte";
 
@@ -18,7 +18,7 @@
   const actions: Command[] = [
     { group: "Actions", label: "New print", hint: "N", run: () => goto("/") },
     { group: "Actions", label: "Go to Make", hint: "G M", run: () => goto("/") },
-    { group: "Actions", label: "Go to Jobs", hint: "G J", run: () => goto("/history") },
+    { group: "Actions", label: "Go to Jobs", hint: "G J", run: () => goto("/jobs") },
     { group: "Actions", label: "Go to Printers", hint: "G P", run: () => goto("/printers") },
     { group: "Actions", label: "Switch theme", hint: "T", run: toggleTheme },
     { group: "Actions", label: "Keyboard shortcuts", hint: "?", run: () => (sheet = true) },
@@ -37,22 +37,14 @@
     ];
   }
 
-  let jobs: (() => void) | undefined;
-  const arm = (path: string | undefined) => {
-    jobs?.();
-    jobs = path === "/history" ? jobKeys() : undefined;
-  };
-  afterNavigate(({ to }) => arm(to?.url.pathname));
-
   onMount(() => {
     const off = [shortcuts.register("mod+k", openMenu), ...actions.map(({ hint, run }) => shortcuts.register(hint.toLowerCase(), run))];
     const listen = (event: KeyboardEvent) => {
       if (!document.querySelector("dialog[open]") && shortcuts.handle(event)) event.preventDefault();
     };
     window.addEventListener("keydown", listen);
-    arm(location.pathname);
     return () => {
-      for (const unregister of [...off, jobs ?? (() => {})]) unregister();
+      for (const unregister of off) unregister();
       window.removeEventListener("keydown", listen);
     };
   });

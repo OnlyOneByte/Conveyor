@@ -21,7 +21,7 @@
   const groupWidths: Record<string, number> = {};
   const lefts = new Map<string, number>();
   let leaving: Departure[] = [];
-  let hidden = document.hidden;
+  let hidden = typeof document !== "undefined" && document.hidden;
 
   $: moving = jobs.filter((j) => onRail(j.state));
   $: waiting = jobs.filter((j) => j.state === "queued").length;
@@ -86,7 +86,7 @@
     </div>
   </div>
   <div class="bins">
-    <a class="slot done" href="/history">{BINS.finished}<span class="n">{today(finished)}</span></a>
+    <a class="slot done" href="/jobs?day=today">{BINS.finished}<span class="n">{today(finished)}</span></a>
     {#if needs}{#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}{:else if failed}<span class="slot needs">{BINS.needs}<span class="n">{failed}</span></span>{/if}
   </div>
 </section>

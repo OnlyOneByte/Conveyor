@@ -15,7 +15,6 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
-  import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import {
     AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
   } from "#lib/rerun.js";
@@ -122,10 +121,6 @@
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
       jobId = res.jobId;
-      const targetName = `${printer.name} · ${profile.name}`;
-      const submittedAt = Date.now();
-      const { id } = generator;
-      rememberJob({ jobId: res.jobId, targetName, generatorId: id, submittedAt, state: "queued" });
       announce(`${name} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
@@ -187,7 +182,7 @@
       {#if jobId}{#key jobId}
         <section class="job">
           <h3>Job</h3>
-          <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
+          <JobStatus {jobId} />
         </section>
       {/key}{/if}
     </div>

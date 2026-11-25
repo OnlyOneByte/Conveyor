@@ -48,6 +48,7 @@ export const SHEET = [
   ["G then M, J or P", "Go to Make, Jobs or Printers"],
   ["T", "Switch theme"],
   ["J / K", "Next or previous job (Jobs)"],
+  ["C / R", "Cancel or retry the selected job (Jobs)"],
   ["/", "Focus the filter (Jobs)"],
   ["?", "Show these shortcuts"],
 ] as const;

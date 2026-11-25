@@ -29,8 +29,8 @@ export const scenes: Scene[] = [
   },
   {
     name: "receipt-outside-bed",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       {
         fulfill: "**/api/jobs-history/seed-failed",
@@ -86,7 +86,7 @@ export const scenes: Scene[] = [
           retriedBy: "seed-printed",
         },
       },
-      { click: "text=Retry" },
+      { click: 'role=button[name="Retry"s]' },
       { waitFor: "text=How big?" },
       { wait: 800 },
       { click: "button.print" },
@@ -125,8 +125,8 @@ export const scenes: Scene[] = [
   },
   {
     name: "print-forward",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       { follow: "/" },
       { waitFor: "text=How big?" },
@@ -146,7 +146,7 @@ export const scenes: Scene[] = [
       { click: "button.print" },
       { waitFor: "text=42%" },
       { history: "back" },
-      { waitFor: "text=From this browser" },
+      { waitFor: "h1 >> text=Jobs" },
       { history: "forward", url: "/jobs/scene-forward" },
       { waitFor: "text=Printing · 42%" },
       { scroll: "text=Printing · 42%" },
