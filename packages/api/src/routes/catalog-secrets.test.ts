@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbGetPrinterSecrets, openDb } from "@conveyor/shared/db";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 import { type BootedApi, bootApi } from "../../test/helpers/booted-api.ts";
 
 const url = process.env.REDIS_URL;
@@ -157,3 +158,5 @@ for (const mode of modes) {
     },
   );
 }
+
+dropsItsRedisKeys();

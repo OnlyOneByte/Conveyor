@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { StageCtx } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index.ts";
+
+const tempDir = tempDirs("conveyor-elegoo-redirect-");
 
 const stops: (() => void)[] = [];
 afterEach(() => {
@@ -32,7 +34,7 @@ test("an upload the printer redirects is refused, never followed", async () => {
     () => printer.stop(true),
     () => target.stop(true),
   );
-  const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-redirect-"));
+  const dir = await tempDir();
   const path = join(dir, "a.gcode");
   await writeFile(path, "G28\n");
   const ctx: StageCtx = {

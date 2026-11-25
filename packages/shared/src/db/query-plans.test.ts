@@ -1,6 +1,13 @@
 import type { Database } from "bun:sqlite";
 import { describe, expect, spyOn, test } from "bun:test";
-import { dbCountJobs, dbListNeedsYou, dbResolveJobTarget, dbTypicalStageMs, openDb } from "./index";
+import {
+  dbCountJobs,
+  dbListJobs,
+  dbListNeedsYou,
+  dbResolveJobTarget,
+  dbTypicalStageMs,
+  openDb,
+} from "./index";
 
 function plansOf(db: Database, run: () => unknown): string[] {
   const statements: string[] = [];
@@ -36,6 +43,12 @@ describe("the queries the belt polls", () => {
   test("Needs-you walks idx_jobs_needs_you in order instead of every job in the state", () => {
     const [plan] = plansOf(db, () => dbListNeedsYou(db));
     expect(plan).toContain("SCAN jobs USING INDEX idx_jobs_needs_you");
+    expect(plan).not.toContain("TEMP B-TREE");
+  });
+
+  test("a history page of failed jobs walks idx_jobs_history in order, with no sort of its own", () => {
+    const [plan] = plansOf(db, () => dbListJobs(db, { limit: 50, state: "failed" }));
+    expect(plan).toContain("SCAN jobs USING INDEX idx_jobs_history");
     expect(plan).not.toContain("TEMP B-TREE");
   });
 

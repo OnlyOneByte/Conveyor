@@ -25,6 +25,7 @@
     "check:lines": "bun scripts/checks/lines.ts",
     "check:colours": "bun scripts/checks/colours.ts",
     "check:casts": "bun scripts/checks/casts.ts",
+    "check:test-leaks": "bun scripts/checks/test-leaks.ts",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
     "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",
     "check:bundle": "bun scripts/checks/bundle.ts",

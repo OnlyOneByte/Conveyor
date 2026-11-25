@@ -45,6 +45,23 @@ The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when 
 fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
+A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
+removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. Every temp name made
+directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
+any other, and `test-leaks.test.ts` fails if a file in the repository makes one under a prefix the list lacks, so
+a new prefix goes into the list. A test file that writes
+to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
+deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
+whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A
+key written while the file's modules load, before its first hook (BullMQ writes `bull:<queue>:meta` when a queue
+is created), is already in that first snapshot, so the file removes it itself, as `catalog-deletes.test.ts` does
+with `jobQueue.obliterate`. CI's `test` job runs `bun run check:test-leaks` after both test runs; it fails if
+`$TMPDIR` holds an entry under any prefix in `TEMP_PREFIXES` or Redis holds any key. It sees only what is left at the end: two files
+(`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`, which also hides any
+key an earlier file left. To find those, run each file alone against an empty Redis. To run the check locally,
+point `TMPDIR` at an empty directory and `REDIS_URL` at a Redis of its own, since it reports every watched
+entry and every key it finds.
+
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
 tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
 command to check that commit out, and the command that reruns the order. On a pull request the commit is

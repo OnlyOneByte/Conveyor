@@ -7,6 +7,7 @@ import { jobCancelKey } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 import { registerErrorReplies } from "../error-replies.js";
 
 const url = process.env.REDIS_URL;
@@ -101,3 +102,5 @@ describe.skipIf(!url)("submitting a job while Redis stops answering", () => {
     PAUSE_MS * 4,
   );
 });
+
+dropsItsRedisKeys();

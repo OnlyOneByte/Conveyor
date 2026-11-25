@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Redis } from "ioredis";
+import { dropsItsRedisKeys } from "../../shared/test/helpers/index.ts";
 import { startRedisWorker } from "./index";
 
 const url = process.env.REDIS_URL;
@@ -36,3 +37,5 @@ describe.skipIf(!url)("redis worker errors", () => {
     }
   });
 });
+
+dropsItsRedisKeys();
