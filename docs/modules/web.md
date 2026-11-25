@@ -108,10 +108,27 @@ and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves. Unti
 change is ever made to text nobody can see. A profile whose content answers `404` (one just added, whose
 folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
 failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
-(`http-error.ts`). Any other error shows the server's `error` message, or the method, path and status when the
-body has none, trimmed and cut to 300 characters with an ellipsis, and the error text wraps rather than
-widening the page. `api.ts`'s `getJson`, `putJson`, `del` and the profile content fetch all read failures
-through `failure()`.
+(`http-error.ts`). Any other error shows "Conveyor answered:" and the server's `error` message, trimmed and cut
+to 300 characters with an ellipsis, and the error text wraps rather than widening the page. `api.ts`'s
+`getJson`, `putJson`, `del` and the profile content fetch all read failures through `failure()`. When the body
+has no message, the page says "Conveyor hit a problem loading this. Try again in a moment." instead of the method, path and
+status.
+
+## lib/said.ts (what a failure says on screen)
+
+Every place that shows an error to the user goes through `said(e)`, `saidOnLoad(e)` or `couldnt(what, e)`, so the
+words follow the spec's Words rules. The server's own `error` message is shown as it is. Conveyor being
+unreachable, by `http-error.ts`'s `unreachable(e)` (a network `TypeError`, or an `Unreachable` for a `502`, `503` or
+`504` from the proxy in front of a stopped api), reads "Can't reach Conveyor. Check your connection, then try
+again." Every status throw in `api.ts`, `belt-ends.ts` and `jobs-list.ts` gives a gateway status an `Unreachable`,
+through `failure()` or `statusError()`. A `GET /path 500`-style line (any of GET, POST, PUT, PATCH or DELETE), or a
+stock status text such as Fastify's `Internal Server Error`, becomes "Conveyor couldn't do that just now. Try
+again." after an action, and "Conveyor hit a problem loading this. Try again in a moment." on a page load
+(`saidOnLoad`). `couldnt("upload cube.stl", e)` reads "Couldn't upload cube.stl: <server message>", or "Couldn't
+upload cube.stl. Try again." when there is none. The thrown `Error` keeps its message, so code that matches on it
+(a profile or printer with jobs "queued or running") is unchanged, and the method, path and status stay in the
+browser's Network panel and the api's request log. Make's dock and upload, the printer, profile and delete
+dialogs, the profile editor and its page use it.
 
 ## lib/components/Viewport.svelte (the lazy 3D preview)
 

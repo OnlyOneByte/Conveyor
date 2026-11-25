@@ -3,6 +3,7 @@
   import { deletePrinter, savePrinter, type CatalogPrinter, type CatalogTransport, type GeneratorSummary } from "#lib/api.js";
   import { blankDraft, clearSecretsPayload, draftErrors, draftOf, type DraftErrors, printerPayload, slugOf } from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
+  import { said } from "#lib/said.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
@@ -23,8 +24,6 @@
   let [busy, idEdited, confirming, tried, secretsSaved, cleared] = [false, false, false, false, false, false];
   let form: HTMLFormElement;
   const formId = uid("printer-form");
-
-  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   $: adding = printer === null;
   $: if (open) reset(printer);
@@ -54,7 +53,7 @@
 
   const close = () => (open = false);
 
-  async function attempt(work: () => Promise<void>, explain = message) {
+  async function attempt(work: () => Promise<void>, explain = said) {
     problem = "";
     busy = true;
     try {
@@ -97,7 +96,7 @@
         close();
         changed();
       },
-      (e) => (message(e).includes("queued or running") ? `${saved.name} still has jobs on the belt, so it can't be deleted yet.` : message(e)),
+      (e) => (said(e).includes("queued or running") ? `${saved.name} still has jobs on the belt, so it can't be deleted yet.` : said(e)),
     );
 </script>
 
@@ -111,7 +110,7 @@
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
       <Field label="Name" bind:value={draft.name} error={errors.name ?? ""} />
       {#if adding}
-        <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in links and the API. It can't change later." error={errors.id ?? ""} />
+        <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
       {/if}
       <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
       <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />

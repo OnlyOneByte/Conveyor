@@ -8,7 +8,7 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
-import { failure } from "./http-error.js";
+import { failure, statusError } from "./http-error.js";
 
 export const API = "/api";
 
@@ -23,7 +23,7 @@ export interface GeneratorSummary {
 
 export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<GeneratorSummary[]> {
   const r = await fetchFn(`${API}/generators`);
-  if (!r.ok) throw new Error(`GET /generators ${r.status}`);
+  if (!r.ok) throw statusError(r, "GET /generators");
   return r.json();
 }
 
@@ -37,10 +37,7 @@ export async function uploadStl(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file, file.name);
   const r = await fetch(`${API}/uploads`, { method: "POST", body: form });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `POST /uploads ${r.status}`);
-  }
+  if (!r.ok) throw await failure(r, "POST /uploads");
   return r.json();
 }
 
@@ -52,10 +49,7 @@ export async function submitJob(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `POST /jobs ${r.status}`);
-  }
+  if (!r.ok) throw await failure(r, "POST /jobs");
   return r.json();
 }
 
@@ -67,19 +61,19 @@ export function openJobSocket(jobId: string): WebSocket {
 export async function fetchJobSnapshot(jobId: string): Promise<JobStatusEvent | null> {
   const r = await fetch(`${API}/jobs/${jobId}`);
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`GET /jobs/${jobId} ${r.status}`);
+  if (!r.ok) throw statusError(r, `GET /jobs/${jobId}`);
   return r.json();
 }
 
 export async function fetchActiveJobs(fetchFn: typeof fetch = fetch): Promise<JobView[]> {
   const r = await fetchFn(`${API}/jobs/active`);
-  if (!r.ok) throw new Error(`GET /jobs/active ${r.status}`);
+  if (!r.ok) throw statusError(r, "GET /jobs/active");
   return r.json();
 }
 
 export async function cancelJob(jobId: string): Promise<void> {
   const r = await fetch(`${API}/jobs/${encodeURIComponent(jobId)}/cancel`, { method: "POST" });
-  if (!r.ok) throw new Error(`POST /jobs/${jobId}/cancel ${r.status}`);
+  if (!r.ok) throw statusError(r, `POST /jobs/${jobId}/cancel`);
 }
 
 export interface PrinterReachable {
@@ -102,7 +96,7 @@ export const signedIn = (status: AuthStatus): boolean => !status.authEnabled || 
 
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
   const r = await fetchFn(`${API}/auth/status`);
-  if (!r.ok) throw new Error(`GET /auth/status ${r.status}`);
+  if (!r.ok) throw statusError(r, "GET /auth/status");
   return r.json();
 }
 
@@ -216,7 +210,7 @@ export async function fetchJobHistoryEntry(
   const path = `${API}/jobs-history/${encodeURIComponent(id)}`;
   const r = await fetchFn(path);
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  if (!r.ok) throw statusError(r, `GET ${path}`);
   return r.json() as Promise<JobHistoryEntry>;
 }
 
