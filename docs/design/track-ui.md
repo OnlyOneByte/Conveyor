@@ -81,6 +81,7 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--off` | `oklch(.5 .01 60)` | `oklch(.68 .01 60)` | Offline, canceled |
 | `--belt` / `--tread` | `oklch(.26 .008 60)` / `oklch(.34 .008 60)` | `oklch(.12 .005 60)` / `oklch(.2 .006 60)` | The rail |
 | `--belt-ink` | `oklch(.9 .01 80)` | `oklch(.88 .01 80)` | Text, ticks and dot rings on the collapsed belt |
+| `--belt-err` | `oklch(.74 .16 28)` | `oklch(.74 .16 28)` | The Needs-you count on the mobile summary, red text on `--belt` |
 | `--mat` | `oklch(.44 .075 168)` | `oklch(.31 .055 168)` | Model preview background |
 
 The model's faces use seven `--bin-*` tokens (safety-orange PLA) so the preview recolours with the theme. Colour is
@@ -249,7 +250,13 @@ opens a member list in the card; ←/→ walk the members and Enter opens one.
 
 Shown after 80 px of scroll on Make, and always on every other page. One dark bar holds "Belt", the waiting count, a
 mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (#335; hidden until then), the Finished and Needs-you counts, and
-an expand button (`aria-expanded`) that opens the full Track in place.
+an expand button (`aria-expanded`, `aria-controls`) that opens the full Track in place. The bar is a `region` named
+"On the belt", like the Track and the mobile summary, and its Needs-you count is a button that opens the tray.
+
+All three views take their words from one table in `lib/track.ts`: "Finished N today", "Needs you N", "N waiting"
+and "Nothing on the rail". When two polls in a row fail, every view says "Can't reach Conveyor" instead of a count
+or an empty state, and keeps the last jobs it saw, dimmed. The shell's polite region says so once, and "Conveyor is
+back." when the next poll succeeds.
 
 ### Mobile (under 760 px)
 
@@ -340,7 +347,7 @@ is one of three kinds:
 
 | Field | Shown in | Source | Until then |
 |---|---|---|---|
-| Live jobs, their stage and percent | rail, Jobs, Job detail | now: `GET /jobs/active` every 2 s while visible; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
+| Live jobs, their stage and percent | rail, Jobs, Job detail, Monitor | now: one shared `GET /jobs/active` poll in the shell (`lib/active-jobs.ts`), every 2 s while visible, or every 10 s while a socket covers every job on the belt; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
 | A running job's name (chip label), printer, profile, generator, creation time | chips, Jobs rows, focus cards | backend: [#342](https://github.com/OnlyOneByte/Conveyor/issues/342). Today both endpoints return status snapshots only | the stage as the name ("Slicing job"), no printer |
 | Cancel; Retry and Print again | focus card, Jobs, Job detail | now: `POST /jobs/:id/cancel`; `POST /jobs` with the original request (`lib/rerun.ts`) | |
 | Stage times, took | Done card, receipt | now: `timings` | |

@@ -5,7 +5,8 @@
   import { page } from "$app/state";
   import { cancelJob, fetchActiveJobs, fetchJobHistoryEntry, fetchJobSnapshot, logout, openJobSocket, signedIn } from "#lib/api.js";
   import { announce, announcements } from "#lib/announce.js";
-  import { createBelt, onJobSent, POLL_MS } from "#lib/belt.js";
+  import { shareActive, unwatched } from "#lib/active-jobs.js";
+  import { createBelt, createTicker, onJobSent, POLL_MS } from "#lib/belt.js";
   import { createEnds, ENDS_MS, http } from "#lib/belt-ends.js";
   import { loadCatalog } from "#lib/catalog.js";
   import { createNewsDesk } from "#lib/belt-news.js";
@@ -38,7 +39,7 @@
   });
   $: dark = resolveTheme($theme, osDark) === "dark";
 
-  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [];
+  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [], beltOffline = false;
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const toasted = new Set<string>();
@@ -51,21 +52,16 @@
       location.assign("/?rerun=1");
     },
   }, { toasted });
-  const refreshEnds = () => showApp && document.visibilityState === "visible" && ends.refresh().catch(() => {});
+  const refreshEnds = () => showApp && document.visibilityState === "visible" && void ends.refresh();
   const desk = createNewsDesk(announce, undefined, toasted);
-  const belt = createBelt({ active: fetchActiveJobs, final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended) => ((beltJobs = jobs), (beltEnded = ended)), (news) => (desk(news), news.length && refreshEnds()));
-  let polling = false;
-  function tick() {
-    if (polling || !showApp || document.visibilityState !== "visible") return;
-    polling = true;
-    belt.poll().catch(() => {}).finally(() => (polling = false));
-  }
+  const belt = createBelt({ active: shareActive(fetchActiveJobs), final: fetchJobSnapshot, socket: openJobSocket, catalog: () => loadCatalog(), clock }, (jobs, ended, offline) => ((beltJobs = jobs), (beltEnded = ended), (beltOffline = offline)), (news) => (desk(news), news.length && refreshEnds()));
+  const tick = createTicker({ poll: () => belt.poll(), covered: unwatched(() => belt.covered()) }, () => showApp && document.visibilityState === "visible");
   onMount(() => {
     tick();
     refreshEnds();
     const timers = [setInterval(tick, POLL_MS), setInterval(refreshEnds, ENDS_MS)];
     document.addEventListener("visibilitychange", tick);
-    const unsent = onJobSent(() => (tick(), refreshEnds()));
+    const unsent = onJobSent(() => (void belt.poll(), refreshEnds()));
     return () => {
       for (const timer of timers) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
@@ -102,7 +98,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />

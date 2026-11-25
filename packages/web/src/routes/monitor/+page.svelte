@@ -1,19 +1,19 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { activeJobs, watchActive } from "#lib/active-jobs.js";
+  import { POLL_MS } from "#lib/belt.js";
+  import { OFFLINE } from "#lib/track.js";
   import {
-    fetchActiveJobs,
     cancelJob,
     type JobStatusEvent,
   } from "#lib/api.js";
 
-  const ACTIVE_MS = 2000;
-
-  let jobs: JobStatusEvent[] = [];
-  let jobsError: string | null = null;
-  let loaded = false;
   let now = Date.now();
+  $: jobs = $activeJobs?.jobs ?? [];
+  let cancelError: string | null = null;
+  $: jobsError = $activeJobs?.ok === false ? OFFLINE : cancelError;
+  $: loaded = $activeJobs !== null;
 
-  let activeTimer: ReturnType<typeof setInterval> | undefined;
   let clockTimer: ReturnType<typeof setInterval> | undefined;
 
   const STAGE_LABEL: Record<string, string> = {
@@ -22,24 +22,11 @@
     transport: "Transferring",
   };
 
-  async function pollJobs() {
-    try {
-      jobs = await fetchActiveJobs();
-      jobsError = null;
-    } catch (e) {
-      jobsError = (e as Error).message;
-    } finally {
-      loaded = true;
-    }
-  }
-
+  onMount(watchActive);
   onMount(() => {
-    void pollJobs();
-    activeTimer = setInterval(pollJobs, ACTIVE_MS);
     clockTimer = setInterval(() => (now = Date.now()), 1000);
   });
   onDestroy(() => {
-    clearInterval(activeTimer);
     clearInterval(clockTimer);
   });
 
@@ -74,9 +61,9 @@
     cancelling = { ...cancelling, [jobId]: true };
     try {
       await cancelJob(jobId);
-      await pollJobs();
+      cancelError = null;
     } catch (e) {
-      jobsError = (e as Error).message;
+      cancelError = (e as Error).message;
     } finally {
       cancelling = { ...cancelling, [jobId]: false };
     }
@@ -96,7 +83,7 @@
       <span class="live" title="Auto-refreshing">● live</span>
     </div>
     <p class="muted">
-      Jobs in flight right now — anyone's, not just this browser's. Updates every {ACTIVE_MS / 1000}s.
+      Jobs in flight right now — anyone's, not just this browser's. Updates every {POLL_MS / 1000}s.
     </p>
 
     {#if jobsError}<p class="err">{jobsError}</p>{/if}
