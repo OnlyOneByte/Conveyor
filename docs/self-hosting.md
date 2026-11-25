@@ -192,7 +192,7 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 | Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
 | BullMQ's record of a finished job | After 7 days |
 
-**Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. If the clock reads earlier than the last run, or jumps further forward than two hours plus the retention period (a long outage or a wrong clock), that run removes nothing, logs why, and restarts the count from now.
+**Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. Ages are measured against a reaper clock kept in the same table, which only moves forward, and by at most 2 hours per run: a clock that is wrong by a month, or a restart after a long outage, moves deletion on by 2 hours per hourly run at most, and the worker logs it.
 
 A job that isn't finished is never touched, and neither is anything the reaper didn't create: it only removes folders named by a job id and files named `<uploadId>.stl`, directly inside `./data` and `./data/uploads`, and never follows a symlink. If the worker stops partway through, the next run finishes the job. If the queue can't be read, that run removes nothing. `CONVEYOR_RETENTION_DAYS=0` turns the reaper off.
 
@@ -230,6 +230,8 @@ A local `--build` reuses Docker's build cache, including the worker's OS-package
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 
 ## Backup and restore
+
+Before restoring a backup older than `CONVEYOR_RETENTION_DAYS`, set `CONVEYOR_RETENTION_DAYS=0` and restart the worker, then set it back once you've checked the restore: the restored job folders and uploads would otherwise be removed on the worker's next run.
 
 What holds state, and what a backup needs:
 

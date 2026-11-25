@@ -44,7 +44,7 @@ export function sqliteRetentionState(db: Database): RetentionState {
       .query<{ value: string }, [string]>("SELECT value FROM meta WHERE key = ?")
       .get(key);
     const value = Number(row?.value);
-    return row && Number.isFinite(value) ? value : undefined;
+    return row && Number.isFinite(value) && value > 0 ? value : undefined;
   };
   const put = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
   return {
@@ -146,24 +146,21 @@ async function reapUploads(deps: RetentionDeps, cutoff: number, live: LiveJobs):
   return reaped;
 }
 
-function clockProblem(now: number, last: number | undefined, maxAgeMs: number): string | undefined {
-  if (last === undefined) return undefined;
-  if (now < last)
-    return `the clock reads ${new Date(now).toISOString()}, before the last run at ${new Date(last).toISOString()}`;
-  if (now - last > 2 * RETENTION_INTERVAL_MS + maxAgeMs)
-    return `the clock jumped from ${new Date(last).toISOString()} to ${new Date(now).toISOString()}, further than a run interval plus the retention period`;
-  return undefined;
+export const REAPER_CLOCK_STEP_MS = 2 * RETENTION_INTERVAL_MS;
+
+function reaperClock(real: number, last: number | undefined): number {
+  if (last === undefined) return real;
+  return Math.max(last, Math.min(real, last + REAPER_CLOCK_STEP_MS));
 }
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
-  const now = deps.now();
+  const real = deps.now();
   const { startedAt, lastRunAt } = deps.state.read();
-  const problem = clockProblem(now, lastRunAt, deps.maxAgeMs);
-  if (problem) {
-    deps.state.write({ startedAt: now, lastRunAt: now });
-    deps.log(`[retention] skipped this run and restarted the grace period: ${problem}`);
-    return { dirs: [], uploads: [] };
-  }
+  const now = reaperClock(real, lastRunAt);
+  if (now !== real)
+    deps.log(
+      `[retention] the clock reads ${new Date(real).toISOString()}; ages are counted from ${new Date(now).toISOString()}, which moves at most 2 hours per run`,
+    );
   const started = startedAt ?? now;
   deps.state.write({ startedAt: started, lastRunAt: now });
   const cutoff = now - deps.maxAgeMs;

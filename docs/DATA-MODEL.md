@@ -255,7 +255,9 @@ both the database and the key.
   done job's `/data/<id>/` is kept for its downloads until the worker's retention reaper
   (`worker/src/retention.ts`) removes it, `CONVEYOR_RETENTION_DAYS` (default 30) after the job's `jobs` row
   last changed, or after that long from the first retention run (`meta` key `retention:started_at`),
-  whichever is later, so an upgrade removes nothing at once. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
+  whichever is later, so an upgrade removes nothing at once. Ages are measured against a reaper clock
+  (`retention:last_run_at`) that never moves back and moves at most 2 hours per run (`REAPER_CLOCK_STEP_MS`), so
+  a wrong system clock can't bring deletion forward by more than that. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
   `filesRemovedAfterDays` (the setting) when the job had files, is older than the setting and its folder is
   gone, so the job page can say so.
 - Uploads: `/data/uploads/<uploadId>.stl` is removed by the same reaper once it is older than

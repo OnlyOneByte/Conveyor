@@ -51,3 +51,13 @@ test("the retention clock is kept in the meta table across restarts", () => {
   sqliteRetentionState(db).write({ startedAt: 1_000, lastRunAt: 2_000 });
   expect(sqliteRetentionState(db).read()).toEqual({ startedAt: 1_000, lastRunAt: 2_000 });
 });
+
+test.each(["", "0", "-5", "abc", "Infinity", "1e400"])(
+  "a stored retention time of %p reads as missing, so it can't open the gate early",
+  (value) => {
+    const put = db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)");
+    put.run("retention:started_at", value);
+    put.run("retention:last_run_at", value);
+    expect(sqliteRetentionState(db).read()).toEqual({ startedAt: undefined, lastRunAt: undefined });
+  },
+);
