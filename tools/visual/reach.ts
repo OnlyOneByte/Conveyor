@@ -1,5 +1,5 @@
 import type { Viewport } from "./hits.ts";
-import type { Step } from "./scenes.ts";
+import type { Step } from "./scene.ts";
 
 export const REACH: Viewport[] = [
   [390, 844],

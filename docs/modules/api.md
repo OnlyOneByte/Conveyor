@@ -64,7 +64,7 @@ In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; wit
 
 - `typicalMs`: the median `durationMs` of each stage over the last 20 `done` jobs with the same generator and
   printer (`dbTypicalStageMs`). A stage with fewer than 3 samples is left out. `transport` covers the upload and
-  the print together.
+  the print together. `withEstimates` looks this up once per generator and printer pair, not once per job.
 - `startsAt` (epoch ms), for a `queued` job: when it should start printing, that is, take the printer. Each
   printer's queue is walked in `createdAt` order. The printer is free when its printing job's `print.secondsLeft`
   runs out (from the event's `at`), or after a running job's remaining model, slicing and typical `transport`.
@@ -344,8 +344,51 @@ prepared for a held printer until someone checks the printer and releases it.
 
 ## Redis (`queue.ts`)
 
-Two connections: `connection`, with `maxRetriesPerRequest: null` as BullMQ requires for blocking commands,
-and `redis`, a plain client for snapshot reads and pub/sub fan-out.
+Three clients. `connection` backs the BullMQ `Queue`, and `redis` serves snapshot reads and cancel writes.
+Both fail fast: no offline queue, no retries, and nothing re-sent after a reconnect (`enableOfflineQueue: false`,
+`maxRetriesPerRequest: 0`, `autoResendUnfulfilledCommands: false`), so a command written while Redis is down is
+refused at once instead of being sent later. Both also have `socketTimeout: SOCKET_TIMEOUT_MS` (3 s): a socket
+that has a command waiting and receives nothing for 3 s is torn down and reconnected. Without it, a reconnect
+that lands while Redis is shutting down can be accepted and then never answered, and the client sits in its
+handshake for good, so every submit is 503 until the api restarts. `routes/redis-restart-boot.test.ts`
+reproduces that with a proxy that drops every connection, then accepts and ignores the next ones for 0.5 s,
+and checks submits are accepted again after each of three restarts. `redis` also has
+`commandTimeout: QUEUE_DEADLINE_MS` (2 s). The
+api never blocks on the queue, so `connection` doesn't need BullMQ's `maxRetriesPerRequest: null`, which is
+for workers. `createSubscriber` makes the status hub's subscriber, which keeps ioredis' defaults so it
+resubscribes after a reconnect.
+
+### When Redis can't be reached (`queue-reach.ts`, `error-replies.ts`)
+
+Every BullMQ call a request makes (`add`, `getJob`, `getJobs`, and the whole cancel) runs under
+`withinDeadline(..., QUEUE_DEADLINE_MS)`, which rejects with `QueueUnavailableError` when the queue gives no
+answer in time. BullMQ calls can't take `commandTimeout`: a timeout during BullMQ's first-connect version
+check would leave the `Queue` broken until a restart. `registerErrorReplies`, registered before any route,
+maps `QueueUnavailableError`, ioredis' `MaxRetriesPerRequestError` (matched by name, since ioredis doesn't
+export it) and its three can't-reach messages (`Command timed out`,
+`Connection is closed.`, the offline-queue refusal) to `503 { "error": "queue unavailable" }`. Any other 5xx
+becomes `500 { "error": "internal error" }` and the error is logged, never sent. A 4xx keeps Fastify's own
+reply.
+
+A `POST /jobs` whose `add` failed or ran out of time may still reach Redis later: a paused Redis runs the
+command once it resumes. So the route answers 503 and, once the queue is up, removes the job and sets its
+`job:<id>:cancel` flag on the same connection. The removal usually lands right after the `add`. The flag
+covers a worker that took the job in between: the worker checks it before every stage and settles the job
+`canceled` without making or printing anything. A retry's claim on the failed job is released, as on any
+enqueue error. `routes/redis-down-boot.test.ts` boots the api with Redis refused, and
+`routes/jobs-paused-redis.test.ts` pauses a real Redis across a submit (`CLIENT PAUSE WRITE`) and across
+the job reads (`CLIENT PAUSE ALL`, which `commandTimeout` answers). `routes/jobs-queue-deadline.test.ts` gives
+the routes a BullMQ queue that never answers and checks `GET /jobs/active`, `GET /jobs/:id`, cancel and
+deleting a printer all answer within the deadline. When `connection` isn't `ready`, the cleanup waits for it
+(`untilReady`, up to `DROP_WITHIN_MS`, 5 minutes) instead of skipping: an `add` whose reply was lost when the
+socket dropped may already have run, and `autoResendUnfulfilledCommands: false` only rules out a second copy
+being sent after the reconnect. A dropped command rejects with `MaxRetriesPerRequestError`, which is also a
+503. `routes/redis-restart-boot.test.ts` passes an `add` through a proxy, drops Redis' reply and the
+connection, and checks the job is gone and flagged once Redis is back. Each cleanup step that fails is
+logged with the job id (`abandoned job remove failed`, `abandoned job cancel flag failed`), and so is a
+connection that ends or stays down past the bound (`queue never came up to drop the job`), since that job may
+still run. Known limit: if the api stops before the connection comes back, a landed `add` survives with no
+flag.
 
 ## Image (`Dockerfile`)
 

@@ -1,4 +1,4 @@
-import { ORCA_PROFILE_DOCUMENT_NAMES, slicerFormat } from "@conveyor/shared/profile";
+import { ORCA_PROFILE_DOCUMENT_NAMES, slicerFormat } from "@conveyor/shared/profile-format";
 import {
   type CatalogProfile,
   fetchOrcaProfileContent,
@@ -8,7 +8,6 @@ import {
   savePrusaProfileContent,
 } from "./api.js";
 import type { Lang } from "./code-editor.js";
-import { orcaProblem, type Problem, prusaProblem } from "./profile-check.js";
 
 export type Docs = Record<string, string>;
 
@@ -48,9 +47,6 @@ export async function loadContent(
     edited: source === "edited",
   };
 }
-
-export const problemOf = (lang: Lang, docs: Docs): Problem | null =>
-  lang === "json" ? orcaProblem(orcaDocs(docs)) : prusaProblem(docs.config ?? "");
 
 export const saveContent = (profile: CatalogProfile, lang: Lang, docs: Docs) =>
   lang === "json"

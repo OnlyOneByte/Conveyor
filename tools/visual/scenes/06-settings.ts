@@ -1,4 +1,4 @@
-import type { Scene, Step } from "./scenes.ts";
+import type { Scene, Step } from "../scene.ts";
 
 const bundled = (id: string, name: string, gcodeFlavor: string, extra: object = {}) => ({
   id,
@@ -54,7 +54,7 @@ const editor = (name: string, extra: Step[] = []): Scene => ({
   ],
 });
 
-export const settingsScenes: Scene[] = [
+export const scenes: Scene[] = [
   page("settings"),
   page(
     "settings-add",

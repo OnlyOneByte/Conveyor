@@ -81,8 +81,14 @@ page's **More** menu links there. `/monitor` keeps its active-jobs list only.
 `/settings/profiles/<id>` edits a profile's content in CodeMirror 6, loaded only on that route
 (`code-editor.ts`): JSON or INI highlighting, line numbers, and a lint mark on the line with the problem. Tab
 leaves the editor, so focus is never trapped. `profile-check.ts` runs the API's own validators from
-`@conveyor/shared` on every change and finds the line: the Lezer JSON parser locates a syntax error, and a
+`@conveyor/shared/profile` (no Zod) on every change and finds the line: the Lezer JSON parser locates a syntax error, and a
 refused setting is found by its key. The error shows above the editor in plain words, and Save stays disabled
 until it is fixed. Orca's three files are tabs, and a file with an error carries a dot. **Reset to original**
 and leaving with unsaved changes both ask in a dialog; Ctrl or ⌘ S saves.
+
+## lib/components/Viewport.svelte (the lazy 3D preview)
+
+three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load first. `Viewport.svelte` is the only thing pages import: it fills its parent with a placeholder (a breathing cube and "Loading the 3D preview…") and, on mount, `import()`s `ViewportCanvas.svelte`, which holds the `Canvas`, the tone mapping and `PreviewScene` or `MeshScene`. The placeholder is absolutely positioned in the same box the canvas takes, so nothing shifts when it swaps. A failed import says so and asks for a reload.
+
+The job page renders `Viewport` only for a Gridfinity job, so any other job's page never fetches three.js. Orbit controls come from three's own `OrbitControls` through `Orbit.svelte` (damping on, auto-rotate from the preference). `@threlte/extras` is gone: its barrel pulled in three's Draco and KTX2 loaders, whose `new URL(...)` emitted 1.9 MB of decoders into the build. `bun run check:bundle` holds both budgets ([contributing.md](../contributing.md#bundle-budget-bun-run-checkbundle)).
 

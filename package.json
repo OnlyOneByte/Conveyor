@@ -30,6 +30,8 @@
     "check:casts:update": "bun scripts/checks/casts.ts --update",
     "slicer-keys": "bun scripts/slicer-keys/generate.ts",
     "check:slicer-keys": "bun scripts/slicer-keys/generate.ts --check",
+    "check:bundle": "bun scripts/checks/bundle.ts",
+    "check:bundle:update": "bun scripts/checks/bundle.ts --update",
     "check:coverage": "bun scripts/checks/coverage/main.ts",
     "check:coverage:update": "bun scripts/checks/coverage/main.ts --update"
   },
@@ -37,6 +39,7 @@
     "@biomejs/biome": "2.6.8",
     "@types/bun": "~1.3.14",
     "@types/node": "^26.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^4.6.7"
   }
 }

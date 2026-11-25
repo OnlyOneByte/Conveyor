@@ -1,4 +1,4 @@
-import { isBundledProfilePath } from "@conveyor/shared/profile";
+import { isBundledProfilePath } from "@conveyor/shared/profile-format";
 import type { CatalogProfile, CatalogSlicer } from "./api.js";
 import { slugOf } from "./printer-form.js";
 

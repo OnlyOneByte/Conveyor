@@ -1,6 +1,6 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene } from "../scene.ts";
 
-export const signedOutScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "sign-in",
     route: "/",

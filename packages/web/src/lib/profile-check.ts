@@ -113,3 +113,12 @@ export function prusaProblem(config: string): Problem | null {
     return { file: "config", line: prusaLine(config, message), text: prusaText(message) };
   }
 }
+
+export const problemOf = (lang: "json" | "ini", docs: Record<string, string>): Problem | null =>
+  lang === "json"
+    ? orcaProblem({
+        machine: docs.machine ?? "",
+        process: docs.process ?? "",
+        filament: docs.filament ?? "",
+      })
+    : prusaProblem(docs.config ?? "");

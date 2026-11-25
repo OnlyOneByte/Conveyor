@@ -1,7 +1,7 @@
 <script lang="ts">
   import { beforeNavigate, goto } from "$app/navigation";
   import type { CatalogProfile } from "#lib/api.js";
-  import { describe, fileLabel } from "#lib/profile-check.js";
+  import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
   import * as editing from "#lib/profile-content.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import CodeEditor from "./CodeEditor.svelte";
@@ -22,14 +22,14 @@
   const tabbed = content.files.length > 1;
   const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-  $: problem = editing.problemOf(content.lang, docs);
+  $: problem = problemOf(content.lang, docs);
   $: dirty = editing.changed(docs, saved);
   $: status = editing.status(problem !== null, busy, dirty);
   $: label = tabbed ? `${fileLabel(file)} settings, JSON` : "Settings, config.ini";
   $: tidied = content.lang === "json" ? editing.formatted(docs[file] ?? "") : null;
 
   function diagnose(text: string) {
-    const found = editing.problemOf(content.lang, { ...docs, [file]: text });
+    const found = problemOf(content.lang, { ...docs, [file]: text });
     return found?.file === file ? { line: found.line, message: found.text } : null;
   }
 
