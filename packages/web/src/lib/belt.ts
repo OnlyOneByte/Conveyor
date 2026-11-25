@@ -84,6 +84,7 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     socket.onmessage = (message) => {
       const event = typeof message.data === "string" ? parseStatusEvent(message.data) : undefined;
       if (event?.jobId !== id || !known.has(id)) return;
+      applied = ++asked;
       settle([...known.values()].map((job) => (job.id === id ? trackJob(event, job) : job)));
     };
     socket.onclose = () => {

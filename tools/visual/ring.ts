@@ -4,6 +4,7 @@ import { PNG } from "pngjs";
 export const RING_RATIO = 3;
 export const RING_SHARE = 0.9;
 export const RING_PAD = 6;
+export const BEYOND = 3;
 
 export interface Box {
   x: number;
@@ -71,6 +72,43 @@ export function ringProblem(rest: PNG, hover: PNG, box: Box): string | null {
   return `${Math.round(share * 100)}% of the pixels just outside it change by ${RING_RATIO}:1 on hover (lowest ${lowest}:1); ${RING_SHARE * 100}% must`;
 }
 
+const beyond = (box: Box, [x, y]: Point): Point => {
+  if (y < box.y) return [x, y - BEYOND];
+  if (y >= box.y + box.height) return [x, y + BEYOND];
+  return x < box.x ? [x - BEYOND, y] : [x + BEYOND, y];
+};
+
+export function ringShown(shot: PNG, box: Box): number {
+  const band = ringBand(box);
+  const stands = (p: Point) =>
+    contrast(luminance(shot, p), luminance(shot, beyond(box, p))) >= RING_RATIO;
+  return band.length ? band.filter((pair) => pair.some(stands)).length / band.length : 0;
+}
+
+const around = (found: Box) => ({
+  x: Math.floor(found.x) - RING_PAD,
+  y: Math.floor(found.y) - RING_PAD,
+  width: Math.ceil(found.width) + 2 * RING_PAD + 1,
+  height: Math.ceil(found.height) + 2 * RING_PAD + 1,
+});
+
+export async function assertNoRing(page: Page, selector: string): Promise<void> {
+  const target = page.locator(selector).first();
+  await target.scrollIntoViewIfNeeded();
+  await target.tap();
+  await Bun.sleep(300);
+  const found = await target.boundingBox();
+  if (!found) throw new Error(`noRing ${selector}: not on the page`);
+  const clip = around(found);
+  const shot = PNG.sync.read(await page.screenshot({ clip }));
+  const share = ringShown(shot, { ...found, x: found.x - clip.x, y: found.y - clip.y });
+  if (share < 1 - RING_SHARE) return;
+  const shown = Math.round(share * 100);
+  throw new Error(
+    `noRing ${selector}: after a tap, ${shown}% of the pixels just outside it stand out 3:1 from the pixels beyond them; under ${Math.round((1 - RING_SHARE) * 100)}% may`,
+  );
+}
+
 export async function assertRing(page: Page, selector: string): Promise<void> {
   const target = page.locator(selector).first();
   await target.scrollIntoViewIfNeeded();
@@ -78,12 +116,7 @@ export async function assertRing(page: Page, selector: string): Promise<void> {
   await Bun.sleep(300);
   const found = await target.boundingBox();
   if (!found) throw new Error(`ring ${selector}: not on the page`);
-  const clip = {
-    x: Math.floor(found.x) - RING_PAD,
-    y: Math.floor(found.y) - RING_PAD,
-    width: Math.ceil(found.width) + 2 * RING_PAD + 1,
-    height: Math.ceil(found.height) + 2 * RING_PAD + 1,
-  };
+  const clip = around(found);
   const shot = async () => PNG.sync.read(await page.screenshot({ clip }));
   const rest = await shot();
   await target.hover();

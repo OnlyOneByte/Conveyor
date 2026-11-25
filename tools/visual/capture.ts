@@ -127,6 +127,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     deviceScaleFactor: 1,
     colorScheme,
     reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",
+    ...(scene.touch ? { hasTouch: true, isMobile: true } : {}),
   });
   await pinHistoryRoute(context);
   await context.clock.setSystemTime(CAPTURE_NOW);

@@ -15,6 +15,7 @@ export interface Scene {
   fullPage?: boolean;
   signedOut?: boolean;
   reducedMotion?: boolean;
+  touch?: boolean;
   widths?: readonly (typeof WIDTHS)[number][];
   height?: number;
   visits?: string[];
