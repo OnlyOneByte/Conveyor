@@ -1,8 +1,14 @@
-import { queueMode } from "@conveyor/shared";
+import { queueMode, retentionDays } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { startHeartbeat } from "./heartbeat.js";
 import { workerConcurrency } from "./mode.js";
+import {
+  sqliteFinishedBefore,
+  sqliteLive,
+  sqliteRetentionState,
+  startRetention,
+} from "./retention.js";
 
 export interface StartedWorker {
   mode: string;
@@ -16,20 +22,41 @@ function stopAfter(stopHeartbeat: () => void, worker: { stop: () => Promise<void
 
 export async function startWorker(env: Record<string, string | undefined>): Promise<StartedWorker> {
   const mode = queueMode(env);
+  retentionDays(env);
   const db = openDb(env.DB_PATH);
-  uploadSettings(env);
+  const dirs = {
+    dataDir: env.DATA_DIR ?? "/data",
+    uploadDir: uploadSettings(env).dir,
+    finishedBefore: (cutoff: number) => sqliteFinishedBefore(db, cutoff),
+    state: sqliteRetentionState(db),
+    log: (line: string) => console.log(line),
+  };
   const concurrency = mode === "sqlite" ? workerConcurrency(env) : 0;
   console.log(`conveyor worker queue: ${mode}`);
   const stopHeartbeat = startHeartbeat(db, env, (message) => console.error(message));
   if (mode === "sqlite") {
     const { startSqliteWorker } = await import("./sqlite.js");
     const worker = startSqliteWorker(env, concurrency);
+    const stopRetention = startRetention(env, { ...dirs, live: async () => sqliteLive(db) });
     console.log("conveyor worker ready");
-    return { mode, stop: () => stopAfter(stopHeartbeat, worker) };
+    return {
+      mode,
+      stop: () => {
+        stopRetention();
+        return stopAfter(stopHeartbeat, worker);
+      },
+    };
   }
   const { startRedisWorker } = await import("./index.js");
   const worker = startRedisWorker(env);
-  return { mode, stop: () => stopAfter(stopHeartbeat, worker) };
+  const stopRetention = startRetention(env, { ...dirs, live: worker.live });
+  return {
+    mode,
+    stop: () => {
+      stopRetention();
+      return stopAfter(stopHeartbeat, worker);
+    },
+  };
 }
 
 if (import.meta.main) {

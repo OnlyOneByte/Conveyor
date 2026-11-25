@@ -100,6 +100,7 @@ services:
       - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
       - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
       - PRINTER_ADDRESS_ALLOW=${PRINTER_ADDRESS_ALLOW:-}
+      - CONVEYOR_RETENTION_DAYS=${CONVEYOR_RETENTION_DAYS:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
@@ -136,6 +137,7 @@ services:
       - PRINTER_ADDRESS_ALLOW=${PRINTER_ADDRESS_ALLOW:-}
       - MOONRAKER_STATUS_TIMEOUT_MS=${MOONRAKER_STATUS_TIMEOUT_MS:-}
       - MOONRAKER_STATUS_FAILURES=${MOONRAKER_STATUS_FAILURES:-}
+      - CONVEYOR_RETENTION_DAYS=${CONVEYOR_RETENTION_DAYS:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro

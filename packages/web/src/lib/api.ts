@@ -149,6 +149,7 @@ export interface JobHistoryEntry {
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
+  filesRemovedAfterDays?: number;
   timings?: StageTiming[];
   filament?: { grams?: number; metres?: number };
   notes?: string;

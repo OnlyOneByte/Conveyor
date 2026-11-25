@@ -71,6 +71,9 @@
   {#if job.artifacts?.model || job.artifacts?.gcode}
     <section>
       <h2>Files</h2>
+      {#if job.filesRemovedAfterDays}
+        <p class="gone">Files removed after {job.filesRemovedAfterDays} days.</p>
+      {:else}
       <div class="files">
         {#if job.artifacts.model}
           <a class="btn" href={`${API}/jobs/${id}/artifact/model`} download>Model (STL)</a>
@@ -79,6 +82,7 @@
           <a class="btn" href={`${API}/jobs/${id}/artifact/gcode`} download>G-code</a>
         {/if}
       </div>
+      {/if}
     </section>
   {/if}
   <details>
@@ -112,6 +116,7 @@
     overflow-wrap: anywhere;
   }
   .files { display: flex; gap: var(--s2); flex-wrap: wrap; }
+  .gone { margin: 0; color: var(--muted); }
   .btn {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
     text-decoration: none; border-color: var(--field-line);
