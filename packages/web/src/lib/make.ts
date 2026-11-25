@@ -1,4 +1,5 @@
 import type { FormUiHints } from "@conveyor/shared";
+import { type JsonSchema, resolveRoot } from "./form-schema.js";
 
 export function printerStatus(
   id: string,
@@ -48,4 +49,10 @@ export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
       return mine === turn ? outcome : null;
     },
   };
+}
+
+export function knownParams(params: unknown, schema: JsonSchema | null): Record<string, unknown> {
+  if (!params || typeof params !== "object") return {};
+  const known = resolveRoot(schema)?.properties ?? {};
+  return Object.fromEntries(Object.entries(params).filter(([key]) => key in known));
 }

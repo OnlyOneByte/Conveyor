@@ -12,7 +12,7 @@
   import SourceTabs from "#lib/components/SourceTabs.svelte";
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
-  import { dockLine, latestOnly, measurements } from "#lib/make.js";
+  import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import { couldnt, said } from "#lib/said.js";
   import {
@@ -43,10 +43,9 @@
     const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
     if (!r) return;
     tab = r.generatorId;
-    printerId = r.printerId;
-    profileId = r.profileId;
-    handoff = r;
-    if (r.params && typeof r.params === "object") params = { ...r.params };
+    [printerId, profileId, handoff] = [r.printerId, r.profileId, r];
+    const schema = pickable.find((g) => g.id === r.generatorId)?.paramSchema ?? null;
+    params = knownParams(r.params, schema);
   });
 
   $: if (!tab && generators.length) tab = tabs[0].id;
@@ -84,8 +83,9 @@
     const done = await uploads.run(chosen);
     if (!done) return;
     uploading = false;
-    if (done.ok) uploadId = done.value.uploadId;
-    else uploadError = couldnt(`upload ${chosen.name}`, done.error);
+    if (!done.ok) return void (uploadError = couldnt(`upload ${chosen.name}`, done.error));
+    uploadId = done.value.uploadId;
+    announce(`${chosen.name} is uploaded and ready to print.`);
   }
 
   function clear() {
