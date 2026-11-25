@@ -10,9 +10,13 @@ const handle = {
 
 const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
+const previousAllow = process.env.PRINTER_ADDRESS_ALLOW;
+process.env.PRINTER_ADDRESS_ALLOW = "printer.local";
 
 afterAll(() => {
   fetchSpy.mockRestore();
+  if (previousAllow === undefined) delete process.env.PRINTER_ADDRESS_ALLOW;
+  else process.env.PRINTER_ADDRESS_ALLOW = previousAllow;
 });
 
 function fakeFetch() {

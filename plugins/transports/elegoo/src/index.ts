@@ -9,7 +9,12 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { multipartFileUpload, requirePrinterAddress, uploadSignal } from "@conveyor/shared/node";
+import {
+  multipartFileUpload,
+  refuseRedirect,
+  requirePrinterAddress,
+  uploadSignal,
+} from "@conveyor/shared/node";
 import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
@@ -102,13 +107,20 @@ async function uploadGcode(address: string, path: string, ctx: StageCtx): Promis
   );
   const url = `http://${printerEndpoint(address)}/uploadFile/upload`;
   const signal = uploadSignal(ctx.signal);
-  const init = { method: "POST", body: upload.body, headers: upload.headers, signal };
+  const init: RequestInit = {
+    method: "POST",
+    body: upload.body,
+    headers: upload.headers,
+    redirect: "manual",
+    signal,
+  };
   const res = await fetch(url, init).catch((e) => {
     const reason = `elegoo upload failed: ${e instanceof Error ? e.message : String(e)}`;
     throw ctx.signal.aborted
       ? new PrintNotStartedError(reason)
       : new StageError("transport", reason);
   });
+  refuseRedirect(res, "elegoo upload");
   if (!res.ok)
     throw new StageError(
       "transport",

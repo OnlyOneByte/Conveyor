@@ -10,7 +10,12 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
-import { multipartFileUpload, requirePrinterAddress, uploadSignal } from "@conveyor/shared/node";
+import {
+  multipartFileUpload,
+  refuseRedirect,
+  requirePrinterAddress,
+  uploadSignal,
+} from "@conveyor/shared/node";
 import { parseQuery, printProgressOf } from "./query.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
@@ -50,6 +55,7 @@ export const moonraker: TransportPlugin = {
       method: "POST",
       body: upload.body,
       headers: { ...headers, ...upload.headers },
+      redirect: "manual",
       signal: uploadSignal(ctx.signal),
     }).catch((e) => {
       const reason = `moonraker upload failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -57,6 +63,7 @@ export const moonraker: TransportPlugin = {
         ? new PrintNotStartedError(reason)
         : new StageError("transport", reason);
     });
+    refuseRedirect(up, "moonraker upload");
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
 
@@ -65,9 +72,11 @@ export const moonraker: TransportPlugin = {
       {
         method: "POST",
         headers,
+        redirect: "manual",
         signal: ctx.signal,
       },
     );
+    refuseRedirect(start, "moonraker start");
     if (!start.ok) throw new StageError("transport", `moonraker start failed: ${start.status}`);
 
     return {
@@ -164,8 +173,10 @@ export const moonraker: TransportPlugin = {
     const res = await fetch(`${base}/printer/print/cancel`, {
       method: "POST",
       headers: statusKeyHeaders(target),
+      redirect: "manual",
       signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
     });
+    refuseRedirect(res, "moonraker cancel");
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);
   },
 };
@@ -212,9 +223,11 @@ async function poll(
   const timeout = AbortSignal.timeout(timeoutMs);
   const res = await fetch(query, {
     headers,
+    redirect: "manual",
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   }).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
   if (typeof res === "string" || res.ok) return res;
+  refuseRedirect(res, "moonraker status query");
   return String(res.status);
 }
 

@@ -42,7 +42,14 @@ describe("link-local and cloud metadata addresses", () => {
     ["http://169.254.169.254/latest/meta-data", "169.254.169.254"],
     ["user:pass@169.254.169.254/x", "169.254.169.254"],
     ["[fe80::1]:3030", "fe80::1"],
-    ["[::ffff:169.254.169.254]", "::ffff:169.254.169.254"],
+    ["[::ffff:169.254.169.254]", "::ffff:a9fe:a9fe"],
+    ["0xA9FEA9FE", "169.254.169.254"],
+    ["2852039166:7125", "169.254.169.254"],
+    ["user:pass@0251.0376.0251.0376/moonraker", "169.254.169.254"],
+    ["//169.254.169.254./x", "169.254.169.254"],
+    ["[fd20:ce::254]", "fd20:ce::254"],
+    ["[64:ff9b::169.254.169.254]", "64:ff9b::a9fe:a9fe"],
+    ["[::169.254.169.254]", "::a9fe:a9fe"],
     ["[fd00:ec2::254]", "fd00:ec2::254"],
     ["100.100.100.200", "100.100.100.200"],
     ["metadata.google.internal", "metadata.google.internal"],
@@ -69,11 +76,20 @@ describe("link-local and cloud metadata addresses", () => {
     await expect(check("printer.example", rebinding)).rejects.toThrow(PrinterAddressRefusedError);
   });
 
-  test("a name that doesn't resolve is left to the connection to fail", async () => {
+  test("a name that doesn't resolve, or resolves to nothing, is refused", async () => {
     const failing: Lookup = async () => {
       throw new Error("ENOTFOUND");
     };
-    await expect(check("voron.local", failing)).resolves.toBeUndefined();
+    await expect(check("voron.local", failing)).rejects.toThrow(
+      "Conveyor won't connect to voron.local: it is a name Conveyor couldn't resolve",
+    );
+    await expect(check("voron.local", answers([]))).rejects.toThrow(PrinterAddressRefusedError);
+    await expect(check("voron.local", failing, "voron.local")).resolves.toBeUndefined();
+  });
+
+  test("NAT64 and IPv4-compatible forms of an allowed address stay allowed", async () => {
+    await expect(check("[64:ff9b::192.168.1.5]")).resolves.toBeUndefined();
+    await expect(check("[::10.0.0.9]")).resolves.toBeUndefined();
   });
 });
 
