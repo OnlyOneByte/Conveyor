@@ -7,4 +7,5 @@ export * from "./queue.ts";
 export * from "./redis-keys.ts";
 export * from "./slicer.ts";
 export * from "./temp.ts";
+export * from "./temp-prefixes.ts";
 export * from "./transport.ts";

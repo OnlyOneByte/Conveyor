@@ -216,7 +216,7 @@ jobs:
           echo "Test order seed: $seed, from commit $GITHUB_SHA (on a pull request, GitHub's merge of the PR into its base, not the PR head). Check it out with: $checkout. Then rerun with: $rerun"
           echo "Test order seed: \`$seed\` from \`$GITHUB_SHA\` (on a pull request, GitHub's merge of the PR into its base, not the PR head). Check it out with \`$checkout\`, then rerun with \`$rerun\`" >> "$GITHUB_STEP_SUMMARY"
           bun test --seed="$seed" $(git ls-files '*.test.ts' ':!:tools/visual/**' | LC_ALL=C sort | sed 's#^#./#')
-      - name: Both runs left no conveyor- temp entries and no Redis keys
+      - name: Both runs left no watched temp entries and no Redis keys
         run: bun run check:test-leaks
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
