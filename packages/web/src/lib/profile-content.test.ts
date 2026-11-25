@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CatalogProfile } from "./api.js";
 import { orcaProblem, prusaProblem } from "./profile-check.js";
-import { loadContent } from "./profile-content.js";
+import { gate, loadContent } from "./profile-content.js";
 
 const added = (slicerId: string): CatalogProfile => ({
   id: `${slicerId}/voron-petg-0-25mm`,
@@ -61,3 +61,23 @@ describe("an empty file", () => {
     expect(prusaProblem("")?.text).toBe("add at least one setting like key = value.");
   });
 });
+
+describe("the editor's actions", () => {
+  const ready = { ready: true, problem: false, dirty: true, busy: false, tidied: true };
+
+  test("all run once the editor is mounted and the text is valid and changed", () => {
+    expect(gate(ready)).toEqual({ save: true, tidy: true, reset: true });
+  });
+
+  test("none run before the editor mounts, even with changed text", () => {
+    expect(gate({ ...ready, ready: false })).toEqual({ save: false, tidy: false, reset: false });
+  });
+
+  test("Save waits for valid, changed text and an idle editor; Reset only for idle", () => {
+    expect(gate({ ...ready, problem: true }).save).toBe(false);
+    expect(gate({ ...ready, dirty: false }).save).toBe(false);
+    expect(gate({ ...ready, busy: true })).toEqual({ save: false, tidy: true, reset: false });
+    expect(gate({ ...ready, tidied: false }).tidy).toBe(false);
+  });
+});
+

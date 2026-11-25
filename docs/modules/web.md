@@ -114,7 +114,9 @@ change is ever made to text nobody can see. A profile whose content answers `404
 folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
 failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
 (`http-error.ts`). Any other error shows the server's `error` message, or the method, path and status when the
-body has none: `api.ts`'s `getJson` and the profile content fetch both read failures through `failure()`.
+body has none, trimmed and cut to 300 characters with an ellipsis, and the error text wraps rather than
+widening the page. `api.ts`'s `getJson`, `putJson`, `del` and the profile content fetch all read failures
+through `failure()`.
 
 ## lib/components/Viewport.svelte (the lazy 3D preview)
 

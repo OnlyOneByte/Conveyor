@@ -41,6 +41,21 @@ export const parseChunkModules = (text: string): Record<string, string[]> =>
   parseWith(chunkModulesSchema, "chunk-modules.json", text);
 
 export const THREE_SIGNATURE = "__THREE__";
+export const ZOD_SIGNATURE = "ZodError";
+export const EVAL_SIGNATURES = [
+  /(?<![\w$])Function\(/,
+  /[=(,:?]\s*Function(?![\w$.(])/,
+  /(?<![\w$.])eval(?![\w$])/,
+  /\.constructor\(\s*[`"']/,
+];
+
+export const buildsCode = (source: string) => EVAL_SIGNATURES.some((re) => re.test(source));
+
+export interface RouteJs extends Sizes {
+  three: boolean;
+  zod: boolean;
+  evals: boolean;
+}
 
 export const bundlesThree = (
   files: Iterable<string>,
@@ -141,7 +156,7 @@ export const routesOf = (output: string): string[] => [
   ...routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).keys(),
 ];
 
-export function initialJs(output: string, route: string): Sizes & { three: boolean } {
+export function initialJs(output: string, route: string): RouteJs {
   const client = join(output, "client");
   const manifest = parseManifest(readFileSync(join(client, ".vite/manifest.json"), "utf8"));
   const nodes = routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).get(route);
@@ -156,7 +171,13 @@ export function initialJs(output: string, route: string): Sizes & { three: boole
   const files = closure(manifest, [...entries, ...leaves]);
   const modules = parseChunkModules(readFileSync(join(output, "chunk-modules.json"), "utf8"));
   const code = (file: string) => readFileSync(join(client, file), "utf8");
-  return { ...sizeOf(client, files), three: bundlesThree(files, modules, code) };
+  const sources = [...files].map(code);
+  return {
+    ...sizeOf(client, files),
+    three: bundlesThree(files, modules, code),
+    zod: sources.some((source) => source.includes(ZOD_SIGNATURE)),
+    evals: sources.some(buildsCode),
+  };
 }
 
 function walk(dir: string): string[] {
