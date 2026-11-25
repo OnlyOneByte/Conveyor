@@ -9,8 +9,10 @@ const printing = (jobId: string): JobView => ({ jobId, state: "printing", at: 1,
 function held() {
   const answers: Promise<JobView[]>[] = [];
   const release: ((jobs: JobView[]) => void)[] = [];
-  const hold = () => answers.push(new Promise<JobView[]>((done) => release.push(done)));
-  return { answers, release, hold };
+  const fail: ((error: Error) => void)[] = [];
+  const hold = () =>
+    answers.push(new Promise<JobView[]>((done, refuse) => (release.push(done), fail.push(refuse))));
+  return { answers, release, fail, hold };
 }
 
 function rig() {
@@ -19,6 +21,7 @@ function rig() {
   const final = new Map<string, JobView>();
   const ended: TrackJob[] = [];
   const told: News[] = [];
+  const offline: boolean[] = [];
   const socket = (): Socket => ({ onmessage: null, onclose: null, close: () => {} });
   const feed: Feed = {
     active: async () => queue.answers.shift() ?? now,
@@ -27,9 +30,9 @@ function rig() {
     catalog: async () => ({ printers: [], generators: [] }),
     clock: () => "14:05",
   };
-  const belt = createBelt(feed, (_, gone) => ended.push(...gone), (news) => told.push(...news));
+  const belt = createBelt(feed, (_, gone, down) => (ended.push(...gone), offline.push(down)), (news) => told.push(...news));
   const set = (jobs: JobView[]) => (now = jobs);
-  return { belt, queue, final, ended, told, set };
+  return { belt, queue, final, ended, told, offline, set };
 }
 
 const settle = () => new Promise((done) => setTimeout(done, 10));
@@ -92,4 +95,27 @@ describe("the belt's ticker", () => {
     expect(told.filter((news) => news.ended === "x")).toHaveLength(1);
   });
 
+  test("a stale failure plus one new failure doesn't take the belt offline", async () => {
+    const { belt, queue, told, offline, set } = rig();
+    set([printing("x")]);
+    await belt.poll();
+    queue.hold();
+    const failed = belt.poll();
+    queue.fail[0]?.(new Error("down"));
+    await failed;
+    queue.hold();
+    queue.hold();
+    const first = belt.poll();
+    const second = belt.poll();
+    queue.release[2]?.([printing("x")]);
+    await second;
+    queue.fail[1]?.(new Error("late"));
+    await first;
+    queue.hold();
+    const next = belt.poll();
+    queue.fail[3]?.(new Error("down again"));
+    await next;
+    expect(offline).not.toContain(true);
+    expect(told.map((news) => news.text)).not.toContain(expect.stringContaining("belt shows"));
+  });
 });
