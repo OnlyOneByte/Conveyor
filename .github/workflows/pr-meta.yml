@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           fail=0
-          err() { echo "::error::$1"; fail=1; }
+          err() { echo "::error::${1//[$'\r\n']/ }"; fail=1; }
           if ! pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER"); then
             echo "::error::Could not read PR #$PR_NUMBER, so re-run this check."
             exit 1
@@ -41,6 +41,9 @@ jobs:
           scope='(web|api|worker|shared|engine|queue|db|core|plugins|infra|guard|tools|docs|deps)'
           if ! printf '%s' "$PR_TITLE" | grep -Pq "^${type}(\\(${scope}\\))?!?: \\S.{0,70}\$"; then
             err "Title doesn't match the AGENTS.md §8 pattern <type>(<scope>)?!?: <summary>: $PR_TITLE"
+          fi
+          if [[ "$PR_TITLE" == *[$'\r\n']* ]]; then
+            err "Title contains a line break; keep it on one line."
           fi
           if (( ${#PR_TITLE} > 72 )); then
             err "Title is ${#PR_TITLE} characters; at most 72."

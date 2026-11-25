@@ -24,7 +24,7 @@ const script = steps.map((step) => field(step, "run")).find((run) => typeof run 
 const bin = mkdtempSync(join(tmpdir(), "pr-meta-"));
 writeFileSync(
   join(bin, "gh"),
-  `#!/usr/bin/env bash\ncase "$2" in\n  */pulls/7) printf '%s' "$FAKE_PR" ;;\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  */issues/503) echo "gh: Service Unavailable (HTTP 503)" >&2; exit 1 ;;\n  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;\nesac\n`,
+  `#!/usr/bin/env bash\necho "$2" >> "$GH_CALLS"\ncase "$2" in\n  */pulls/7) printf '%s' "$FAKE_PR" ;;\n  */issues/425) echo issue ;;\n  */issues/381) echo "a pull request" ;;\n  */issues/503) echo "gh: Service Unavailable (HTTP 503)" >&2; exit 1 ;;\n  *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;\nesac\n`,
 );
 chmodSync(join(bin, "gh"), 0o755);
 
@@ -38,7 +38,11 @@ interface Pr {
   labels?: string[];
 }
 
+let runs = 0;
+
 function check(pr: Pr) {
+  const calls = join(bin, `calls-${++runs}`);
+  writeFileSync(calls, "");
   const live = {
     user: { login: pr.author ?? "OnlyOneByte" },
     title: pr.title ?? "ci(guard): check PR metadata in CI",
@@ -52,9 +56,11 @@ function check(pr: Pr) {
       AGENT_LOGIN: "OnlyOneByte",
       PR_NUMBER: String(pr.number ?? 7),
       FAKE_PR: JSON.stringify(live),
+      GH_CALLS: calls,
     },
   });
-  return { code: result.exitCode, out: result.stdout.toString() };
+  const ghCalls = readFileSync(calls, "utf8").split("\n").filter(Boolean);
+  return { code: result.exitCode, out: result.stdout.toString(), ghCalls };
 }
 
 describe("the pr-meta job", () => {
@@ -84,10 +90,44 @@ describe("the pr-meta job", () => {
     expect(script).toContain('gh api "repos/$REPO/pulls/$PR_NUMBER"');
   });
 
-  test("fails, asking for a re-run, when the PR can't be read", () => {
-    const { code, out } = check({ number: 8 });
+  test("puts no workflow expression and no event file in the script", () => {
+    expect(script).not.toContain("${{");
+    expect(script).not.toContain("GITHUB_EVENT_PATH");
+  });
+
+  test("fails, asking for a re-run, and stops at once when the PR can't be read", () => {
+    const { code, out, ghCalls } = check({ number: 8 });
     expect(code).toBe(1);
-    expect(out).toContain("Could not read PR #8, so re-run this check.");
+    expect(out.trim()).toBe("::error::Could not read PR #8, so re-run this check.");
+    expect(ghCalls).toEqual(["repos/OnlyOneByte/Conveyor/pulls/8"]);
+  });
+
+  test.each([
+    ["a newline", "ci(guard): fine\n::warning::injected"],
+    ["a carriage return", "ci(guard): fine\r::warning::injected"],
+  ])("fails a title with %s, without echoing a workflow command", (_name, title) => {
+    const { code, out } = check({ title });
+    expect(code).toBe(1);
+    expect(out).toContain("Title contains a line break");
+    expect(out.split(/\r?\n|\r/).filter((line) => line.startsWith("::warning::"))).toEqual([]);
+  });
+
+  test.each([
+    ["a newline", "bad title\n::warning::injected"],
+    ["a carriage return", "bad title\r::warning::injected"],
+    ["a CRLF", "bad title\r\n::warning::injected"],
+  ])("keeps a bad title's error on one line when it holds %s", (_name, title) => {
+    const { code, out } = check({ title });
+    expect(code).toBe(1);
+    const lines = out.split(/\r?\n|\r/).filter(Boolean);
+    expect(lines.every((line) => line.startsWith("::error::"))).toBe(true);
+    expect(out).toContain(`<summary>: ${title.replace(/[\r\n]/g, " ")}`);
+  });
+
+  test("passes a title whose only line break is a trailing newline, which bash drops before any check or echo", () => {
+    const { code, out } = check({ title: "ci(guard): check PR metadata in CI\n" });
+    expect(code).toBe(0);
+    expect(out).not.toContain("::error::");
   });
 
   test("treats a PR with no body as having no issue line", () => {
@@ -97,7 +137,7 @@ describe("the pr-meta job", () => {
   });
 
   test("passes a well-formed agent PR", () => {
-    expect(check({})).toEqual({ code: 0, out: expect.stringContaining("are fine") });
+    expect(check({})).toMatchObject({ code: 0, out: expect.stringContaining("are fine") });
   });
 
   test.each([
