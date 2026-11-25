@@ -61,6 +61,7 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
   let offline = false;
   let asked = 0;
   let applied = 0;
+  const touched = new Map<string, number>();
 
   function settle(next: TrackJob[], extra: News[] = []) {
     tell([...changes(known, next, feed.clock()), ...extra]);
@@ -84,6 +85,7 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     socket.onmessage = (message) => {
       const event = typeof message.data === "string" ? parseStatusEvent(message.data) : undefined;
       if (event?.jobId !== id || !known.has(id)) return;
+      touched.set(id, asked);
       settle([...known.values()].map((job) => (job.id === id ? trackJob(event, job) : job)));
     };
     socket.onclose = () => {
@@ -124,7 +126,15 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
     };
     if (mine < applied) return;
     applied = mine;
-    settle([...live.map((view) => fresh(view, known.get(view.jobId))), ...ends.flat()], lost);
+    const newer = (id: string) => (touched.get(id) ?? 0) >= mine;
+    for (const [id, at] of touched) if (at < mine) touched.delete(id);
+    settle([
+      ...live
+        .filter((view) => !newer(view.jobId))
+        .map((view) => fresh(view, known.get(view.jobId))),
+      ...[...known.values()].filter((job) => newer(job.id)),
+      ...ends.flat().filter((job) => !newer(job.id)),
+    ], lost.filter((news) => !news.ended || !newer(news.ended)));
   }
 
   function stop() {

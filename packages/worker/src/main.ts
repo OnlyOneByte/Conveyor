@@ -30,12 +30,10 @@ if (import.meta.main) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   });
-  if (started.mode === "sqlite") {
-    for (const signal of ["SIGTERM", "SIGINT"] as const) {
-      process.once(signal, () => {
-        console.log(`${signal}: releasing running jobs`);
-        void started.stop().then(() => process.exit(0));
-      });
-    }
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      console.log(`${signal}: releasing running jobs`);
+      void started.stop().then(() => process.exit(0));
+    });
   }
 }

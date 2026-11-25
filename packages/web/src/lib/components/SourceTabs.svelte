@@ -37,7 +37,7 @@
     min-height: 38px; padding: 0 var(--s4); border: 0; border-radius: 17px;
     background: transparent; color: var(--ink); font-weight: 650;
   }
-  button:hover:not([aria-selected="true"]) { background: var(--paper); }
+  @media (hover: hover) { button:hover:not([aria-selected="true"]) { background: var(--paper); } }
   [aria-selected="true"] { background: var(--ink); color: var(--bg); }
   @media (pointer: coarse) { button { min-height: var(--tap); } }
 </style>

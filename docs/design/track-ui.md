@@ -95,6 +95,8 @@ never the only signal: every state also has an icon or a word.
 - Elevation: `--lift` for resting cards and chips, `--lift-hi` for hovered, focused or moving ones. Nothing else
   casts a shadow.
 - Targets: at least 44 px on touch layouts, 30 px minimum on desktop (above WCAG 2.5.8's 24 px).
+- Hover cues (rings, border and fill changes) sit inside `@media (hover: hover)`, so a tap on a touch screen
+  doesn't leave one stuck on. Focus cues stay outside it.
 
 ### Motion
 

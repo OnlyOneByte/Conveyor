@@ -22,6 +22,8 @@ every path they run: `bun test` reports only the last copy of a module it loads.
   `/scad/gridfinity-rebuilt-openscad/gridfinity-rebuilt-bins.scad`; `GRIDFINITY_SCAD` overrides it). File and
   variable names were verified against the library's HEAD as of 2025-08 by rendering a real STL with OpenSCAD 2023.09 nightly: a 2×3 bin
   measured 83.5×125.5 mm, matching the Gridfinity spec.
+- Before running OpenSCAD it checks the `.scad` file exists. If it doesn't, usually because `./scad` was cloned
+  without its submodule, the stage fails with `missingLibrary(path)`: the path plus `git submodule update --init`.
 - The worker image builds OpenSCAD 2026.11-RC0 from source and installs it at `OPENSCAD_BIN` (the library
   needs 2023+); without it the plugin runs `openscad` from `PATH`.
 - `gridfinityParams` (zod) is the single source of truth: the worker validates against it and the PWA renders

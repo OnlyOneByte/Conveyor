@@ -54,7 +54,7 @@
     display: inline-flex; align-items: center; min-height: var(--tap); color: var(--muted);
     font-weight: 600; text-decoration: none;
   }
-  .back:hover { color: var(--ink); }
+  @media (hover: hover) { .back:hover { color: var(--ink); } }
   .head { display: flex; flex-direction: column; gap: var(--s1); margin: 0 0 var(--s4); }
   h1, p { margin: 0; line-height: 1.1; }
   .sub { color: var(--muted); line-height: 1.45; }

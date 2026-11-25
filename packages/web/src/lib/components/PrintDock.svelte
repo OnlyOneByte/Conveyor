@@ -65,7 +65,7 @@
     min-height: 54px; padding: 0 26px; border: 0; border-radius: 17px;
     background: var(--accent); color: var(--accent-ink); font-size: 18px; font-weight: 800;
   }
-  .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); }
+  @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); } }
   .print:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
   .print:disabled {
     opacity: 1; background: color-mix(in oklch, var(--bg) 25%, var(--ink)); color: var(--bg);

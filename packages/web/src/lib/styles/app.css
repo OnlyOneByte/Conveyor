@@ -41,8 +41,10 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
   min-height: var(--tap);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
-button:hover:not(:disabled) { border-color: var(--live); }
-button.primary:hover:not(:disabled) { box-shadow: 0 0 0 2px var(--ink); }
+@media (hover: hover) {
+  button:hover:not(:disabled) { border-color: var(--live); }
+  button.primary:hover:not(:disabled) { box-shadow: 0 0 0 2px var(--ink); }
+}
 :where(button:disabled) { opacity: 0.5; cursor: not-allowed; }
 
 :where(button.primary) {
@@ -82,13 +84,15 @@ kbd { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: 5px; bac
   min-height: 30px; padding: 0 var(--s3); border: 1.5px solid var(--line-2); border-radius: var(--r-control);
   background: var(--paper); color: var(--ink); font: 700 var(--fs-chip) / 1 var(--display); white-space: nowrap;
 }
-.btn:hover:not(:disabled) { border-color: var(--ink); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary:hover:not(:disabled) { border-color: var(--ink); }
 .btn.ghost { background: transparent; border-color: transparent; }
-.btn.ghost:hover:not(:disabled) { background: var(--sunk); border-color: transparent; }
 .btn.danger { color: var(--err); }
-.btn.danger:hover:not(:disabled) { border-color: var(--err); }
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { border-color: var(--ink); }
+  .btn.primary:hover:not(:disabled) { border-color: var(--ink); }
+  .btn.ghost:hover:not(:disabled) { background: var(--sunk); border-color: transparent; }
+  .btn.danger:hover:not(:disabled) { border-color: var(--err); }
+}
 @media (pointer: coarse) { .btn { min-height: var(--tap); } }
 
 .boot { font: 800 var(--fs-title) / 1 var(--display); letter-spacing: -0.04em; padding: var(--s6); margin: 0; }
