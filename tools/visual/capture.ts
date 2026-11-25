@@ -11,6 +11,7 @@ import { titleMismatch } from "./hits.ts";
 import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack } from "./stack.ts";
 import { runStep } from "./step.ts";
+import { assertStyles } from "./styles.ts";
 
 export interface ShotResult {
   scene: string;
@@ -156,6 +157,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
       await context.close();
       return { ...result, warnings: [notOnBase(scene)] };
     }
+    await assertStyles(page);
     if (scene.record) sampler = startSampler(page, result.warnings);
     for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
     const mismatch = await titleMismatch(page);
@@ -171,6 +173,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     result.error = messageOf(err);
   }
   await sampler?.stop();
+  if (!result.error) await assertStyles(page).catch((err) => (result.error = messageOf(err)));
   await writePng(page, result, scene.fullPage ?? true);
   await context.close();
   if (sampler && !result.error) await writeGif(result, sampler.frames);

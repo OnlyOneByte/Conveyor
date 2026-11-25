@@ -9,6 +9,14 @@ export const scenes: Scene[] = [
     steps: [{ wait: 1500 }],
   },
   {
+    name: "print-hover",
+    route: "/",
+    ready: "text=Configure",
+    widths: [1440],
+    fullPage: false,
+    steps: [{ wait: 800 }, { ring: "button.desktop-print" }],
+  },
+  {
     name: "nav-reach",
     route: "/primitives",
     visits: ["/"],

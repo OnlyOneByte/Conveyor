@@ -5,7 +5,7 @@ export const MAX_SHIFT_PX = 4;
 
 type Hold = Extract<Step, { holds: string }>;
 
-export const SETTLE_MS = 2000;
+export const SETTLE_MS = 500;
 
 declare const document: {
   querySelector(selector: string): { getBoundingClientRect(): { top: number } } | null;
