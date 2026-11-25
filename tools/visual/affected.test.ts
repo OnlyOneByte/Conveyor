@@ -49,6 +49,7 @@ test("a scene lands only on its own pages", () => {
 
 test("one page's change captures only the scenes that reach it", () => {
   expect(named("packages/web/src/routes/settings/+page.svelte")).toEqual([
+    "printer-answering",
     "settings",
     "settings-add",
     "settings-delete",
