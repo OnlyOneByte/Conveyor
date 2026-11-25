@@ -58,6 +58,8 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-add-invalid",
     "printers-add",
     "printers-clear-secrets",
+    "printers-clear-secrets-keep",
+    "printers-touch",
     "printers-delete",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");

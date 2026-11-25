@@ -71,8 +71,10 @@ and says they can't start until it's back.
 Add and Edit open `PrinterDialog.svelte`, a `Dialog` with `Field`s and a real `Select` for the transport.
 `printer-form.ts` holds the rules: `draftErrors` checks the fields on save and then on every change, and focus
 moves to the first field with an error. A new printer's ID follows its name (`slugOf`) until you edit the ID.
-The secret field is write-only: blank keeps what is saved. **Clear saved secrets** resends the saved printer,
-not the form, with `secrets: null`. **Delete printer** asks first in the same dialog, and stays disabled while
+The secret field is write-only: blank keeps what is saved, and the dialog names the saved field (an API key
+for Moonraker, a Mainboard ID for Elegoo, in `SavedSecrets.svelte`). **Clear saved secrets** asks first, since
+Cancel can't undo it; **Clear it** resends the saved printer, not the form, with `secrets: null`, and **Keep it**
+returns focus to the button. On a touch screen the job links on each printer card are 44 px tall. **Delete printer** asks first in the same dialog, and stays disabled while
 the printer has jobs on the belt, because the API refuses that delete with `409`; a `409` from a race is shown
 in plain words.
 
