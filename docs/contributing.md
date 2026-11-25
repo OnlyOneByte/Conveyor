@@ -63,8 +63,8 @@ The coverage baseline is one file per package, `scripts/checks/coverage/baseline
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
 `check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
 `bun run check:coverage:update` and commit the files it names; it rewrites only packages whose floor rose. If
-it says `dropped below base`, add the tests that cover what you changed. On a run on `main` (a push, the
-weekly schedule or a manual run, but not a pull request), a rise is a `::warning::` instead: two PRs that
+it says `dropped below base`, add the tests that cover what you changed. On a run on `main` (only a `push`, the
+weekly `schedule` or a manual `workflow_dispatch`; every other event, and every other ref, still fails), a rise is a `::warning::` instead: two PRs that
 each stay within half a point can add up to more once both land, and that is coverage going up, not a
 failure. A pull request still fails on the rise, so the next one to run commits the higher floor with
 `check:coverage:update`. A drop, a lowered baseline or a baseline above what is measured still fails on
