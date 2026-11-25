@@ -190,7 +190,14 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha25
   image --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH conveyor-api
 ```
 
-`Docker build (worker)` builds without OrcaSlicer (`ORCA_ENABLE=0`). The `orca slice` job builds the worker with it (`ORCA_ENABLE=1`) and scans that image the same way, into the `image-scan-worker-orca` artifact, so OrcaSlicer's bundled files are scanned too. What this does not cover yet: `release.yml` builds and publishes images with no scan at all (#456).
+`Docker build (worker)` builds without OrcaSlicer (`ORCA_ENABLE=0`). The `orca slice` job builds the worker with it (`ORCA_ENABLE=1`) and scans that image the same way, into the `image-scan-worker-orca` artifact, so OrcaSlicer's bundled files are scanned too. `release.yml` scans each image it pushes, per architecture, with the same step, into `image-scan-<service>-<arch>`. A fixed critical there fails the build job, so the publish job never tags that release.
+
+A build cache can hand an image an OS-package layer built weeks ago, with packages missing later security fixes. Two things keep those layers current:
+
+- **Base images are pinned by digest** in every `FROM` (`oven/bun:debian@sha256:…`). Dependabot's weekly `docker` update bumps the digest, and a new digest rebuilds every layer above it.
+- **The worker's own apt layer takes an `OS_REFRESH` build argument.** CI, the compose job and `release.yml` pass the ISO week (`date -u +%G-W%V`), so that layer is rebuilt once a week, and the layers above it with it. The `deps` stage (`bun install`) and the OpenSCAD source build don't use it and stay cached. The api and web images install no OS packages of their own; their OS packages are the pinned base image.
+
+CI also runs on a weekly schedule (Mondays, 05:23 UTC), so `main`'s images are rebuilt and scanned even in a week with no merges.
 
 - **Removing an entry:** delete it in the PR whose upgrade fixes the advisory. If the advisory is still
   present, that PR's `audit` fails.
