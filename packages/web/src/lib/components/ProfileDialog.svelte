@@ -76,7 +76,7 @@
     <Field
       label="Name"
       bind:value={draft.name}
-      hint="Say the material and layer height, like Voron PETG 0.25 mm."
+      hint="Say the material and layer height, like Voron PETG 0.2 mm."
       error={errors.name ?? ""}
     />
     <Select label="Slicer" bind:value={draft.slicerId} options={slicerOptions} />

@@ -4,6 +4,7 @@ import type { Politeness } from "./announce";
 import { API, cancelJob, type JobHistoryEntry } from "./api";
 import { named } from "./belt";
 import { midnight } from "./belt-ends";
+import { statusError } from "./http-error";
 import type { Catalog } from "./catalog";
 import { failureText } from "./job-failure";
 import { duration } from "./job-settings";
@@ -143,7 +144,7 @@ export function latest() {
 
 async function getJson<T>(path: string, fetchFn: typeof fetch): Promise<T> {
   const r = await fetchFn(path);
-  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  if (!r.ok) throw statusError(r, `GET ${path}`);
   return r.json();
 }
 

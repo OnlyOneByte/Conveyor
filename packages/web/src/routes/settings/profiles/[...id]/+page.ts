@@ -1,7 +1,7 @@
 import { fetchCatalogProfiles, fetchCatalogSlicers, signedIn } from "#lib/api.js";
 import { unreachable } from "#lib/http-error.js";
 import { loadContent } from "#lib/profile-content.js";
-import { said, serverSaid } from "#lib/said.js";
+import { saidOnLoad, serverSaid } from "#lib/said.js";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, fetch, parent }) => {
@@ -23,6 +23,6 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
   } catch (e) {
     if (unreachable(e)) return { ...empty, failed: true };
     const why = serverSaid(e);
-    return { ...empty, problem: why ? `Conveyor answered: ${why}` : said(e) };
+    return { ...empty, problem: why ? `Conveyor answered: ${why}` : saidOnLoad(e) };
   }
 };
