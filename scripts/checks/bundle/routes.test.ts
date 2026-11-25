@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { budgetErrors } from "./budget";
-import { buildsCode } from "./measure";
+import { buildsCode } from "./builds-code";
 
 const ok = { raw: 300_000, gzip: 100_000, three: false, zod: false, evals: false };
 const editor = { editor: ["_app/immutable/chunks/e.js"], editorKept: [] };
@@ -27,7 +27,7 @@ describe("every route's first load", () => {
   test("fails Zod or new Function in one route's first load, not only the shared bundle", () => {
     expect(check({ zod: true, evals: true })).toEqual([
       "/settings: Zod is in the initial JS; import the Zod-free shared modules instead",
-      "/settings: the initial JS builds code at runtime (Function, eval or a function's constructor), which the strict CSP refuses",
+      "/settings: the initial JS builds code at runtime (Function, eval, a function's constructor, or a timer given a string), which the strict CSP refuses",
     ]);
   });
 
@@ -52,6 +52,15 @@ describe("finding code built at runtime", () => {
       "(()=>{}).constructor(`return 1`)()",
       "eval(`1 + 1`)",
       "(0,eval)(`1 + 1`)",
+      "globalThis.eval(`1 + 1`)",
+      "window.eval(`1 + 1`)",
+      "self.eval(`1 + 1`)",
+      'globalThis["eval"](`1 + 1`)',
+      "const{Function:F}=globalThis;F(`return 1`)()",
+      "const{eval:e}=window;e(`1`)",
+      'setTimeout("tick()",10)',
+      "setInterval(`tick()`,10)",
+      'window.setTimeout("tick()"+x,10)',
     ])
       expect(buildsCode(code)).toBe(true);
   });
@@ -64,6 +73,14 @@ describe("finding code built at runtime", () => {
       "clone(){return new this.constructor(this.x,this.y)}",
       "page.evaluate(f)",
       "client.eval(script)",
+      "redis.eval(`return 1`,0)",
+      "const csp=\"script-src 'self' 'unsafe-eval'\"",
+      "const help=`eval and Function are refused`",
+      'el.setAttribute("title","new Function()")',
+      "setTimeout(()=>tick(),10)",
+      "setInterval(tick,10)",
+      "class Calc{eval(x){return x}}",
+      "const o={eval:1,Function:2}",
     ])
       expect(buildsCode(code)).toBe(false);
   });
