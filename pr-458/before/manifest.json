@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:35735",
+  "url": "http://127.0.0.1:36551",
   "warnings": [
     "warm-up /: waitFor: Timeout 5000ms exceeded."
   ],
@@ -68,10 +68,54 @@
       ]
     },
     {
-      "scene": "history",
+      "scene": "jobs-today",
       "width": 1440,
       "warnings": [],
-      "png": "history-1440.png"
+      "png": "jobs-today-1440.png"
+    },
+    {
+      "scene": "jobs-down-belt",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-down-belt-1440.png"
+    },
+    {
+      "scene": "jobs-stale",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-stale-1440.png"
+    },
+    {
+      "scene": "jobs",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-1440.png"
+    },
+    {
+      "scene": "jobs-failed",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-failed-1440.png"
+    },
+    {
+      "scene": "jobs-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-empty-1440.png"
+    },
+    {
+      "scene": "jobs-down",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-down-1440.png"
+    },
+    {
+      "scene": "jobs-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "jobs-keys-1440.png",
+      "gifBytes": 615504,
+      "gif": "jobs-keys-1440.gif"
     },
     {
       "scene": "job-detail",
@@ -212,12 +256,6 @@
       ]
     },
     {
-      "scene": "jobs-keys",
-      "width": 1440,
-      "warnings": [],
-      "png": "jobs-keys-1440.png"
-    },
-    {
       "scene": "keyboard",
       "width": 1440,
       "warnings": [
@@ -303,7 +341,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 646857,
+      "gifBytes": 485316,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -321,11 +359,31 @@
       ]
     },
     {
+      "scene": "belt-offline",
+      "width": 1440,
+      "warnings": [],
+      "png": "belt-offline-1440.png"
+    },
+    {
+      "scene": "belt-offline-make",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-offline-make is new on this PR"
+      ]
+    },
+    {
+      "scene": "belt-region",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-region is new on this PR"
+      ]
+    },
+    {
       "scene": "track-keys",
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 309118,
+      "gifBytes": 279884,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -364,7 +422,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 423939,
+      "gifBytes": 383323,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -378,7 +436,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 998432,
+      "gifBytes": 923289,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -392,7 +450,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 806790,
+      "gifBytes": 693495,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -400,7 +458,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 700682,
+      "gifBytes": 584919,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -478,10 +536,48 @@
       ]
     },
     {
-      "scene": "history",
+      "scene": "jobs-today",
       "width": 390,
       "warnings": [],
-      "png": "history-390.png"
+      "png": "jobs-today-390.png"
+    },
+    {
+      "scene": "jobs-down-belt",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-down-belt-390.png"
+    },
+    {
+      "scene": "jobs",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-390.png"
+    },
+    {
+      "scene": "jobs-failed",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-failed-390.png"
+    },
+    {
+      "scene": "jobs-empty",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-empty-390.png"
+    },
+    {
+      "scene": "jobs-down",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-down-390.png"
+    },
+    {
+      "scene": "jobs-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "jobs-keys-390.png",
+      "gifBytes": 998814,
+      "gif": "jobs-keys-390.gif"
     },
     {
       "scene": "job-detail",
@@ -622,12 +718,6 @@
       ]
     },
     {
-      "scene": "jobs-keys",
-      "width": 390,
-      "warnings": [],
-      "png": "jobs-keys-390.png"
-    },
-    {
       "scene": "keyboard",
       "width": 390,
       "warnings": [
@@ -701,11 +791,24 @@
       "png": "belt-mobile-sheet-390.png"
     },
     {
+      "scene": "belt-offline",
+      "width": 390,
+      "warnings": [],
+      "png": "belt-offline-390.png"
+    },
+    {
+      "scene": "belt-region",
+      "width": 390,
+      "warnings": [
+        "not on the base: \"text=How big?\" didn't appear within 5 s, so belt-region is new on this PR"
+      ]
+    },
+    {
       "scene": "track-keys",
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 501918,
+      "gifBytes": 508025,
       "gif": "track-keys-390.gif"
     },
     {
@@ -744,7 +847,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 618127,
+      "gifBytes": 624867,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -758,7 +861,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1340516,
+      "gifBytes": 1369882,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -772,7 +875,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1093876,
+      "gifBytes": 1012598,
       "gif": "printers-add-390.gif"
     },
     {
@@ -780,7 +883,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 976560,
+      "gifBytes": 977649,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
