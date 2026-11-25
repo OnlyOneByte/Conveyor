@@ -43,10 +43,9 @@
     display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px;
     padding: 0 var(--s3);
     border: 0; border-bottom: 3px solid transparent; background: none; color: var(--muted);
-    font: 500 13px var(--mono); cursor: pointer;
+    font: 500 var(--fs-chip) var(--mono); cursor: pointer;
   }
   [aria-selected="true"] { color: var(--ink); border-bottom-color: var(--live); }
   button:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
   .flag { width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>

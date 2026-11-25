@@ -1,10 +1,12 @@
 :root {
   --display: "Bricolage Grotesque Variable", system-ui, sans-serif;
   --mono: "DM Mono", ui-monospace, monospace;
-  --fs-title: 36px; --fs-section: 18px; --fs-body: 15px; --fs-chip: 13px; --fs-label: 11px;
+  --fs-title: 36px; --fs-section: 18px; --fs-body: 15px; --fs-chip: 13px; --fs-mono: 12px; --fs-label: 11px;
+  --fs-brand: 22px;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --r-chip: 16px; --r-control: 13px; --r-card: 18px; --r-panel: 26px; --tap: 44px;
-  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms;
+  --r-tiny: 4px; --r-inner: 11px; --r-control: 13px; --r-chip: 16px; --r-card: 18px; --r-panel: 26px; --r-pill: 999px;
+  --tap: 44px;
+  --t-fast: 150ms; --t-move: 400ms; --t-hop: 600ms; --t-tread: 1.3s; --t-breathe: 1.6s;
   --ease-move: cubic-bezier(0.65, 0, 0.35, 1); --ease-pop: cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 
@@ -63,6 +65,6 @@
   --lift-hi: 0 6px 18px oklch(0 0 0 / 0.5);
 }
 
-@media (max-width: 759px) { :root { --fs-title: 30px; } }
+@media (max-width: 759px) { :root { --fs-title: 30px; --fs-brand: 20px; } }
 
 @media (prefers-reduced-motion: reduce) { :root { --t-fast: 0ms; --t-move: 0ms; --t-hop: 0ms; } }

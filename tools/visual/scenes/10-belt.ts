@@ -59,7 +59,7 @@ const moves: Step[] = [
   },
 ];
 
-const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
+export const onChip: Step[] = [live, { waitFor: "#belt .m .mini i", timeout: 8000 }, { wait: 300 }];
 
 const down = (route: string): Step => ({ fulfill: route, status: 503, json: { error: "down" } });
 

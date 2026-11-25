@@ -24,6 +24,6 @@
 <style>
   .state { display: grid; gap: var(--s2); justify-items: start; margin: 0; padding: var(--s5); border: 1px dashed var(--line-2); border-radius: var(--r-card); color: var(--muted); }
   .state p { margin: 0; color: var(--muted); }
-  .state .big { color: var(--ink); font: 700 18px var(--display); }
+  .state .big { color: var(--ink); font: 700 var(--fs-section) var(--display); }
   .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
 </style>

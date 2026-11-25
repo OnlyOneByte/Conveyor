@@ -37,14 +37,14 @@
     <div
       class="bar" role="progressbar" aria-label="{STEPS[now]?.[1] ?? 'Job'} progress"
       aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-    ><i style:width="{pct}%"></i></div>
+    ><i style:transform="scaleX({pct / 100})"></i></div>
   {/if}
 </section>
 
 <style>
   .live { display: flex; flex-direction: column; gap: var(--s5); }
   .big { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin: 0; }
-  .big b { font-size: 34px; line-height: 1; letter-spacing: -0.03em; }
+  .big b { font-size: var(--fs-title); line-height: 1; letter-spacing: -0.03em; }
   .big span { color: var(--muted); }
   .steps {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2);
@@ -53,15 +53,15 @@
   .steps li {
     display: flex; flex-direction: column; gap: 6px; font-weight: 600; color: var(--muted);
   }
-  .steps li::before { content: ""; height: 6px; border-radius: 3px; background: var(--field-line); }
+  .steps li::before { content: ""; height: 6px; border-radius: var(--r-pill); background: var(--field-line); }
   .steps li.past::before { background: var(--ok); }
-  .steps li.past::after { content: "✓ done"; font: 500 12px var(--mono); color: var(--ok); }
+  .steps li.past::after { content: "✓ done"; font: 500 var(--fs-mono) var(--mono); color: var(--ok); }
   .steps li.now { color: var(--ink); }
   .steps li.now::before { background: var(--live); }
-  .steps li.now::after { content: "now"; font: 500 12px var(--mono); color: var(--live); }
+  .steps li.now::after { content: "now"; font: 500 var(--fs-mono) var(--mono); color: var(--live); }
   .bar {
-    height: 14px; border-radius: 7px; overflow: hidden;
+    height: 14px; border-radius: var(--r-pill); overflow: hidden;
     background: var(--sunk); border: 1px solid var(--field-line);
   }
-  .bar i { display: block; height: 100%; background: var(--live); transition: width 0.3s; }
+  .bar i { display: block; height: 100%; background: var(--live); transform-origin: left; transition: transform var(--t-move) var(--ease-move); }
 </style>

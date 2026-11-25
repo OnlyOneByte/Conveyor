@@ -62,7 +62,7 @@
   .stepper { display: flex; align-items: center; background: var(--sunk);
     border: 1.5px solid var(--field-line); border-radius: var(--r-control); overflow: hidden; }
   button { border: 0; background: transparent; border-radius: 0; width: 40px;
-    padding: 0; font-size: 1.05rem; line-height: 1; color: var(--ink); flex: none; }
+    padding: 0; font-size: var(--fs-section); line-height: 1; color: var(--ink); flex: none; }
   @media (hover: hover) {
     button:hover:not(:disabled) { background: var(--line-2); color: var(--live); }
   }
@@ -75,5 +75,5 @@
     color: var(--ink); -moz-appearance: textfield; appearance: textfield; }
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+  .sval em { font-style: normal; color: var(--muted); font-size: var(--fs-mono); white-space: nowrap; }
 </style>

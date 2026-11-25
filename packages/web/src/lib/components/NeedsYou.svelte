@@ -46,13 +46,14 @@
 
 <style>
   .wrap { position: relative; }
-  .needs { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 38px; padding: 0 10px; border: 1.5px solid var(--err); border-radius: 12px; background: var(--paper); color: var(--err); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .needs { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 38px; padding: 0 10px; border: 1.5px solid var(--err); border-radius: var(--r-inner); background: var(--paper); color: var(--err); font: inherit; font-size: var(--fs-chip); font-weight: 700; cursor: pointer; }
   @media (hover: hover) {
     .needs:hover { border-color: var(--err); background: var(--err); color: var(--paper); }
   }
-  .n { margin-left: auto; font: 500 12px var(--mono); }
+  .n { margin-left: auto; font: 500 var(--fs-mono) var(--mono); }
   .tray { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; display: grid; gap: var(--s3); width: 300px; margin: 0; padding: var(--s3); list-style: none; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); box-shadow: var(--lift-hi); }
   .tray a { font-weight: 700; color: var(--ink); }
+  @media (pointer: coarse) { .needs { min-height: var(--tap); } .tray a { display: inline-flex; align-items: center; min-height: var(--tap); } }
   .on { color: var(--muted); font-size: var(--fs-chip); }
   .tray p { margin: var(--s1) 0 0; font-size: var(--fs-chip); }
   .acts { display: flex; flex-wrap: wrap; gap: var(--s2); }

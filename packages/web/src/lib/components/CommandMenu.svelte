@@ -38,7 +38,7 @@
   <div id="{id}-list" role="listbox" aria-label="Results">
     {#each groups as group}
       <div role="group" aria-labelledby="{id}-{group}">
-        <div id="{id}-{group}" class="head" role="presentation">{group}</div>
+        <div id="{id}-{group}" class="head label" role="presentation">{group}</div>
         {#each results as command, i}
           {#if command.group === group}
             <div id="{id}-{i}" role="option" tabindex="-1" class:stack={command.group === "Jobs"} aria-selected={i === active} on:click={() => run(command)} on:keydown={keydown} on:pointermove={() => (active = i)}>
@@ -58,19 +58,15 @@
 <style>
   dialog { width: min(600px, calc(100vw - 24px)); margin: 110px auto auto; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
   dialog::backdrop { background: color-mix(in oklch, var(--belt) 35%, transparent); }
-  input { width: 100%; height: 56px; padding: 0 var(--s4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; font-size: 17px; }
+  input { width: 100%; height: 56px; padding: 0 var(--s4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; font-size: var(--fs-section); }
   input:focus-visible { outline: none; box-shadow: inset 0 -3px 0 var(--focus); }
   [role="listbox"] { max-height: 50vh; overflow-y: auto; padding-bottom: var(--s2); }
-  .head { padding: var(--s3) var(--s4) var(--s1); font: 700 var(--fs-label) / 1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .head { padding: var(--s3) var(--s4) var(--s1); }
   [role="option"] { display: flex; align-items: center; gap: var(--s3); min-height: var(--tap); padding: 0 var(--s4); cursor: pointer; }
   [role="option"][aria-selected="true"] { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
-  .sr {
-    position: absolute; width: 1px; height: 1px; overflow: hidden;
-    clip-path: inset(50%); white-space: nowrap;
-  }
-  .hint { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
+  .hint { margin-left: auto; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s4); color: var(--muted); }
-  .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: var(--fs-mono); color: var(--muted); }
   @media (max-width: 759px) {
     dialog { margin-top: var(--s4); }
     .keys { display: none; }

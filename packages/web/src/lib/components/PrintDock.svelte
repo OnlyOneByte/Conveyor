@@ -41,12 +41,12 @@
   }
   .bar {
     display: flex; align-items: center; gap: var(--s4); padding: 14px 14px 14px 22px;
-    border-radius: 22px; background: var(--ink); color: var(--bg); --focus: var(--bg);
+    border-radius: var(--r-panel); background: var(--ink); color: var(--bg); --focus: var(--bg);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
-  b { display: block; font-size: 17px; }
+  b { display: block; font-size: var(--fs-section); }
   .line {
-    display: flex; gap: 0.6ch; min-width: 0; font: 500 12.5px var(--mono);
+    display: flex; gap: 0.6ch; min-width: 0; font: 500 var(--fs-mono) var(--mono);
     color: color-mix(in oklch, var(--bg) 85%, var(--ink));
   }
   .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -62,8 +62,8 @@
     }
   }
   .print {
-    min-height: 54px; padding: 0 26px; border: 0; border-radius: 17px;
-    background: var(--accent); color: var(--accent-ink); font-size: 18px; font-weight: 800;
+    min-height: 54px; padding: 0 26px; border: 0; border-radius: var(--r-chip);
+    background: var(--accent); color: var(--accent-ink); font-size: var(--fs-section); font-weight: 800;
   }
   @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); } }
   .print:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
@@ -75,7 +75,7 @@
       position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 18px 10px 8px;
     }
     .bar { padding: 10px 10px 10px 16px; }
-    b { font-size: 15px; }
+    b { font-size: var(--fs-body); }
     .line { flex-wrap: wrap; }
     .detail { white-space: normal; }
     .print { min-height: 50px; padding: 0 20px; }

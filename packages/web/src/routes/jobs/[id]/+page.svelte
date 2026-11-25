@@ -121,7 +121,7 @@
     margin-bottom: var(--s5); padding: var(--s4); border: 1.5px solid var(--err);
     border-radius: var(--r-card); background: color-mix(in oklch, var(--err) 10%, transparent);
   }
-  .why strong { display: block; color: var(--err); font-size: 17px; }
+  .why strong { display: block; color: var(--err); font-size: var(--fs-section); }
   .grid {
     display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: var(--s5); align-items: start;
@@ -131,7 +131,7 @@
     overflow: hidden; border-radius: var(--r-panel); background: var(--mat);
   }
   .tag {
-    padding: 4px 10px; border-radius: 99px; background: var(--paper); font: 500 12px var(--mono);
+    padding: 4px 10px; border-radius: var(--r-pill); background: var(--paper); font: 500 var(--fs-mono) var(--mono);
   }
   .nf { max-width: 520px; display: flex; flex-direction: column; gap: var(--s4); padding: 10vh 0; }
   @media (max-width: 759px) {

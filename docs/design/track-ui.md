@@ -49,7 +49,9 @@ inline script's text against it for every OS setting and saved value.
 | Section | 18 px / 700 | `h2` inside a page |
 | Body | 15 px / 1.45 | Default |
 | Chip | 13 px / 650 | Rail chips |
-| Label | 11 px mono / 500 / uppercase / 0.09em | Captions, station names |
+| Mono | 12 px mono (`--fs-mono`) | Values, times and hints set in mono |
+| Label | 11 px mono / 500 / uppercase / 0.09em | Captions, station names: the global `.label` class |
+| Brand | 22 px / 800 (20 px under 760 px), `--fs-brand` | The wordmark only |
 
 **The app self-hosts its fonts.** A self-hosted app must not call third parties, so the web package depends on
 `@fontsource-variable/bricolage-grotesque` and `@fontsource/dm-mono` (weights 400 and 500), imports only their latin
@@ -91,10 +93,13 @@ never the only signal: every state also has an icon or a word.
 
 - Spacing: `--s1` 4, `--s2` 8, `--s3` 12, `--s4` 16, `--s5` 24, `--s6` 32 px. Page gutter is `--s6` on desktop and
   16 px under 760 px.
-- Radius: `--r-chip` 16, controls 13, `--r-card` 18, `--r-panel` 26 px.
+- Radius: `--r-tiny` 4, `--r-inner` 11 (a control nested in a padded one), `--r-control` 13, `--r-chip` 16,
+  `--r-card` 18, `--r-panel` 26 px, and `--r-pill` for anything fully rounded.
 - Elevation: `--lift` for resting cards and chips, `--lift-hi` for hovered, focused or moving ones. Nothing else
   casts a shadow.
-- Targets: at least 44 px on touch layouts, 30 px minimum on desktop (above WCAG 2.5.8's 24 px).
+- Targets: at least 44 px on touch layouts, 30 px minimum on desktop (above WCAG 2.5.8's 24 px). The touch size
+  sits inside `@media (pointer: coarse)` (a `min-height`, or a transparent `::after` where the control must keep its
+  look), so the mouse layout doesn't change; the `touch-*` scenes fail on any smaller hit area.
 - Hover cues (rings, border and fill changes) sit inside `@media (hover: hover)`, so a tap on a touch screen
   doesn't leave one stuck on. Focus cues stay outside it.
 
@@ -105,6 +110,8 @@ never the only signal: every state also has an icon or a word.
 | `--t-fast` | 150 ms | Hover and focus lift, colour changes |
 | `--t-move` | 400 ms | A chip tweening to its new position after a progress update |
 | `--t-hop` | 600 ms | A chip leaving the rail into a bin |
+| `--t-tread` | 1.3 s | One loop of the belt treads |
+| `--t-breathe` | 1.6 s | One breath of the 3D preview's loading cube |
 | `--ease-move` | `cubic-bezier(.65,0,.35,1)` | Movement |
 | `--ease-pop` | `cubic-bezier(.3,1.4,.5,1)` | Lift and press |
 

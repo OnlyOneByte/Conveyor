@@ -76,7 +76,8 @@
   .slot { position: absolute; top: 8px; left: 0; transition: transform var(--t-move) var(--ease-move); }
   .slot:focus-within { z-index: 5; }
   @media (hover: hover) { .slot:hover { z-index: 5; } }
-  .chip { position: relative; display: inline-flex; align-items: center; gap: var(--s2); height: 34px; min-height: 34px; min-width: 156px; padding: 0 var(--s3) 0 5px; border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); box-shadow: var(--lift); color: var(--ink); font: 650 13px / 1 var(--display); text-decoration: none; white-space: nowrap; transition: transform var(--t-fast), box-shadow var(--t-fast); }
+  .chip { position: relative; display: inline-flex; align-items: center; gap: var(--s2); height: 34px; min-height: 34px; min-width: 156px; padding: 0 var(--s3) 0 5px; border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); box-shadow: var(--lift); color: var(--ink); font: 650 var(--fs-chip) / 1 var(--display); text-decoration: none; white-space: nowrap; transition: transform var(--t-fast), box-shadow var(--t-fast); }
+  @media (pointer: coarse) { .chip::after { content: ""; position: absolute; inset: calc((100% - var(--tap)) / 2) 0; } }
   .chip:focus-visible, .slot:focus-within .chip {
     transform: translateY(-3px); box-shadow: var(--lift-hi); z-index: 5;
   }
@@ -87,13 +88,12 @@
   .ring::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--paper); }
   .ring.ind { background: conic-gradient(var(--ring) 0 25%, var(--line-2) 0); }
   .t { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-  .v { margin-left: auto; padding-left: var(--s1); font: 500 12px var(--mono); color: var(--live); }
+  .v { margin-left: auto; padding-left: var(--s1); font: 500 var(--fs-mono) var(--mono); color: var(--live); }
   .s-done .ring { --ring: var(--ok); } .s-done .v { color: var(--ok); }
   .s-failed { border-color: var(--err); } .s-failed .ring { --ring: var(--err); } .s-failed .v { color: var(--err); }
   .s-canceled .ring { --ring: var(--off); } .s-canceled .t { color: var(--muted); text-decoration: line-through; } .s-canceled .v { color: var(--muted); }
   .s-queued { border-style: dashed; background: var(--sunk); box-shadow: none; } .s-queued .ring { background: none; border: 2px dashed var(--muted); } .s-queued .ring::before { display: none; } .s-queued .v { color: var(--muted); }
   .stack { display: flex; } .stack .ring { width: 22px; height: 22px; margin-left: -9px; box-shadow: 0 0 0 2px var(--paper); } .stack .ring:first-child { margin-left: 0; }
-  .sr { font-size: 0; line-height: 0; }
   .card { position: absolute; top: 44px; left: 0; z-index: 10; min-width: 260px; padding: var(--s3); border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); box-shadow: var(--lift-hi); }
   .card::before { content: ""; position: absolute; inset: -12px auto 100% 0; width: var(--chip); }
   .card.end { right: 0; left: auto; }

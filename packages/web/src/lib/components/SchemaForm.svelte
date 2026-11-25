@@ -74,5 +74,5 @@
   .q :global(.group + .group) { margin-top: 1.05rem; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }
   .none { margin: 0; color: var(--muted); }
-  .note { margin: 0.6rem 0 0; font-size: 0.75rem; color: var(--muted); }
+  .note { margin: 0.6rem 0 0; font-size: var(--fs-mono); color: var(--muted); }
 </style>

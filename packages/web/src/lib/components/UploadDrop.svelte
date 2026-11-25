@@ -58,7 +58,7 @@
   .drop:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .drop.ready { border-style: solid; border-color: var(--ok); }
   .drop.bad { border-color: var(--err); }
-  b { font-size: 17px; overflow-wrap: anywhere; }
+  b { font-size: var(--fs-section); overflow-wrap: anywhere; }
   span { color: var(--muted); }
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .up { display: flex; flex-direction: column; align-items: stretch; }

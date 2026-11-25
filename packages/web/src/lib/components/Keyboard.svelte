@@ -60,6 +60,5 @@
 <style>
   .cmdk { display: flex; align-items: center; gap: var(--s2); align-self: center; width: 240px; min-height: 40px; padding: 0 var(--s2) 0 var(--s3); border: 1px solid var(--line); border-radius: var(--r-control); background: var(--paper); color: var(--muted); }
   .cmdk kbd { margin-left: auto; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (max-width: 759px) { .cmdk { width: var(--tap); min-height: var(--tap); padding: 0; justify-content: center; } .word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } .cmdk kbd { display: none; } }
 </style>

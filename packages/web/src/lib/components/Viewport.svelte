@@ -31,8 +31,8 @@
 
 <style>
   .placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--s4); padding: var(--s4); text-align: center; }
-  .cube { width: 44px; height: 44px; border: 2px solid var(--belt-ink); border-radius: 10px; transform: rotate(45deg) scaleY(0.82); animation: breathe 1.6s var(--ease-move) infinite alternate; }
-  .note { padding: var(--s1) var(--s3); border: 1px solid var(--line); border-radius: 99px; background: var(--paper); color: var(--ink); font-size: var(--fs-chip); }
+  .cube { width: 44px; height: 44px; border: 2px solid var(--belt-ink); border-radius: var(--r-inner); transform: rotate(45deg) scaleY(0.82); animation: breathe var(--t-breathe) var(--ease-move) infinite alternate; }
+  .note { padding: var(--s1) var(--s3); border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--paper); color: var(--ink); font-size: var(--fs-chip); }
   @keyframes breathe { to { opacity: 0.35; } }
   @media (prefers-reduced-motion: reduce) { .cube { animation: none; } }
 </style>
