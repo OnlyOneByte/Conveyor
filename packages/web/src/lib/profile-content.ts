@@ -74,3 +74,17 @@ export function status(invalid: boolean, busy: boolean, dirty: boolean): string 
   if (busy) return "Saving…";
   return dirty ? "Unsaved changes" : "No changes yet";
 }
+
+export interface GateState {
+  ready: boolean;
+  problem: boolean;
+  dirty: boolean;
+  busy: boolean;
+  tidied: boolean;
+}
+
+export const gate = ({ ready, problem, dirty, busy, tidied }: GateState) => ({
+  save: ready && !problem && dirty && !busy,
+  tidy: ready && tidied,
+  reset: ready && !busy,
+});

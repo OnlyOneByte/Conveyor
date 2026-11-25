@@ -7,9 +7,13 @@ export interface StepKinds {
 
 export type Step = StepKinds[keyof StepKinds];
 
+export interface StepContext {
+  root: string;
+}
+
 export interface StepRunner {
   kind: keyof StepKinds;
-  run(page: Page, step: Step, warnings: string[]): Promise<unknown>;
+  run(page: Page, step: Step, warnings: string[], context: StepContext): Promise<unknown>;
 }
 
 export const wrongKind = (kind: string, step: Step) =>
@@ -42,5 +46,5 @@ export function runnerFor(step: Step): StepRunner {
   return runner;
 }
 
-export const runStep = (page: Page, step: Step, warnings: string[]) =>
-  runnerFor(step).run(page, step, warnings);
+export const runStep = (page: Page, step: Step, warnings: string[], context: StepContext) =>
+  runnerFor(step).run(page, step, warnings, context);

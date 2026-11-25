@@ -161,7 +161,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     }
     await assertStyles(page);
     if (scene.record) sampler = startSampler(page, result.warnings);
-    for (const step of scene.steps ?? []) await runStep(page, step, result.warnings);
+    for (const step of scene.steps ?? [])
+      await runStep(page, step, result.warnings, { root: resolve(values.root) });
     const mismatch = await titleMismatch(page);
     if (mismatch) throw new Error(mismatch);
     const hover = values.base ? null : await hoverProblem(page);

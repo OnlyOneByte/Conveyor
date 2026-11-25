@@ -1,7 +1,16 @@
 {
   "initialJsGzip": {
-    "/": 115000,
-    "/jobs/[id]": 115000
+    "/": 88000,
+    "/history": 78000,
+    "/history/[jobId]": 78000,
+    "/jobs": 83000,
+    "/jobs/[id]": 85000,
+    "/monitor": 80000,
+    "/primitives": 78000,
+    "/primitives/track": 78000,
+    "/printers": 88000,
+    "/settings": 87000,
+    "/settings/profiles/[...id]": 116000
   },
   "precache": {
     "raw": 1291227,
