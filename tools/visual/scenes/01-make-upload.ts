@@ -36,4 +36,22 @@ export const scenes: Scene[] = [
     "Couldn't upload bin.stl. Try again.",
     [fault],
   ),
+  {
+    name: "make-upload-details-390",
+    route: "/",
+    ready: "text=How big?",
+    widths: [390],
+    fullPage: false,
+    steps: [
+      fault,
+      { click: "role=tab[name='Upload STL']" },
+      { upload: "input[type=file]", name: "bin.stl", text: "solid bin\nfacet\n" },
+      { waitFor: "[role=alert] >> text=Couldn't upload bin.stl. Try again." },
+      { click: ".up summary" },
+      { waitFor: ".up pre >> text=internal error" },
+      { above: ".up details", of: ".up .drop" },
+      { above: ".up details", of: ".dock" },
+      { wait: 500 },
+    ],
+  },
 ];

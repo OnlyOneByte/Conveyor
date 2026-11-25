@@ -1,11 +1,16 @@
 const HEADER = 84;
 const FACET = 50;
 
+const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+
+const triangles = (buf: Buffer) => (buf.byteLength >= HEADER ? buf.readUInt32LE(80) : 0);
+
 const binary = (buf: Buffer) =>
-  buf.byteLength >= HEADER && buf.byteLength === HEADER + FACET * buf.readUInt32LE(80);
+  triangles(buf) > 0 && buf.byteLength === HEADER + FACET * triangles(buf);
 
 const ascii = (buf: Buffer) => {
-  const text = buf.subarray(0, 4096).toString("latin1").trimStart();
+  const body = buf.subarray(0, BOM.byteLength).equals(BOM) ? buf.subarray(BOM.byteLength) : buf;
+  const text = body.subarray(0, 4096).toString("latin1").trimStart();
   return text.startsWith("solid") && /\bfacet\b/.test(text);
 };
 

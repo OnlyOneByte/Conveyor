@@ -1,15 +1,29 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance } from "fastify";
 import { looksLikeStl, readFailure } from "./stl-check.js";
 
+type Write = (path: string, data: Buffer) => Promise<void>;
+
 const INCOMPLETE = "the upload didn't finish. Try again.";
+
+async function store(path: string, buf: Buffer, write: Write): Promise<void> {
+  const part = `${path}.part`;
+  try {
+    await write(part, buf);
+    await rename(part, path);
+  } catch (error) {
+    await rm(part, { force: true });
+    throw error;
+  }
+}
 
 export async function registerUploadRoutes(
   app: FastifyInstance,
   settings: UploadSettings = uploadSettings(process.env),
+  write: Write = writeFile,
 ): Promise<void> {
   app.post("/uploads", async (req, reply) => {
     let name: string;
@@ -33,7 +47,7 @@ export async function registerUploadRoutes(
 
     const uploadId = randomUUID();
     await mkdir(settings.dir, { recursive: true });
-    await writeFile(join(settings.dir, `${uploadId}.stl`), buf);
+    await store(join(settings.dir, `${uploadId}.stl`), buf, write);
 
     req.log.info(`upload ${uploadId} (${name}, ${buf.byteLength} bytes)`);
     return reply.code(201).send({ uploadId, filename: name, bytes: buf.byteLength });

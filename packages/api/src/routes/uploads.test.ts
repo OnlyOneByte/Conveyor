@@ -162,3 +162,35 @@ describe("POST /uploads when storage fails", () => {
     expect(await res.json()).toEqual({ error: "internal error" });
   });
 });
+
+describe("POST /uploads when the write fails partway", () => {
+  const full = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-full-"));
+  let app: FastifyInstance;
+  let at = "";
+
+  beforeAll(async () => {
+    app = Fastify();
+    registerErrorReplies(app);
+    await app.register(multipart, { limits: { fileSize: maxBytes } });
+    const diskFull = async (path: string, data: Buffer) => {
+      writeFileSync(path, data.subarray(0, 10));
+      throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
+    };
+    await registerUploadRoutes(app, { dir: full, maxBytes }, diskFull);
+    at = await app.listen({ host: "127.0.0.1", port: 0 });
+  });
+
+  afterAll(async () => {
+    app.server.closeAllConnections();
+    await app.close();
+    rmSync(full, { recursive: true, force: true });
+  });
+
+  test("is a 500 and leaves no partial file in the uploads folder", async () => {
+    const form = new FormData();
+    form.append("file", new Blob([ASCII]), "bin.stl");
+    const res = await fetch(`${at}/uploads`, { method: "POST", body: form });
+    expect(res.status).toBe(500);
+    expect(readdirSync(full)).toEqual([]);
+  });
+});
