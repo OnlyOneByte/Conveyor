@@ -11,6 +11,7 @@
   const dispatch = createEventDispatcher<{ file: File; clear: null }>();
 
   let over = false;
+  let input: HTMLInputElement;
 
   function take(file: File | null | undefined) {
     over = false;
@@ -27,7 +28,8 @@
   <input
     type="file" accept=".stl" aria-describedby={error ? "upload-error" : undefined}
     aria-invalid={error ? "true" : undefined}
-    on:change={(event) => take(event.currentTarget.files?.[0])}
+    bind:this={input}
+    on:change={(event) => (take(event.currentTarget.files?.[0]), (event.currentTarget.value = ""))}
   />
   {#if uploading}
     <b>Uploading {name}…</b>
@@ -39,7 +41,7 @@
 </label>
 {#if error}<p id="upload-error" class="error" role="alert">{error}</p>{/if}
 {#if ready}
-  <button type="button" class="btn clear" on:click={() => dispatch("clear", null)}>
+  <button type="button" class="btn clear" on:click={() => (dispatch("clear", null), input.focus())}>
     Remove file
   </button>
 {/if}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { measured } from "#lib/ui/behaviour.js";
+
   export let summary: string;
   export let detail: string;
   export let ready: boolean;
@@ -7,17 +9,9 @@
   export let last: { id: string; printer: string } | null;
   export let error: string | null = null;
   export let retried: string | null = null;
-
-  function measured(node: HTMLElement) {
-    const root = document.documentElement.style;
-    const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;
-    const seen = new ResizeObserver(() => root.setProperty("--dock-h", height()));
-    seen.observe(node);
-    return { destroy: () => (seen.disconnect(), root.removeProperty("--dock-h")) };
-  }
 </script>
 
-<div class="dock" use:measured>
+<div class="dock" use:measured={"dock-h"}>
   {#if error}
     <p class="last err" role="alert">
       {error}
@@ -60,6 +54,13 @@
   .last { margin: 0 0 var(--s2); font-weight: 600; }
   .err { color: var(--err); }
   .last a, .change { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  @media (pointer: coarse) {
+    .last a, .change { position: relative; }
+    .last a::after, .change::after {
+      content: ""; position: absolute; inset: calc(50% - var(--tap) / 2) 0;
+      min-width: var(--tap);
+    }
+  }
   .print {
     min-height: 54px; padding: 0 26px; border: 0; border-radius: 17px;
     background: var(--accent); color: var(--accent-ink); font-size: 18px; font-weight: 800;

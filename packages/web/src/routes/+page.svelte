@@ -52,7 +52,7 @@
     if (r.params && typeof r.params === "object") params = { ...r.params };
   });
 
-  $: if (!tab && pickable[0]) tab = pickable[0].id;
+  $: if (!tab && generators.length) tab = tabs[0].id;
   $: upload = tab === UPLOAD;
   $: generatorId = upload ? "passthrough" : tab;
   $: gen = pickable.find((g) => g.id === tab) ?? null;
@@ -197,7 +197,7 @@
   }
   .order { min-width: 0; }
   .fields { display: flex; flex-direction: column; gap: var(--s5); }
-  .where:focus { outline: none; }
+  .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }
   h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }

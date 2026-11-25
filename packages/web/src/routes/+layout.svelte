@@ -15,7 +15,7 @@
   import Belt from "#lib/components/Belt.svelte";
   import { stashRerun } from "#lib/rerun.js";
   import type { TrackJob } from "#lib/track.js";
-  import { toasts } from "#lib/ui/behaviour.js";
+  import { measured, toasts } from "#lib/ui/behaviour.js";
   import { resolveTheme, theme } from "#lib/preferences.js";
   import Toasts from "#lib/ui/Toasts.svelte";
   import type { LayoutData } from "./$types";
@@ -98,7 +98,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt">{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
