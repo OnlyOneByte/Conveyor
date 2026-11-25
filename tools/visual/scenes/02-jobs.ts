@@ -36,6 +36,18 @@ const lateFailure = {
   updatedAt: Date.UTC(2026, 0, 1, 12, 1),
 };
 
+const longNote = {
+  ...lateFailure,
+  id: "long-note",
+  error: {
+    stage: "transport",
+    reason: "elegoo upload failed: Unable to connect. Is the computer able to access the url?",
+  },
+  notes:
+    "status stream did not close cleanly: socket hang up after the upload; " +
+    "work dir not removed: /data/jobs/long-note is busy",
+};
+
 export const scenes: Scene[] = [
   {
     name: "jobs-today",
@@ -95,7 +107,23 @@ export const scenes: Scene[] = [
       { click: ".pill >> text=Failed" },
       { waitFor: ".pill[aria-pressed='true'] >> text=Failed" },
       { waitFor: "a.row .note:has-text('Note: status stream did not close cleanly')" },
+      { sameLine: ["a.row.s-failed .g", "a.row.s-failed b"] },
       { wait: 600 },
+    ],
+  },
+  {
+    name: "jobs-failed-note",
+    route: "/jobs",
+    ready: "[data-id]",
+    widths: [390],
+    steps: [
+      { fulfill: "**/api/jobs-history?*state=failed*", status: 200, json: [longNote] },
+      { click: ".pill >> text=Failed" },
+      { waitFor: "[data-id='long-note'] .note" },
+      { sameLine: ["[data-id='long-note'] b", "[data-id='long-note'] .st"] },
+      { lines: "[data-id='long-note'] .note", max: 2 },
+      { notColour: "[data-id='long-note'] .why", token: "--err" },
+      { wait: 300 },
     ],
   },
   {

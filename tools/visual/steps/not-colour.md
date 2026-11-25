@@ -1,0 +1,1 @@
+`notColour` fails when its target's text colour is the colour that the CSS custom property `token` resolves to where the target sits, so it holds in both themes. `jobs-failed-note` uses it to keep a failed job's reason out of `--err`.
