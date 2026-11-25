@@ -22,11 +22,9 @@ export class OrcaProfileValidationError extends Error {}
 
 export function validateOrcaProfileDocuments(documents: OrcaProfileDocuments): void {
   const encoder = new TextEncoder();
-  let total = 0;
   for (const name of ORCA_PROFILE_DOCUMENT_NAMES) {
     const text = documents[name];
     const bytes = encoder.encode(text).byteLength;
-    total += bytes;
     if (bytes > MAX_ORCA_DOCUMENT_BYTES) {
       throw new OrcaProfileValidationError(`${name}.json exceeds the 256 KiB limit`);
     }
@@ -54,9 +52,6 @@ export function validateOrcaProfileDocuments(documents: OrcaProfileDocuments): v
         );
       }
     }
-  }
-  if (total > MAX_ORCA_CONTENT_BYTES) {
-    throw new OrcaProfileValidationError("combined Orca profile content exceeds the 768 KiB limit");
   }
 }
 

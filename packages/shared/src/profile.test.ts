@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   isBundledProfilePath,
+  MAX_ORCA_CONTENT_BYTES,
+  MAX_ORCA_DOCUMENT_BYTES,
   OrcaProfileValidationError,
   PrusaProfileValidationError,
   validateOrcaProfileDocuments,
@@ -124,6 +126,21 @@ describe("validateOrcaProfileDocuments document checks", () => {
 
   test("names the document whose JSON does not parse", () => {
     expect(refusal("{not json")).toStartWith("process.json: ");
+  });
+
+  test("accepts three documents each at the 256 KiB limit, 768 KiB together", () => {
+    const full = (type: string, key: string) => {
+      const shell = JSON.stringify({ type, [key]: "" });
+      return JSON.stringify({ type, [key]: "x".repeat(MAX_ORCA_DOCUMENT_BYTES - shell.length) });
+    };
+    const documents = {
+      machine: full("machine", "printer_model"),
+      process: full("process", "name"),
+      filament: full("filament", "name"),
+    };
+    const total = Object.values(documents).reduce((sum, text) => sum + text.length, 0);
+    expect(total).toBe(MAX_ORCA_CONTENT_BYTES);
+    expect(() => validateOrcaProfileDocuments(documents)).not.toThrow();
   });
 
   test("refuses a document over 256 KiB before parsing it", () => {

@@ -34,6 +34,7 @@ describe("what the page says about a failure", () => {
       "PATCH /api/x 400",
       "DELETE /api/x 404",
       "Internal Server Error",
+      "internal error",
     ];
     for (const line of lines) {
       expect(serverSaid(new Error(line))).toBeNull();

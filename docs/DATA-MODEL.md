@@ -73,7 +73,7 @@ optional per-profile edited JSON overriding the bundled files.
 > request-supplied path ever reaches the filesystem.
 >
 > **Limits** (`packages/shared/src/profile.ts`): each document ≤ 256 KiB
-> (`MAX_ORCA_DOCUMENT_BYTES`), the three combined ≤ 768 KiB (`MAX_ORCA_CONTENT_BYTES`);
+> (`MAX_ORCA_DOCUMENT_BYTES`), so the three together are at most 768 KiB (`MAX_ORCA_CONTENT_BYTES`, which sizes the API body limit);
 > each must parse as a JSON object. `validateOrcaProfileDocuments` is the single shared
 > validator — the API save path and the worker both call it, so the client's `JSON.parse`
 > is a UX nicety, never the gate.
