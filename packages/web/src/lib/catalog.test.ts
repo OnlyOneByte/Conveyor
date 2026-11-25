@@ -1,10 +1,21 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { CATALOG_MS, loadCatalog } from "./catalog";
 
-const printer = { id: "voron", name: "Voron 2.4", transportId: "klipper", address: "192.0.2.9", hasSecrets: false };
+const printer = {
+  id: "voron",
+  name: "Voron 2.4",
+  transportId: "klipper",
+  address: "192.0.2.9",
+  hasSecrets: false,
+};
 const reply = (ok: boolean) => async (url: string | URL | Request) =>
-  ok ? Response.json(String(url).endsWith("/printers") ? [printer] : []) : new Response("", { status: 401 });
-const answers = (ok: boolean) => spyOn(globalThis, "fetch").mockImplementation(Object.assign(reply(ok), { preconnect: fetch.preconnect }));
+  ok
+    ? Response.json(String(url).endsWith("/printers") ? [printer] : [])
+    : new Response("", { status: 401 });
+const answers = (ok: boolean) =>
+  spyOn(globalThis, "fetch").mockImplementation(
+    Object.assign(reply(ok), { preconnect: fetch.preconnect }),
+  );
 
 describe("the shared catalog", () => {
   test("fetches printers and generators once per minute, and again after a failure", async () => {

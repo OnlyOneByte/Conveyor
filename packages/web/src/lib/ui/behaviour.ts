@@ -18,6 +18,11 @@ export function nextIndex(key: string, current: number, count: number): number |
   return null;
 }
 
+export const focusedIndex = (
+  elements: readonly unknown[],
+  active: unknown = document.activeElement,
+) => elements.indexOf(active);
+
 export const closesOn = (key: string) => key === "Escape" || key === "Tab";
 
 export const TABBABLE = `a[href], ${["button", "input", "select", "textarea"].map((tag) => `${tag}:not(:disabled)`).join(", ")}, summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])`;
@@ -40,18 +45,33 @@ export const TOAST_MS = 6000;
 type Hold = "focus" | "pointer";
 type Timer = { after: (run: () => void, ms: number) => () => void; now: () => number };
 
-const realTimer: Timer = { after: (run, ms) => { const handle = setTimeout(run, ms); return () => clearTimeout(handle); }, now: () => Date.now() };
+const realTimer: Timer = {
+  after: (run, ms) => {
+    const handle = setTimeout(run, ms);
+    return () => clearTimeout(handle);
+  },
+  now: () => Date.now(),
+};
 
-export function createToasts({ after, now }: Timer = realTimer, say: (text: string) => unknown = () => {}) {
+export function createToasts(
+  { after, now }: Timer = realTimer,
+  say: (text: string) => unknown = () => {},
+) {
   const { subscribe, update } = writable<Toast[]>([]);
-  const live = new Map<number, { left: number; since: number; holds: Set<Hold>; stop: () => void }>();
+  const live = new Map<
+    number,
+    { left: number; since: number; holds: Set<Hold>; stop: () => void }
+  >();
   let last = 0;
   const dismiss = (id: number) => {
     live.get(id)?.stop();
     live.delete(id);
     update((all) => all.filter((t) => t.id !== id));
   };
-  const run = (id: number, left: number) => ({ since: now(), stop: after(() => dismiss(id), left) });
+  const run = (id: number, left: number) => ({
+    since: now(),
+    stop: after(() => dismiss(id), left),
+  });
   const show = (text: string, action?: Toast["action"]) => {
     const id = ++last;
     update((all) => [...all, { id, text, action }]);
@@ -62,7 +82,10 @@ export function createToasts({ after, now }: Timer = realTimer, say: (text: stri
   const hold = (id: number, why: Hold) => {
     const toast = live.get(id);
     if (!toast || toast.holds.has(why)) return;
-    if (toast.holds.size === 0) { toast.stop(); toast.left -= now() - toast.since; }
+    if (toast.holds.size === 0) {
+      toast.stop();
+      toast.left -= now() - toast.since;
+    }
     toast.holds.add(why);
   };
   const release = (id: number, why: Hold) => {
@@ -80,5 +103,10 @@ export function measured(node: HTMLElement, name: string) {
   const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;
   const seen = new ResizeObserver(() => root.setProperty(`--${name}`, height()));
   seen.observe(node);
-  return { destroy: () => (seen.disconnect(), root.removeProperty(`--${name}`)) };
+  return {
+    destroy: () => {
+      seen.disconnect();
+      root.removeProperty(`--${name}`);
+    },
+  };
 }

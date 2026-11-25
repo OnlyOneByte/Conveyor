@@ -30,10 +30,7 @@ describe("withSocketSources", () => {
     "a:",
     "a:8443:1",
     "a:123456",
-  ])(
-    "leaves the policy unchanged for the host %p",
-    (host) => {
-      expect(withSocketSources(csp, host)).toBe(csp);
-    },
-  );
+  ])("leaves the policy unchanged for the host %p", (host) => {
+    expect(withSocketSources(csp, host)).toBe(csp);
+  });
 });

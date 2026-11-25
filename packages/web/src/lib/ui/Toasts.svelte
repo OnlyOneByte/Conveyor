@@ -1,7 +1,11 @@
 <script lang="ts">
   import { toasts } from "./behaviour";
+
   let back: HTMLElement | null = null;
-  const inside = (e: FocusEvent) => e.currentTarget instanceof Node && e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget);
+  const inside = (e: FocusEvent) =>
+    e.currentTarget instanceof Node &&
+    e.relatedTarget instanceof Node &&
+    e.currentTarget.contains(e.relatedTarget);
 </script>
 
 <div class="toasts">

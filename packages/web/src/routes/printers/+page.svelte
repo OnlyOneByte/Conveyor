@@ -1,15 +1,14 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
+  import { onMount } from "svelte";
   import {
+    type CatalogPrinter,
+    type CatalogTransport,
     fetchActiveJobs,
     fetchCatalogPrinters,
     fetchCatalogTransports,
     fetchGenerators,
     fetchPrinterReachable,
-    type CatalogPrinter,
-    type CatalogTransport,
     type GeneratorSummary,
     type PrinterReachable,
   } from "#lib/api.js";
@@ -18,6 +17,7 @@
   import PrinterDialog from "#lib/components/PrinterDialog.svelte";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
   import Menu from "#lib/ui/Menu.svelte";
+  import { goto } from "$app/navigation";
 
   let printers: CatalogPrinter[] = [];
   let transports: CatalogTransport[] = [];
@@ -31,14 +31,21 @@
   let editing: CatalogPrinter | null = null;
 
   $: catalog = { printers, generators };
-  $: cards = printers.map((printer) => ({ printer, card: printerCard(printer, reach[printer.id], active, catalog, now) }));
+  $: cards = printers.map((printer) => ({
+    printer,
+    card: printerCard(printer, reach[printer.id], active, catalog, now),
+  }));
   $: transportName = (id: string) => transports.find((t) => t.id === id)?.name ?? id;
   $: editingCard = editing ? cards.find((c) => c.printer.id === editing?.id)?.card : undefined;
   $: editingJobs = editingCard ? editingCard.waiting.length + (editingCard.job ? 1 : 0) : 0;
 
   async function load() {
     try {
-      [printers, transports, generators] = await Promise.all([fetchCatalogPrinters(), fetchCatalogTransports(), fetchGenerators()]);
+      [printers, transports, generators] = await Promise.all([
+        fetchCatalogPrinters(),
+        fetchCatalogTransports(),
+        fetchGenerators(),
+      ]);
       failed = false;
     } catch {
       failed = true;
@@ -46,6 +53,8 @@
       loaded = true;
     }
   }
+
+  const unreachable = () => ({ reachable: false, host: "", port: 0, reason: "" });
 
   async function poll() {
     if (document.visibilityState !== "visible") return;
@@ -57,7 +66,7 @@
     if (document.visibilityState !== "visible") return;
     await Promise.all(
       printers.map(async ({ id }) => {
-        const result = await fetchPrinterReachable(id).catch(() => ({ reachable: false, host: "", port: 0, reason: "" }));
+        const result = await fetchPrinterReachable(id).catch(unreachable);
         reach = { ...reach, [id]: result };
       }),
     );
@@ -70,12 +79,7 @@
     await Promise.all([poll(), probe()]);
   }
 
-  function add() {
-    editing = null;
-    open = true;
-  }
-
-  function edit(printer: CatalogPrinter) {
+  function edit(printer: CatalogPrinter | null = null) {
     editing = printer;
     open = true;
   }
@@ -95,7 +99,7 @@
     {#if loaded && !failed && printers.length}<p class="sub">{printersSummary(printers, active)}</p>{/if}
   </div>
   <div class="acts">
-    <button class="btn primary big" type="button" on:click={add} disabled={!loaded || failed}>
+    <button class="btn primary big" type="button" on:click={() => edit()} disabled={!loaded || failed}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add printer
     </button>
     <Menu label="More" items={[{ label: "Check printers again", run: () => void probe() }, { label: "Settings", run: () => goto("/settings") }]} />

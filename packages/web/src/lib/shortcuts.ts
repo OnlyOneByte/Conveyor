@@ -8,14 +8,25 @@ interface KeyInput {
 }
 
 const FIELDS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
-export const inTextField = (target: unknown) => typeof Element !== "undefined" && target instanceof Element && target.matches(FIELDS);
+export const inTextField = (target: unknown) =>
+  typeof Element !== "undefined" && target instanceof Element && target.matches(FIELDS);
 
 export const CHORD_MS = 1500;
 
 export const keyName = ({ key, metaKey, ctrlKey, shiftKey }: KeyInput) =>
-  metaKey || ctrlKey ? `mod+${key.toLowerCase()}` : shiftKey && /^[a-z]$/i.test(key) ? `shift+${key.toLowerCase()}` : key.length === 1 ? key.toLowerCase() : key;
+  metaKey || ctrlKey
+    ? `mod+${key.toLowerCase()}`
+    : shiftKey && /^[a-z]$/i.test(key)
+      ? `shift+${key.toLowerCase()}`
+      : key.length === 1
+        ? key.toLowerCase()
+        : key;
 
-export function createShortcuts({ singleKeys = (): boolean => true, inField = inTextField, now = () => Date.now() } = {}) {
+export function createShortcuts({
+  singleKeys = (): boolean => true,
+  inField = inTextField,
+  now = () => Date.now(),
+} = {}) {
   const bindings = new Map<string, () => void>();
   let pending: { key: string; at: number } | null = null;
   const register = (keys: string, run: () => void) => {
@@ -27,7 +38,8 @@ export function createShortcuts({ singleKeys = (): boolean => true, inField = in
     const name = keyName(input);
     const chord = pending && now() - pending.at <= CHORD_MS ? pending.key : null;
     pending = null;
-    if (input.altKey || (!name.startsWith("mod+") && (inField(input.target) || !singleKeys()))) return false;
+    if (input.altKey || (!name.startsWith("mod+") && (inField(input.target) || !singleKeys())))
+      return false;
     const run = bindings.get(chord ? `${chord} ${name}` : name);
     if (run) {
       run();
@@ -40,7 +52,8 @@ export function createShortcuts({ singleKeys = (): boolean => true, inField = in
   return { register, handle };
 }
 
-export const step = (at: number, by: number, count: number) => Math.min(count - 1, Math.max(0, at + by));
+export const step = (at: number, by: number, count: number) =>
+  Math.min(count - 1, Math.max(0, at + by));
 
 export const SHEET = [
   ["⌘K / Ctrl K", "Open the command menu"],

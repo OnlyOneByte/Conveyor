@@ -7,5 +7,6 @@ coverageSkipTestFiles = false
 coveragePathIgnorePatterns = [
   "packages/shared/test/helpers/**",
   "packages/worker/test/helpers/**",
+  "packages/web/test/helpers/**",
   "scripts/checks/coverage/sweep.ts",
 ]

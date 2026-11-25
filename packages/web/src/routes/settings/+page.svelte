@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { version } from "$app/env";
   import {
     type CatalogProfile,
     type CatalogSlicer,
@@ -12,6 +11,7 @@
   import ThemePicker from "#lib/components/ThemePicker.svelte";
   import { prefersReducedMotion, singleKeyShortcuts, spinPreview } from "#lib/preferences.js";
   import Switch from "#lib/ui/Switch.svelte";
+  import { version } from "$app/env";
 
   const REPO = "https://github.com/OnlyOneByte/Conveyor";
   const links = [

@@ -28,7 +28,9 @@ describe("the shared active-jobs store", () => {
   });
 
   test("a failure before any answer shares no jobs and not ok", async () => {
-    await expect(shareActive(async () => Promise.reject(new Error("down")))()).rejects.toThrow("down");
+    await expect(shareActive(async () => Promise.reject(new Error("down")))()).rejects.toThrow(
+      "down",
+    );
     expect(get(activeJobs)).toEqual({ jobs: [], ok: false });
   });
 });

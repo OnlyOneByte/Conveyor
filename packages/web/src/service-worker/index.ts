@@ -1,20 +1,30 @@
+import editorChunks from "virtual:editor-chunks";
 import { version } from "$app/env";
 import { assets, immutable } from "$app/manifest";
-import editorChunks from "virtual:editor-chunks";
 import { fromCache, precached } from "./precache";
 
 const CACHE = `conveyor-cache-${version}`;
-const ASSETS = precached([...immutable, ...assets].map(({ path }) => path), editorChunks);
+const ASSETS = precached(
+  [...immutable, ...assets].map(({ path }) => path),
+  editorChunks,
+);
 
 self.addEventListener("install", (event) => {
   const e = event as ExtendableEvent;
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => (self as unknown as ServiceWorkerGlobalScope).skipWaiting()));
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(ASSETS))
+      .then(() => (self as unknown as ServiceWorkerGlobalScope).skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   const e = event as ExtendableEvent;
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
   );
 });
 

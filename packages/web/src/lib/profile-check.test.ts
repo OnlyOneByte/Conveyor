@@ -1,4 +1,4 @@
-import { describe as group, expect, test } from "bun:test";
+import { expect, describe as group, test } from "bun:test";
 import { describe, orcaProblem, prusaProblem } from "./profile-check.js";
 
 const good = {

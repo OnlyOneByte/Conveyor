@@ -76,5 +76,7 @@ if (typeof matchMedia !== "undefined") {
 }
 
 export function prefersReducedMotion(): boolean {
-  return typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return (
+    typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 }

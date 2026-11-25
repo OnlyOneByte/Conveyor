@@ -47,15 +47,27 @@ export interface Group {
 }
 
 const widest = (members: Placed[]) => Math.max(...members.map((m) => m.width));
-const clamp = (x: number, width: number, railPx: number) => Math.min(Math.max(x, width / 2), Math.max(width / 2, railPx - width / 2));
+const clamp = (x: number, width: number, railPx: number) =>
+  Math.min(Math.max(x, width / 2), Math.max(width / 2, railPx - width / 2));
 
-export function merge(chips: Placed[], railPx: number, previous: Group[] = [], groupWidth = widest): Group[] {
-  const together = new Set(previous.flatMap((g) => g.ids.slice(1).map((id, i) => `${g.ids[i]} ${id}`)));
+export function merge(
+  chips: Placed[],
+  railPx: number,
+  previous: Group[] = [],
+  groupWidth = widest,
+): Group[] {
+  const together = new Set(
+    previous.flatMap((g) => g.ids.slice(1).map((id, i) => `${g.ids[i]} ${id}`)),
+  );
   const groups: { members: Placed[]; x: number; width: number }[] = [];
-  for (const chip of chips.map((c) => ({ ...c, x: clamp(c.x, c.width, railPx) })).sort((a, b) => a.x - b.x)) {
+  for (const chip of chips
+    .map((c) => ({ ...c, x: clamp(c.x, c.width, railPx) }))
+    .sort((a, b) => a.x - b.x)) {
     const last = groups.at(-1);
     const prior = last?.members.at(-1);
-    const gap = last ? chip.x - chip.width / 2 - (last.x + last.width / 2) : Number.POSITIVE_INFINITY;
+    const gap = last
+      ? chip.x - chip.width / 2 - (last.x + last.width / 2)
+      : Number.POSITIVE_INFINITY;
     const stays = prior !== undefined && together.has(`${prior.id} ${chip.id}`) && gap <= SPLIT_PX;
     if (last && (gap < JOIN_PX || stays)) {
       last.members.push(chip);
@@ -66,7 +78,11 @@ export function merge(chips: Placed[], railPx: number, previous: Group[] = [], g
       const [a, b] = groups.slice(-2);
       if (!a || !b || b.x - b.width / 2 - (a.x + a.width / 2) >= JOIN_PX) break;
       const members = [...a.members, ...b.members];
-      groups.splice(-2, 2, { members, x: members.reduce((sum, m) => sum + m.x, 0) / members.length, width: groupWidth(members) });
+      groups.splice(-2, 2, {
+        members,
+        x: members.reduce((sum, m) => sum + m.x, 0) / members.length,
+        width: groupWidth(members),
+      });
     }
   }
   return groups.map(({ members, x, width }) => ({
@@ -74,6 +90,34 @@ export function merge(chips: Placed[], railPx: number, previous: Group[] = [], g
     x: clamp(x, width, railPx),
     width,
   }));
+}
+
+export type Widths = Record<string, number>;
+
+export function placeGroups(
+  list: TrackJob[],
+  px: number,
+  sizes: Widths,
+  grouped: Widths,
+  previous: Group[],
+): Group[] {
+  const placed = list.flatMap((j) =>
+    onRail(j.state)
+      ? [
+          {
+            id: j.id,
+            x: centre(j.state, j.progress ?? 0) * px,
+            width: sizes[j.id] || MIN_CHIP_PX,
+          },
+        ]
+      : [],
+  );
+  return merge(
+    placed,
+    px,
+    previous,
+    (m) => grouped[m.map((p) => p.id).join(" ")] || Math.max(...m.map((p) => p.width)),
+  );
 }
 
 export const shortName = (name: string) => {
@@ -124,7 +168,9 @@ export const ACTIONS: Partial<Record<JobState, string>> = {
 export function beltSummary(jobs: TrackJob[]): string {
   const on = jobs.filter((job) => job.state === "queued" || onRail(job.state)).length;
   const printing = jobs.find((job) => job.state === "printing");
-  const lead = printing ? ` · ${printing.printer ? `${printing.printer.split(" ")[0]} ` : ""}${value(printing)}` : "";
+  const lead = printing
+    ? ` · ${printing.printer ? `${printing.printer.split(" ")[0]} ` : ""}${value(printing)}`
+    : "";
   return on ? `${on} on the belt${lead}` : IDLE;
 }
 
@@ -133,14 +179,16 @@ export const OFFLINE = "Can't reach Conveyor";
 export const BINS = { finished: "Finished", needs: "Needs you", waiting: "waiting" } as const;
 export const today = (n: number) => `${n} today`;
 
-export const status = (job: TrackJob) => `${WORDS[job.state]}${job.printer ? ` on ${job.printer}` : ""}`;
+export const status = (job: TrackJob) =>
+  `${WORDS[job.state]}${job.printer ? ` on ${job.printer}` : ""}`;
 
 export const visible = (job: TrackJob) => `${shortName(job.name)} ${value(job)}`;
 
 export const chipName = (job: TrackJob) =>
   `${visible(job)}, ${job.name}${job.printer ? ` on ${job.printer}` : ""}, ${WORDS[job.state]}`;
 
-export const groupVisible = (jobs: TrackJob[]) => `${jobs.length} jobs ${jobs.map(value).join(" · ")}`;
+export const groupVisible = (jobs: TrackJob[]) =>
+  `${jobs.length} jobs ${jobs.map(value).join(" · ")}`;
 
 export const groupName = (jobs: TrackJob[]) =>
   `${groupVisible(jobs)}: ${jobs.map((j) => `${shortName(j.name)}, ${WORDS[j.state]}`).join("; ")}`;

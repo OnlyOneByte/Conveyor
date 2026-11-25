@@ -1,14 +1,18 @@
 <script lang="ts">
-  import { toasts } from "#lib/ui/behaviour.js";
   import Button from "#lib/ui/Button.svelte";
+  import { toasts } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Menu from "#lib/ui/Menu.svelte";
   import Switch from "#lib/ui/Switch.svelte";
 
   let open = false;
-  const items = ["Open job", "Print again", "Cancel"].map((label) => ({ label, run: () => toasts.show(label) }));
-  const toast = () => toasts.show("Canceled Bin 2×1", { label: "Print again", run: () => toasts.show("Printing") });
+  const items = ["Open job", "Print again", "Cancel"].map((label) => ({
+    label,
+    run: () => toasts.show(label),
+  }));
+  const toast = () =>
+    toasts.show("Canceled Bin 2×1", { label: "Print again", run: () => toasts.show("Printing") });
 </script>
 
 <h1>Primitives</h1>
