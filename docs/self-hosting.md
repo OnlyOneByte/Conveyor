@@ -188,6 +188,8 @@ To move an install that already generated a key, paste the contents of `./data/s
 
 Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
 
+A local `--build` reuses Docker's build cache, including the worker's OS-package layer from your last build. To pick up Debian's security fixes since then, rebuild that layer with `docker compose build --build-arg OS_REFRESH="$(date -u +%G-W%V)"`, then `docker compose up -d`.
+
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 
 ## Backup and restore
@@ -270,10 +272,13 @@ docker compose up -d --wait
 
 The api, worker and web processes run as the unprivileged user `conveyor`, uid and gid `10001`, not as root. The web image starts as that user. The api and worker images start in a small entrypoint (`scripts/docker-entrypoint.sh`) that does one thing as root: if `/data` is not owned by `10001:10001`, it changes the owner of `/data` and everything in it, then drops to `10001` with `setpriv --no-new-privs` before the app starts. `secrets.key` keeps its `0600` mode, now for uid `10001`.
 
+Everything in `./data` is readable only by uid `10001`. The entrypoint sets `umask 077`, so the database, job files and uploads are created `0600` and their folders `0700`. If `/data` itself is readable by other users (Docker creates it `0755`), the entrypoint makes it `0700` and logs `conveyor: /data is readable by other users, making it owner-only once`. When the api or worker opens the database, it creates a missing `conveyor.db` as `0600`, and an existing `conveyor.db`, `-wal` or `-shm` that other users can read is tightened to `0600`. So an existing install is tightened once, on its first start after the upgrade. Other files that older versions created `0644` (job files, uploads) keep their mode, but other users can't reach them through the `0700` folder.
+
 - **New installs** need no step. Docker creates `./data` owned by root on the first `up`, and the entrypoint hands it over.
 - **Upgrading an install whose `./data` is owned by root** needs no step either. The first start after the upgrade logs `conveyor: /data is not owned by 10001:10001, changing its owner once`. On the host, `./data` then belongs to uid `10001`, so use `sudo` to read it or to take a backup.
 - **A file that is root-owned later**, for example one restored from a backup as root, is not fixed automatically, because the entrypoint only checks `/data` itself. Fix it with `sudo chown -R 10001:10001 data`, then start the stack.
 - `chown` runs with `-P -h`, so it changes symlinks in `./data` themselves and never the files they point to.
+- **With a `user:` override** on the api or worker in a compose override file, the entrypoint doesn't start as root, so it changes neither the owner nor the mode of `/data`. New files are still created owner-only, but `./data` itself keeps the mode Docker gave it. Run `chmod 700 ./data` yourself, as the user that owns it.
 
 Compose also locks every container down:
 
@@ -442,7 +447,7 @@ OpenSCAD is GPL-2.0-or-later, so the worker image must come with its exact sourc
 | `auto` (default) | Best effort: API rate limits and network errors are retried; if Orca still cannot be installed, the build continues, writes `/opt/orca/NOT_INSTALLED` with the reason, and Orca-profile jobs fail at the slice stage. PrusaSlicer still works. |
 | `0` | Skipped. |
 
-Orca is GUI-linked, so the worker runs it under `xvfb-run`.
+Orca is GUI-linked, so the worker runs it under `xvfb-run`. After extracting the AppImage, the script deletes `squashfs-root/resources/web`. That folder holds the web pages of Orca's GUI onboarding, including an old `swiper` with a fixed critical CVE (CVE-2026-27212), and a headless `--slice` never reads it.
 
 ### Bumping the OpenSCAD pin
 

@@ -24,6 +24,6 @@ self.addEventListener("fetch", (event) => {
   if (e.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
   if (ASSETS.includes(url.pathname)) {
-    e.respondWith(caches.match(e.request).then((r) => r ?? fetch(e.request)));
+    e.respondWith(caches.match(e.request, { ignoreVary: true }).then((r) => r ?? fetch(e.request)));
   }
 });

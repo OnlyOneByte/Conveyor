@@ -93,6 +93,7 @@ fi
 
 chmod +x "$img"
 ./"$img" --appimage-extract >/dev/null || give_up "failed to extract ${URL##*/}"
+rm -rf /opt/orca/squashfs-root/resources/web
 ln -sf /opt/orca/squashfs-root/AppRun /opt/orca/AppRun
 chmod -R a+rX /opt/orca
 rm -f "$img" /opt/orca/NOT_INSTALLED
