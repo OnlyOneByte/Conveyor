@@ -13,14 +13,16 @@ export function solid(width: number, height: number, rgb: [number, number, numbe
   return PNG.sync.write(png);
 }
 
+export const BROWSER_SETUP_MS = 30_000;
+
 export function browserPages() {
   let browser: Browser | undefined;
   beforeAll(async () => {
     browser = await chromium.launch();
-  });
+  }, BROWSER_SETUP_MS);
   afterAll(async () => {
     await browser?.close();
-  });
+  }, BROWSER_SETUP_MS);
   return async <T>(run: (page: Page) => Promise<T>): Promise<T> => {
     if (!browser) throw new Error("browserPages: call it at the top of a test file");
     const context = await browser.newContext({ viewport: { width: 400, height: 300 } });
