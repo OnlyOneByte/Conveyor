@@ -1,0 +1,1 @@
+`ring` hovers a control and fails unless at least 90% of the pixels in the 2 px band just outside its straight edges change by 3:1 from rest, as `print-hover` does for the dock's Print on Make. `primary-hover` does the same for a `button.primary`, Printers' Add printer.

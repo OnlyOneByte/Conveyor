@@ -67,6 +67,13 @@ describe("finding code built at runtime", () => {
       "const o={eval};o.eval(`1`)",
       "const o={Function};o.Function(`return 1`)",
       "const{Function}=globalThis;Function(`return 1`)",
+      "window.self.eval(`1 + 1`)",
+      'globalThis.window["self"].eval(`1`)',
+      "const AsyncFunction=async function(){}.constructor;AsyncFunction(`await 1`)",
+      "const G=(function*(){}).constructor",
+      "const A=(async()=>{}).constructor",
+      "const F=Object.getPrototypeOf(async function(){}).constructor",
+      'setTimeout(x+"()",10)',
     ])
       expect(buildsCode(code)).toBe(true);
   });
@@ -89,6 +96,9 @@ describe("finding code built at runtime", () => {
       "const o={eval:1,Function:2}",
       "typeof Function==`function`",
       "if(typeof Function!==`undefined`)x()",
+      "class A{};const B=new A().constructor",
+      "const c=x.constructor;c.name",
+      "setTimeout(fn,10+delay)",
     ])
       expect(buildsCode(code)).toBe(false);
   });
