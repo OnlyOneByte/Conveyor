@@ -4,7 +4,7 @@ export const SWEEP_ENV = "CONVEYOR_COVERAGE_SWEEP";
 
 export const SWEEP_REPORT_ENV = "CONVEYOR_COVERAGE_SWEEP_REPORT";
 
-export const PACKAGES = ["api", "worker", "shared", "plugins"] as const;
+export const PACKAGES = ["api", "worker", "shared", "plugins", "web"] as const;
 
 export type PackageName = (typeof PACKAGES)[number];
 
@@ -18,7 +18,11 @@ const DECLARATION = /\.d\.ts$/;
 
 export const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
-export const TEST_HELPER_DIRS = ["packages/shared/test/helpers/", "packages/worker/test/helpers/"];
+export const TEST_HELPER_DIRS = [
+  "packages/shared/test/helpers/",
+  "packages/worker/test/helpers/",
+  "packages/web/test/helpers/",
+];
 
 const asPackage = (name: string | undefined): PackageName | null =>
   PACKAGES.find((known) => known === name) ?? null;
@@ -99,6 +103,19 @@ export function sweepErrors({ completed, failed, estimated }: SweepOutcome): str
   ];
 }
 
+export interface SweepRun {
+  completed: boolean;
+  failed: string[];
+  output: string;
+}
+
+export function printSweepLog(
+  { completed, failed, output }: SweepRun,
+  print: (text: string) => void,
+): void {
+  if (!completed || failed.length > 0) print(output);
+}
+
 export interface LineTotals {
   found: number;
   hit: number;
@@ -111,6 +128,7 @@ const byPackage = <T>(value: (name: PackageName) => T): Record<PackageName, T> =
   worker: value("worker"),
   shared: value("shared"),
   plugins: value("plugins"),
+  web: value("web"),
 });
 
 export function summarize(coverage: Coverage): Summary {

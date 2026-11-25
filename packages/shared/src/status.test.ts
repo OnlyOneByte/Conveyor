@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ACTIVE_JOBS_KEY, type JobStatusEvent, jobChannel, jobSnapshotKey } from "./events";
 import {
+  JOB_KEY_TTL_SECONDS,
   jobCancelKey,
   jobControlChannel,
   jobSeqKey,
@@ -38,6 +39,7 @@ describe("publishStatus", () => {
           JSON.stringify(evt),
           "j1",
           "0",
+          String(JOB_KEY_TTL_SECONDS),
         ],
       },
     ]);
@@ -46,7 +48,7 @@ describe("publishStatus", () => {
   test("flags terminal states and reports a refused write", async () => {
     const { calls, client } = fakeClient(0);
     expect(await publishStatus(client, { jobId: "j2", state: "canceled", at: 6 })).toBe(false);
-    expect(calls[0].args.at(-1)).toBe("1");
+    expect(calls[0].args.at(-2)).toBe("1");
   });
 
   test("the guard covers every terminal state", () => {

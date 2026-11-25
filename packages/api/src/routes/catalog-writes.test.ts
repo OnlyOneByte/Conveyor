@@ -78,7 +78,11 @@ describe("PUT /catalog/profiles", () => {
       expect(String(res.body.error)).toContain("is bundled");
     }
     expect((await put("/catalog/profiles", shipped)).status).toBe(200);
-    expect(await list("/catalog/profiles")).toContainEqual({ ...shipped, bundled: true });
+    expect(await list("/catalog/profiles")).toContainEqual({
+      ...shipped,
+      bundled: true,
+      volume: { x: 220, y: 220, z: 250 },
+    });
   });
 
   test("lists each profile with whether it is bundled, and the slicers by name", async () => {

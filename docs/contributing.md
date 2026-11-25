@@ -42,7 +42,7 @@ bun run check:lines
 ```
 
 The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when `REDIS_URL` is set, and CI
-fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine`) and
+fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
@@ -63,7 +63,18 @@ The coverage baseline is one file per package, `scripts/checks/coverage/baseline
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
 `check:coverage` says a package is 0.5 or more above the committed baseline, you raised coverage: run
 `bun run check:coverage:update` and commit the files it names; it rewrites only packages whose floor rose. If
-it says `dropped below base`, add the tests that cover what you changed.
+it says `dropped below base`, add the tests that cover what you changed. On a run on `main` (only a `push`, the
+weekly `schedule` or a manual `workflow_dispatch`; every other event, and every other ref, still fails), a rise is a `::warning::` instead: two PRs that
+each stay within half a point can add up to more once both land, and that is coverage going up, not a
+failure. A pull request still fails on the rise, so the next one to run commits the higher floor with
+`check:coverage:update`. A drop, a lowered baseline or a baseline above what is measured still fails on
+`main`.
+
+A package the checker starts measuring has no file on the base yet. `check:coverage` reads the `PACKAGES`
+list from the base's `scripts/checks/coverage/summary.ts`, and for a package that list doesn't name, the
+committed baseline is the floor: it must match what is measured, within half a point either way, and the log
+says the package is new. A package the base lists still needs its base file, so a lost file can't become a
+zero floor. If the base's list can't be read, every package is treated as listed.
 
 Moving a test-only file out of `src/` into a declared helper folder lowers that package's number without any
 real coverage being lost: the file leaves the denominator. That is the one case where a floor may go down, and
@@ -90,9 +101,18 @@ Otherwise it fails and names the rule. The log prints how far the move could exp
 sees the slack. Entries stay in the file as history and have no effect once they are on the base.
 
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
-in `packages/api`, `worker`, `shared` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
+in `packages/api`, `worker`, `shared`, `web` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
 `*.spec.*` (the name decides, not what the file contains), and the declared helper folders
-`packages/shared/test/helpers/` and `packages/worker/test/helpers/`. Because those leave the denominator,
+`packages/shared/test/helpers/`, `packages/worker/test/helpers/` and `packages/web/test/helpers/`.
+
+For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
+`+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
+or measure them, so they are in neither the numerator nor the denominator, and the visual and end-to-end
+tools are what exercise them. The sweep stubs the three build-time modules the web code imports, which only
+Vite provides: `$app/env`, `$app/manifest` and `virtual:editor-chunks`. `packages/web/package.json` maps
+`#lib/*.js` to `./src/lib/*.ts`, the way Vite already resolves it, so Bun can load a route loader too.
+
+Because the helper folders and test files leave the denominator,
 `check:coverage` fails when a module that still counts:
 
 - imports something that lands in a helper folder or a `*.test.*`/`*.spec.*` file. Each quoted specifier is
@@ -250,20 +270,20 @@ The group names are short, so a title for several updates, such as
 `fix(deps): bump the images group across 3 directories with 12 updates`, stays within 72 characters. A
 group with a single update is titled after its package instead (`bump <package> from <old> to <new> in the
 minor group`), which a long package name or version can push past 72; step 1 of the adoption below fixes
-that title. Compose images get one PR each because their tags (`redis:8-alpine`, `caddy:2`) move only by
-major, so every compose bump is a major and should be reviewed on its own. `caddy` is also pinned by digest
-(`caddy:2@sha256:…`), so Dependabot opens a PR when the `caddy:2` image itself is rebuilt; `tools/visual` reads
-that same pinned image from the `caddy` service in `docker-compose.yml`, so one bump moves both.
+that title. Compose images get one PR each, so each is reviewed on its own. Both are pinned by digest
+(`caddy:2@sha256:…`, and Redis's `8-alpine` tag with its digest), so Dependabot opens a PR when the image
+behind the tag is rebuilt, not only on a new major. `tools/visual` and `ci.yml`'s `compose` job both read the
+caddy pin from the `caddy` service in `docker-compose.yml`, so one bump moves all three. The Redis pin also
+lives in the files step 4 below lists, which Dependabot doesn't touch.
 
 `tools/visual` isn't a workspace member, so the `bun` entry lists it as a second directory
 (`directories: [/, /tools/visual, /scripts/perf]`) rather than in a separate entry, and `scripts/perf`, which holds only Lighthouse for the Make measurement, is listed the same way. Both then share one schedule, PR limit,
 `minor` group and set of ignores, and a shared tool such as `typescript` or `@types/bun` moves in both in the
 same grouped PR.
 
-Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. The web image's
-`node:26-bookworm-slim` is the one `FROM` line with a version, so it is the only base image the `docker` entry
-bumps. The api and worker use moving tags (`oven/bun:debian`, `debian:trixie-slim`), which Dependabot has no
-version to bump.
+Dependabot reads the text `bun.lock`; it does not support the old binary `bun.lockb`. Every `FROM` line is
+pinned by digest, so the `docker` entry bumps each base image's digest when its tag (`oven/bun:debian`,
+`debian:trixie-slim`, `node:26-bookworm-slim`) is rebuilt, and only `node` also moves by version.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
 `@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
 `ci.yml`), so it moves in the PR that bumps CI's Bun. The root and `tools/visual` both pin it to `~1.3.14` for
@@ -280,9 +300,9 @@ it goes to review:
 2. Rewrite the body to the PR template, ending with that builder's `Author-Session:` line.
 3. For a `github-actions` PR, push a commit that updates the pinned-actions table above with the new release
    and commit for each bumped action.
-4. For a Redis major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
+4. For any Redis bump, a new digest or a new major, bump the pins Dependabot doesn't update in the same PR: the `test` job's `redis` service
    in `.github/workflows/ci.yml`, `tools/visual/stack.ts` (`redisContainer`), `tools/visual/stack.test.ts`, and
-   the local `docker run --rm -p 6379:6379 redis:8-alpine` hint under "Before you push" on this page. The
+   the local `docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483` hint under "Before you push" on this page. The
    `lint` job's "One Redis image in every pin" step (`bun scripts/checks/redis-pins.ts`) fails while any of these, or `docker-compose.yml`, has no Redis image reference or names a different one. A Docker Hub prefix (`docker.io/library/`) reads as the same image; any other registry or namespace is a different one.
    Then check the upgrade on an existing data volume before merging. The CI `compose` job pre-seeds only the
    Caddy volumes and starts Redis on a fresh one, so it can't catch a volume the new Redis can't read, and once

@@ -8,7 +8,7 @@
     "capture": "bun capture.ts",
     "compare": "bun compare.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test"
+    "test": "bash test-each.sh"
   },
   "dependencies": {
     "gifenc": "^1.0.3",

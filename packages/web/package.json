@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "imports": {
+    "#lib/*.js": "./src/lib/*.ts",
     "#lib/*": "./src/lib/*"
   },
   "scripts": {

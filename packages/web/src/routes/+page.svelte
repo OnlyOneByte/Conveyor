@@ -94,7 +94,7 @@
     [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
-  let [busy, sent] = [false, false];
+  let [busy, sent, failures] = [false, false, 0];
   let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
@@ -108,7 +108,6 @@
   async function print() {
     if (!ready || busy || !printer || !profile) return;
     busy = true;
-    error = retried = null;
     const generator = upload
       ? { id: "passthrough", params: { uploadId, filename: file?.name ?? "" } }
       : { id: tab, params };
@@ -117,12 +116,13 @@
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
       announce(`${jobLabel} sent to ${printer.name}.`);
+      error = retried = null;
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      [error, errorWhy] = [said(e), detailOf(e)];
+      [error, errorWhy, failures] = [said(e), detailOf(e), failures + 1];
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -145,7 +145,7 @@
             <section>
               <h2>Which file?</h2>
               <UploadDrop
-                name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
+                {file} {uploading} ready={!!uploadId} bed={profile?.volume} printer={printer?.name}
                 error={uploadError} why={uploadWhy} on:file={choose} on:clear={clear}
               />
             </section>
@@ -175,7 +175,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} attempt={failures} />
   </form>
 </section>
 

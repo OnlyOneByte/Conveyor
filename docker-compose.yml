@@ -99,6 +99,8 @@ services:
       - CONVEYOR_AUTH_SECRET=${CONVEYOR_AUTH_SECRET:-}
       - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
       - CONVEYOR_TRUSTED_PROXIES=172.31.250.2
+      - PRINTER_ADDRESS_ALLOW=${PRINTER_ADDRESS_ALLOW:-}
+      - CONVEYOR_RETENTION_DAYS=${CONVEYOR_RETENTION_DAYS:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
@@ -132,6 +134,10 @@ services:
       - DB_PATH=/data/conveyor.db
       - CONVEYOR_SECRETS_KEY=${CONVEYOR_SECRETS_KEY:-}
       - CONVEYOR_UPLOAD_TIMEOUT_MS=${CONVEYOR_UPLOAD_TIMEOUT_MS:-}
+      - PRINTER_ADDRESS_ALLOW=${PRINTER_ADDRESS_ALLOW:-}
+      - MOONRAKER_STATUS_TIMEOUT_MS=${MOONRAKER_STATUS_TIMEOUT_MS:-}
+      - MOONRAKER_STATUS_FAILURES=${MOONRAKER_STATUS_FAILURES:-}
+      - CONVEYOR_RETENTION_DAYS=${CONVEYOR_RETENTION_DAYS:-}
     volumes:
       - ./data:/data
       - ./profiles:/profiles:ro
@@ -140,7 +146,7 @@ services:
       redis: { condition: service_healthy }
 
   redis:
-    image: redis:8-alpine
+    image: redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483
     restart: unless-stopped
     logging: *logging
     user: "999:1000"

@@ -123,7 +123,7 @@
   .t, .pref { display: flex; flex-direction: column; gap: 2px; }
   dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s1) var(--s4); margin: 0; }
   dd { margin: 0; font-weight: 600; }
-  code { font: 500 13px var(--mono); }
+  code { font: 500 var(--fs-chip) var(--mono); }
   .links {
     display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: 0; padding: 0;
     list-style: none;

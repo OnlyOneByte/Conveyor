@@ -98,9 +98,7 @@ jobs:
         timeout-minutes: 10
         run: |
           bun run typecheck
-          for file in *.test.ts; do
-            timeout 120 bun test "./$file"
-          done
+          bun run test
 
       - name: Pick the scenes this change reaches
         id: pick
@@ -197,7 +195,8 @@ jobs:
           remote="https://github.com/$REPO.git"
           auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           work="$RUNNER_TEMP/assets"
-          for attempt in 1 2 3; do
+          attempts=8
+          for attempt in $(seq 1 "$attempts"); do
             cd "$RUNNER_TEMP"
             rm -rf "$work"
             git init -q -b pr-assets "$work"
@@ -224,10 +223,11 @@ jobs:
               echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "::warning::push attempt $attempt was rejected; refetching pr-assets"
-            sleep $((attempt * 5))
+            wait=$((attempt * 3 + RANDOM % 10))
+            echo "::warning::push attempt $attempt of $attempts was rejected; refetching pr-assets in ${wait}s"
+            sleep "$wait"
           done
-          echo "::error::could not push pr-assets after 3 attempts"
+          echo "::error::could not push pr-assets after $attempts attempts"
           exit 1
 
       - name: Post sticky comment
@@ -261,7 +261,8 @@ jobs:
           remote="https://github.com/$REPO.git"
           auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           work="$RUNNER_TEMP/assets"
-          for attempt in 1 2 3; do
+          attempts=8
+          for attempt in $(seq 1 "$attempts"); do
             cd "$RUNNER_TEMP"
             rm -rf "$work"
             git init -q -b pr-assets "$work"
@@ -288,8 +289,9 @@ jobs:
             if git -c http.extraheader="$auth" push -q "$remote" HEAD:refs/heads/pr-assets; then
               exit 0
             fi
-            echo "::warning::push attempt $attempt was rejected; refetching pr-assets"
-            sleep $((attempt * 5))
+            wait=$((attempt * 3 + RANDOM % 10))
+            echo "::warning::push attempt $attempt of $attempts was rejected; refetching pr-assets in ${wait}s"
+            sleep "$wait"
           done
-          echo "::error::could not push pr-assets after 3 attempts"
+          echo "::error::could not push pr-assets after $attempts attempts"
           exit 1

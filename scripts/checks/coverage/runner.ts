@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Resolve, runtimeResolver } from "./imports";
 import { type Coverage, parseLcov } from "./lcov";
-import { type BaselineTexts, baselinePath, CHECKER_PATH } from "./ratchet";
+import {
+  type BaselineTexts,
+  baselinePath,
+  CHECKER_PATH,
+  PACKAGES_PATH,
+  parsePackages,
+} from "./ratchet";
 import type { FileChange } from "./reclassified";
 import {
   isSource,
@@ -43,6 +49,7 @@ export interface Sweep {
   coverage: Coverage;
   completed: boolean;
   failed: string[];
+  output: string;
 }
 
 const isStringArray = (value: unknown): value is string[] =>
@@ -83,12 +90,12 @@ export function runSweep(files: string[]): Sweep {
       stdout: "pipe",
       stderr: "pipe",
     });
-    if (result.exitCode !== 0) console.error(result.stderr.toString());
     const failures = readFailures(readOrNull(join(dir, "report.json")));
     return {
       coverage: parseLcov(readOrNull(join(dir, "lcov.info")) ?? ""),
       completed: result.exitCode === 0 && failures !== null,
       failed: failures ?? [],
+      output: `${result.stdout.toString()}${result.stderr.toString()}`,
     };
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -103,6 +110,7 @@ export const readCommitted = (root = ROOT) => baselineTexts((path) => readOrNull
 export interface Base {
   baseline: BaselineTexts;
   hasChecker: boolean;
+  packages: string[] | null;
 }
 
 export function readBase(ref: string, root = ROOT): Base | Error {
@@ -112,6 +120,7 @@ export function readBase(ref: string, root = ROOT): Base | Error {
   return {
     baseline: baselineTexts((path) => git(root, ["show", `${ref}:${path}`])),
     hasChecker: git(root, ["cat-file", "-e", `${ref}:${CHECKER_PATH}`]) !== null,
+    packages: parsePackages(git(root, ["show", `${ref}:${PACKAGES_PATH}`])),
   };
 }
 

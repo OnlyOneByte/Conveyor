@@ -129,21 +129,20 @@
 <style>
   .shell { max-width: 90rem; margin: 0 auto; padding: 0 var(--s6) var(--s6); }
   .top { display: flex; align-items: center; gap: var(--s5); min-height: 60px; }
-  .word { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -0.03em; text-transform: lowercase; text-decoration: none; color: var(--ink); }
+  .word { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: var(--fs-brand); letter-spacing: -0.03em; text-transform: lowercase; text-decoration: none; color: var(--ink); }
   .bars { display: flex; gap: 3px; }
-  .bars b { width: 7px; height: 18px; border-radius: 3px; background: var(--accent); transform: skewX(-14deg); }
+  .bars b { width: 7px; height: 18px; border-radius: var(--r-tiny); background: var(--accent); transform: skewX(-14deg); }
   .bars b:nth-child(2) { opacity: 0.6; }
   .bars b:nth-child(3) { opacity: 0.3; }
   .sp { flex: 1; }
+  @media (pointer: coarse) { .word { min-height: var(--tap); } }
   .belt { position: sticky; top: 0; z-index: 20; background: var(--bg); } .belt:empty { display: none; }
   main { padding-top: var(--s4); outline: none; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .skip { position: absolute; left: var(--s4); top: -100px; padding: var(--s2) var(--s4); border-radius: var(--r-control); background: var(--paper); color: var(--ink); z-index: 50; }
   .skip:focus { top: var(--s2); }
   @media (max-width: 759px) {
     :global(:root) { --tabbar: calc(73px + env(safe-area-inset-bottom)); }
     .shell { padding: 0 var(--s4) calc(var(--tabbar) + var(--s6)); }
     .top { gap: var(--s2); min-height: 54px; }
-    .word { font-size: 20px; }
   }
 </style>

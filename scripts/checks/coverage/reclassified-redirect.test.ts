@@ -56,6 +56,7 @@ function judge(before: string, after: string, moved: Record<string, string> = {}
         worker: { hit: 788, found: 957 },
         shared: { hit: 1, found: 1 },
         plugins: { hit: 1, found: 1 },
+        web: { hit: 1, found: 1 },
       },
       base: { worker: 83.99 },
       committed: { worker: 82.34 },

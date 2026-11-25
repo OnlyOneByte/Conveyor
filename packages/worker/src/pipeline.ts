@@ -1,4 +1,5 @@
 import {
+  computeStageTimings,
   exhaustive,
   type GcodeArtifact,
   type JobTarget,
@@ -6,11 +7,14 @@ import {
   NOTE,
   StageError,
 } from "@conveyor/shared";
+import { stageDurations } from "./job-log.js";
 import { type PrintOutcome, printStage, ResumeFailedError, resumePrint } from "./print.js";
 import {
   checkpoint,
   createRun,
+  emit,
   enterStage,
+  LeaseLostError,
   messageOf,
   type PipelineDeps,
   type Run,
@@ -79,8 +83,36 @@ async function runStages(run: Run): Promise<PrintOutcome> {
   return printStage(run, target, gcode);
 }
 
-export async function runJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
+async function logSettled(run: Run, settling: Promise<TerminalState>): Promise<TerminalState> {
+  const settled = (outcome: string, reason?: string) => {
+    const now = Date.now();
+    emit(run, {
+      event: "settled",
+      jobId: run.opts.jobId,
+      outcome,
+      stage: run.stage,
+      durationMs: now - (run.enters[0]?.at ?? now),
+      stages: stageDurations(computeStageTimings(run.enters, now)),
+      ...(reason ? { reason } : {}),
+    });
+  };
+  try {
+    const outcome = await settling;
+    settled(outcome);
+    return outcome;
+  } catch (err) {
+    if (err instanceof LeaseLostError) settled("lease lost");
+    else settled("failed", err instanceof StageError ? err.reason : messageOf(err));
+    throw err;
+  }
+}
+
+export function runJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
   const run = createRun(opts, deps);
+  return logSettled(run, runFresh(run));
+}
+
+async function runFresh(run: Run): Promise<TerminalState> {
   let outcome: PrintOutcome;
   try {
     outcome = await runStages(run);
@@ -90,8 +122,13 @@ export async function runJob(opts: RunJobOptions, deps: PipelineDeps): Promise<T
   return settleOutcome(run, outcome);
 }
 
-export async function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
+export function resumeJob(opts: RunJobOptions, deps: PipelineDeps): Promise<TerminalState> {
   const run = createRun(opts, deps);
+  return logSettled(run, runResumed(run));
+}
+
+async function runResumed(run: Run): Promise<TerminalState> {
+  const { deps } = run;
   run.stage = "transport";
   run.state = "printing";
   let outcome: PrintOutcome;

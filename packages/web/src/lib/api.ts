@@ -128,6 +128,7 @@ export interface CatalogProfile {
   gcodeFlavor: string;
   hasEditableContent?: boolean;
   bundled?: boolean;
+  volume?: { x: number; y: number; z: number };
 }
 
 export type CatalogSlicer = { id: string; name: string };
@@ -148,6 +149,7 @@ export interface JobHistoryEntry {
   stage?: string | null;
   error?: { stage: string; reason: string };
   artifacts?: { model?: string; gcode?: string };
+  filesRemovedAfterDays?: number;
   timings?: StageTiming[];
   filament?: { grams?: number; metres?: number };
   notes?: string;

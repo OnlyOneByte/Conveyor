@@ -19,6 +19,7 @@ import { runJob, type TerminalRecord } from "./pipeline.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { redisReaperDeps, startRedisReaper, WORKER_OPTIONS } from "./redis-reaper.js";
+import { type LiveJobs, liveFromParams } from "./retention.js";
 import { messageOf, type PipelineDeps } from "./run.js";
 import { StatusBus } from "./status.js";
 
@@ -30,8 +31,11 @@ export interface RedisWorkerDeps {
 
 export interface RedisWorker {
   worker: Worker<unknown>;
+  live: () => Promise<LiveJobs>;
   stop: () => Promise<void>;
 }
+
+const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
 
 const defaultDeps: RedisWorkerDeps = {
   connect: (url, options = {}) => new Redis(url, options),
@@ -158,6 +162,12 @@ export function startRedisWorker(
 
   return {
     worker,
+    live: async () =>
+      liveFromParams(
+        (await lookup.getJobs([...LIVE_STATES])).flatMap((job) =>
+          job?.id ? [{ id: job.id, params: requestOf(job.data).generator.params }] : [],
+        ),
+      ),
     stop: async () => {
       stopReaper();
       await worker.close();

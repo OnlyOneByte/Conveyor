@@ -158,10 +158,67 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
+| `PRINTER_ADDRESS_ALLOW` | none | Hosts and CIDRs the api and worker may reach even though they fall in a refused range ([Printer addresses](#printer-addresses)), separated by commas or spaces, for example `169.254.10.0/24, printer.example`. An entry that isn't a valid CIDR stops the api at startup and fails a job's transport stage, naming the variable. |
+| `MOONRAKER_STATUS_TIMEOUT_MS` | `30000` | Longest the worker waits for one Moonraker status reply. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
+| `CONVEYOR_RETENTION_DAYS` | `30` | Days the worker keeps a finished job's folder (its STL and g-code downloads) and an upload no queued or running job uses ([Disk and Redis retention](#disk-and-redis-retention)). `0` keeps everything. Compose passes it to the api and the worker. Unset or empty uses the default; any other value must be a whole number, or the api and worker stop at startup naming the variable. |
+| `MOONRAKER_STATUS_FAILURES` | `5` | Status polls in a row that may fail (a timeout, a refused connection or an error reply) before the worker gives up on a running print. A successful poll resets the count. Same rules as above. |
+
+## Printer addresses
+
+Conveyor connects only where a self-hosted printer can be:
+
+| Address | Result |
+| --- | --- |
+| Private LAN ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`), `.local` names, public names | Allowed |
+| Loopback (`localhost`, `127.0.0.0/8`, `::1`), for a printer proxy on the same host | Allowed. The api logs the printers that use it once at startup |
+| The documented forms: `host:port`, `http(s)://…`, `//host/path`, `user:pass@host[/path]` | Allowed; the host inside them is what gets checked |
+| Link-local `169.254.0.0/16` (including `169.254.169.254`) and `fe80::/10`, the AWS (`fd00:ec2::254`), Google Cloud (`fd20:ce::254`, `metadata.google.internal`) and Alibaba (`100.100.100.200`) metadata addresses, and any of these embedded in an IPv6 address (`::ffff:a.b.c.d`, NAT64 `64:ff9b::a.b.c.d` and the local-use `64:ff9b:1::/48`, IPv4-compatible `::a.b.c.d`) | Refused |
+| A name that doesn't resolve, or resolves to no address | Refused with `Conveyor couldn't resolve <name>`, since where it points can't be checked. Add the name to `PRINTER_ADDRESS_ALLOW` to save a printer whose name only resolves on the worker's network. During a Moonraker print, a name that stops resolving counts as one failed status poll (`MOONRAKER_STATUS_FAILURES`), so a DNS hiccup doesn't fail a print that is still running; a name that resolves to a refused address fails it at once |
+
+The host is read with the same URL parser `fetch` and `WebSocket` use, so hex, decimal and octal forms such as `0xA9FEA9FE` are checked as the address they really are. It is checked when a printer is saved, before the reachability check, and before every request the worker sends to the printer: each Moonraker upload, status poll and cancel, and each Elegoo connection. A name is resolved and every address it resolves to is checked, so a name that points at a metadata address is refused too, including one that changes what it resolves to after it was saved. Conveyor doesn't follow redirects from a printer: a `3xx` reply fails the request, naming where it pointed.
+
+**Known limit:** the check resolves a name, and the request then resolves it again. A name whose DNS answer changes in the instant between the two can still reach a refused address. Connecting to the checked address instead would break HTTPS printer URLs (the certificate names the host) and isn't possible for Elegoo's WebSocket. Give printers an IP address, or a name only your own DNS answers, where this matters.
+
+A refused address gets a plain error, for example `Conveyor won't connect to 169.254.169.254: it is a link-local address, where cloud metadata services listen, not a printer on your network. If it really is your printer, add 169.254.169.254 to PRINTER_ADDRESS_ALLOW.` Saving answers `400` with it, and a job fails at the transport stage with it. To let a printer through, set `PRINTER_ADDRESS_ALLOW` on both the api and the worker (compose passes it to both).
+
+## Disk and Redis retention
+
+The worker removes what a finished job no longer needs, so `./data` and Redis don't grow with every print. It checks every hour, starting an hour after the worker starts, so a worker that keeps restarting never removes anything.
+
+| What | Removed when |
+| --- | --- |
+| A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS` (30 days by default). The job page then says "Files removed after 30 days." in place of the download buttons, and the download links answer `410`; its history stays |
+| An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` (30 days by default) and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
+| Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
+| BullMQ's record of a finished job | After 7 days |
+
+**Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. Ages are measured against a reaper clock kept in the same table. It never moves back, never passes the system clock, and moves only as fast as the running worker has itself measured with a monotonic timer, so a wrong system clock, a crash loop or a second worker can't bring deletion forward; after an outage it resumes from where it stopped, which only delays deletion. If the stored reaper clock is ahead of the system clock (an edited database, a clock that was set years ahead), that run removes nothing, logs it, and resets the reaper clock and the first-run time to now, so the 30-day count starts again. A stored reaper clock that is missing or unreadable is treated the same way, as a first run.
+
+A job that isn't finished is never touched, and neither is anything the reaper didn't create: it only removes folders named by a job id and files named `<uploadId>.stl`, directly inside `./data` and `./data/uploads`, and never follows a symlink. If the worker stops partway through, the next run finishes the job. If the queue can't be read, that run removes nothing. `CONVEYOR_RETENTION_DAYS=0` turns the reaper off.
 
 ## Health checks, logs and stopping
 
 Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds from inside each container. `docker compose ps` shows them `healthy` or `unhealthy`, and `docker compose up -d --wait` waits for both. `web` starts once the api is healthy, and Caddy once both are, so Caddy never answers `502` while the stack boots. An api that can't start, such as one missing `CONVEYOR_PASSWORD`, never turns healthy, and `docker compose logs api` names the problem.
+
+`GET /health` only says the api is running. For the whole stack, sign in and open `https://<your Conveyor address>/api/health/deep`. Without a session it answers `401`. It reports:
+
+| Field | Values | Means |
+| --- | --- | --- |
+| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer; `degraded` (HTTP `200`) when no worker has checked in within 45 seconds, or when the worker has no OpenSCAD or no slicer |
+| `db` | `ok`, `down` | the api ran `SELECT 1` on the database |
+| `redis` | `ok`, `down` | Redis answered `PING` within 2 seconds; absent with `CONVEYOR_QUEUE=sqlite` |
+| `worker` | `state`: `ok`, `stale`, `missing`; `lastSeenSecondsAgo` | the worker writes a heartbeat to the database every 15 seconds. `missing` means none was ever written, and `stale` means the last is over 45 seconds old |
+| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether the worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) when it started. `stub` with `CONVEYOR_ENGINE_STUB=1` |
+
+The report carries only these states, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
+
+The worker logs one JSON line each time a job enters a stage, and one when the job ends:
+
+```json
+{"time":"2026-11-25T10:00:03.120Z","level":"error","event":"settled","jobId":"…","outcome":"failed","stage":"slicer","durationMs":4810,"stages":[{"stage":"generator","durationMs":2210},{"stage":"slicer","durationMs":2600}],"reason":"orca-slicer exited 1: …"}
+```
+
+`outcome` is `done`, `canceled`, `failed` or `lease lost`, and `level` is `error` for the last two. `reason` is the failure reason the job page shows; for an engine that exits with an error, it ends with the last 500 characters of what the engine wrote to stderr. To follow one job: `docker compose logs worker | grep '"jobId":"<id>"'`.
 
 Every service logs through Docker's `json-file` driver capped at 3 files of 10 MB, so logs can't fill a small SD card. `docker compose logs <service>` reads them.
 
@@ -193,6 +250,8 @@ A local `--build` reuses Docker's build cache, including the worker's OS-package
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 
 ## Backup and restore
+
+Before restoring a backup older than `CONVEYOR_RETENTION_DAYS`, set `CONVEYOR_RETENTION_DAYS=0` and restart the worker, then set it back once you've checked the restore: the restored job folders and uploads would otherwise be removed on the worker's next run.
 
 What holds state, and what a backup needs:
 
@@ -320,6 +379,10 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 ```
 
 `CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
+
+## Upgrading to a release with retention
+
+The first worker that runs retention removes nothing. It records the time instead, and job folders and uploads older than `CONVEYOR_RETENTION_DAYS` (default 30) start being removed 30 days after the upgrade ([Disk and Redis retention](#disk-and-redis-retention)). To keep everything, set `CONVEYOR_RETENTION_DAYS=0` before upgrading. Redis job snapshots and BullMQ's finished-job records expire after 7 days from the upgrade on; the job history in SQLite is untouched.
 
 ## Upgrading from v0.1.x
 

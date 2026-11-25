@@ -144,12 +144,12 @@ dropped. Two guards apply to every upload:
 - An authority it rejects fails the stage with `moonraker printer address <reason>` before any request. The
   reason quotes the whole address, redacted, so a password that contains `/` is never partly quoted. An
   address with a control character or line break inside it is rejected; surrounding whitespace is trimmed.
-- Saved addresses aren't validated on save, so every form that worked before still has to: `//host/path`
-  and `user:pass@host[/path]` included.
+- Saving a printer checks only its host against the address rule, so every form that worked before still
+  does: `//host/path` and `user:pass@host[/path]` included.
 - Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). The worker passes
   the same printer to `status()` and `cancel()`, which send that key too, or `MOONRAKER_API_KEY` from the
   environment when the printer has none. Without a key, add the worker host to Moonraker's `trusted_clients`.
-- Status polls `print_stats.state` every `MOONRAKER_POLL_MS` (default 2000). Klipper states are `standby`,
+- Status polls `print_stats.state` every `MOONRAKER_POLL_MS` (default 2000, read when the status stream starts; it must be a whole number above 0). Klipper states are `standby`,
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
   `standby` after `printing` with progress at ~1 counts as done.
@@ -167,8 +167,13 @@ dropped. Two guards apply to every upload:
   running print: Klipper can report `print_duration` a hair below zero (`-1.2e-14`) after a pause before the
   first extrusion.
 - Cancel: `status(handle, signal, printer)` passes the signal to every poll and to the sleep between polls.
-  Each poll also gives up after `MOONRAKER_STATUS_TIMEOUT_MS` (default 30000) and fails the stage with
-  `moonraker status query failed`, the same as a refused connection, so a hung request can't hold the job.
+  Each poll gives up after `MOONRAKER_STATUS_TIMEOUT_MS` (default 30000), so a hung request can't hold the job.
+  A failed poll (a timeout, a refused connection or an error reply) is retried after the usual wait; once
+  `MOONRAKER_STATUS_FAILURES` (default 5) fail in a row, the stage fails with `moonraker status query failed:
+  <last error> (<n> in a row)`. A good poll resets the count. Both settings must be whole numbers above 0.
+- Every upload, status poll and cancel first checks the printer's host against the address rule in
+  [docs/self-hosting.md](../self-hosting.md#printer-addresses), resolving names each time. Elegoo checks before
+  its upload, before `START_PRINT`, before opening the status socket and before `STOP_PRINT`.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
 

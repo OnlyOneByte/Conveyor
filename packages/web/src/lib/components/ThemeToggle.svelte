@@ -21,4 +21,5 @@
 <style>
   svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
   .icon { width: 40px; padding: 0; }
+  @media (pointer: coarse) { .icon { width: var(--tap); } }
 </style>

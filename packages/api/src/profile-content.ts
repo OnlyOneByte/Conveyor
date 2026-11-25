@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,11 +10,20 @@ import {
   type OrcaProfileDocumentName,
   type OrcaProfileDocuments,
   OrcaProfileValidationError,
+  orcaPrintVolume,
+  type PrintVolume,
   type PrusaProfileDocument,
   PrusaProfileValidationError,
+  prusaPrintVolume,
+  slicerFormat,
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
 } from "@conveyor/shared";
+import {
+  dbGetOrcaProfileDocuments,
+  dbGetPrusaProfileContent,
+  type Profile,
+} from "@conveyor/shared/db";
 import { isWithin } from "@conveyor/shared/node";
 
 const defaultProfilesRoot = fileURLToPath(new URL("../../../profiles", import.meta.url));
@@ -137,6 +147,29 @@ export function validatePrusaContent(document: PrusaProfileDocument): void {
     if (error instanceof PrusaProfileValidationError) {
       throw new ProfileContentError(error.message);
     }
+    throw error;
+  }
+}
+
+export async function profileVolume(db: Database, profile: Profile): Promise<PrintVolume | null> {
+  try {
+    switch (slicerFormat(profile.slicerId)) {
+      case "orca-json": {
+        const documents =
+          dbGetOrcaProfileDocuments(db, profile.id) ??
+          (await readBundledOrcaDocuments(profile.path));
+        return orcaPrintVolume(documents.machine);
+      }
+      case "prusa-ini": {
+        const document =
+          dbGetPrusaProfileContent(db, profile.id) ?? (await readBundledPrusaConfig(profile.path));
+        return prusaPrintVolume(document.config);
+      }
+      default:
+        return null;
+    }
+  } catch (error) {
+    if (error instanceof ProfileContentError && error.statusCode === 404) return null;
     throw error;
   }
 }

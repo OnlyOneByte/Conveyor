@@ -1,4 +1,4 @@
-import { JOB_QUEUE, type JobRequest, logErrors } from "@conveyor/shared";
+import { JOB_QUEUE, JOB_REMOVAL, type JobRequest, logErrors } from "@conveyor/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 
@@ -24,4 +24,10 @@ export const redis = logErrors(
 
 export const createSubscriber = (): Redis => new Redis(REDIS_URL, { enableReadyCheck: false });
 
-export const jobQueue = logErrors(new Queue<JobRequest>(JOB_QUEUE, { connection }), "job queue");
+export const jobQueue = logErrors(
+  new Queue<JobRequest>(JOB_QUEUE, {
+    connection,
+    defaultJobOptions: { removeOnComplete: JOB_REMOVAL, removeOnFail: JOB_REMOVAL },
+  }),
+  "job queue",
+);

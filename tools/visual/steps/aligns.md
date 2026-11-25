@@ -1,0 +1,1 @@
+`aligns` fails unless its target's left and right edges match those of the `with` element, to the rounded pixel, as `print-unreachable` does to keep the dock's error card on the column of the Print bar below it.

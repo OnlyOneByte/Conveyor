@@ -1,4 +1,6 @@
-import { isTerminal } from "@conveyor/shared";
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { DAY_MS, isTerminal, type Job, retentionDays } from "@conveyor/shared";
 import {
   DEFAULT_PROFILES,
   dbCountJobs,
@@ -15,12 +17,15 @@ import {
   dbUpsertProfile,
   openDb,
   PrinterSecretsWriteError,
+  type Profile,
 } from "@conveyor/shared/db";
+import { checkPrinterAddress, PrinterAddressRefusedError } from "@conveyor/shared/node";
 import type { FastifyInstance } from "fastify";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
+import { profileVolume } from "../profile-content.js";
 import { describeIssues, listSlicers, listTransports } from "../validate.js";
 import { registerProfileContentRoutes } from "./catalog-content.js";
 
@@ -59,7 +64,7 @@ export async function registerCatalogRoutes(
     if (!job || !isTerminal(job.state)) {
       return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
     }
-    return job;
+    return withRemovedFiles(job);
   });
 
   app.get("/catalog/printers", async () => dbListPrinters(openDb()));
@@ -68,6 +73,8 @@ export async function registerCatalogRoutes(
     const parsed = parsePrinter(req.body);
     if (!parsed.success)
       return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    const refused = await refusal(parsed.data.address);
+    if (refused) return reply.code(400).send({ error: refused });
     try {
       dbUpsertPrinter(openDb(), parsed.data);
     } catch (err) {
@@ -90,6 +97,8 @@ export async function registerCatalogRoutes(
   app.get<{ Params: { id: string } }>("/catalog/printers/:id/reachable", async (req, reply) => {
     const printer = dbGetPrinter(openDb(), req.params.id);
     if (!printer) return reply.code(404).send({ error: `unknown printer ${req.params.id}` });
+    const refused = await refusal(printer.address);
+    if (refused) return reply.code(400).send({ error: refused });
     const result = await probePrinter(printer.address, printer.transportId);
     dbRecordPrinterCheck(openDb(), printer.id, { at: Date.now(), reachable: result.reachable });
     return reply.send(result);
@@ -99,9 +108,21 @@ export async function registerCatalogRoutes(
 
   app.get("/catalog/slicers", async () => listSlicers());
 
-  app.get("/catalog/profiles", async () =>
-    dbListProfiles(openDb()).map((p) => ({ ...p, bundled: BUNDLED_PROFILE_IDS.has(p.id) })),
-  );
+  app.get("/catalog/profiles", async (req) => {
+    const db = openDb();
+    const volumeOf = (p: Profile) =>
+      profileVolume(db, p).catch((err: unknown) => {
+        req.log.error({ err, profileId: p.id }, "profile print volume unreadable");
+        return null;
+      });
+    return Promise.all(
+      dbListProfiles(db).map(async (p) => ({
+        ...p,
+        bundled: BUNDLED_PROFILE_IDS.has(p.id),
+        volume: (await volumeOf(p)) ?? undefined,
+      })),
+    );
+  });
 
   app.put("/catalog/profiles", async (req, reply) => {
     const parsed = parseProfile(req.body);
@@ -134,4 +155,22 @@ export async function registerCatalogRoutes(
     dbDeleteProfile(openDb(), id);
     return reply.code(200).send({ ok: true });
   });
+}
+
+async function refusal(address: string): Promise<string | undefined> {
+  try {
+    await checkPrinterAddress(address);
+    return undefined;
+  } catch (err) {
+    if (err instanceof PrinterAddressRefusedError) return err.message;
+    throw err;
+  }
+}
+
+function withRemovedFiles(job: Job): Job & { filesRemovedAfterDays?: number } {
+  const days = retentionDays(process.env);
+  const hadFiles = Boolean(job.artifacts?.model || job.artifacts?.gcode);
+  if (days === 0 || !hadFiles || job.updatedAt >= Date.now() - days * DAY_MS) return job;
+  const folder = join(resolve(process.env.DATA_DIR ?? "/data"), job.id);
+  return existsSync(folder) ? job : { ...job, filesRemovedAfterDays: days };
 }

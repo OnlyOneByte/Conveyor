@@ -1,6 +1,8 @@
 <script lang="ts">
+  import Button from "#lib/ui/Button.svelte";
   import { measured } from "#lib/ui/behaviour.js";
   import ErrorDetails from "./ErrorDetails.svelte";
+  import Notice from "./Notice.svelte";
   export let summary: string;
   export let detail: string;
   export let ready: boolean;
@@ -10,15 +12,32 @@
   export let error: string | null = null;
   export let retried: string | null = null;
   export let why: string | null = null;
+  export let attempt = 0;
+
+  let say: HTMLElement | null = null;
+  let print: HTMLButtonElement;
+
+  $: if (!error || retried) handOff();
+
+  function handOff() {
+    if (say?.contains(document.activeElement)) print.focus();
+  }
 </script>
 
 <div class="dock" use:measured={"dock-h"}>
   {#if error}
-    <p class="last err" role="alert">
-      {error}
-      {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
-    </p>
-    <ErrorDetails detail={why} />
+    <div class="say" bind:this={say}>
+      <Notice tone="err" title="Your print didn't go out" role="alert" stamp={attempt}>
+        <span slot="message">
+          {error}
+          {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
+        </span>
+        <ErrorDetails detail={why} />
+        <svelte:fragment slot="action">
+          {#if !retried}<Button type="submit" disabled={!ready}>{busy ? "Sending…" : "Try again"}</Button>{/if}
+        </svelte:fragment>
+      </Notice>
+    </div>
   {:else if last}
     <p class="last" role="status">
       Sent to {last.printer} · <a href="/jobs/{encodeURIComponent(last.id)}">See the job</a>
@@ -31,7 +50,7 @@
         <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
       </span>
     </p>
-    <button type="submit" class="print" disabled={!ready} aria-disabled={busy}>
+    <button type="submit" class="print" bind:this={print} disabled={!ready} aria-disabled={busy}>
       {sent ? "Sent ✓" : busy ? "Sending…" : "Print"}
     </button>
   </div>
@@ -43,18 +62,19 @@
   }
   .bar {
     display: flex; align-items: center; gap: var(--s4); padding: 14px 14px 14px 22px;
-    border-radius: 22px; background: var(--ink); color: var(--bg); --focus: var(--bg);
+    border-radius: var(--r-panel); background: var(--ink); color: var(--bg); --focus: var(--bg);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
-  b { display: block; font-size: 17px; }
+  b { display: block; font-size: var(--fs-section); }
   .line {
-    display: flex; gap: 0.6ch; min-width: 0; font: 500 12.5px var(--mono);
+    display: flex; gap: 0.6ch; min-width: 0; font: 500 var(--fs-mono) var(--mono);
     color: color-mix(in oklch, var(--bg) 85%, var(--ink));
   }
   .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .change { flex: none; }
   .last { margin: 0 0 var(--s2); font-weight: 600; }
-  .err { color: var(--err); }
+  .say { margin: 0 0 var(--s2); }
+  .say a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   .last a, .change { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   @media (pointer: coarse) {
     .last a, .change { position: relative; }
@@ -64,8 +84,8 @@
     }
   }
   .print {
-    min-height: 54px; padding: 0 26px; border: 0; border-radius: 17px;
-    background: var(--accent); color: var(--accent-ink); font-size: 18px; font-weight: 800;
+    min-height: 54px; padding: 0 26px; border: 0; border-radius: var(--r-chip);
+    background: var(--accent); color: var(--accent-ink); font-size: var(--fs-section); font-weight: 800;
   }
   @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); } }
   .print:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
@@ -77,7 +97,7 @@
       position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 18px 10px 8px;
     }
     .bar { padding: 10px 10px 10px 16px; }
-    b { font-size: 15px; }
+    b { font-size: var(--fs-body); }
     .line { flex-wrap: wrap; }
     .detail { white-space: normal; }
     .print { min-height: 50px; padding: 0 20px; }

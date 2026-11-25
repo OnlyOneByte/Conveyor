@@ -26,6 +26,9 @@ export function redisPinErrors(files: Record<string, string>): string[] {
     if (refs.length === 0) errors.push(`${path}: no Redis image reference found`);
     for (const ref of refs) seen.set(ref, [...(seen.get(ref) ?? []), path]);
   }
+  for (const ref of seen.keys())
+    if (!/@sha256:[0-9a-f]{64}$/.test(ref))
+      errors.push(`the Redis image pin ${ref} isn't pinned by digest (@sha256:<64 hex>)`);
   if (seen.size > 1) {
     const list = [...seen].map(([ref, paths]) => `${ref} (${[...new Set(paths)].join(", ")})`);
     errors.push(`the Redis image pins must all use one reference; found ${list.join("; ")}`);

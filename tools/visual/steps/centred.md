@@ -1,0 +1,1 @@
+`centred` fails unless its target's vertical middle is within 1 px of the middle of the nearest ancestor matching `in`, measured inside that ancestor's borders. `jobs` uses it at both widths to keep a single-line job's name centred in its row.

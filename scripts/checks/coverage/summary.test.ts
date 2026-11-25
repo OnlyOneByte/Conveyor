@@ -8,6 +8,7 @@ import {
   nonBlankLines,
   packageOf,
   percents,
+  printSweepLog,
   SWEEP_TIMEOUT_ENV,
   summarize,
   sweepErrors,
@@ -31,13 +32,37 @@ describe("sweepErrors", () => {
   });
 });
 
+describe("printSweepLog", () => {
+  const printed = (run: Parameters<typeof printSweepLog>[0]) => {
+    const lines: string[] = [];
+    printSweepLog(run, (text) => lines.push(text));
+    return lines;
+  };
+  const reason = "sweep could not load packages/api/src/x.ts: Error: boom on import\n";
+
+  test("prints why a file failed to import", () => {
+    expect(printed({ completed: true, failed: ["packages/api/src/x.ts"], output: reason })).toEqual(
+      [reason],
+    );
+  });
+
+  test("prints the sweep's own output when it did not finish", () => {
+    expect(printed({ completed: false, failed: [], output: "timed out" })).toEqual(["timed out"]);
+  });
+
+  test("prints nothing for a clean sweep, whatever it wrote", () => {
+    expect(printed({ completed: true, failed: [], output: "1 pass\n" })).toEqual([]);
+  });
+});
+
 const lcov = (entries: Record<string, [number, number][]>): Coverage =>
   new Map(Object.entries(entries).map(([file, lines]) => [file, new Map(lines)]));
 
 describe("coverage merge", () => {
   test("classifies only package sources", () => {
     expect(packageOf("packages/api/src/routes/jobs.ts")).toBe("api");
-    expect(packageOf("packages/web/src/app.ts")).toBeNull();
+    expect(packageOf("packages/web/src/lib/api.ts")).toBe("web");
+    expect(packageOf("packages/web/src/lib/components/Viewport.svelte")).toBeNull();
     expect(packageOf("plugins/slicers/orca/src/index.ts")).toBe("plugins");
     expect(packageOf("packages/plugins/src/x.ts")).toBeNull();
     expect(packageOf("packages/api/lib/moved.ts")).toBe("api");
@@ -77,7 +102,9 @@ describe("isSource", () => {
     expect(TEST_HELPER_DIRS).toEqual([
       "packages/shared/test/helpers/",
       "packages/worker/test/helpers/",
+      "packages/web/test/helpers/",
     ]);
+    expect(isSource("packages/web/test/helpers/dom.ts")).toBe(false);
     expect(isSource("packages/shared/test/helpers/db.ts")).toBe(false);
     expect(isTestFile("packages/shared/test/helpers/db.ts")).toBe(true);
     expect(isSource("packages/worker/test/helpers/loop-harness.ts")).toBe(false);
@@ -137,7 +164,7 @@ describe("coverage totals", () => {
     const summary = summarize(merged.coverage);
     expect(summary.api).toEqual({ found: 6, hit: 0 });
     expect(summary.worker).toEqual({ found: 2, hit: 0 });
-    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100, plugins: 100 });
+    expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100, plugins: 100, web: 100 });
   });
 
   test("a test that loads a file cannot move its denominator", () => {

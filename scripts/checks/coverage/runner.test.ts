@@ -1,9 +1,9 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
-import { baselinePath, CHECKER_PATH } from "./ratchet";
-import { ROOT, readBase, readCommitted, runSweep, sources } from "./runner";
+import { baselinePath, CHECKER_PATH, PACKAGES_PATH } from "./ratchet";
+import { ROOT, readBase, readCommitted, runSweep, type Sweep, sources } from "./runner";
 import { isSource, mergeCoverage, SWEEP_TIMEOUT_ENV, summarize } from "./summary";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-runner-test-"));
@@ -33,6 +33,11 @@ const withEnv = <T>(name: string, value: string, run: () => T): T => {
 const withSweepTimeout = <T>(value: string, run: () => T): T =>
   withEnv(SWEEP_TIMEOUT_ENV, value, run);
 
+const shownIfUnfinished = (sweep: Sweep): Sweep => {
+  if (!sweep.completed) console.error(sweep.output);
+  return sweep;
+};
+
 describe("runSweep", () => {
   test(
     "runs the sweep without GITHUB_ACTIONS, so its expected failures post no CI annotations",
@@ -42,7 +47,7 @@ describe("runSweep", () => {
         "reads-env.ts",
         `require("node:fs").writeFileSync(${JSON.stringify(seen)}, String(process.env.GITHUB_ACTIONS));\n`,
       );
-      const sweep = withEnv("GITHUB_ACTIONS", "true", () => runSweep([probe]));
+      const sweep = shownIfUnfinished(withEnv("GITHUB_ACTIONS", "true", () => runSweep([probe])));
       expect(sweep.completed).toBe(true);
       expect(readFileSync(seen, "utf8")).toBe("undefined");
     },
@@ -55,7 +60,7 @@ describe("runSweep", () => {
       const ok = fixture("ok.ts", "export const one = () => 1;\n");
       const throws = fixture("throws.ts", 'throw new Error("boom");\n');
       const exits = fixture("exits.ts", "process.exit(3);\n");
-      const sweep = runSweep([ok, throws, exits]);
+      const sweep = shownIfUnfinished(runSweep([ok, throws, exits]));
       expect(sweep.completed).toBe(true);
       expect(sweep.failed).toEqual([throws, exits]);
       expect([...sweep.coverage.keys()].some((path) => path.endsWith("ok.ts"))).toBe(true);
@@ -78,7 +83,13 @@ describe("runSweep", () => {
     () => {
       const hangs = fixture("hangs.ts", "await new Promise(() => {});\n");
       const started = performance.now();
-      expect(withSweepTimeout("500", () => runSweep([hangs])).completed).toBe(false);
+      const printed = spyOn(console, "error");
+      const sweep = withSweepTimeout("500", () => runSweep([hangs]));
+      const printedCalls = printed.mock.calls.length;
+      printed.mockRestore();
+      expect(sweep.completed).toBe(false);
+      expect(sweep.output).toContain("timed out after 500ms");
+      expect(printedCalls).toBe(0);
       expect(performance.now() - started).toBeLessThan(SLOW / 2);
     },
     SLOW,
@@ -105,7 +116,7 @@ describe("runSweep", () => {
         for (const path of paths) {
           expect(isSource(path)).toBe(true);
         }
-        const sweep = runSweep(paths);
+        const sweep = shownIfUnfinished(runSweep(paths));
         expect(sweep.completed).toBe(true);
         const merged = mergeCoverage({
           sources: paths,
@@ -158,17 +169,17 @@ const repo = (files: Record<string, string>) => {
   return root;
 };
 
-const none = { api: null, worker: null, shared: null, plugins: null };
+const none = { api: null, worker: null, shared: null, plugins: null, web: null };
 
 describe("readBase", () => {
   test("detects a base that has the checker but no baseline", () => {
     const root = repo({ [CHECKER_PATH]: "export {};\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true, packages: null });
   });
 
   test("detects a base that predates the checker", () => {
     const root = repo({ "README.md": "x\n" });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: false });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: false, packages: null });
   });
 
   test("reads one file per package from the base", () => {
@@ -180,6 +191,7 @@ describe("readBase", () => {
     expect(readBase("HEAD", root)).toEqual({
       baseline: { ...none, api: "40\n", shared: "80\n" },
       hasChecker: true,
+      packages: null,
     });
   });
 
@@ -188,7 +200,19 @@ describe("readBase", () => {
       [CHECKER_PATH]: "export {};\n",
       "scripts/checks/coverage/baseline.json": '{"lines":{"api":35.51,"worker":79}}\n',
     });
-    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true });
+    expect(readBase("HEAD", root)).toEqual({ baseline: none, hasChecker: true, packages: null });
+  });
+
+  test("reads the package list the base's checker measures", () => {
+    const root = repo({
+      [CHECKER_PATH]: "export {};\n",
+      [PACKAGES_PATH]: 'export const PACKAGES = ["api", "worker"] as const;\n',
+    });
+    expect(readBase("HEAD", root)).toEqual({
+      baseline: none,
+      hasChecker: true,
+      packages: ["api", "worker"],
+    });
   });
 
   test("an unresolvable base ref is an error", () => {

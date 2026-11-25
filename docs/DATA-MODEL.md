@@ -13,8 +13,8 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 
 **Rule of thumb, Redis mode (the default):** Redis is the *live* truth for an in-flight job; SQLite is
 the *durable* truth for config and finished jobs. On a terminal state the worker writes the final `Job`
-row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until
-something deletes it.
+row to SQLite; the Redis `job:<id>` snapshot and `job:<id>:seq` counter expire 7 days after the job settles
+(`JOB_KEY_TTL_SECONDS`), and a live job's never do.
 
 **SQLite mode** (`CONVEYOR_QUEUE=sqlite` plus `CONVEYOR_QUEUE_UNSTABLE=1`): the `jobs` row is inserted at
 enqueue and is the one truth for queue state, live status and history; live events go to `job_events`.
@@ -214,7 +214,7 @@ jobs (history pages, and counts over a time window; `dbListJobs`, and `dbCountJo
 |---|---|---|---|
 | submit | enqueue + initial snapshot | — | mkdir `/data/<id>` |
 | generating/slicing/transferring/printing | snapshot + publish each transition | — | write `model.stl`, `model.gcode` |
-| terminal (done/failed/canceled) | final snapshot (no TTL) | **insert/append `jobs` row** | keep gcode; cleanup on failure |
+| terminal (done/failed/canceled) | final snapshot (expires in 7 days) | **insert/append `jobs` row** | keep gcode; cleanup on failure; the retention reaper removes the folder later |
 | operator edits printer/profile | — | upsert | — |
 
 In SQLite mode the Redis column is empty: submit inserts the `jobs` row, every transition updates it and
@@ -224,7 +224,7 @@ settled more than 7 days ago; the `jobs` row stays.
 ## Redis keys (Redis mode; in `shared/src/events.ts` and `shared/src/status.ts`)
 
 - `conveyor-jobs` — BullMQ queue (BullMQ forbids `:` in a queue name)
-- `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`)
+- `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`); expires 7 days after the job settles, so `GET /jobs/:id` answers `404` for an older job and the PWA reads `GET /jobs-history/:id`
 - `job:<id>:status` — pub/sub channel the API bridges to the WS
 - `job:<id>:control` — cancel signal, fast path (API → worker)
 - `jobs:active` — set of in-flight job ids. It is updated in the same Lua script (`PUBLISH_STATUS_SCRIPT`) as the snapshot, so the set and the snapshot always agree on whether a job is live.
@@ -251,11 +251,23 @@ both the database and the key.
 
 ## Retention
 
-- Artifacts: a done job's `/data/<id>/` is kept, and nothing prunes it yet, so disk use grows with every
-  print (#9). A failed or canceled job's directory is removed when it settles (`worker/src/settle.ts`).
+- Artifacts: a failed or canceled job's directory is removed when it settles (`worker/src/settle.ts`). A
+  done job's `/data/<id>/` is kept for its downloads until the worker's retention reaper
+  (`worker/src/retention.ts`) removes it, `CONVEYOR_RETENTION_DAYS` (default 30) after the job's `jobs` row
+  last changed, or after that long from the first retention run (`meta` key `retention:started_at`),
+  whichever is later, so an upgrade removes nothing at once. Ages are measured against a reaper clock
+  (`retention:last_run_at`) that never moves back, never passes the system clock, and advances only by the
+  uptime the running worker has measured itself (`performance.now`). The first run is one interval after the
+  worker starts. A stored clock ahead of the system clock removes nothing and resets both keys to now. The artifact routes then answer `410`, and `GET /jobs-history/:id` adds
+  `filesRemovedAfterDays` (the setting) when the job had files, is older than the setting and its folder is
+  gone, so the job page can say so.
+- Uploads: `/data/uploads/<uploadId>.stl` is removed by the same reaper once it is older than
+  `CONVEYOR_RETENTION_DAYS` and no queued or running job names it.
 - `jobs` rows: keep indefinitely (small); they're the print history the PWA can list.
 - `job_events` (SQLite mode): pruned 7 days after the job settles (`EVENT_RETENTION_MS`).
-- Redis snapshots: no TTL today; they stay until deleted. SQLite is the durable record.
+- Redis: `job:<id>` and `job:<id>:seq` expire 7 days after the job settles; `job:<id>:cancel` already had a
+  TTL. BullMQ keeps completed and failed jobs for 7 days, with no count cap
+  (`removeOnComplete`/`removeOnFail`, `JOB_REMOVAL`). SQLite is the durable record.
 
 ## Implementation status
 
