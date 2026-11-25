@@ -112,8 +112,11 @@ describe("the pr-meta job", () => {
     expect(out.split(/\r?\n|\r/).filter((line) => line.startsWith("::warning::"))).toEqual([]);
   });
 
-  test("keeps a bad title's error on one line, so its text can't start a workflow command", () => {
-    const { out } = check({ title: "bad title\n::warning::injected" });
+  test.each([
+    ["a newline", "bad title\n::warning::injected"],
+    ["a carriage return", "bad title\r::warning::injected"],
+  ])("keeps a bad title's error on one line when it holds %s", (_name, title) => {
+    const { out } = check({ title });
     const lines = out.split(/\r?\n|\r/).filter(Boolean);
     expect(lines.every((line) => line.startsWith("::error::"))).toBe(true);
     expect(out).toContain("<summary>: bad title ::warning::injected");
