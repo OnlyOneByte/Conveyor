@@ -17,7 +17,7 @@
 <svelte:head><title>{heading()} · Conveyor</title></svelte:head>
 
 <section class="error" aria-labelledby="error-title">
-  <span class="code">{missing() ? "404" : unreachable ? "Offline" : `Error ${page.status}`}</span>
+  <span class="code label">{missing() ? "404" : unreachable ? "Offline" : `Error ${page.status}`}</span>
   <h1 id="error-title">{heading()}</h1>
   {#if missing()}
     <p>There's nothing at <code>{page.url.pathname}</code>. It may have moved, or the link is mistyped.</p>
@@ -36,11 +36,10 @@
 
 <style>
   .error { display: flex; flex-direction: column; gap: var(--s4); max-width: 520px; padding: 12vh 0 var(--s6); }
-  .code { font: 500 12px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
-  h1 { margin: 0; font-size: 40px; }
+  .code { color: var(--faint); }
+  h1 { margin: 0; font-size: var(--fs-title); }
   p { margin: 0; color: var(--muted); }
-  code { font: 500 14px var(--mono); color: var(--ink); background: var(--sunk); padding: 2px 6px; border-radius: 6px; }
+  code { font: 500 var(--fs-body) var(--mono); color: var(--ink); background: var(--sunk); padding: 2px 6px; border-radius: var(--r-tiny); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .acts .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
-  @media (max-width: 759px) { h1 { font-size: 32px; } }
 </style>

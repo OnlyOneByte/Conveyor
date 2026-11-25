@@ -85,7 +85,7 @@
   <div class="lane" class:stale={offline} role="group" aria-label="Rail, {moving.length} moving">
     {#each stages as stage (stage.state)}
       <i class="tick" style="left: {stage.start * 100}%"></i>
-      <span class="stage" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
+      <span class="stage label" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
     {/each}
     <div class="rail"><i class="treads" class:run={moving.length > 0}></i></div>
     <div class="chips" role="presentation" bind:this={rail} bind:clientWidth={railPx} on:keydown={walk}>
@@ -110,21 +110,21 @@
 
 <style>
   .belt { display: grid; grid-template-columns: 150px minmax(0, 1fr) 170px; gap: var(--s4); align-items: end; min-height: 110px; }
-  .label { font: 700 var(--fs-label) / 1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
   .queue { display: grid; gap: var(--s1); }
-  .slot { display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 10px; border: 1.5px dashed var(--muted); border-radius: 12px; background: var(--sunk); font-size: 13px; font-weight: 700; white-space: nowrap; }
-  .n { margin-left: auto; font: 500 12px var(--mono); color: var(--muted); }
+  .slot { display: flex; align-items: center; gap: var(--s2); min-height: 38px; padding: 0 10px; border: 1.5px dashed var(--muted); border-radius: var(--r-inner); background: var(--sunk); font-size: var(--fs-chip); font-weight: 700; white-space: nowrap; }
+  .n { margin-left: auto; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
+  @media (pointer: coarse) { .slot { min-height: var(--tap); } }
   .bins { display: grid; gap: 6px; }
   .done { border-style: solid; border-color: var(--ok); background: var(--paper); color: var(--ok); text-decoration: none; }
   .needs { border-style: solid; border-color: var(--err); background: var(--paper); color: var(--err); }
   .lane { position: relative; height: 110px; }
   .tick { position: absolute; bottom: 8px; width: 2px; height: 30px; background: var(--muted); }
-  .stage { position: absolute; bottom: 36px; font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .stage { position: absolute; bottom: 36px; }
   .stage.on { color: var(--ink); }
   .stage.on::before { content: "● " / ""; color: var(--live); }
-  .rail { position: absolute; inset: auto 0 8px; height: 22px; overflow: hidden; border-radius: 11px; background: var(--belt); }
+  .rail { position: absolute; inset: auto 0 8px; height: 22px; overflow: hidden; border-radius: var(--r-pill); background: var(--belt); }
   .treads { position: absolute; inset: 0 0 0 -26px; background: repeating-linear-gradient(90deg, var(--tread) 0 3px, transparent 3px 26px); }
-  .treads.run { animation: tread 1.3s linear infinite; will-change: transform; }
+  .treads.run { animation: tread var(--t-tread) linear infinite; will-change: transform; }
   @keyframes tread { to { transform: translateX(26px); } }
   .gone { position: absolute; inset: 0 auto auto 0; transform: translateX(var(--left)); animation: hop var(--t-hop) var(--ease-move) forwards; pointer-events: none; }
   .gone[data-end="failed"] { animation-name: drop; }
