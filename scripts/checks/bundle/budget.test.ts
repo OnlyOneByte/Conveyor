@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { budgetErrors, loosenedErrors, parseBudget } from "./budget";
+import { budgetErrors, editorErrors, loosenedErrors, parseBudget } from "./budget";
 import {
   bundlesThree,
   closure,
   missingCode,
   parseChunkModules,
+  parseEditorChunks,
   parseManifest,
   routeNodes,
   serviceWorkerPrecache,
@@ -12,12 +13,16 @@ import {
 
 const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1_000_000, gzip: 400_000 } };
 const ok = { raw: 300_000, gzip: 100_000, three: false };
+const editor = { editor: ["_app/immutable/chunks/e.js"], editorKept: [] };
 
 describe("the bundle budget", () => {
   test("passes within budget and 10% precache growth", () => {
     expect(
       budgetErrors(
-        { initialJs: { "/": ok }, precache: { raw: 1_100_000, gzip: 440_000, missing: [] } },
+        {
+          initialJs: { "/": ok },
+          precache: { raw: 1_100_000, gzip: 440_000, missing: [], ...editor },
+        },
         budget,
       ),
     ).toEqual([]);
@@ -27,7 +32,12 @@ describe("the bundle budget", () => {
     const errors = budgetErrors(
       {
         initialJs: { "/": { raw: 1_100_000, gzip: 312_310, three: true } },
-        precache: { raw: 1_100_001, gzip: 400_000, missing: ["_app/immutable/chunks/a.js"] },
+        precache: {
+          raw: 1_100_001,
+          gzip: 400_000,
+          missing: ["_app/immutable/chunks/a.js"],
+          ...editor,
+        },
       },
       budget,
     );
@@ -124,7 +134,7 @@ describe("finding three.js in a route's chunks", () => {
 
 describe("failing closed", () => {
   const ok = { raw: 1, gzip: 1, three: false };
-  const precache = { raw: 1, gzip: 1, missing: [] };
+  const precache = { raw: 1, gzip: 1, missing: [], ...editor };
   const budget = { initialJsGzip: { "/": 115_000 }, precache: { raw: 1, gzip: 1 } };
 
   test("no routes found, a budgeted route the build lacks, or no budget for / is an error", () => {
@@ -187,5 +197,26 @@ describe("the budget against the base branch", () => {
       "scripts/checks/bundle/budget.json drops the /jobs/[id] budget the base has (115.0 KB)",
       "scripts/checks/bundle/budget.json raises the precache raw from 1000.0 KB to 1100.0 KB, more than 10% in one change",
     ]);
+  });
+});
+
+describe("the profile editor's chunk", () => {
+  test("must exist and stay out of the precache, since it loads on demand", () => {
+    const sizes = { raw: 1, gzip: 1, missing: [] };
+    expect(editorErrors({ ...sizes, ...editor })).toEqual([]);
+    expect(editorErrors({ ...sizes, editor: [], editorKept: [] })).toEqual([
+      "found no profile editor chunk (CodeMirror reached only through import()); has the build changed?",
+    ]);
+    const kept = { ...sizes, editor: ["a.js", "b.js"], editorKept: ["b.js"] };
+    expect(editorErrors(kept)).toEqual([
+      "service-worker precache keeps b.js, the profile editor's code; it loads on demand",
+    ]);
+  });
+
+  test("reads the build's list of editor chunks", () => {
+    expect(parseEditorChunks('["_app/immutable/chunks/e.js"]')).toEqual([
+      "_app/immutable/chunks/e.js",
+    ]);
+    expect(() => parseEditorChunks('{"a": 1}')).toThrow();
   });
 });

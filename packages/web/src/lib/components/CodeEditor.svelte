@@ -37,7 +37,9 @@
 
 <div class="code" class:bad={invalid} bind:this={host}>
   {#if failed}
-    <p class="note" role="alert">The editor didn't load. Reload the page to try again.</p>
+    <p class="note" role="alert">
+      The editor needs a connection to load. Reconnect, then reload the page.
+    </p>
   {:else if !editor}
     <p class="note">Loading the editor…</p>
   {/if}
