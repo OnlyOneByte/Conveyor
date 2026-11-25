@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+const entries = (value: unknown): [string, unknown][] =>
+  typeof value === "object" && value !== null ? Object.entries(value) : [];
+const field = (value: unknown, key: string): unknown =>
+  entries(value).find(([name]) => name === key)?.[1];
+
 export function composeCaddyImage(compose: string): string {
-  const images = [...compose.matchAll(/^\s*image:\s*(caddy:\S+)\s*$/gm)].map((m) => m[1]);
-  const [image] = images;
-  if (!image || images.some((other) => other !== image))
-    throw new Error(`docker-compose.yml names ${images.length} caddy images, not one`);
-  if (!/@sha256:[0-9a-f]{64}$/.test(image))
+  const image = field(field(field(Bun.YAML.parse(compose), "services"), "caddy"), "image");
+  if (typeof image !== "string" || !image.startsWith("caddy:"))
+    throw new Error("docker-compose.yml's caddy service has no caddy image");
+  if (!/^caddy:[^@\s]+@sha256:[0-9a-f]{64}$/.test(image))
     throw new Error(`docker-compose.yml's ${image} isn't pinned by digest`);
   return image;
 }
@@ -42,10 +46,6 @@ export function visualCaddyfile(source: string, ports: CaddyPorts): string {
   return steps.reduce((text, [from, to]) => rewrite(text, from, to), source);
 }
 
-const entries = (value: unknown): [string, unknown][] =>
-  typeof value === "object" && value !== null ? Object.entries(value) : [];
-const field = (value: unknown, key: string): unknown =>
-  entries(value).find(([name]) => name === key)?.[1];
 const unexpected = (value: unknown, allowed: string[], what: string): string[] =>
   entries(value)
     .map(([name]) => name)
@@ -55,7 +55,7 @@ const keys = (value: unknown): string[] =>
   entries(value).flatMap(([name, inner]) => [name, ...keys(inner)]);
 const dials = (value: unknown): string[] =>
   entries(value).flatMap(([name, inner]) =>
-    name === "dial" && typeof inner === "string" ? [inner] : dials(inner),
+    (name === "dial" || name === "upstream") && typeof inner === "string" ? [inner] : dials(inner),
   );
 
 export function adaptedProblem(config: unknown, ports: CaddyPorts): string | null {

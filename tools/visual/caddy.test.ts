@@ -86,6 +86,14 @@ const variants: [string, string, string][] = [
     '("network_proxy")',
   ],
   [
+    "an outside health-check upstream",
+    production.replace(
+      "reverse_proxy api:3000",
+      "reverse_proxy api:3000 {\n\t\t\thealth_upstream 10.0.0.7:80\n\t\t\thealth_uri /\n\t\t}",
+    ),
+    "an upstream at 10.0.0.7:80",
+  ],
+  [
     "an admin address",
     production.replace("skip_install_trust", "skip_install_trust\n\tadmin 0.0.0.0:2019"),
     "the admin API isn't disabled",
@@ -117,9 +125,21 @@ test("the stack runs compose's caddy image, pinned by digest so Dependabot moves
   const compose = readFileSync(join(import.meta.dir, "../../docker-compose.yml"), "utf8");
   expect(CADDY_IMAGE).toMatch(/^caddy:2@sha256:[0-9a-f]{64}$/);
   expect(composeCaddyImage(compose)).toBe(CADDY_IMAGE);
-  expect(() => composeCaddyImage("    image: caddy:2\n")).toThrow("isn't pinned by digest");
+});
+
+test("compose's caddy image is read from the caddy service, quoted or commented", () => {
   const pinned = `caddy:2@sha256:${"a".repeat(64)}`;
-  const two = `    image: ${pinned}\n    image: caddy:2@sha256:${"b".repeat(64)}\n`;
-  expect(() => composeCaddyImage(two)).toThrow("2 caddy images, not one");
-  expect(() => composeCaddyImage("    image: redis:8\n")).toThrow("0 caddy images");
+  const other = `caddy:2@sha256:${"b".repeat(64)}`;
+  const compose = (caddy: string) =>
+    `services:\n  caddy-init:\n    image: ${other}\n  caddy:\n    image: ${caddy}\n  redis:\n    image: redis:8\n`;
+  expect(composeCaddyImage(compose(`"${pinned}"`))).toBe(pinned);
+  expect(composeCaddyImage(compose(`'${pinned}' # bumped by Dependabot`))).toBe(pinned);
+  expect(composeCaddyImage(compose(`${pinned}  # bumped by Dependabot`))).toBe(pinned);
+  expect(() => composeCaddyImage(compose('"caddy:2" # floating'))).toThrow(
+    "isn't pinned by digest",
+  );
+  expect(() => composeCaddyImage(compose("redis:8"))).toThrow("has no caddy image");
+  expect(() => composeCaddyImage(`services:\n  caddy-init:\n    image: ${pinned}\n`)).toThrow(
+    "has no caddy image",
+  );
 });
