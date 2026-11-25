@@ -221,6 +221,6 @@
   }
   @media (max-width: 759px) {
     .make { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-    .order { padding-bottom: 96px; }
+    .order { padding-bottom: calc(var(--dock-h, 120px) + var(--s4)); }
   }
 </style>

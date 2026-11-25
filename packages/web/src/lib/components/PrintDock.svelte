@@ -7,9 +7,17 @@
   export let last: { id: string; printer: string } | null;
   export let error: string | null = null;
   export let retried: string | null = null;
+
+  function measured(node: HTMLElement) {
+    const root = document.documentElement.style;
+    const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;
+    const seen = new ResizeObserver(() => root.setProperty("--dock-h", height()));
+    seen.observe(node);
+    return { destroy: () => (seen.disconnect(), root.removeProperty("--dock-h")) };
+  }
 </script>
 
-<div class="dock">
+<div class="dock" use:measured>
   {#if error}
     <p class="last err" role="alert">
       {error}
