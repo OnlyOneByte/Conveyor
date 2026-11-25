@@ -1,4 +1,4 @@
-export interface FailureText {
+interface FailureText {
   title: string;
   detail: string;
 }

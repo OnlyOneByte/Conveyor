@@ -33,7 +33,7 @@ export function fileSize(bytes: number): string {
 
 export const dockLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" · ");
 
-export type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
+type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
 
 export function latestOnly<A, R>(run: (arg: A) => Promise<R>) {
   let turn = 0;
