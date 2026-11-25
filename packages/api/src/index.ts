@@ -11,6 +11,7 @@ import { registerGeneratorRoutes } from "./routes/generators.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { frameworkErrors, registerSecurityHeaders } from "./security-headers.js";
+import { closeOnSignals, closeSocketsRestarting } from "./shutdown.js";
 import { parseTrustedProxies } from "./trusted-proxies.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -30,7 +31,8 @@ try {
 }
 
 const app = Fastify({ logger: true, trustProxy, frameworkErrors });
-await app.register(websocket);
+await app.register(websocket, { preClose: closeSocketsRestarting });
+closeOnSignals(app, { source: process, exit: (code) => process.exit(code) });
 await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
 registerSecurityHeaders(app);
 registerErrorReplies(app);

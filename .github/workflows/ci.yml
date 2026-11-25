@@ -275,10 +275,31 @@ jobs:
           context: .
           file: packages/${{ matrix.service }}/Dockerfile
           push: false
+          load: true
+          tags: conveyor-scan-${{ matrix.service }}
           build-args: |
             ORCA_ENABLE=0
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Scan ${{ matrix.service }} for vulnerabilities with a fix
+        env:
+          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
+          IMAGE: conveyor-scan-${{ matrix.service }}
+        run: |
+          trivy() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
+              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$IMAGE"
+          }
+          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
+          { echo "### $IMAGE: fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: image-scan-${{ matrix.service }}
+          path: image-scan.txt
+          if-no-files-found: warn
+          retention-days: 14
 
   orca-slice:
     name: orca slice
@@ -369,8 +390,22 @@ jobs:
           docker run --rm --network none -v conveyor_caddy_data:/data alpine sh -c \
             "stat -c '%u:%g %n' $leaf && sha256sum /data/caddy/pki/authorities/local/root.crt $leaf" | tee caddy-before.txt
           grep -q '^0:0 ' caddy-before.txt
+      - name: The Caddyfile is valid for localhost, a LAN address, a home.arpa name and a public name
+        run: |
+          for domain in localhost 192.168.1.20 conveyor.home.arpa conveyor.example.com; do
+            docker run --rm --network none -e CONVEYOR_DOMAIN="$domain" -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+              caddy:2 caddy validate --config /etc/caddy/Caddyfile > validate.txt 2>&1 || { cat validate.txt; exit 1; }
+            echo "$domain: valid"
+          done
       - name: docker compose up
         run: docker compose up -d --no-build --wait --wait-timeout 120
+      - name: The api and web report healthy
+        run: |
+          for service in api web; do
+            health=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q "$service")")
+            echo "$service: $health"
+            test "$health" = healthy
+          done
       - name: Only Caddy publishes, on loopback only
         run: |
           docker compose ps --format '{{.Service}} {{.Ports}}' | tee ports.txt
@@ -508,6 +543,15 @@ jobs:
             echo "$service: / mounted ${root%%,*}"
             test "${root%%,*}" = ro
           done
+      - name: The api stops on SIGTERM within 3 s and exits 0
+        run: |
+          started=$(date +%s%N)
+          docker compose stop api
+          took=$(( ($(date +%s%N) - started) / 1000000 ))
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -aq api)")
+          echo "api stopped in ${took} ms with exit code $code"
+          test "$code" = 0
+          test "$took" -lt 3000
       - name: Logs
         if: failure()
         run: |

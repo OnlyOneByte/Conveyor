@@ -3,8 +3,16 @@
 Self-hosted, pluggable **generate → slice → print** pipeline. Pick something to make,
 see it render instantly, send it to a printer — no slicer knowledge required.
 
+## Run it
+
+Self-hosting, from cloning to the first sign-in: [docs/self-hosting.md](docs/self-hosting.md#first-run).
+Clone with `--recurse-submodules`, set a password and a signing secret in `.env`, then
+`docker compose up -d --build`.
+
 ## Docs
 
+- [docs/README.md](docs/README.md) — index of every doc page
+- [docs/self-hosting.md](docs/self-hosting.md) — install, upgrade, backup and restore
 - `SPEC.md` — product spec & milestones
 - `docs/PLUGINS.md` — stage contracts (Generator / Slicer / Transport)
 - `docs/SEQUENCE.md` — a job's trip through the pipeline
@@ -27,7 +35,6 @@ there is no `tsc` build step and no `dist/`. `mise.toml` pins bun + Node 26.
 ```bash
 bun install
 bun run typecheck      # tsc --noEmit across the workspace
-docker compose up --build
 ```
 
 For a no-engines local run (stub mode — no OpenSCAD/Orca needed):

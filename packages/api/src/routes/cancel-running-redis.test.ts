@@ -44,6 +44,7 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
   const dir = mkdtempSync(join(tmpdir(), "conveyor-cancel-running-"));
   const marker = join(dir, "openscad.pid");
   const fakeOpenscad = join(dir, "fake-openscad");
+  const scad = join(dir, "bins.scad");
   const redisUrl = isolated(url ?? "redis://127.0.0.1:6379");
   let api: BootedApi | undefined;
   let worker: ReturnType<typeof Bun.spawn> | undefined;
@@ -51,6 +52,7 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
   beforeAll(async () => {
     writeFileSync(fakeOpenscad, `#!/bin/sh\necho $$ > "${marker}"\nexec sleep 60\n`);
     chmodSync(fakeOpenscad, 0o755);
+    writeFileSync(scad, "cube(1);\n");
     const queue = new Queue(JOB_QUEUE, {
       connection: new Redis(redisUrl, { maxRetriesPerRequest: null }),
     });
@@ -71,6 +73,7 @@ describe.skipIf(!url)("cancelling a running job on the Redis queue", () => {
         DATA_DIR: dir,
         CONVEYOR_PROFILES_ROOT: PROFILES,
         OPENSCAD_BIN: fakeOpenscad,
+        GRIDFINITY_SCAD: scad,
         WORKER_CONCURRENCY: "1",
       },
       stdout: "ignore",
