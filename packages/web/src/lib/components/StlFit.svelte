@@ -1,29 +1,25 @@
 <script lang="ts">
-  import {
-    fitOnBed,
-    inches,
-    looksInInches,
-    overBy,
-    type Size,
-    sizeLine,
-    stlSize,
-  } from "#lib/stl-size.js";
+  import { onDestroy } from "svelte";
+  import { measureStl } from "#lib/measure-stl.js";
+  import { fitOnBed, inches, looksInInches, overBy, type Size, sizeLine } from "#lib/stl-size.js";
 
   export let file: File;
   export let bed: Size | undefined = undefined;
   export let printer = "";
 
   let size: Size | null | undefined;
-  let measuring: File | null = null;
+  let measuring: AbortController | null = null;
 
   $: measure(file);
+  onDestroy(() => measuring?.abort());
 
   async function measure(chosen: File) {
-    measuring = chosen;
+    measuring?.abort();
+    const mine = new AbortController();
+    measuring = mine;
     size = undefined;
-    const buffer = await chosen.arrayBuffer().catch(() => null);
-    if (measuring !== chosen) return;
-    size = buffer ? stlSize(buffer) : null;
+    const measured = await measureStl(chosen, mine.signal);
+    if (!mine.signal.aborted) size = measured;
   }
 
   $: flat = size ? Math.max(size.x, size.y, size.z) === 0 : false;

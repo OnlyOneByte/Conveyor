@@ -116,6 +116,16 @@ describe("fitOnBed", () => {
     });
   });
 
+  test("a model that fits only turned but is too tall is only too tall", () => {
+    const narrow = { x: 220, y: 120, z: 200 };
+    expect(fitOnBed({ x: 110, y: 210, z: 300 }, narrow)).toEqual({ kind: "over", sides: ["tall"] });
+    expect(fitOnBed({ x: 100, y: 100, z: 300 }, narrow)).toEqual({ kind: "over", sides: ["tall"] });
+    expect(fitOnBed({ x: 230, y: 100, z: 300 }, narrow)).toEqual({
+      kind: "over",
+      sides: ["wide", "tall"],
+    });
+  });
+
   test("a tiny model is flagged as likely inches only when it would then fit", () => {
     expect(looksInInches({ x: 2, y: 1, z: 0.5 }, bed)).toBe(true);
     expect(looksInInches({ x: 2.9, y: 2.9, z: 2.9 }, { x: 50, y: 50, z: 50 })).toBe(false);

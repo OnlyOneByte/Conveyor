@@ -81,8 +81,9 @@ export function fitOnBed(model: Size, bed: Size): Fit {
   if (!tall && flat) return { kind: "fits" };
   if (!tall && turned) return { kind: "turned" };
   const sides: ("wide" | "deep" | "tall")[] = [];
-  if (model.x > bed.x) sides.push("wide");
-  if (model.y > bed.y) sides.push("deep");
+  const footprint = !flat && !turned;
+  if (footprint && model.x > bed.x) sides.push("wide");
+  if (footprint && model.y > bed.y) sides.push("deep");
   if (tall) sides.push("tall");
   return { kind: "over", sides };
 }
