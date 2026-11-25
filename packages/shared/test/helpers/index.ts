@@ -4,6 +4,7 @@ export * from "./db.ts";
 export * from "./engine.ts";
 export * from "./legacy-db.ts";
 export * from "./queue.ts";
+export * from "./redis-keys.ts";
 export * from "./slicer.ts";
 export * from "./temp.ts";
 export * from "./transport.ts";

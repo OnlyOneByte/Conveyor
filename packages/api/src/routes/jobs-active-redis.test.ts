@@ -26,6 +26,7 @@ import { Queue } from "bullmq";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
 import { z } from "zod";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -204,3 +205,5 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);
   });
 });
+
+dropsItsRedisKeys();

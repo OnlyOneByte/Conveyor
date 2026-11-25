@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { JOB_QUEUE, type JobRequest } from "@conveyor/shared";
 import { type Job, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 import { type BootedApi, bootApi } from "../../test/helpers/booted-api.ts";
 
 const url = process.env.REDIS_URL;
@@ -105,3 +106,5 @@ describe.skipIf(!url)(
     }, 30_000);
   },
 );
+
+dropsItsRedisKeys();
