@@ -67,6 +67,15 @@ describe("healthReport", () => {
     expect(report.status).toBe(status);
   });
 
+  test("a heartbeat row that can't be read is logged and reads as no worker", async () => {
+    const logged: string[] = [];
+    const report = await healthReport(
+      checks({ heartbeat: fail("database is locked"), onError: (check) => logged.push(check) }),
+    );
+    expect(logged).toEqual(["worker heartbeat"]);
+    expect(report).toMatchObject({ status: "degraded", db: "ok", worker: { state: "missing" } });
+  });
+
   test("a failed check is logged but its error text never reaches the report", async () => {
     const logged: string[] = [];
     const report = await healthReport(
