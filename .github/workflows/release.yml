@@ -10,6 +10,10 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: build ${{ matrix.service }} (${{ matrix.platform.arch }})
@@ -79,13 +83,20 @@ jobs:
         run: |
           image="$REGISTRY_IMAGE@$DIGEST"
           docker pull --quiet "$image"
+          docker logout ghcr.io
           trivy() {
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
-              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$image"
+              "$TRIVY" image --quiet "$@"
           }
-          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
+          for attempt in 1 2 3; do
+            if trivy --download-db-only; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+          scan() { trivy --skip-db-update --skip-java-db-update --scanners vuln --ignore-unfixed "$@" "$image"; }
+          scan --severity CRITICAL,HIGH --format table | tee image-scan.txt
           { echo "### conveyor-$SERVICE ($ARCH): fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+          scan --severity CRITICAL --exit-code 1 --format table > /dev/null
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -113,6 +124,7 @@ jobs:
   openscad-source:
     name: attach OpenSCAD source
     runs-on: ubuntu-24.04
+    needs: build
     permissions:
       contents: write
     steps:
