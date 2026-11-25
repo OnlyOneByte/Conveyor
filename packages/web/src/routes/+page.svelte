@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { jobSent, titled } from "#lib/belt.js";
@@ -14,10 +12,11 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
+  import type { RerunPayload } from "#lib/rerun.js";
+  import { AlreadyRetried, linkedRetry, sendJob, takeRerun } from "#lib/rerun.js";
   import { couldnt, said } from "#lib/said.js";
-  import {
-    AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
-  } from "#lib/rerun.js";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -67,8 +66,7 @@
 
   let file: File | null = null;
   let uploadId: string | null = null;
-  let uploading = false;
-  let uploadError = "";
+  let [uploading, uploadError] = [false, ""];
 
   const uploads = latestOnly(uploadStl);
 
@@ -83,7 +81,10 @@
     const done = await uploads.run(chosen);
     if (!done) return;
     uploading = false;
-    if (!done.ok) return void (uploadError = couldnt(`upload ${chosen.name}`, done.error));
+    if (!done.ok) {
+      uploadError = couldnt(`upload ${chosen.name}`, done.error);
+      return;
+    }
     uploadId = done.value.uploadId;
     announce(`${chosen.name} is uploaded and ready to print.`);
   }
@@ -93,15 +94,14 @@
     [file, uploadId, uploading, uploadError] = [null, null, false, ""];
   }
 
-  let busy = false;
-  let sent = false;
+  let [busy, sent] = [false, false];
   let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
 
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
-  $: name = upload ? (file?.name ?? "Your STL") : made;
-  $: summary = printer ? `${name} on ${printer.name}` : name;
+  $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
+  $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -116,7 +116,7 @@
       const res = await sendJob({ generator, printerId, profileId }, retryOf);
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
-      announce(`${name} sent to ${printer.name}.`);
+      announce(`${jobLabel} sent to ${printer.name}.`);
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;

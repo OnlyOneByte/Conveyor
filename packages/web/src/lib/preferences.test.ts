@@ -9,7 +9,9 @@ const painted: string[] = [];
 const root = { dataset: {} as Record<string, string> };
 const canvas = () => ({
   getContext: () => ({
-    set fillStyle(value: string) { painted.push(value); },
+    set fillStyle(value: string) {
+      painted.push(value);
+    },
     fillRect: () => {},
     getImageData: () => ({ data: [243, 104, 15, 255] }),
   }),
@@ -30,9 +32,14 @@ Object.assign(globalThis, fakes);
 const prefs = await import("./preferences");
 const { tokenColor } = await import("./token-color");
 
-afterAll(() => { for (const key of Object.keys(fakes)) Reflect.deleteProperty(globalThis, key); });
+afterAll(() => {
+  for (const key of Object.keys(fakes)) Reflect.deleteProperty(globalThis, key);
+});
 
-const osChanges = (dark: boolean) => { os.dark = dark; for (const run of os.changed) run(); };
+const osChanges = (dark: boolean) => {
+  os.dark = dark;
+  for (const run of os.changed) run();
+};
 
 describe("the theme", () => {
   test("follows the OS in system mode, and an explicit choice wins and is saved", () => {
@@ -47,7 +54,13 @@ describe("the theme", () => {
   });
 
   test("keeps only light and dark as choices", () => {
-    expect(["light", "dark", "system", "blue", null].map(prefs.toTheme)).toEqual(["light", "dark", "system", "system", "system"]);
+    expect(["light", "dark", "system", "blue", null].map(prefs.toTheme)).toEqual([
+      "light",
+      "dark",
+      "system",
+      "system",
+      "system",
+    ]);
   });
 
   test("app.html's inline script picks the same theme as the module for every OS and saved value", () => {
@@ -58,8 +71,16 @@ describe("the theme", () => {
       for (const value of [null, "light", "dark", "system"]) {
         const page = { documentElement: { dataset: {} as Record<string, string> } };
         const storage = { getItem: () => value };
-        new Function("localStorage", "matchMedia", "document", script)(storage, () => ({ matches: osDark }), page);
-        expect([osDark, value, page.documentElement.dataset.theme]).toEqual([osDark, value, prefs.resolveTheme(value, osDark)]);
+        new Function("localStorage", "matchMedia", "document", script)(
+          storage,
+          () => ({ matches: osDark }),
+          page,
+        );
+        expect([osDark, value, page.documentElement.dataset.theme]).toEqual([
+          osDark,
+          value,
+          prefs.resolveTheme(value, osDark),
+        ]);
       }
     }
   });

@@ -1,5 +1,5 @@
 import type { JobState } from "@conveyor/shared";
-import { submitJob } from "./api";
+import { type JobHistoryEntry, submitJob } from "./api";
 import { retryJob } from "./retry";
 
 const KEY = "conveyor.rerun";
@@ -17,8 +17,14 @@ interface Rerunnable {
   request: { generator: { id: string; params?: unknown }; printerId: string; profileId: string };
 }
 
-export const linkedRetry = (handoff: RerunPayload | null, source: string, generatorId: string | undefined) =>
-  handoff?.retryOf && source === "generate" && generatorId === handoff.generatorId ? handoff.retryOf : undefined;
+export const linkedRetry = (
+  handoff: RerunPayload | null,
+  source: string,
+  generatorId: string | undefined,
+) =>
+  handoff?.retryOf && source === "generate" && generatorId === handoff.generatorId
+    ? handoff.retryOf
+    : undefined;
 
 export const ALREADY_RETRIED = "This job was already retried.";
 
@@ -31,8 +37,16 @@ export class AlreadyRetried extends Error {
   }
 }
 
-export async function sendJob(request: Rerunnable["request"], retryOf?: string, fetchFn: typeof fetch = fetch): Promise<{ jobId: string }> {
-  if (!retryOf) return submitJob({ ...request, generator: { ...request.generator, params: request.generator.params } });
+export async function sendJob(
+  request: Rerunnable["request"],
+  retryOf?: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ jobId: string }> {
+  if (!retryOf)
+    return submitJob({
+      ...request,
+      generator: { ...request.generator, params: request.generator.params },
+    });
   const retried = await retryJob({ id: retryOf, request }, fetchFn);
   if (retried.ok) return { jobId: retried.jobId };
   if (retried.status === 409) throw new AlreadyRetried(retried.retriedBy ?? null);
@@ -41,7 +55,9 @@ export async function sendJob(request: Rerunnable["request"], retryOf?: string, 
 
 export function rerunRequest({ state, request }: Rerunnable): Rerunnable["request"] | null {
   const settled = state === "done" || state === "canceled";
-  return settled && request.generator.id !== "passthrough" && request.printerId && request.profileId ? request : null;
+  return settled && request.generator.id !== "passthrough" && request.printerId && request.profileId
+    ? request
+    : null;
 }
 
 export function stashRerun(p: RerunPayload): void {
@@ -50,6 +66,20 @@ export function stashRerun(p: RerunPayload): void {
   } catch {
     return;
   }
+}
+
+export function rerunOnMake(
+  { generator, printerId, profileId }: JobHistoryEntry["request"],
+  retryOf: string,
+): void {
+  stashRerun({
+    generatorId: generator.id,
+    params: generator.params,
+    printerId,
+    profileId,
+    retryOf,
+  });
+  location.assign("/?rerun=1");
 }
 
 export function takeRerun(): RerunPayload | null {

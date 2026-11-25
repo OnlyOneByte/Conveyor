@@ -1,9 +1,5 @@
 import type { FormUiHints } from "@conveyor/shared";
-import {
-  fieldLabel,
-  type JsonSchema,
-  resolveRoot,
-} from "./form-schema.js";
+import { fieldLabel, type JsonSchema, resolveRoot } from "./form-schema.js";
 
 export interface SettingRow {
   key: string;

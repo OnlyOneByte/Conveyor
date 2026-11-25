@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { closesOn, nextIndex, uid } from "./behaviour";
+  import { closesOn, focusedIndex, nextIndex, uid } from "./behaviour";
 
   export let label: string;
   export let items: { label: string; run: () => void }[];
@@ -18,7 +18,7 @@
 
   function keydown(event: KeyboardEvent) {
     const all = entries();
-    const to = nextIndex(event.key, all.findIndex((el) => el === document.activeElement), all.length);
+    const to = nextIndex(event.key, focusedIndex(all), all.length);
     if (to !== null) all[to]?.focus();
     else if (closesOn(event.key)) menu.hidePopover();
     if (to !== null || event.key === "Escape") event.preventDefault();

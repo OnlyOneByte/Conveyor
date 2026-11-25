@@ -1,6 +1,5 @@
 <script lang="ts">
   import Confirm from "./Confirm.svelte";
-
   export let name: string;
   export let status: string;
   export let busy: boolean;

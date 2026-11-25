@@ -1,6 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { get } from "svelte/store";
-import { closesOn, createToasts, nextIndex, rememberFocus, TABBABLE, TOAST_MS, wrapTab } from "./behaviour";
+import {
+  closesOn,
+  createToasts,
+  focusedIndex,
+  nextIndex,
+  rememberFocus,
+  TABBABLE,
+  TOAST_MS,
+  wrapTab,
+} from "./behaviour";
 
 describe("focus return", () => {
   test("focuses the element that was active when the surface opened", () => {
@@ -19,7 +28,11 @@ describe("focus return", () => {
 
 describe("menu keys", () => {
   test("arrows wrap around three items, Home and End jump to the ends", () => {
-    const moves = [nextIndex("ArrowDown", 0, 3), nextIndex("ArrowDown", 2, 3), nextIndex("ArrowUp", 0, 3)];
+    const moves = [
+      nextIndex("ArrowDown", 0, 3),
+      nextIndex("ArrowDown", 2, 3),
+      nextIndex("ArrowUp", 0, 3),
+    ];
     moves.push(nextIndex("ArrowUp", 2, 3), nextIndex("Home", 2, 3), nextIndex("End", 0, 3));
     expect(moves).toEqual([1, 0, 2, 1, 0, 2]);
     expect([nextIndex("a", 0, 3), nextIndex("ArrowDown", 0, 0)]).toEqual([null, null]);
@@ -32,7 +45,8 @@ describe("menu keys", () => {
 
 describe("dialog focus trap", () => {
   test("wraps over every tabbable kind, minus disabled controls and tabindex -1", () => {
-    const kinds = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
+    const kinds =
+      'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
     expect(TABBABLE).toBe(kinds);
   });
 
@@ -41,15 +55,26 @@ describe("dialog focus trap", () => {
   });
 
   test("leaves Tab alone between controls and in an empty dialog", () => {
-    expect([wrapTab(false, 0, 3), wrapTab(true, 2, 3), wrapTab(false, 0, 0)]).toEqual([null, null, null]);
+    expect([wrapTab(false, 0, 3), wrapTab(true, 2, 3), wrapTab(false, 0, 0)]).toEqual([
+      null,
+      null,
+      null,
+    ]);
   });
 });
 
 const fakeClock = () => {
   let at = 0;
   const timers = new Set<{ due: number; run: () => void }>();
-  const after = (run: () => void, ms: number) => { const timer = { due: at + ms, run }; timers.add(timer); return () => timers.delete(timer); };
-  const tick = (ms: number) => { at += ms; for (const timer of [...timers]) if (timer.due <= at && timers.delete(timer)) timer.run(); };
+  const after = (run: () => void, ms: number) => {
+    const timer = { due: at + ms, run };
+    timers.add(timer);
+    return () => timers.delete(timer);
+  };
+  const tick = (ms: number) => {
+    at += ms;
+    for (const timer of [...timers]) if (timer.due <= at && timers.delete(timer)) timer.run();
+  };
   return { after, now: () => at, tick, pending: () => timers.size };
 };
 
@@ -60,7 +85,9 @@ describe("toasts", () => {
     const run = () => {};
     const id = toasts.show("Canceled Bin 2×1", { label: "Print again", run });
     expect(TOAST_MS).toBe(6000);
-    expect(get(toasts)).toEqual([{ id, text: "Canceled Bin 2×1", action: { label: "Print again", run } }]);
+    expect(get(toasts)).toEqual([
+      { id, text: "Canceled Bin 2×1", action: { label: "Print again", run } },
+    ]);
     clock.tick(5999);
     expect(get(toasts)).toHaveLength(1);
     clock.tick(1);
@@ -72,7 +99,8 @@ describe("toasts", () => {
     const toasts = createToasts(clock);
     const id = toasts.show("one");
     clock.tick(4000);
-    toasts.hold(id, "focus"); toasts.hold(id, "pointer");
+    toasts.hold(id, "focus");
+    toasts.hold(id, "pointer");
     clock.tick(60_000);
     toasts.release(id, "pointer");
     clock.tick(60_000);
@@ -120,4 +148,11 @@ describe("toasts", () => {
     toasts.show("Printing");
     expect(said).toEqual(["Bin 2×1 canceled", "Printing"]);
   });
+});
+
+test("focusedIndex finds the focused element among the stops, or -1", () => {
+  const [a, b] = [{}, {}];
+  expect([focusedIndex([a, b], b), focusedIndex([a, b], null), focusedIndex([a], b)]).toEqual([
+    1, -1, -1,
+  ]);
 });

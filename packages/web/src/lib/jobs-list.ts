@@ -4,8 +4,8 @@ import type { Politeness } from "./announce";
 import { API, cancelJob, type JobHistoryEntry } from "./api";
 import { named } from "./belt";
 import { midnight } from "./belt-ends";
-import { statusError } from "./http-error";
 import type { Catalog } from "./catalog";
+import { statusError } from "./http-error";
 import { failureText } from "./job-failure";
 import { duration } from "./job-settings";
 import { retryJob } from "./retry";
@@ -53,19 +53,29 @@ const LIVE: Partial<Record<JobState, string>> = {
   printing: "printing",
 };
 
-const STAGES: Record<string, string> = { generator: "Model", slicer: "Slice", transport: "Send", print: "Print" };
+const STAGES: Record<string, string> = {
+  generator: "Model",
+  slicer: "Slice",
+  transport: "Send",
+  print: "Print",
+};
 
 export const NOTE_CHARS = 120;
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text || undefined;
 const percent = (progress: number | undefined) => `${Math.round((progress ?? 0) * 100)}%`;
-const printerName = (id: string | undefined, catalog: Catalog | null) => catalog?.printers.find((p) => p.id === id)?.name;
+const printerName = (id: string | undefined, catalog: Catalog | null) =>
+  catalog?.printers.find((p) => p.id === id)?.name;
 
 export function liveRow(view: JobView, catalog: Catalog | null, now: number): Row {
   const words = LIVE[view.state] ?? view.state;
-  const measured = view.state === "slicing" || view.state === "transferring" || view.state === "printing";
+  const measured =
+    view.state === "slicing" || view.state === "transferring" || view.state === "printing";
   const at = view.createdAt ?? view.at;
-  const request = view.generator && view.printerId && view.profileId ? { generator: view.generator, printerId: view.printerId, profileId: view.profileId } : undefined;
+  const request =
+    view.generator && view.printerId && view.profileId
+      ? { generator: view.generator, printerId: view.printerId, profileId: view.profileId }
+      : undefined;
   return {
     id: view.jobId,
     name: view.generator ? shortName(named(view.generator, catalog)) : "Job",
@@ -95,7 +105,10 @@ export function settledRow(entry: JobHistoryEntry, catalog: Catalog | null, now:
     progress: 1,
     printer: printerName(entry.request.printerId, catalog),
     status,
-    why: entry.state === "failed" && entry.error ? failureText(entry.error.stage, entry.error.reason).detail : undefined,
+    why:
+      entry.state === "failed" && entry.error
+        ? failureText(entry.error.stage, entry.error.reason).detail
+        : undefined,
     note: clip(entry.notes?.trim() ?? "", NOTE_CHARS),
     time: ago(entry.updatedAt, now),
     at: entry.updatedAt,
@@ -107,7 +120,10 @@ export function groupRows(live: Row[], settled: Row[], now: Date): Group[] {
   const today = midnight(now);
   const onBelt = new Set(live.map((row) => row.id));
   const done = settled.filter((row) => !onBelt.has(row.id));
-  const day = (title: string, from: number, to: number) => ({ title, rows: done.filter((row) => row.at >= from && row.at < to) });
+  const day = (title: string, from: number, to: number) => ({
+    title,
+    rows: done.filter((row) => row.at >= from && row.at < to),
+  });
   return [
     { title: "On the belt", rows: live },
     day("Today", today, Number.POSITIVE_INFINITY),
@@ -124,7 +140,9 @@ export function pillCount(filter: Filter, live: number, counts: Counts | null): 
 
 export function mergeSettled(older: Row[], fresh: Row[]): Row[] {
   const seen = new Set(fresh.map((row) => row.id));
-  return [...fresh, ...older.filter((row) => !seen.has(row.id))].sort((a, b) => b.at - a.at || (a.id < b.id ? 1 : -1));
+  return [...fresh, ...older.filter((row) => !seen.has(row.id))].sort(
+    (a, b) => b.at - a.at || (a.id < b.id ? 1 : -1),
+  );
 }
 
 export function historyPath(filter: Filter, after: Row | undefined, since?: number): string {
@@ -153,10 +171,17 @@ async function getJson<T>(path: string, fetchFn: typeof fetch): Promise<T> {
   return r.json();
 }
 
-export const fetchPage = (filter: Filter, after: Row | undefined, since?: number, fetchFn: typeof fetch = fetch) =>
-  getJson<JobHistoryEntry[]>(historyPath(filter, after, since), fetchFn);
+export const fetchPage = (
+  filter: Filter,
+  after: Row | undefined,
+  since?: number,
+  fetchFn: typeof fetch = fetch,
+) => getJson<JobHistoryEntry[]>(historyPath(filter, after, since), fetchFn);
 export const fetchCounts = (since?: number, fetchFn: typeof fetch = fetch) =>
-  getJson<Counts>(`${API}/jobs-history/counts${since === undefined ? "" : `?since=${since}`}`, fetchFn);
+  getJson<Counts>(
+    `${API}/jobs-history/counts${since === undefined ? "" : `?since=${since}`}`,
+    fetchFn,
+  );
 
 export const EMPTY: Record<Filter, string> = {
   all: "No jobs yet",
@@ -171,11 +196,15 @@ export const canCancel = (row: Row) => row.state in LIVE;
 type Said = [string, Politeness];
 
 export async function retryRow(row: Row | undefined, send = retryJob): Promise<Said> {
-  if (!row || row.state !== "failed" || !row.request) return ["Only a failed job can be retried.", "polite"];
+  if (row?.state !== "failed" || !row.request)
+    return ["Only a failed job can be retried.", "polite"];
   const name = shortName(row.name);
   const done = await send({ id: row.id, request: row.request }).catch(() => null);
   if (done?.ok) return [`Retrying ${name}.`, "polite"];
-  return [done?.status === 409 ? `${name} is already being retried.` : `Couldn't retry ${name}.`, "assertive"];
+  return [
+    done?.status === 409 ? `${name} is already being retried.` : `Couldn't retry ${name}.`,
+    "assertive",
+  ];
 }
 
 export const cancelRow = (row: Row, send = cancelJob): Promise<Said> =>

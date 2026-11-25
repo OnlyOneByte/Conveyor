@@ -3,7 +3,11 @@ import { secretFieldFor, secretsPatch } from "./printer-secrets.ts";
 
 describe("printer secret field", () => {
   test("an Elegoo printer saves its mainboard id as plain text", () => {
-    expect(secretFieldFor("elegoo")).toMatchObject({ key: "mainboardId", label: "Mainboard ID", hidden: false });
+    expect(secretFieldFor("elegoo")).toMatchObject({
+      key: "mainboardId",
+      label: "Mainboard ID",
+      hidden: false,
+    });
     expect(secretsPatch("elegoo", "  7f3a0c  ")).toEqual({ secrets: { mainboardId: "7f3a0c" } });
   });
 

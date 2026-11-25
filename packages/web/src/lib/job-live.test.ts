@@ -120,7 +120,10 @@ describe("followJob", () => {
   });
 
   test("reloads when the stream closes for good and the job is gone or settled", async () => {
-    for (const [code, last] of [[1000, snap("done")], [4404, null]] as const) {
+    for (const [code, last] of [
+      [1000, snap("done")],
+      [4404, null],
+    ] as const) {
       const closed = watch(last);
       closed.sockets[0]?.drop(code);
       await settle();
@@ -186,7 +189,17 @@ describe("placeInLine", () => {
 describe("ordinal", () => {
   test("writes English ordinals, teens included", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual([
-      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th",
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "101st",
+      "111th",
     ]);
   });
 });

@@ -141,7 +141,7 @@ three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load 
 The job page renders `Viewport` only for a Gridfinity job, so any other job's page never fetches three.js. Orbit controls come from three's own `OrbitControls` through `Orbit.svelte` (damping on, auto-rotate from the preference). `@threlte/extras` is gone: its barrel pulled in three's Draco and KTX2 loaders, whose `new URL(...)` emitted 1.9 MB of decoders into the build. `bun run check:bundle` holds both budgets ([contributing.md](../contributing.md#bundle-budget-bun-run-checkbundle)).
 
 
-## lib/previews/gridfinity.ts (the Gridfinity bin preview)
+## lib/previews/gridfinity.ts and gridfinity-mesh.ts (the Gridfinity bin preview)
 
 `buildGeometry` builds the bin the Make page previews: a faithful approximation, drawn on the client in well under a millisecond, not the manufacturing-exact STL ([ADR 0002](../adr/0002-dual-model-preview.md)). It is centred at the origin with Y up, then moved down by half its height so it sits in frame. `binHeight` is the overall height (the stacking lip sits inside it, as the spec has it), and `boundingRadius` is the half-diagonal the camera uses to frame any bin size.
 
@@ -155,7 +155,7 @@ The constants come from `scad/gridfinity-rebuilt-openscad/src/core/standard.scad
 | `HEIGHT_UNIT` | 7 mm | `BASE_HEIGHT`, which is also the height unit |
 | `FOOT_WIDTH` | 41.5 mm | `BASE_TOP_DIMENSIONS`, leaving the spec's 0.5 mm gap (`FOOT_GAP`) between cells |
 | `CORNER_RADIUS` | 3.75 mm | `BASE_TOP_RADIUS` (7.5 / 2) |
-| `BASE_HEIGHT` | 4.75 mm | the top of `BASE_PROFILE` |
+| `BASE_PROFILE_HEIGHT` | 4.75 mm | the top of `BASE_PROFILE` |
 | `LIP_HEIGHT`, `LIP_FILLET` | 4.4, 0.6 mm | `STACKING_LIP_HEIGHT`, `STACKING_LIP_FILLET_RADIUS` |
 | `MAGNET_RADIUS`, `MAGNET_DEPTH` | 3.25, 2.4 mm | `MAGNET_HOLE_RADIUS` (6.5 / 2), `MAGNET_HOLE_DEPTH` (the magnet plus 2 layers) |
 | `MAGNET_CENTRE_OFFSET` | 13 mm | `base_bottom_dimensions / 2 - HOLE_DISTANCE_FROM_BOTTOM_EDGE` = 35.6 / 2 − 4.8 |
@@ -175,10 +175,10 @@ The base and the stacking lip are built the way the library builds them: a 2D pr
   6. a point 0.01 mm proud of the body wall and 0.4 mm into the bridge above.
 
   The first and last stations exist so that those two edges can be rounded too, and the last one avoids a coplanar seam.
-- **`LIP_PROFILE`** is the spec's `STACKING_LIP`, `[[0,0], [0.7,0.7], [0.7,2.5], [2.6,4.4]]`: the socket the next bin's feet drop into. Its inset is measured from the bin's outer face, so it traces the lip's inner surface. The first station is the deepest point of the ledge. The spec's top point is a knife edge that it then fillets, so the code keeps a flat of half the fillet radius there instead of a zero-width strip.
+- **`LIP_PROFILE`** is the spec's `STACKING_LIP_LINE`, `[[0,0], [0.7,0.7], [0.7,2.5], [2.6,4.4]]`: the socket the next bin's feet drop into. Its inset is measured from the bin's outer face, so it traces the lip's inner surface. The first station is the deepest point of the ledge. The spec's top point is a knife edge that it then fillets, so the code keeps a flat of half the fillet radius there instead of a zero-width strip.
 - **Edge rounding** (`roundProfile`, `EDGE_ROUNDING` 0.4 mm over `EDGE_ROUNDING_STEPS` 3): the spec profiles are pure chamfers. Swept as they are, every junction is a hard crease, and the base reads as folded cardboard. A printed part has extrusion rounding at those edges, so each interior station gets a tangent arc of constant radius. The tangent length is clamped to 45 % of each neighbouring segment, so an arc can't overrun one, and a collinear or doubled-back station is left as it is. The base uses `EDGE_ROUNDING`; the lip uses half its fillet radius.
 
-### How the meshes are built
+### How the meshes are built (`gridfinity-mesh.ts`)
 
 - **`ring`** is a closed rounded rectangle in the XZ plane, walked counter-clockwise. It always has `4 × (QUADS_PER_CORNER + 1)` points, whatever its radius, so any two rings can be stitched 1:1. That is what makes the sweep work.
 - **`sweepSolid`** sweeps a rounded profile into one smooth-shaded geometry. Vertices are shared between bands, so `computeVertexNormals` shows the rounded junctions as real curvature. Flats are unaffected, because averaging across a tangent join gives back the same normal.
@@ -189,7 +189,7 @@ The base and the stacking lip are built the way the library builds them: a 2D pr
 ### Parts
 
 - **Base:** one swept foot per grid cell, smooth-shaded, plus its underside face. With magnet holes, each foot gets four bores at ±`MAGNET_CENTRE_OFFSET`. Each bore is an open cylinder for its wall, seen through the hole, and a disc for its floor (a `CircleGeometry` rotated from +Z to face −Y). The bore materials are much darker than the body on purpose: the scene has no ambient occlusion, so a 2.4 mm pocket can't shadow itself and would vanish into the surface around it. The floor is darker still, which gives the pocket depth. The bore wall is double-sided, so the far inside wall shows when you look up into it.
-- **Bridge:** the slab from `BASE_HEIGHT` to `HEIGHT_UNIT` that ties the feet together and forms the interior floor.
+- **Bridge:** the slab from `BASE_PROFILE_HEIGHT` to `HEIGHT_UNIT` that ties the feet together and forms the interior floor.
 - **Walls:** from `HEIGHT_UNIT` to the top, or to `LIP_HEIGHT` below it when there is a stacking lip. The lip then owns the top `LIP_HEIGHT`, and the two meet back to back. The touching faces point opposite ways, so they don't z-fight.
 - **Stacking lip:**
   - the swept socket;

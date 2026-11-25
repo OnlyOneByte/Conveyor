@@ -41,9 +41,11 @@ export async function uploadStl(file: File): Promise<UploadResult> {
   return r.json();
 }
 
-export async function submitJob(
-  body: { generator: { id: string; params: unknown }; printerId: string; profileId: string },
-): Promise<{ jobId: string }> {
+export async function submitJob(body: {
+  generator: { id: string; params: unknown };
+  printerId: string;
+  profileId: string;
+}): Promise<{ jobId: string }> {
   const r = await fetch(`${API}/jobs`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -92,7 +94,8 @@ export interface AuthStatus {
   authenticated: boolean;
 }
 
-export const signedIn = (status: AuthStatus): boolean => !status.authEnabled || status.authenticated;
+export const signedIn = (status: AuthStatus): boolean =>
+  !status.authEnabled || status.authenticated;
 
 export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
   const r = await fetchFn(`${API}/auth/status`);
@@ -114,7 +117,9 @@ export interface CatalogPrinter {
   lastSeenAt?: number;
   lastCheckedAt?: number;
 }
-type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt"> & { secrets?: Record<string, string> | null };
+type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt"> & {
+  secrets?: Record<string, string> | null;
+};
 export interface CatalogProfile {
   id: string;
   slicerId: string;
@@ -164,7 +169,8 @@ async function putJson(path: string, body: unknown): Promise<void> {
   if (!r.ok) throw await failure(r, `PUT ${path}`);
 }
 
-export const fetchCatalogPrinters = (f?: typeof fetch) => getJson<CatalogPrinter[]>(`${API}/catalog/printers`, f);
+export const fetchCatalogPrinters = (f?: typeof fetch) =>
+  getJson<CatalogPrinter[]>(`${API}/catalog/printers`, f);
 export interface CatalogTransport {
   id: string;
   name: string;
@@ -173,8 +179,10 @@ export interface CatalogTransport {
 
 export const fetchCatalogTransports = (f?: typeof fetch) =>
   getJson<CatalogTransport[]>(`${API}/catalog/transports`, f);
-export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
-export const fetchCatalogSlicers = (f?: typeof fetch) => getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
+export const fetchCatalogProfiles = (f?: typeof fetch) =>
+  getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
+export const fetchCatalogSlicers = (f?: typeof fetch) =>
+  getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
 
 async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T | null> {
   const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
@@ -202,7 +210,8 @@ export const savePrusaProfileContent = (id: string, document: PrusaProfileDocume
     document,
   });
 
-export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
+export const fetchJobHistory = (f?: typeof fetch) =>
+  getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
 
 export async function fetchJobHistoryEntry(
   id: string,
@@ -217,16 +226,3 @@ export async function fetchJobHistoryEntry(
 
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
-
-async function del(path: string): Promise<void> {
-  const r = await fetch(path, { method: "DELETE" });
-  if (!r.ok) throw await failure(r, `DELETE ${path}`);
-}
-
-export const deletePrinter = (id: string) =>
-  del(`${API}/catalog/printers/${encodeURIComponent(id)}`);
-export const deleteProfile = (id: string) =>
-  del(`${API}/catalog/profiles/${encodeURIComponent(id)}`);
-
-export const resetProfileContent = (id: string) =>
-  del(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`);

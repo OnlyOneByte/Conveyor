@@ -6,7 +6,10 @@ export type Retried =
   | { ok: true; jobId: string }
   | { ok: false; status: number; error: string; retriedBy?: string };
 
-export async function retryJob(failed: Pick<JobHistoryEntry, "id" | "request">, fetchFn: typeof fetch = fetch): Promise<Retried> {
+export async function retryJob(
+  failed: Pick<JobHistoryEntry, "id" | "request">,
+  fetchFn: typeof fetch = fetch,
+): Promise<Retried> {
   const r = await fetchFn(`${API}/jobs`, {
     method: "POST",
     headers: { "content-type": "application/json" },
