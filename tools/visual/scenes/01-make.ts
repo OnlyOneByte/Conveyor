@@ -27,7 +27,6 @@ const printing = {
 
 const uploadTab = { click: "role=tab[name='Upload STL']" };
 
-
 export const scenes: Scene[] = [
   {
     name: "home",
