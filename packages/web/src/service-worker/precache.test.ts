@@ -32,4 +32,10 @@ describe("the service-worker precache", () => {
   test("leaves out decoders, wasm, legacy woff fonts and non-Latin subsets", () => {
     expect(precached(dropped)).toEqual([]);
   });
+
+  test("leaves out the chunks the build marks as on demand, such as the profile editor", () => {
+    const paths = ["_app/immutable/chunks/a.js", "_app/immutable/chunks/editor.js"];
+    const kept = precached(paths, ["/_app/immutable/chunks/editor.js"]);
+    expect(kept).toEqual(["/_app/immutable/chunks/a.js"]);
+  });
 });

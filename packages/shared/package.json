@@ -12,6 +12,7 @@
     "./uploads": "./src/upload-settings.ts",
     "./node": "./src/node/index.ts",
     "./profile": "./src/profile.ts",
+    "./profile-format": "./src/profile-format.ts",
     "./status-lite": "./src/status-lite.ts"
   },
   "dependencies": {

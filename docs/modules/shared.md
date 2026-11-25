@@ -256,8 +256,10 @@ Status parsing for both queue modes, and the Redis write path.
   valid and invalid events and requires the same result. Its "every field" event must set every key of the
   exported `statusEventSchema`, and of its `print`, `error` and `timings` shapes. So a field added to the schema
   fails that test until it gets a fixture, and the fixture then fails if the lite parser doesn't handle it. The job states it checks come from
-  `job-states.ts`, which `job.ts` re-exports. Settings imports `slicerFormat` through `@conveyor/shared/profile`
-  for the same reason.
+  `job-states.ts`, which `job.ts` re-exports. For the same reason, Settings imports `slicerFormat` and
+  `isBundledProfilePath` through `@conveyor/shared/profile-format` (`profile-format.ts`). That module holds only
+  them and the Orca file names, without the slicer key lists that `@conveyor/shared/profile` loads for its
+  validators. `profile.ts` re-exports all three, and only the profile editor imports the validators.
 - `publishStatus(client, event)` runs `PUBLISH_STATUS_SCRIPT`, one Lua script, so the snapshot, the
   pub/sub message and the active-jobs set change together. It refuses to overwrite a terminal snapshot and
   returns `false` when it did. Otherwise it stamps the next `seq` from `jobSeqKey`, sets the snapshot,

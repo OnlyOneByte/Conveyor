@@ -59,6 +59,22 @@ describe("PUT /catalog/profiles", () => {
     );
   });
 
+  test("lists each profile with whether it is bundled, and the slicers by name", async () => {
+    await put("/catalog/profiles", profile({ id: "added-one" }));
+    expect(await list("/catalog/profiles")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "prusa/marlin-pla-0.2", bundled: true }),
+        expect.objectContaining({ id: "added-one", bundled: false }),
+      ]),
+    );
+    expect(await list("/catalog/slicers")).toEqual(
+      expect.arrayContaining([
+        { id: "orca", name: "OrcaSlicer" },
+        { id: "prusa", name: "PrusaSlicer" },
+      ]),
+    );
+  });
+
   test.each([
     [
       "an unknown gcode flavor",

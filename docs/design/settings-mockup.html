@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Settings mockup · Conveyor</title>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(https://cdn.jsdelivr.net/fontsource/fonts/bricolage-grotesque:vf@5.3.0/latin-wght-normal.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"DM Mono";src:url(https://cdn.jsdelivr.net/fontsource/fonts/dm-mono@5.3.0/latin-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+:root{--display:"Bricolage Grotesque",system-ui,sans-serif;--mono:"DM Mono",ui-monospace,monospace;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--r-chip:16px;--r-control:13px;--r-card:18px;--r-panel:26px}
+:root[data-theme=light]{--bg:oklch(.952 .016 85);--paper:oklch(.992 .006 85);--sunk:oklch(.93 .016 85);--ink:oklch(.22 .02 55);--muted:oklch(.45 .02 60);--faint:oklch(.5 .02 65);--line:oklch(.22 .02 55/.13);--line-2:oklch(.22 .02 55/.24);--field-line:oklch(.58 .02 60);--accent:oklch(.68 .19 45);--accent-ink:oklch(.2 .03 45);--focus:oklch(.52 .17 42);--live:oklch(.52 .18 42);--ok:oklch(.48 .13 150);--err:oklch(.5 .2 28);--off:oklch(.5 .01 60);--belt:oklch(.26 .008 60);--lift:0 1px 2px oklch(.22 .02 55/.12);--lift-hi:0 6px 18px oklch(.22 .02 55/.18)}
+:root[data-theme=dark]{--bg:oklch(.19 .01 60);--paper:oklch(.25 .012 60);--sunk:oklch(.215 .011 60);--ink:oklch(.95 .012 85);--muted:oklch(.78 .015 80);--faint:oklch(.7 .015 75);--line:oklch(.95 .01 85/.1);--line-2:oklch(.95 .01 85/.2);--field-line:oklch(.6 .015 75);--accent:oklch(.74 .17 50);--accent-ink:oklch(.18 .02 50);--focus:oklch(.74 .17 50);--live:oklch(.77 .16 52);--ok:oklch(.78 .14 150);--err:oklch(.74 .16 28);--off:oklch(.68 .01 60);--belt:oklch(.12 .005 60);--lift:0 1px 2px oklch(0 0 0/.4);--lift-hi:0 6px 18px oklch(0 0 0/.5)}
+*{box-sizing:border-box;margin:0}
+body{font:15px/1.45 var(--display);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.shell{max-width:90rem;margin:0 auto;padding:0 var(--s6) var(--s6)}
+.top{display:flex;align-items:center;gap:var(--s5);min-height:60px}
+.word{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.word i{display:flex;gap:3px}.word i b{width:7px;height:18px;border-radius:3px;background:var(--accent);transform:skewX(-14deg)}.word i b:nth-child(2){opacity:.6}.word i b:nth-child(3){opacity:.3}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:15px;background:var(--sunk);border:1px solid var(--line)}
+.tabs a{position:relative;display:flex;align-items:center;min-height:38px;padding:0 var(--s4);border-radius:11px;font-weight:600;color:var(--muted);text-decoration:none}
+.tabs a[aria-current]{background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+.tabs a[aria-current]::after{content:"";position:absolute;inset:auto var(--s3) 3px;height:3px;border-radius:2px;background:var(--live)}
+.sp{flex:1}
+.rail{height:40px;margin:var(--s1) 0 var(--s4);border-radius:var(--r-control);border:1.5px dashed var(--line-2);display:flex;align-items:center;justify-content:center;font:500 12px var(--mono);color:var(--faint)}
+.head{display:flex;align-items:flex-end;gap:var(--s4);flex-wrap:wrap;margin:var(--s2) 0 var(--s5)}
+.head .t{flex:1;min-width:240px;display:flex;flex-direction:column;gap:var(--s1)}
+h1{font-size:36px;line-height:1.05;font-weight:800;letter-spacing:-.04em}
+.sub{color:var(--muted)}
+.acts{display:flex;gap:var(--s2);flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);min-height:44px;padding:0 var(--s4);border-radius:var(--r-control);border:1.5px solid var(--field-line);background:var(--paper);color:var(--ink);font:700 15px var(--display);text-decoration:none;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:800}
+.btn.danger{color:var(--err);border-color:var(--err)}
+.btn:disabled{background:var(--sunk);border-color:var(--line-2);color:var(--muted);cursor:not-allowed}
+.btn.quiet{border-color:transparent;background:transparent}
+.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.scrim{position:fixed;inset:0;background:color-mix(in oklch,var(--belt) 55%,transparent);display:grid;place-items:center;padding:var(--s4)}
+.dialog{width:min(480px,100%);max-height:calc(100vh - 2*var(--s4));overflow:auto;padding:var(--s5);border-radius:var(--r-panel);background:var(--paper);border:1px solid var(--line);box-shadow:var(--lift-hi);display:flex;flex-direction:column;gap:var(--s4)}
+.dialog h2{font-size:18px}
+.field{display:grid;gap:var(--s1)}
+.field label,.field .l{font-weight:650}
+.box{display:flex;align-items:center;min-height:44px;padding:0 var(--s3);border:1.5px solid var(--field-line);border-radius:var(--r-control);background:var(--paper);font:inherit;color:var(--ink)}
+.box.bad{border-color:var(--err)}
+select.box{appearance:auto}
+.hint{font-size:13px;color:var(--muted)}
+.error{font-size:13px;color:var(--err);font-weight:600}
+.da{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center}
+.da .sp{flex:1}
+.cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:var(--s5);align-items:start}
+.panel{display:flex;flex-direction:column;gap:var(--s4);padding:var(--s5);border-radius:var(--r-card);background:var(--paper);border:1px solid var(--line);box-shadow:var(--lift)}
+.panel>header{display:flex;align-items:flex-start;gap:var(--s3);flex-wrap:wrap}
+.panel>header div{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.panel h2{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.side{display:flex;flex-direction:column;gap:var(--s5)}
+.list{list-style:none;padding:0;display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .n{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row b{font-weight:700}
+.facts{font:500 13px var(--mono);color:var(--muted)}
+.tag{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:99px;border:1.5px solid var(--field-line);color:var(--muted);font:600 12px var(--display);white-space:nowrap}
+.tag.edited{border-color:var(--live);color:var(--live)}
+.ra{display:flex;gap:var(--s2)}
+.note{font-size:13px;color:var(--muted)}
+.sw{display:flex;align-items:center;gap:var(--s2);min-height:30px;font-weight:600}
+.sw i{box-sizing:border-box;width:34px;height:20px;padding:1.5px;border:1.5px solid var(--muted);border-radius:10px}
+.sw i::after{content:"";display:block;width:14px;height:14px;border-radius:50%;background:var(--muted)}
+.sw.on i{background:var(--ink);border-color:var(--ink)}.sw.on i::after{background:var(--paper);transform:translateX(14px)}
+.seg{display:inline-flex;gap:4px;padding:4px;border-radius:15px;background:var(--sunk);border:1px solid var(--line)}
+.seg span{min-height:34px;display:flex;align-items:center;padding:0 var(--s3);border-radius:11px;font-weight:600;color:var(--muted)}
+.seg span.on{background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:var(--s1) var(--s4)}dt{color:var(--muted)}dd{margin:0;font-weight:600}
+.links{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4)}.links a{color:var(--ink);font-weight:600}
+.back{color:var(--muted);font-weight:600;text-decoration:none}
+.doc{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.doc span{padding:var(--s2) var(--s3);font:500 13px var(--mono);color:var(--muted);border-bottom:3px solid transparent}
+.doc span.on{color:var(--ink);border-color:var(--live)}
+.code{display:grid;grid-template-columns:auto 1fr;font:500 13px/1.6 var(--mono);border:1.5px solid var(--field-line);border-radius:var(--r-control);background:var(--paper);overflow:hidden;min-height:360px}
+.code.bad{border-color:var(--err)}
+.code ol{margin:0;padding:var(--s3) var(--s2) var(--s3) var(--s3);list-style:none;text-align:right;color:var(--faint);background:var(--sunk)}
+.code ol li.x{color:var(--err);font-weight:700}
+.code pre{margin:0;padding:var(--s3);overflow:auto;white-space:pre}
+.code pre .x{text-decoration:wavy underline var(--err)}
+.k{color:var(--live)}.s{color:var(--ok)}.v{color:var(--accent-ink);background:color-mix(in oklch,var(--accent) 22%,transparent);border-radius:3px}
+.problem{display:flex;gap:var(--s2);padding:var(--s3);border-radius:var(--r-control);border:1.5px solid var(--err);color:var(--err);font-weight:600}
+.bar2{position:sticky;bottom:0;display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;padding:var(--s3) 0;background:var(--bg)}
+.bar2 .sp{flex:1}
+.toast{position:fixed;left:50%;bottom:var(--s5);transform:translateX(-50%);display:flex;align-items:center;gap:var(--s3);padding:var(--s2) var(--s2) var(--s2) var(--s4);border-radius:var(--r-chip);background:var(--ink);color:var(--bg);font-weight:650;box-shadow:var(--lift-hi)}
+@media (max-width:999px){.cols{grid-template-columns:1fr}}
+@media (max-width:759px){
+.shell{padding:0 var(--s4) 110px}
+.top{gap:var(--s2);min-height:54px}.word{font-size:20px}
+.tabs{position:fixed;z-index:3;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);border-radius:0;border-width:1px 0 0;border-color:var(--line-2);background:var(--paper);padding:var(--s2) 10px}
+.tabs a{justify-content:center;min-height:56px}
+.tabs a[aria-current]{background:var(--sunk);box-shadow:none}
+.tabs a[aria-current]::after{inset:0 30% auto}
+h1{font-size:30px}
+.panel{padding:var(--s4)}
+.row{flex-wrap:wrap}.row .ra{width:100%}
+.bar2{bottom:82px}
+.toast{bottom:100px;width:calc(100% - 2*var(--s4))}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+  <a class="word" href="#settings"><i aria-hidden="true"><b></b><b></b><b></b></i>conveyor</a>
+  <nav class="tabs" aria-label="Main"><a href="#settings">Make</a><a href="#settings">Jobs</a><a href="#settings">Printers</a></nav>
+  <span class="sp"></span>
+</header>
+<div class="rail" aria-hidden="true">Track rail, 40 px</div>
+<main id="main" tabindex="-1"></main>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get("theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+const plus = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const row = (name, facts, tag, del) => `<li class="row"><div class="n"><b>${name}</b><span class="facts">${facts}</span></div><span class="tag${tag.includes("edited") ? " edited" : ""}">${tag}</span><div class="ra"><a class="btn" href="#editor">Edit</a>${del ? '<a class="btn danger" href="#delete">Delete</a>' : ""}</div></li>`;
+const profiles = `<section class="panel" aria-labelledby="ph"><header><div><h2 id="ph">Profiles</h2><p class="sub">How the slicer turns a model into G-code for your printer.</p></div><a class="btn" href="#add">${plus}Add profile</a></header><ul class="list">${[
+  row("Klipper PLA 0.2mm (Orca)", "PLA · 0.20 mm · Klipper · OrcaSlicer", "Bundled, edited"),
+  row("Klipper PLA 0.2mm (Prusa)", "PLA · 0.20 mm · Klipper · PrusaSlicer", "Bundled"),
+  row("Marlin PLA 0.2mm (Prusa)", "PLA · 0.20 mm · Marlin · PrusaSlicer", "Bundled"),
+  row("Voron PETG 0.25mm", "PETG · 0.25 mm · Klipper · OrcaSlicer", "Added", true),
+].join("")}</ul><p class="note">Bundled profiles ship with Conveyor. You can change their settings and reset them, but not delete them.</p></section>`;
+const prefs = '<section class="panel" aria-labelledby="pr"><header><div><h2 id="pr">This browser</h2><p class="sub">Saved on this device only.</p></div></header><div class="field"><span class="l">Theme</span><div class="seg"><span class="on">System</span><span>Light</span><span>Dark</span></div></div><span class="sw"><i></i>Spin the 3D preview</span><div class="field"><span class="sw on"><i></i>Single-key shortcuts</span><p class="hint">Keys like N and G then M. Ctrl K and the arrow keys always work.</p></div></section>';
+const about = '<section class="panel" aria-labelledby="ab"><header><div><h2 id="ab">About</h2></div></header><dl><dt>Version</dt><dd>0.1.4</dd><dt>Sign-in</dt><dd>Set by CONVEYOR_PASSWORD when Conveyor starts</dd></dl><div class="links"><a href="#settings">Source code</a><a href="#settings">Documentation</a><a href="#settings">Report a problem</a><a href="#settings">AGPL-3.0 license</a></div></section>';
+const page = () => `<div class="head"><div class="t"><h1 id="title">Settings</h1><p class="sub">Profiles, this browser and about Conveyor.</p></div></div><div class="cols">${profiles}<div class="side">${prefs}${about}</div></div>`;
+const lines = ['{', '  <span class="k">"type"</span>: <span class="s">"process"</span>,', '  <span class="k">"layer_height"</span>: <span class="s">"0.2"</span>,', '  <span class="k">"wall_loops"</span>: <span class="s">"3"</span>', '  <span class="k x">"sparse_infill_density"</span>: <span class="s">"15%"</span>,', '  <span class="k">"top_shell_layers"</span>: <span class="s">"4"</span>', '}'];
+const editor = (bad) => `<a class="back" href="#settings">← Settings</a><div class="head"><div class="t"><h1 id="title">Klipper PLA 0.2mm (Orca)</h1><p class="sub">PLA · 0.20 mm · Klipper · OrcaSlicer · Bundled, edited</p></div></div><div class="doc" role="tablist" aria-label="Files"><span>Machine</span><span class="on">Process</span><span>Filament</span></div><div class="code${bad ? " bad" : ""}"><ol aria-hidden="true">${lines.map((_, i) => `<li${bad && i === 4 ? ' class="x"' : ""}>${i + 1}</li>`).join("")}</ol><pre>${lines.join("\n")}</pre></div>${bad ? '<p class="problem" role="alert">Process, line 5: a comma or } is missing before this line.</p>' : ""}<div class="bar2"><button class="btn danger" type="button">Reset to bundled</button><span class="sp"></span><span class="note">${bad ? "Fix the error to save" : "Unsaved changes"}</span><a class="btn quiet" href="#settings">Cancel</a><button class="btn pri" type="button"${bad ? " disabled" : ""}>Save</button></div>`;
+const dialog = (title, body, acts) => `<div class="scrim"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">${title}</h2>${body}<div class="da">${acts}</div></div></div>`;
+const sel = (label, opts, hint) => `<div class="field"><label>${label}</label><select class="box">${opts.map((o) => `<option>${o}</option>`).join("")}</select>${hint ? `<p class="hint">${hint}</p>` : ""}</div>`;
+const field = (label, value, hint) => `<div class="field"><label>${label}</label><input class="box" value="${value}">${hint ? `<p class="hint">${hint}</p>` : ""}</div>`;
+const S = {
+  settings: page,
+  editor: () => editor(false),
+  error: () => editor(true),
+  delete: () => page() + dialog("Delete Voron PETG 0.25mm?", "<p>Make stops offering it. Jobs already printed with it keep their history.</p>", '<span class="sp"></span><button class="btn quiet" type="button">Keep it</button><button class="btn danger" type="button">Delete profile</button>'),
+  deleted: () => page().replace(/<li class="row"><div class="n"><b>Voron[\s\S]*?<\/li>/, "") + '<div class="toast" role="status">Deleted Voron PETG 0.25mm <button class="btn" type="button">Undo</button></div>',
+  add: () => page() + dialog("Add profile", field("Name", "Voron PETG 0.25mm") + sel("Slicer", ["OrcaSlicer", "PrusaSlicer"]) + sel("Printer firmware", ["Klipper", "Marlin"], "The G-code dialect the printer expects.") + field("Folder", "/profiles/voron-petg-0.25", "The folder in the profiles volume that holds this profile's files."), '<span class="sp"></span><button class="btn quiet" type="button">Cancel</button><button class="btn pri" type="button">Add profile</button>'),
+};
+function show() {
+  const state = location.hash.slice(1) || "settings";
+  document.getElementById("main").innerHTML = (S[state] ?? S.settings)();
+  document.title = `${document.getElementById("title").textContent} · Conveyor`;
+}
+addEventListener("hashchange", show);
+show();
+</script>
+</body>
+</html>

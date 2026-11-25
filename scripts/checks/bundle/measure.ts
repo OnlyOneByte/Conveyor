@@ -171,12 +171,20 @@ export const missingCode = (immutable: string[], kept: string[]): string[] => {
   return immutable.filter((path) => /\.(js|css)$/.test(path) && !list.has(path));
 };
 
+export const parseEditorChunks = (text: string): string[] =>
+  z.array(z.string()).parse(JSON.parse(text));
+
 export async function precache(
   output: string,
-): Promise<Sizes & { files: number; missing: string[] }> {
+): Promise<Sizes & { files: number; missing: string[]; editor: string[]; editorKept: string[] }> {
   const client = join(output, "client");
-  const immutable = walk(join(client, "_app/immutable")).map((path) => relative(client, path));
+  const editor = parseEditorChunks(readFileSync(join(output, "editor-chunks.json"), "utf8"));
+  const immutable = walk(join(client, "_app/immutable"))
+    .map((path) => relative(client, path))
+    .filter((path) => !editor.includes(path));
   const source = readFileSync(join(client, "service-worker.js"), "utf8");
   const list = (await serviceWorkerPrecache(source)).map((path) => path.replace(/^\//, ""));
-  return { ...sizeOf(client, list), files: list.length, missing: missingCode(immutable, list) };
+  const editorKept = editor.filter((path) => list.includes(path));
+  const missing = missingCode(immutable, list);
+  return { ...sizeOf(client, list), files: list.length, missing, editor, editorKept };
 }
