@@ -47,10 +47,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app.close();
-  connection.disconnect();
-  redis.disconnect();
-  process.env.DB_PATH = previousDbPath;
-  rmSync(dir, { recursive: true, force: true });
+  try {
+    if (process.env.REDIS_URL) {
+      if (connection.status === "end") await connection.connect();
+      await jobQueue.obliterate({ force: true });
+    }
+  } finally {
+    connection.disconnect();
+    redis.disconnect();
+    process.env.DB_PATH = previousDbPath;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 describe("DELETE /catalog/printers/:id", () => {
