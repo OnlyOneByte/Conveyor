@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  adaptedProblem,
   assertLoopbackCaddy,
   CADDY_IMAGE,
   caddyRun,
@@ -127,6 +128,31 @@ for (const [name, source, message] of variants)
     () => expect(checked(source)).toThrow(message),
     ADAPT_MS,
   );
+
+test("a module or option refusal names the allowlist to edit, and only that refusal does", () => {
+  const config = (handler: Record<string, unknown>, admin: Record<string, unknown>) => ({
+    admin,
+    apps: {
+      http: {
+        servers: {
+          srv0: {
+            listen: ["127.0.0.1:41000"],
+            automatic_https: { disable: true },
+            routes: [{ handle: [handler] }],
+          },
+        },
+      },
+    },
+  });
+  const hint = "add it to MODULES (or the reverse_proxy options) in tools/visual/caddy.ts";
+  const disabled = { disabled: true };
+  expect(adaptedProblem(config({ handler: "acme_server" }, disabled), ports)).toContain(hint);
+  expect(
+    adaptedProblem(config({ handler: "reverse_proxy", health_checks: {} }, disabled), ports),
+  ).toContain(hint);
+  expect(adaptedProblem(config({ handler: "headers" }, {}), ports)).not.toContain(hint);
+  expect(adaptedProblem(config({ handler: "headers" }, disabled), ports)).toBeNull();
+});
 
 test("Caddy runs on the host network with the file mounted read-only", () => {
   expect(caddyRun("/tmp/x/Caddyfile")).toEqual([

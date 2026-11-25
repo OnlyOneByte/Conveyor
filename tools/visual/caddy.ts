@@ -87,6 +87,7 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
   const servers = entries(field(http, "servers"));
   const listen = JSON.stringify([`127.0.0.1:${ports.port}`]);
   const upstreams = [`127.0.0.1:${ports.apiPort}`, `127.0.0.1:${ports.webPort}`];
+  const unlisted = objects(config).flatMap((value) => [...modules(value), ...proxy(value)]);
   const problems = [
     ...unexpected(config, ["admin", "apps"], "top-level"),
     ...unexpected(apps, ["http"], "app"),
@@ -107,7 +108,12 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
     ...dials(config)
       .filter((dial) => !upstreams.includes(dial))
       .map((dial) => `an upstream at ${dial}`),
-    ...objects(config).flatMap((value) => [...modules(value), ...proxy(value)]),
+    ...unlisted,
+    ...(unlisted.length > 0
+      ? [
+          "if production's Caddyfile needs it, add it to MODULES (or the reverse_proxy options) in tools/visual/caddy.ts",
+        ]
+      : []),
   ];
   return problems.length > 0
     ? `the visual Caddy config isn't loopback-only: ${problems.join("; ")}`

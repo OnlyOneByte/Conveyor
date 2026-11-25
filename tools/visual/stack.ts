@@ -88,10 +88,13 @@ async function waitHttp(
   throw new Error(`timed out waiting for ${url} (last: ${last})`);
 }
 
+const REDIS =
+  "redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483";
+
 export function redisContainer(port: number): { url: string; dockerRun: string[] } {
   return {
     url: `redis://127.0.0.1:${port}`,
-    dockerRun: ["docker", "run", "-d", "--rm", "-p", `127.0.0.1:${port}:6379`, "redis:8-alpine"],
+    dockerRun: ["docker", "run", "-d", "--rm", "-p", `127.0.0.1:${port}:6379`, REDIS],
   };
 }
 
