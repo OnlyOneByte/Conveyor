@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/web/src/lib/api.ts": 272,
-    "packages/web/src/lib/components/SchemaGroup.svelte": 177,
+    "packages/web/src/lib/components/SchemaGroup.svelte": 175,
     "packages/web/src/lib/previews/gridfinity.ts": 452,
     "packages/web/src/routes/+page.svelte": 221,
     "packages/web/src/routes/monitor/+page.svelte": 172

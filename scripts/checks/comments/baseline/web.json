@@ -21,7 +21,7 @@
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaGroup.svelte": {
-      "comments": 22,
+      "comments": 19,
       "suppressions": 0
     },
     "packages/web/src/lib/form-schema.ts": {
