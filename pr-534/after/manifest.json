@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:33853",
+  "url": "http://127.0.0.1:46855",
   "warnings": [],
   "results": [
     {
@@ -31,7 +31,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 685269,
+      "gifBytes": 655533,
       "gif": "new-job-1440.gif"
     },
     {
@@ -39,7 +39,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 360350,
+      "gifBytes": 377988,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -65,7 +65,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 553493,
+      "gifBytes": 522060,
       "gif": "make-print-1440.gif"
     },
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 665113,
+      "gifBytes": 728226,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -189,7 +189,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 819686,
+      "gifBytes": 844320,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -221,7 +221,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1253910,
+      "gifBytes": 1185476,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -229,7 +229,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1564489,
+      "gifBytes": 1580397,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -297,7 +297,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 622313,
+      "gifBytes": 627241,
       "gif": "new-job-390.gif"
     },
     {
@@ -305,7 +305,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376885,
+      "gifBytes": 354880,
       "gif": "job-progress-390.gif"
     },
     {
@@ -331,7 +331,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1038363,
+      "gifBytes": 1041076,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -447,7 +447,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 954490,
+      "gifBytes": 962665,
       "gif": "keyboard-390.gif"
     },
     {
