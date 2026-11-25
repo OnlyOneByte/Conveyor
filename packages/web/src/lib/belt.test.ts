@@ -77,9 +77,9 @@ describe("the belt's live feed", () => {
     state.final.set("c", new Error("offline"));
     await belt.poll();
     expect(told).toEqual([
-      { level: "polite", text: "Bin 2×3 · 6u finished on Voron 2.4" },
-      { level: "assertive", text: "Bin 2×3 · 6u failed: no profile" },
-      { level: "polite", text: "Bin 2×3 · 6u left the belt; its job page has how it ended" },
+      { level: "polite", text: "Bin 2×3 · 6u finished on Voron 2.4", ended: "a" },
+      { level: "assertive", text: "Bin 2×3 · 6u failed: no profile", ended: "b" },
+      { level: "polite", text: "Bin 2×3 · 6u left the belt; its job page has how it ended", ended: "c" },
     ]);
     expect(shown.at(-1)).toEqual([]);
     expect(ended.at(-1)?.map((job) => [job.id, job.state])).toEqual([["a", "done"], ["b", "failed"]]);
