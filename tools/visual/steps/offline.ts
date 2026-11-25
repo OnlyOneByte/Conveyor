@@ -42,6 +42,9 @@ export const step: StepRunner = {
       }, step.uncache);
       if (dropped === 0) throw new Error(`offline: nothing cached matches ${step.uncache}`);
     }
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.clearBrowserCache");
+    await cdp.detach();
     await page.context().setOffline(true);
   },
 };

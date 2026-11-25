@@ -1,7 +1,7 @@
 import editorChunks from "virtual:editor-chunks";
 import { version } from "$app/env";
 import { assets, immutable } from "$app/manifest";
-import { precached } from "./precache";
+import { fromCache, precached } from "./precache";
 
 const CACHE = `conveyor-cache-${version}`;
 const ASSETS = precached(
@@ -34,6 +34,6 @@ self.addEventListener("fetch", (event) => {
   if (e.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
   if (ASSETS.includes(url.pathname)) {
-    e.respondWith(caches.match(e.request, { ignoreVary: true }).then((r) => r ?? fetch(e.request)));
+    e.respondWith(fromCache(e.request, caches, fetch));
   }
 });
