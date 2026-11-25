@@ -93,6 +93,21 @@ describe("moonraker status poll failures", () => {
   });
 });
 
+describe("a printer name that stops resolving mid-print", () => {
+  test("counts as a failed poll, not an instant failure", async () => {
+    withEnv("MOONRAKER_STATUS_FAILURES", "3");
+    const handle = {
+      transportId: "moonraker",
+      printerId: "p1",
+      ref: "a.gcode",
+      address: "printer.invalid",
+    };
+    await expect(states(plugin.status(handle))).rejects.toThrow(
+      "moonraker status query failed: Conveyor couldn't resolve printer.invalid, so it can't check where it points. If it really is your printer, add printer.invalid to PRINTER_ADDRESS_ALLOW. (3 in a row)",
+    );
+  });
+});
+
 describe("moonraker refuses metadata addresses", () => {
   const metadata = {
     transportId: "moonraker",

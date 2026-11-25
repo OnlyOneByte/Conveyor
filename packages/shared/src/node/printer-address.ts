@@ -26,6 +26,7 @@ const REFUSED_NAMES = new Map([
 
 const EMBEDDING = new BlockList();
 EMBEDDING.addSubnet("64:ff9b::", 96, "ipv6");
+EMBEDDING.addSubnet("64:ff9b:1::", 48, "ipv6");
 EMBEDDING.addSubnet("::", 96, "ipv6");
 
 const LOOPBACK = new BlockList();
@@ -36,11 +37,21 @@ export class PrinterAddressRefusedError extends Error {
   constructor(
     readonly host: string,
     why: string,
+    message = `Conveyor won't connect to ${host}: it is ${why}, not a printer on your network. If it really is your printer, add ${host} to ${ALLOW_SETTING}.`,
   ) {
-    super(
-      `Conveyor won't connect to ${host}: it is ${why}, not a printer on your network. If it really is your printer, add ${host} to ${ALLOW_SETTING}.`,
-    );
+    super(message);
     this.name = "PrinterAddressRefusedError";
+  }
+}
+
+export class PrinterNameUnresolvedError extends PrinterAddressRefusedError {
+  constructor(host: string) {
+    super(
+      host,
+      "unresolved",
+      `Conveyor couldn't resolve ${host}, so it can't check where it points. If it really is your printer, add ${host} to ${ALLOW_SETTING}.`,
+    );
+    this.name = "PrinterNameUnresolvedError";
   }
 }
 
@@ -132,11 +143,7 @@ export function loopbackPrinters(printers: { id: string; address: string }[]): s
 async function resolved(host: string, lookup: Lookup): Promise<string[]> {
   if (isIP(host) !== 0) return [host];
   const ips = await lookup(host).catch(() => []);
-  if (ips.length === 0)
-    throw new PrinterAddressRefusedError(
-      host,
-      "a name Conveyor couldn't resolve, so it can't check where it points",
-    );
+  if (ips.length === 0) throw new PrinterNameUnresolvedError(host);
   return ips;
 }
 
@@ -163,7 +170,9 @@ export async function requirePrinterAddress(
   try {
     await checkPrinterAddress(address, options);
   } catch (err) {
-    throw new StageError("transport", err instanceof Error ? err.message : String(err));
+    throw new StageError("transport", err instanceof Error ? err.message : String(err), {
+      cause: err,
+    });
   }
 }
 

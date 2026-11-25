@@ -50,6 +50,7 @@ describe("link-local and cloud metadata addresses", () => {
     ["[fd20:ce::254]", "fd20:ce::254"],
     ["[64:ff9b::169.254.169.254]", "64:ff9b::a9fe:a9fe"],
     ["[::169.254.169.254]", "::a9fe:a9fe"],
+    ["[64:ff9b:1::169.254.169.254]", "64:ff9b:1::a9fe:a9fe"],
     ["[fd00:ec2::254]", "fd00:ec2::254"],
     ["100.100.100.200", "100.100.100.200"],
     ["metadata.google.internal", "metadata.google.internal"],
@@ -81,7 +82,7 @@ describe("link-local and cloud metadata addresses", () => {
       throw new Error("ENOTFOUND");
     };
     await expect(check("voron.local", failing)).rejects.toThrow(
-      "Conveyor won't connect to voron.local: it is a name Conveyor couldn't resolve",
+      "Conveyor couldn't resolve voron.local, so it can't check where it points. If it really is your printer, add voron.local to PRINTER_ADDRESS_ALLOW.",
     );
     await expect(check("voron.local", answers([]))).rejects.toThrow(PrinterAddressRefusedError);
     await expect(check("voron.local", failing, "voron.local")).resolves.toBeUndefined();
@@ -90,6 +91,7 @@ describe("link-local and cloud metadata addresses", () => {
   test("NAT64 and IPv4-compatible forms of an allowed address stay allowed", async () => {
     await expect(check("[64:ff9b::192.168.1.5]")).resolves.toBeUndefined();
     await expect(check("[::10.0.0.9]")).resolves.toBeUndefined();
+    await expect(check("[64:ff9b:1::192.168.1.5]")).resolves.toBeUndefined();
   });
 });
 
