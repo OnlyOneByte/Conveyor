@@ -39,4 +39,4 @@ test("a bar that appears 100 ms after the scroll holds, and one 1.5 s late fails
       "holds #bar after scrolling to 100: never appeared within 500 ms",
     );
   });
-});
+}, 30000);

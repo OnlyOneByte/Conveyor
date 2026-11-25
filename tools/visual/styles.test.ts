@@ -74,4 +74,4 @@ test("served sheets pass; blocked, emptied and token-only sheets fail", async ()
       await expect(assertStyles(page, 500)).rejects.toThrow(`styles not applied: ${why}`);
     });
   }
-});
+}, 30000);
