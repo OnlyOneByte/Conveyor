@@ -5,6 +5,20 @@ export interface LooseHover {
   media: string;
 }
 
+interface Rule {
+  selectorText?: string;
+  cssRules?: Iterable<Rule>;
+  media?: { mediaText: string };
+  styleSheet?: Sheet | null;
+}
+
+interface Sheet {
+  href: string | null;
+  cssRules: Iterable<Rule>;
+}
+
+declare const document: { styleSheets: Iterable<Sheet> };
+
 const REDUCED = "prefers-reduced-motion: reduce";
 
 export const allowedHover = ({ selector, media }: LooseHover) =>
@@ -12,27 +26,37 @@ export const allowedHover = ({ selector, media }: LooseHover) =>
 
 export function looseHovers(page: Page): Promise<LooseHover[]> {
   return page.evaluate(() => {
+    const only = (media: string) =>
+      media
+        .split(",")
+        .map((query) => query.trim().toLowerCase())
+        .every((query) => /\(\s*hover\s*:\s*hover\s*\)/.test(query) && !/(^|\s)not\b/.test(query));
     const out: { selector: string; media: string }[] = [];
-    const walk = (rules: CSSRuleList, hover: boolean, media: string) => {
+    const walk = (rules: Iterable<Rule>, safe: boolean, media: string) => {
       for (const rule of rules) {
-        if (rule instanceof CSSMediaRule) {
-          const text = rule.conditionText;
-          walk(rule.cssRules, hover || text.includes("hover: hover"), text);
+        if (rule.styleSheet !== undefined) {
+          const text = rule.media?.mediaText ?? "";
+          sheet(rule.styleSheet, safe || (text !== "" && only(text)), text || media);
           continue;
         }
-        if (rule instanceof CSSStyleRule && !hover && rule.selectorText.includes(":hover"))
+        if (rule.media && rule.cssRules) {
+          const text = rule.media.mediaText;
+          walk(rule.cssRules, safe || only(text), text);
+          continue;
+        }
+        if (!safe && rule.selectorText?.includes(":hover"))
           out.push({ selector: rule.selectorText, media });
-        if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList)
-          walk(rule.cssRules, hover, media);
+        if (rule.cssRules) walk(rule.cssRules, safe, media);
       }
     };
-    for (const sheet of document.styleSheets) {
+    const sheet = (from: Sheet | null, safe: boolean, media: string) => {
       try {
-        walk(sheet.cssRules, false, "");
+        if (from) walk(from.cssRules, safe, media);
       } catch {
-        out.push({ selector: `unreadable stylesheet ${sheet.href}`, media: "" });
+        out.push({ selector: `unreadable stylesheet ${from?.href}`, media });
       }
-    }
+    };
+    for (const each of document.styleSheets) sheet(each, false, "");
     return out;
   });
 }

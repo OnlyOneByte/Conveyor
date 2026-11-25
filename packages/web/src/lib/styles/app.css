@@ -15,6 +15,7 @@
 
 * { box-sizing: border-box; }
 
+html { scroll-padding-bottom: calc(var(--dock-h, 0px) + var(--tabbar, 0px)); }
 html, body {
   margin: 0;
   background: var(--bg);
