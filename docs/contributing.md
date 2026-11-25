@@ -143,6 +143,11 @@ Two bun over-counts are left as they are:
   it (`items.map((x) => { return f(x); })` on one line) takes that outside code's count. It is never
   zeroed, so the check can only under-correct here, never zero code that ran.
 
+A correction to how coverage is counted can make a package measure lower with no test lost. Floors are never
+lowered for it. Until coverage catches up, a package's floor can read up to the correction's size above what
+it measures; that stays within the half-point tolerance (`plugins` reads 97.38 against a measured 97.28 after
+#579), and the floor follows once coverage rises past it again.
+
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
 or measure them, so they are in neither the numerator nor the denominator, and the visual and end-to-end
