@@ -4,6 +4,7 @@ import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
+import { registerErrorReplies } from "./error-replies.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
@@ -34,6 +35,7 @@ await app.register(websocket, { preClose: closeSocketsRestarting });
 closeOnSignals(app, { source: process, exit: (code) => process.exit(code) });
 await app.register(multipart, { limits: { fileSize: uploads.maxBytes } });
 registerSecurityHeaders(app);
+registerErrorReplies(app);
 
 app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 

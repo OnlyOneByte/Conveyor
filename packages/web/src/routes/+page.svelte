@@ -1,9 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Canvas } from "@threlte/core";
-  import { ACESFilmicToneMapping } from "three";
-  import PreviewScene from "#lib/components/PreviewScene.svelte";
-  import MeshScene from "#lib/components/MeshScene.svelte";
+  import Viewport from "#lib/components/Viewport.svelte";
   import SchemaForm from "#lib/components/SchemaForm.svelte";
   import JobStatus from "#lib/components/JobStatus.svelte";
   import {
@@ -12,7 +9,6 @@
     type CatalogProfile,
     type CatalogTransport,
   } from "#lib/api.js";
-  import { rememberJob, updateJobState } from "#lib/recent-jobs.js";
   import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
   import { showMake } from "#lib/make-shown.js";
   import { goto } from "$app/navigation";
@@ -145,14 +141,6 @@
       const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
       await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
       jobId = res.jobId;
-      const profile = profiles.find((pr) => pr.id === selectedProfileId);
-      rememberJob({
-        jobId: res.jobId,
-        targetName: `${selectedPrinter?.name ?? selectedPrinterId} · ${profile?.name ?? selectedProfileId}`,
-        generatorId: generator.id,
-        submittedAt: Date.now(),
-        state: "queued",
-      });
     } catch (e) {
       error = (e as Error).message;
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
@@ -217,14 +205,10 @@
   <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
   <section class="card viewport">
     {#if hasPreview}
-      <Canvas toneMapping={ACESFilmicToneMapping}>
-        <PreviewScene {params} />
-      </Canvas>
+      <Viewport {params} />
       <span class="badge">live preview</span>
     {:else if source === "upload" && uploadFile}
-      <Canvas toneMapping={ACESFilmicToneMapping}>
-        <MeshScene file={uploadFile} />
-      </Canvas>
+      <Viewport file={uploadFile} />
       <span class="badge">uploaded mesh</span>
     {:else if source === "upload"}
       <div class="noview">
@@ -371,12 +355,12 @@
         {/if}
       {:else if printers.length && !eligiblePrinters.length}
         <p class="muted">
-          No printer accepts <span class="mono">{activeGeneratorId}</span>. Adjust a
-          printer's generator allowlist in Settings.
+          No printer accepts <span class="mono">{activeGeneratorId}</span>. Change which
+          generators a printer takes on <a href="/printers">Printers</a>.
         </p>
       {:else}
         <p class="muted">
-          {printers.length ? "No profiles registered." : "No printers configured."} Add one in Settings.
+          {#if printers.length}No profiles registered. Add one in <a href="/settings">Settings</a>.{:else}No printers yet. Add one on <a href="/printers">Printers</a>.{/if}
         </p>
       {/if}
 
@@ -391,7 +375,7 @@
     {#if jobId}{#key jobId}
       <div class="card">
         <h3>Job</h3>
-        <JobStatus {jobId} on:state={(e) => updateJobState(e.detail.jobId, e.detail.state)} />
+        <JobStatus {jobId} />
       </div>
     {/key}{/if}
 

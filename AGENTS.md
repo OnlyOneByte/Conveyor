@@ -92,9 +92,11 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
 - No explicit `any`. [CI: `lint`, outside `packages/web`; review inside it] No implied `any` either (untyped
   `JSON.parse`, a `catch (e)` used as an object): use `unknown` and narrow. [review]
 - No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
-- No `as` casts except `as const`. Parse values; don't assert them. [CI: `lint`, through `bun run check:casts`
-  over every `.ts` file and Svelte `<script>` block; the casts that predate it are listed in
-  `scripts/checks/casts/baseline.json`, which may only shrink. Casts inside Svelte markup: review]
+- No `as` casts except `as const` (or `<const>`). Parse values; don't assert them. [CI: `lint`, through
+  `bun run check:casts` over every `.ts` file and Svelte `<script>` block; the casts that predate it are
+  listed in `scripts/checks/casts/baseline.json`, which may only shrink. A file that is new to the base may
+  take over a removed file's allowance only when `git diff -M -C` pairs the two as a rename or copy (a
+  split), and never more than the removed file had. Casts inside Svelte markup: review]
 - No `enum`. Use a string-literal union with a `const` array:
   `export const JOB_STATES = ["queued", "slicing", "done"] as const; export type JobState = (typeof JOB_STATES)[number];` [review]
 - IDs are branded, never bare `string`:
@@ -160,7 +162,7 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 |---|---|
 | `lint` | `bun run lint && bun run check:casts`; after removing a cast, run `bun run check:casts:update` and commit `scripts/checks/casts/baseline.json` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
-| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check` |
+| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in anything every page loads: the layout node and the app and start entries, with their imports) |
 | `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order over an `LC_ALL=C`-sorted file list (the log prints the seed, the commit, how to check it out and the rerun command, not the file list itself); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
 | `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |

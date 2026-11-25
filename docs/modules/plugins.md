@@ -101,10 +101,11 @@ Neither transport has been run against real hardware yet (written 2026-06-29), a
 either. Confirm them with the "Verify on hardware" runbook under each one. Both read `CONVEYOR_ENGINE_STUB`
 once, when the worker loads them, so restart the worker after unsetting it.
 
-Printer settings live under **Printers** in the nav (`/settings`). The form's secret field saves
+Printers are added and edited on the **Printers** page (`/printers`). The form's secret field saves
 `secrets.mainboardId` for an Elegoo printer and `secrets.apiKey` for any other; other keys are set with
-`PUT /api/catalog/printers`. A write's `secrets` merges per key, so saving one keeps the rest, and `null`
-removes a key ([api.md](api.md#catalog-and-history-routescatalogts-routescatalog-contentts)).
+`PUT /api/catalog/printers`. A write's `secrets` merges per key, so saving one keeps the rest, `null`
+removes a key, and `secrets: null` (the form's **Clear saved secrets**) removes them all
+([api.md](api.md#catalog-and-history-routescatalogts-routescatalog-contentts)).
 
 Both upload the g-code through `multipartFileUpload({ field, path, filename }, onSent)` (`@conveyor/shared/node`),
 which streams the file from disk as one multipart part with a fixed `Content-Length`. `onSent(bytesSent,

@@ -25,10 +25,63 @@ submit it themselves.
   - **One send path:** with `retryOf`, Make's Print goes through `sendJob`, which calls `retryJob` (`lib/retry.ts`)
     like the tray's Retry. Without it, `sendJob` calls `submitJob`.
   - **A 409:** a failure that was already retried is shown as "This job was already retried." (`ALREADY_RETRIED`).
-- **Recent jobs.** After a submit, Make records the job in the browser's recent-jobs memory (`lib/recent-jobs.ts`),
-  so a refresh keeps it visible.
+- **Jobs** (`routes/jobs/+page.svelte`, `lib/jobs-list.ts`). One server-backed list:
+  - **Groups:** On the belt (from `GET /jobs/active`, polled every 2 s while visible), then Today, Yesterday and
+    Earlier (from `GET /jobs-history`, 50 at a time with its `before` cursor). A job that is on the belt is never
+    listed again below it.
+  - **Rows:** each row is one link to `/jobs/<id>` with the name, printer, status in words and time. A failure leads
+    with what to do (`failureText`).
+  - **Filters:** All, On the belt, Printed, Failed and Canceled. The settled ones ask the server by `state`, and the
+    counts come from `GET /jobs-history/counts`.
+  - **Keys:** the rows share one Tab stop. `J`/`K` move real focus, Enter opens, `C` cancels a job on the belt after
+    a confirm dialog, `R` retries a failure, and `/` focuses the filter.
+  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` redirects here.
+- **The belt's feed** (`lib/belt.ts`, `lib/active-jobs.ts`). The shell runs the only `GET /jobs/active` poll:
+  - **Sharing:** each answer goes into the `activeJobs` store, which `/monitor` and the queued job card read
+    instead of polling themselves.
+  - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
+    on the belt is on the rail with an open socket and no page is watching (`watchActive`; `/monitor` watches, so it
+    keeps 2 s). A queued job, or a closed socket, brings it back to 2 s.
+  - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
+    so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
   isn't an upload (an upload's file isn't kept), and still has a printer and a profile.
   - **Users:** the receipt and the belt's Print-again toast both decide with it.
   - **A job still canceling:** it has no history record yet, so the belt applies the same rule to the request the
     chip already carries from `GET /jobs/active`.
+
+## routes/printers and lib/printer-status.ts (the Printers page)
+
+One card per printer, from `GET /catalog/printers`, `GET /jobs/active` (every 2 s) and a reachability probe
+per printer (`GET /catalog/printers/:id/reachable`) when the page opens and once a minute after
+(`REACH_MS`), as #339 asks. Probes and polls skip while the tab is hidden. `printerCard` turns those into the
+card:
+
+| State | When | Shows |
+|---|---|---|
+| Busy | a job on `/jobs/active` names this printer and isn't `queued` | that job, its stage and percent, the time left when the printer reports `print.secondsLeft`, and a bar while printing |
+| Ready | the last probe connected | "Connected" and its latency |
+| Offline | the last probe failed | why in plain words (`unreachableText` maps `timeout`, `ECONNREFUSED` and the rest), and `lastSeenAt` as "Last answered 3h ago" |
+| Checking | no probe has answered yet | nothing else |
+
+Busy wins over a failed probe, because a printer that is printing is reachable to the worker. Every card lists
+its waiting jobs (queued ones naming it, oldest first) with links; on an offline printer the list turns red
+and says they can't start until it's back.
+
+Add and Edit open `PrinterDialog.svelte`, a `Dialog` with `Field`s and a real `Select` for the transport.
+`printer-form.ts` holds the rules: `draftErrors` checks the fields on save and then on every change, and focus
+moves to the first field with an error. A new printer's ID follows its name (`slugOf`) until you edit the ID.
+The secret field is write-only: blank keeps what is saved. **Clear saved secrets** resends the saved printer,
+not the form, with `secrets: null`. **Delete printer** asks first in the same dialog, and stays disabled while
+the printer has jobs on the belt, because the API refuses that delete with `409`; a `409` from a race is shown
+in plain words.
+
+Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
+page's **More** menu links there. `/monitor` keeps its active-jobs list only.
+
+## lib/components/Viewport.svelte (the lazy 3D preview)
+
+three.js and Threlte are about 200 KB gzip, two thirds of what `/` used to load first. `Viewport.svelte` is the only thing pages import: it fills its parent with a placeholder (a breathing cube and "Loading the 3D preview…") and, on mount, `import()`s `ViewportCanvas.svelte`, which holds the `Canvas`, the tone mapping and `PreviewScene` or `MeshScene`. The placeholder is absolutely positioned in the same box the canvas takes, so nothing shifts when it swaps. A failed import says so and asks for a reload.
+
+The job page renders `Viewport` only for a Gridfinity job, so any other job's page never fetches three.js. Orbit controls come from three's own `OrbitControls` through `Orbit.svelte` (damping on, auto-rotate from the preference). `@threlte/extras` is gone: its barrel pulled in three's Draco and KTX2 loaders, whose `new URL(...)` emitted 1.9 MB of decoders into the build. `bun run check:bundle` holds both budgets ([contributing.md](../contributing.md#bundle-budget-bun-run-checkbundle)).
+

@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { Canvas } from "@threlte/core";
-  import { ACESFilmicToneMapping } from "three";
   import { onDestroy } from "svelte";
   import { afterNavigate, goto, invalidateAll, replaceState } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
@@ -9,10 +7,10 @@
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
-  import PreviewScene from "#lib/components/PreviewScene.svelte";
+  import Viewport from "#lib/components/Viewport.svelte";
   import { failureText } from "#lib/job-failure.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
-  import { firstEnd, followJob, pillText, SETTLED } from "#lib/job-live.js";
+  import { followJob, pillText, SETTLED } from "#lib/job-live.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
@@ -28,7 +26,8 @@
   $: {
     stop();
     latest = null;
-    stop = data.view ? followJob(data.view.jobId, (v) => (latest = v), settle) : () => {};
+    const watching = data.view && !SETTLED.includes(data.view.state) ? data.view.jobId : null;
+    stop = watching ? followJob(watching, (v) => (latest = v), settle) : () => {};
   }
   onDestroy(() => stop());
   afterNavigate(({ to }) => {
@@ -67,8 +66,7 @@
   }
 
   function settle() {
-    const id = data.view && !SETTLED.includes(data.view.state) ? data.view.jobId : null;
-    if (id && firstEnd(id)) setTimeout(invalidateAll, 300);
+    setTimeout(invalidateAll, 300);
   }
 </script>
 
@@ -79,7 +77,7 @@
     <h1 id="job-title">{title}</h1>
     <p>It may have been removed, or the link is mistyped.</p>
     <div class="acts">
-      <a class="btn primary" href="/history">See your jobs</a>
+      <a class="btn primary" href="/jobs">See your jobs</a>
       <a class="btn" href="/">Go to Make</a>
     </div>
   </section>
@@ -99,15 +97,13 @@
   <div class="grid">
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}
-        <Canvas toneMapping={ACESFilmicToneMapping}>
-          <PreviewScene params={isRecord(params) ? params : {}} />
-        </Canvas>
+        <Viewport params={isRecord(params) ? params : {}} />
       {:else}
         <span class="tag">{title}</span>
       {/if}
     </div>
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} place={data.place} printer={data.printer} />{/if}
+      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
     </JobReceipt>
   </div>
 {/if}

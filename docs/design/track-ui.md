@@ -71,15 +71,17 @@ OKLCH. Every text pair below passes WCAG AA (axe-core 4.14 on the mockup, light 
 | `--muted` | `oklch(.45 .02 60)` | `oklch(.78 .015 80)` | Secondary text |
 | `--faint` | `oklch(.5 .02 65)` | `oklch(.7 .015 75)` | Labels |
 | `--line` / `--line-2` | ink at 13% / 24% | ink at 10% / 20% | Borders |
+| `--field-line` | `oklch(.58 .02 60)` | `oklch(.6 .015 75)` | Borders of inputs, selects, textareas and steppers: at least 3:1 on `--bg`, `--paper` and `--sunk` |
 | `--accent` | `oklch(.68 .19 45)` | `oklch(.74 .17 50)` | The one primary action |
-| `--focus` | `oklch(.52 .17 42)` | `oklch(.74 .17 50)` | Focus ring: at least 4.8:1 on `--bg`, `--paper` and `--sunk` in both themes (WCAG 1.4.11 needs 3:1) |
+| `--focus` | `oklch(.52 .17 42)` | `oklch(.74 .17 50)` | Focus ring: at least 4.8:1 on `--bg`, `--paper` and `--sunk` in both themes (WCAG 1.4.11 needs 3:1). On an inverted surface the ring switches: `--bg` on a toast's `--ink`, `--belt-ink` on the belt |
 | `--accent-ink` | `oklch(.2 .03 45)` | `oklch(.18 .02 50)` | Text on `--accent` |
-| `--live` | `oklch(.52 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips |
+| `--live` | `oklch(.52 .18 42)` | `oklch(.77 .16 52)` | Progress, moving chips, checked checkboxes and range thumbs |
 | `--ok` | `oklch(.48 .13 150)` | `oklch(.78 .14 150)` | Printed |
 | `--err` | `oklch(.5 .2 28)` | `oklch(.74 .16 28)` | Failed, Needs you |
 | `--off` | `oklch(.5 .01 60)` | `oklch(.68 .01 60)` | Offline, canceled |
 | `--belt` / `--tread` | `oklch(.26 .008 60)` / `oklch(.34 .008 60)` | `oklch(.12 .005 60)` / `oklch(.2 .006 60)` | The rail |
 | `--belt-ink` | `oklch(.9 .01 80)` | `oklch(.88 .01 80)` | Text, ticks and dot rings on the collapsed belt |
+| `--belt-err` | `oklch(.74 .16 28)` | `oklch(.74 .16 28)` | The Needs-you count on the mobile summary, red text on `--belt` |
 | `--mat` | `oklch(.44 .075 168)` | `oklch(.31 .055 168)` | Model preview background |
 
 The model's faces use seven `--bin-*` tokens (safety-orange PLA) so the preview recolours with the theme. Colour is
@@ -173,7 +175,8 @@ stages. Print gets half because it takes most of the time:
 | Print | 49–100% |
 
 A chip's centre is `start + progress × (end − start)` of its stage, with 2% inset at each end so a chip at 0% or 100%
-never sits on a tick. The stage label that holds at least one chip is shown in `--ink` with an accent dot.
+never sits on a tick. The stage label that holds at least one chip is shown in `--ink` with a `--live` dot, which
+reaches 3:1 on `--bg` in both themes.
 
 ### Chip anatomy
 
@@ -247,7 +250,13 @@ opens a member list in the card; ←/→ walk the members and Enter opens one.
 
 Shown after 80 px of scroll on Make, and always on every other page. One dark bar holds "Belt", the waiting count, a
 mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (#335; hidden until then), the Finished and Needs-you counts, and
-an expand button (`aria-expanded`) that opens the full Track in place.
+an expand button (`aria-expanded`, `aria-controls`) that opens the full Track in place. The bar is a `region` named
+"On the belt", like the Track and the mobile summary, and its Needs-you count is a button that opens the tray.
+
+All three views take their words from one table in `lib/track.ts`: "Finished N today", "Needs you N", "N waiting"
+and "Nothing on the rail". When two polls in a row fail, every view says "Can't reach Conveyor" instead of a count
+or an empty state, and keeps the last jobs it saw, dimmed. The shell's polite region says so once, and "Conveyor is
+back." when the next poll succeeds.
 
 ### Mobile (under 760 px)
 
@@ -309,7 +318,10 @@ visually hidden text after it. No `aria-label` replaces visible words.
 
 ### aria-live
 
-The shell owns one `polite` and one `assertive` live region. The belt writes to them; pages do not.
+The shell owns one `polite` and one `assertive` live region. The belt, toasts and pages write to them only through
+`announce()`, and each event is said once: a cancel started from the belt is said by its toast, not again by the belt.
+The one other region is the command menu's "No matches" status, rendered only while that modal dialog is open, because
+a modal makes the shell's regions inert.
 
 - Polite: a job moves to a new stage ("Bin 1×1 moved to Send on Voron 2.4."), starts printing (with the time),
   finishes, or is canceled.
@@ -335,7 +347,7 @@ is one of three kinds:
 
 | Field | Shown in | Source | Until then |
 |---|---|---|---|
-| Live jobs, their stage and percent | rail, Jobs, Job detail | now: `GET /jobs/active` every 2 s while visible; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
+| Live jobs, their stage and percent | rail, Jobs, Job detail, Monitor | now: one shared `GET /jobs/active` poll in the shell (`lib/active-jobs.ts`), every 2 s while visible, or every 10 s while a socket covers every job on the belt; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
 | A running job's name (chip label), printer, profile, generator, creation time | chips, Jobs rows, focus cards | backend: [#342](https://github.com/OnlyOneByte/Conveyor/issues/342). Today both endpoints return status snapshots only | the stage as the name ("Slicing job"), no printer |
 | Cancel; Retry and Print again | focus card, Jobs, Job detail | now: `POST /jobs/:id/cancel`; `POST /jobs` with the original request (`lib/rerun.ts`) | |
 | Stage times, took | Done card, receipt | now: `timings` | |

@@ -1,15 +1,17 @@
-import type { Scene } from "./scenes.ts";
+import type { Scene } from "../scene.ts";
 
-export const receiptScenes: Scene[] = [
+export const scenes: Scene[] = [
   {
     name: "job-detail",
     route: "/history/seed-canceled",
+    visits: ["/jobs/seed-canceled"],
     ready: "text=Print again",
     steps: [{ wait: 800 }],
   },
   {
     name: "job-detail-failed",
     route: "/history/seed-failed",
+    visits: ["/jobs/seed-failed"],
     ready: "text=didn't finish",
     steps: [{ wait: 800 }],
   },
@@ -27,8 +29,8 @@ export const receiptScenes: Scene[] = [
   },
   {
     name: "receipt-outside-bed",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       {
         fulfill: "**/api/jobs-history/seed-failed",
@@ -53,7 +55,7 @@ export const receiptScenes: Scene[] = [
         },
       },
       { follow: "/jobs/seed-failed" },
-      { waitFor: "text=Slicing didn't finish" },
+      { waitFor: "text=doesn't fit the printer's bed" },
       { wait: 1200 },
     ],
   },
@@ -72,6 +74,7 @@ export const receiptScenes: Scene[] = [
   {
     name: "retry-link",
     route: "/jobs/seed-failed",
+    visits: ["/", "/jobs/seed-printed"],
     ready: "text=didn't finish",
     steps: [
       {
@@ -83,7 +86,7 @@ export const receiptScenes: Scene[] = [
           retriedBy: "seed-printed",
         },
       },
-      { click: "text=Retry" },
+      { click: 'role=button[name="Retry"s]' },
       { waitFor: "text=Configure" },
       { wait: 800 },
       { click: "button.desktop-print:visible, .mobile-cta button:visible" },
@@ -122,8 +125,8 @@ export const receiptScenes: Scene[] = [
   },
   {
     name: "print-forward",
-    route: "/history",
-    ready: "text=From this browser",
+    route: "/jobs",
+    ready: "h1",
     steps: [
       { follow: "/" },
       { waitFor: "text=Configure" },
@@ -143,7 +146,7 @@ export const receiptScenes: Scene[] = [
       { click: "button.desktop-print:visible, .mobile-cta button:visible" },
       { waitFor: "text=42%" },
       { history: "back" },
-      { waitFor: "text=From this browser" },
+      { waitFor: "h1 >> text=Jobs" },
       { history: "forward", url: "/jobs/scene-forward" },
       { waitFor: "text=Printing · 42%" },
       { scroll: "text=Printing · 42%" },

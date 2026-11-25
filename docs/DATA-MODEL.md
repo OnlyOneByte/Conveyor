@@ -105,10 +105,10 @@ A physical device addressable by a transport. **Secrets live here and never leav
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
 > form can round-trip it — which is why `dbUpsertPrinter` assigns it directly while
-> merging `secrets` into the stored `secrets_json`. Omitting it on write means "no restriction"; COALESCE
+> merging `secrets` into the stored `secrets_json` (`secrets: null` sets it to `NULL`). Omitting it on write means "no restriction"; COALESCE
 > would have made an allowlist impossible to remove. The `NULL` vs `[]` distinction is
 > load-bearing at every layer: `?? undefined` (not `|| undefined`) when reading the row,
-> presence-not-truthiness when checking it, and an explicit toggle in the Settings form
+> presence-not-truthiness when checking it, and an explicit toggle in the printer form
 > so a user can see which state they are in.
 
 > **Removed 2026-09-02: the `stations` table.** A Station was an operator-curated,
@@ -161,7 +161,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `filament_json` | text null | the slicer's filament estimate, `{ grams?, metres? }` (`FilamentUse`); NULL when the G-code does not say. Returned as `filament` by `GET /jobs-history` and `GET /jobs-history/:id`; a value that does not parse reads as absent |
 | `notes` | text null | non-fatal notes from the run, such as a work file that could not be removed |
 | `dismissed_at` | integer null | epoch ms a failed job was dismissed from the Needs-you list (`POST /jobs/:id/dismiss`); the first dismissal is kept |
-| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once, and cleared if queueing fails), so the failure leaves the Needs-you list |
+| `retried_by` | text null | id of the job submitted with `retryOf` naming this failed job; claimed just before the retry is queued (at most once), so the failure leaves the Needs-you list. On SQLite the claim and the enqueue share one transaction; on Redis the worker's reaper clears a claim whose retry was never queued, or whose retry died unrecorded |
 | `created_at` | integer | epoch ms |
 | `updated_at` | integer | epoch ms |
 | `progress`, `message` | real / text, null | SQLite mode: the live status |
@@ -200,8 +200,12 @@ SQLite mode `GET /jobs/:id` leaves it out and a client gets it from the next tai
 A row exists for every live login. Logout deletes it, and a login prunes the expired ones. See `docs/modules/api.md` § Auth.
 
 Indexes: `idx_jobs_created_at`, the partial `idx_jobs_history` on `(updated_at DESC, id DESC)` for finished
-jobs (history pages; `dbListJobs` names it with `INDEXED BY`), `idx_jobs_claim`, `idx_jobs_lease` and the partial
-`idx_jobs_printer_live` (the queue), and `idx_job_events_job`. The schema itself is in
+jobs (history pages, and counts over a time window; `dbListJobs`, and `dbCountJobs` when given `since` or `until`, name it with `INDEXED BY`), `idx_jobs_claim`,
+`idx_jobs_lease` and the partial `idx_jobs_printer_live` (the queue), the partial `idx_jobs_typical` on
+`(generator_id, printer_id, updated_at DESC, id DESC)` over `done` jobs with timings (estimates), the partial
+`idx_jobs_needs_you` on `(updated_at DESC, id DESC)` over failed jobs not yet dismissed or retried
+(Needs-you), and `idx_job_events_job`. The queries the belt polls name their index with `INDEXED BY`, and
+`db/query-plans.test.ts` checks each plan. The schema itself is in
 `packages/shared/src/db/schema.sql.ts` and `db/migrate.ts`.
 
 ## Lifecycle ↔ storage
@@ -259,7 +263,7 @@ both the database and the key.
 on aarch64/x86_64). One module, `@conveyor/shared/db`, owns the schema + queries; both `api`
 and `worker` delegate to it, so there is one source of truth.
 The DB is opened on the shared `/data` volume (`DB_PATH`, default `/data/conveyor.db`) and the
-default catalog (the old in-memory seeds) is seeded once per database, so edits made in Settings
+default catalog (the old in-memory seeds) is seeded once per database, so edits made on Printers or in Settings
 survive restarts. The flag is the row `key = 'seeded'` in a small `meta (key, value)` table that
 `migrate()` creates; `PRAGMA user_version` is left free for a future schema version. The check,
 the flag write and the inserts run in one `BEGIN IMMEDIATE` transaction, so a crash mid-seed
@@ -323,13 +327,13 @@ empty one as `—`, instead of hiding the row.
 
 Only settled jobs appear in `/jobs-history`, in both modes. In Redis mode those are the only rows; in
 SQLite mode a live job has a row from enqueue, but the list filters on `done`/`failed`/`canceled` and
-`/jobs-history/:id` answers 404 until it settles. That is why the PWA keeps a per-browser
-localStorage strip on `/history` alongside the durable table. `/jobs/<id>` reads that 404 as "not
+`/jobs-history/:id` answers 404 until it settles. That is why the Jobs page (`/jobs`) lists live jobs from
+`/jobs/active` in its On the belt group, above the settled ones, and shows each job once. `/jobs/<id>` reads that 404 as "not
 settled yet" and shows the live job from `/jobs/:id` and its socket instead, with place in line from
 `/jobs/active` while it waits. A `/?job=<id>` link that opens Make goes on to `/jobs/<id>`; only a
-`?job=` change from inside Make, such as Print, keeps the job's panel on Make. The old `/history/<id>`
-answers 308 with a Location of `/jobs/<id>`. It is the one route the web server renders, so scripts
-and crawlers get the redirect too, not just the browser.
+`?job=` change from inside Make, such as Print, keeps the job's panel on Make. The old `/history` and
+`/history/<id>` answer 308 with a Location of `/jobs` and `/jobs/<id>`. They are the only routes the web server
+renders, so scripts and crawlers get the redirects too, not just the browser.
 
 > The browser reaches the API under `/api/`: the vite proxy and Caddy strip that prefix, so the API's
 > own routes (`/jobs-history/:id`, `/catalog/printers/:id`) stay as written here. Every other path is a

@@ -1,4 +1,6 @@
 import type { Database } from "bun:sqlite";
+import { z } from "zod";
+import { readJson } from "./json.js";
 import { dbGetPrinterSecrets, sealPrinterSecrets } from "./printer-secrets.js";
 
 export const MAX_PRINTER_SECRETS = 16;
@@ -10,7 +12,7 @@ export interface PrinterInput {
   transportId: string;
   name: string;
   address: string;
-  secrets?: PrinterSecretsPatch;
+  secrets?: PrinterSecretsPatch | null;
   allowedGenerators?: string[];
 }
 
@@ -28,6 +30,7 @@ export interface Printer extends Omit<PrinterInput, "secrets"> {
   hasSecrets: boolean;
   lastSeenAt?: number;
   lastCheckedAt?: number;
+  unreadable?: "allowedGenerators"[];
 }
 
 export interface PrinterCheck {
@@ -46,6 +49,23 @@ interface PrinterRow {
   last_checked_at: number | null;
 }
 
+const allowedGeneratorsSchema = z.array(z.string());
+const warnedUnreadable = new Set<string>();
+
+function allowedGeneratorsOf(r: PrinterRow): Pick<Printer, "allowedGenerators" | "unreadable"> {
+  if (r.allowed_generators_json === null) return { allowedGenerators: undefined };
+  const read = readJson(r.allowed_generators_json);
+  const parsed = allowedGeneratorsSchema.safeParse(read.ok ? read.value : null);
+  if (parsed.success) return { allowedGenerators: parsed.data };
+  if (!warnedUnreadable.has(r.id)) {
+    warnedUnreadable.add(r.id);
+    console.warn(
+      `[printers] printer ${r.id} has an unreadable allowed_generators_json column; it takes no jobs until it is saved again`,
+    );
+  }
+  return { allowedGenerators: [], unreadable: ["allowedGenerators"] };
+}
+
 function rowToPrinter(r: PrinterRow): Printer {
   return {
     id: r.id,
@@ -53,21 +73,19 @@ function rowToPrinter(r: PrinterRow): Printer {
     name: r.name,
     address: r.address,
     hasSecrets: r.secrets_json !== null,
-    allowedGenerators: r.allowed_generators_json
-      ? (JSON.parse(r.allowed_generators_json) as string[])
-      : undefined,
+    ...allowedGeneratorsOf(r),
     lastSeenAt: r.last_seen_at ?? undefined,
     lastCheckedAt: r.last_checked_at ?? undefined,
   };
 }
 
 export function dbGetPrinter(db: Database, id: string): Printer | undefined {
-  const r = db.query("SELECT * FROM printers WHERE id = ?").get(id) as PrinterRow | null;
+  const r = db.query<PrinterRow, [string]>("SELECT * FROM printers WHERE id = ?").get(id);
   return r ? rowToPrinter(r) : undefined;
 }
 
 export function dbListPrinters(db: Database): Printer[] {
-  return (db.query("SELECT * FROM printers ORDER BY name").all() as PrinterRow[]).map(rowToPrinter);
+  return db.query<PrinterRow, []>("SELECT * FROM printers ORDER BY name").all().map(rowToPrinter);
 }
 
 function mergedSecrets(db: Database, id: string, patch: PrinterSecretsPatch): string | null {
@@ -75,7 +93,7 @@ function mergedSecrets(db: Database, id: string, patch: PrinterSecretsPatch): st
   if (!stored.ok) {
     throw new PrinterSecretsWriteError(
       "StoredSecretsUnreadable",
-      `printer ${id}'s stored secrets can't be read, so they can't be updated; delete the printer and add it again`,
+      `printer ${id}'s stored secrets can't be read, so they can't be updated; clear its saved secrets and enter them again`,
     );
   }
   const merged = { ...stored.value };
@@ -97,7 +115,7 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
 }
 
 function upsertPrinter(db: Database, p: PrinterInput): void {
-  const secrets = p.secrets === undefined ? null : mergedSecrets(db, p.id, p.secrets);
+  const secrets = p.secrets ? mergedSecrets(db, p.id, p.secrets) : null;
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)

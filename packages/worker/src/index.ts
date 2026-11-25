@@ -10,13 +10,14 @@ import {
 } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
-import { type Job, Worker } from "bullmq";
+import { type Job, Queue, Worker } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
+import { redisReaperDeps, startRedisReaper, WORKER_OPTIONS } from "./redis-reaper.js";
 import { messageOf, type PipelineDeps } from "./run.js";
 import { StatusBus } from "./status.js";
 
@@ -136,16 +137,25 @@ export function startRedisWorker(
   }
 
   const worker = new Worker<unknown>(deps.queue, handle, {
+    ...WORKER_OPTIONS,
     connection,
     concurrency: Number(env.WORKER_CONCURRENCY ?? 2),
   });
   worker.on("ready", () => console.log("conveyor worker ready"));
   worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
 
+  const lookup = new Queue(deps.queue, { connection });
+  const stopReaper = startRedisReaper({
+    ...redisReaperDeps(commands, lookup, (message) => console.log(`[reaper] ${message}`)),
+    db,
+  });
+
   return {
     worker,
     stop: async () => {
+      stopReaper();
       await worker.close();
+      await lookup.close();
       await Promise.all([connection.quit(), commands.quit()]);
     },
   };

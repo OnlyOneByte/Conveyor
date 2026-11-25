@@ -90,7 +90,7 @@ describe("openDb seeding", () => {
     const path = freshPath();
     const startAt = Date.now() + 1500;
     const script = `import { openDb } from ${JSON.stringify(join(import.meta.dir, "index.ts"))};
-while (Date.now() < ${startAt});
+await Bun.sleep(Math.max(0, ${startAt} - Date.now()));
 openDb(${JSON.stringify(path)});`;
     const procs = [0, 1, 2].map(() =>
       Bun.spawn([process.execPath, "-e", script], { stdout: "ignore", stderr: "pipe" }),
@@ -106,7 +106,7 @@ openDb(${JSON.stringify(path)});`;
     const db = reopen(path);
     expect(dbListPrinters(db)).toHaveLength(DEFAULT_PRINTERS.length);
     expect(dbListProfiles(db)).toHaveLength(DEFAULT_PROFILES.length);
-  });
+  }, 30_000);
 });
 
 describe("openDb's shared handle", () => {

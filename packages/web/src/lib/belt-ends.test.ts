@@ -2,8 +2,10 @@ import { describe, expect, spyOn, test } from "bun:test";
 import type { Politeness } from "./announce";
 import type { JobHistoryEntry } from "./api";
 import { createEnds, ENDS_MS, type EndsFeed, http, midnight } from "./belt-ends";
+import { BURST_MS, changes, createNewsDesk } from "./belt-news";
 import type { Retried } from "./retry";
 import type { TrackJob } from "./track";
+import { createToasts } from "./ui/behaviour";
 
 const NOW = new Date(2026, 10, 24, 15, 0);
 const at = (hours: number) => new Date(2026, 10, 24, hours).getTime();
@@ -32,7 +34,11 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     if (refuse.includes(name)) throw new Error("409");
   };
   const feed: EndsFeed = {
-    finished: async (since) => (calls.push(`finished ${since}`), 4),
+    finished: async (since) => {
+      calls.push(`finished ${since}`);
+      if (refuse.includes("finished")) throw new Error("503");
+      return 4;
+    },
     needsYou: async () => [entry("f1", "failed", at(9), { error: { stage: "transport", reason: "the printer didn't answer" } })],
     entry: async (id) => records.get(id) ?? null,
     submit: call("submit"),
@@ -46,11 +52,18 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     toast: (text, action) => toasts.push(action ? { text, action } : { text }),
     say: (text, level) => said.push([text, level]),
     pick: (asked, retryOf) => picked.push([asked, retryOf]),
-  }, () => NOW);
+  }, { now: () => NOW });
   return { calls, said, shown, toasts, picked, ends, records, upload };
 }
 
 describe("the belt's end states", () => {
+  test("a refresh that can't read the counts keeps the last ones shown and says it didn't refresh", async () => {
+    const up = rig();
+    expect(await up.ends.refresh()).toBe(true);
+    const down = rig(["finished"]);
+    expect([await down.ends.refresh(), down.shown]).toEqual([false, []]);
+  });
+
   test("counts finishes since local midnight, and lists failures by name with their reason", async () => {
     const { calls, shown, ends } = rig();
     await ends.refresh();
@@ -64,7 +77,7 @@ describe("the belt's end states", () => {
     await ends.refresh();
     await ends.act(job, "Retry");
     expect([calls.filter((c) => !c.startsWith("finished")), said, shown.length]).toEqual([['retry "f1"'], [["Retrying Bin 2×3.", "polite"]], 2]);
-    const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 is already being retried" });
+    const taken = rig([], { ok: false, status: 409, error: "retryOf: job f1 was already retried" });
     await taken.ends.refresh();
     await taken.ends.act(job, "Retry");
     expect([taken.said, taken.shown.length]).toEqual([[["Bin 2×3 is already being retried.", "polite"]], 2]);
@@ -120,5 +133,49 @@ describe("the belt's end states", () => {
     const { said, ends } = rig();
     await ends.act({ ...job, id: "gone" }, "Print again");
     expect([refused.said, refused.toasts, said]).toEqual([[["Couldn't cancel Bin 2×3.", "assertive"]], [], [["Couldn't print Bin 2×3 again.", "assertive"]]]);
+  });
+});
+
+describe("a cancel from the belt", () => {
+  function shell(refuse: string[] = []) {
+    const said: string[] = [];
+    const timers: (() => void)[] = [];
+    const toasted = new Set<string>();
+    const toasts = createToasts({ after: () => () => {}, now: () => 0 }, (text) => said.push(text));
+    const cancel = async (id: string) => {
+      if (refuse.includes(id)) throw new Error("409");
+    };
+    const feed = { finished: async () => 0, needsYou: async () => [], entry: async () => null, submit: async () => ({}), retry: async () => ({ ok: true as const, jobId: "x" }), dismiss: async () => ({}), cancel, catalog: async () => catalog };
+    const ends = createEnds(feed, { show: () => {}, toast: (text, action) => toasts.show(text, action), say: (text) => said.push(text), pick: () => {} }, { now: () => NOW, toasted });
+    const desk = createNewsDesk((text) => said.push(text), (run, ms) => ms === BURST_MS && timers.push(run), toasted);
+    const settle = (id: string, state: TrackJob["state"] = "canceled") => {
+      desk(changes(new Map([[id, { ...job, id, state: "printing" }]]), [{ ...job, id, state }], "14:05"));
+      for (const run of timers.splice(0)) run();
+    };
+    return { said, ends, settle, toasted };
+  }
+
+  test("is announced once, by its toast, when the belt then sees the job canceled", async () => {
+    const { said, ends, settle } = shell();
+    await ends.act({ ...job, id: "c1", state: "printing", request }, "Cancel");
+    settle("c1");
+    expect(said).toEqual(["Bin 2×3 canceled"]);
+  });
+
+  test("leaves a cancel from elsewhere, or one that failed here, to the belt", async () => {
+    const { said, ends, settle } = shell(["c2"]);
+    settle("c9");
+    await ends.act({ ...job, id: "c2", state: "printing", request }, "Cancel");
+    settle("c2");
+    expect(said).toEqual(["Bin 2×3 was canceled.", "Couldn't cancel Bin 2×3.", "Bin 2×3 was canceled."]);
+  });
+
+  test("forgets the job once it ends another way, so a later cancel of it is announced", async () => {
+    const { said, ends, settle, toasted } = shell();
+    await ends.act({ ...job, id: "c3", state: "printing", request }, "Cancel");
+    settle("c3", "done");
+    expect(toasted.size).toBe(0);
+    settle("c3");
+    expect(said).toEqual(["Bin 2×3 canceled", "Bin 2×3 finished on Voron 2.4.", "Bin 2×3 was canceled."]);
   });
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { shortName, type TrackJob } from "#lib/track.js";
+  import { BINS, shortName, type TrackJob } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
 
   export let jobs: TrackJob[];
@@ -30,7 +30,7 @@
 
 <svelte:window on:keydown={dismiss} on:pointerdown={dismiss} />
 <div class="wrap" bind:this={wrap}>
-  <button type="button" class="needs" aria-expanded={open} aria-controls={tray} bind:this={button} on:click={() => (open = !open)}>Needs you<span class="n">{jobs.length}</span></button>
+  <button type="button" class="needs" aria-expanded={open} aria-controls={tray} bind:this={button} on:click={() => (open = !open)}>{BINS.needs}<span class="n">{jobs.length}</span></button>
   {#if open}
     <ul class="tray" id={tray}>
       {#each jobs as job, at (job.id)}
@@ -47,6 +47,7 @@
 <style>
   .wrap { position: relative; }
   .needs { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 38px; padding: 0 10px; border: 1.5px solid var(--err); border-radius: 12px; background: var(--paper); color: var(--err); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .needs:hover { border-color: var(--err); background: var(--err); color: var(--paper); }
   .n { margin-left: auto; font: 500 12px var(--mono); }
   .tray { position: absolute; top: calc(100% + 6px); right: 0; z-index: 10; display: grid; gap: var(--s3); width: 300px; margin: 0; padding: var(--s3); list-style: none; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); box-shadow: var(--lift-hi); }
   .tray a { font-weight: 700; color: var(--ink); }

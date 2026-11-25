@@ -51,18 +51,24 @@ export async function holdWriteLock(
   sqlWhileHeld = "SELECT 1",
 ): Promise<{ exited: Promise<number>; releasedAt: Promise<number> }> {
   const script = `const db = new (require("bun:sqlite").Database)(process.env.DB_FILE);
-    db.exec("BEGIN IMMEDIATE"); console.log("locked"); Bun.sleepSync(300);
-    db.exec(process.env.SQL_WHILE_HELD); console.log(Date.now()); db.exec("COMMIT");`;
+    db.exec("PRAGMA busy_timeout = 10000"); db.exec("BEGIN IMMEDIATE"); console.log("locked");
+    Bun.sleepSync(300); db.exec(process.env.SQL_WHILE_HELD); console.log(Date.now()); db.exec("COMMIT");`;
   const holder = Bun.spawn([process.execPath, "-e", script], {
     env: { ...process.env, DB_FILE: path, SQL_WHILE_HELD: sqlWhileHeld },
     stdout: "pipe",
+    stderr: "pipe",
   });
   const reader = holder.stdout.getReader();
   const decoder = new TextDecoder();
   let seen = "";
   while (!seen.includes("locked\n")) {
     const { done, value } = await reader.read();
-    if (done) throw new Error(`lock holder exited before locking: ${seen}`);
+    if (done) {
+      const stderr = await new Response(holder.stderr).text();
+      throw new Error(
+        `lock holder exited ${await holder.exited} before locking: ${seen}${stderr.slice(-500)}`,
+      );
+    }
     seen += decoder.decode(value);
   }
   const releasedAt = (async () => {

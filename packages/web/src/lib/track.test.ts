@@ -3,6 +3,9 @@ import type { JobState } from "@conveyor/shared";
 import {
   ACTIONS,
   beltSummary,
+  BINS,
+  IDLE,
+  today,
   COLLAPSE_AT,
   collapsedBelt,
   REOPEN_AT,
@@ -181,6 +184,7 @@ describe("the mobile belt's summary line", () => {
   test("counts waiting and moving jobs, and leads with the printing job's printer and percent", () => {
     expect(beltSummary([job("a", "queued"), job("b", "slicing"), job("c", "printing", { printer: "Ender 3 V3", progress: 0.64 }), job("d", "done")])).toBe("3 on the belt · Ender 64%");
     expect(beltSummary([job("a", "printing", { progress: 0.2 }), job("b", "queued")])).toBe("2 on the belt · 20%");
-    expect([beltSummary([job("a", "queued")]), beltSummary([job("a", "failed"), job("b", "done")])]).toEqual(["1 on the belt", "Belt empty"]);
+    expect([beltSummary([job("a", "queued")]), beltSummary([job("a", "failed"), job("b", "done")])]).toEqual(["1 on the belt", "Nothing on the rail"]);
+    expect([IDLE, BINS, today(3)]).toEqual(["Nothing on the rail", { finished: "Finished", needs: "Needs you", waiting: "waiting" }, "3 today"]);
   });
 });
