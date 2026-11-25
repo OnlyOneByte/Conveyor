@@ -2,6 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import type { Politeness } from "./announce";
 import type { JobHistoryEntry } from "./api";
 import { createEnds, ENDS_MS, type EndsFeed, http, midnight } from "./belt-ends";
+import { Unreachable } from "./http-error";
 import { BURST_MS, changes, createNewsDesk } from "./belt-news";
 import type { Retried } from "./retry";
 import type { TrackJob } from "./track";
@@ -37,7 +38,8 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
   const feed: EndsFeed = {
     finished: async (since) => {
       calls.push(`finished ${since}`);
-      if (refuse.includes("finished")) throw new Error("503");
+      if (refuse.includes("finished")) throw new Unreachable("GET /jobs-history/counts 503");
+      if (refuse.includes("locked")) throw new Error("database is locked");
       return 4;
     },
     needsYou: async () => [entry("f1", "failed", at(9), { error: { stage: "transport", reason: "the printer didn't answer" } })],
@@ -59,7 +61,7 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
 }
 
 describe("the belt's end states", () => {
-  test("a counts poll that fails says the belt is down until one answers again, without clearing the last counts", async () => {
+  test("a counts poll that can't reach Conveyor says the belt is down until one answers again, keeping the last counts", async () => {
     const refuse: string[] = [];
     const { ends, shown, downs } = rig(refuse);
     await ends.refresh();
@@ -69,6 +71,16 @@ describe("the belt's end states", () => {
     await ends.refresh();
     expect(downs).toEqual([false, true, false]);
     expect(shown.map(([finished]) => finished)).toEqual([4, 4]);
+  });
+
+  test("a counts poll that answers with an error keeps the last counts and doesn't call the belt down", async () => {
+    const refuse: string[] = [];
+    const { ends, shown, downs } = rig(refuse);
+    await ends.refresh();
+    refuse.push("locked");
+    expect(await ends.refresh()).toBe(false);
+    expect(downs).toEqual([false, false]);
+    expect(shown.map(([finished]) => finished)).toEqual([4]);
   });
 
   test("a refresh that can't read the counts keeps the last ones shown and says it didn't refresh", async () => {
