@@ -54,7 +54,11 @@ const editor = (name: string, extra: Step[] = []): Scene => ({
   ],
 });
 
-const longError = (name: string, extra: Step[]): Scene => ({
+const longError = (
+  name: string,
+  extra: Step[],
+  reason = `  ${"databaseislocked".repeat(12_500)}  `,
+): Scene => ({
   name,
   route: "/printers",
   ready: "h1",
@@ -63,7 +67,7 @@ const longError = (name: string, extra: Step[]): Scene => ({
       fulfill: "**/api/catalog/profiles/*/content",
       method: "GET",
       status: 500,
-      json: { error: `  ${"databaseislocked".repeat(12_500)}  ` },
+      json: { error: reason },
     },
     { follow: "/settings/profiles/orca/klipper-pla-0.2" },
     { waitFor: "text=Conveyor hit a problem loading this.", timeout: 5000 },
@@ -201,7 +205,18 @@ export const scenes: Scene[] = [
     { waitFor: "pre >> text=databaseislocked" },
     { fits: "pre" },
     { wait: 300 },
+    { absent: "pre[tabindex]" },
   ]),
+  longError(
+    "profile-details-scrolls",
+    [
+      { click: "summary >> text=Details" },
+      { waitFor: "pre[tabindex='0']" },
+      { tabTo: "pre" },
+      { keyScrolls: "pre" },
+    ],
+    Array.from({ length: 80 }, () => "x").join("\n"),
+  ),
   editor("profile-editor"),
   editor("profile-editor-error", [
     { click: ".cm-content" },
@@ -223,6 +238,7 @@ export const scenes: Scene[] = [
       { click: "summary >> text=Details" },
       { waitFor: "pre >> text=GET /api/catalog/profiles 500" },
       { wait: 300 },
+      { absent: "pre[tabindex]" },
     ],
   },
 ];
