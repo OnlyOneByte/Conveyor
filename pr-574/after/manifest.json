@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:40229",
+  "url": "http://127.0.0.1:44817",
   "warnings": [],
   "results": [
     {
@@ -37,7 +37,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 693495,
+      "gifBytes": 624258,
       "gif": "new-job-1440.gif"
     },
     {
@@ -45,7 +45,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 358250,
+      "gifBytes": 385233,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -77,7 +77,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 562669,
+      "gifBytes": 500313,
       "gif": "make-print-1440.gif"
     },
     {
@@ -133,7 +133,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 691277,
+      "gifBytes": 772490,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -153,6 +153,12 @@
       "width": 1440,
       "warnings": [],
       "png": "receipt-printed-1440.png"
+    },
+    {
+      "scene": "receipt-files-removed",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-files-removed-1440.png"
     },
     {
       "scene": "receipt-failed",
@@ -287,6 +293,12 @@
       "png": "profile-editor-long-error-1440.png"
     },
     {
+      "scene": "profile-editor-long-error-open",
+      "width": 1440,
+      "warnings": [],
+      "png": "profile-editor-long-error-open-1440.png"
+    },
+    {
       "scene": "profile-editor",
       "width": 1440,
       "warnings": [],
@@ -333,7 +345,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 737791,
+      "gifBytes": 797973,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -413,7 +425,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 476275,
+      "gifBytes": 571743,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -421,7 +433,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1198411,
+      "gifBytes": 1197418,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -429,7 +441,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1383770,
+      "gifBytes": 1446705,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -461,7 +473,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 278728,
+      "gifBytes": 308546,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -499,7 +511,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 383659,
+      "gifBytes": 417377,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -513,7 +525,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 869020,
+      "gifBytes": 907200,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -527,7 +539,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 651407,
+      "gifBytes": 801055,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -571,7 +583,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 680976,
+      "gifBytes": 722473,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -651,7 +663,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 653802,
+      "gifBytes": 619966,
       "gif": "new-job-390.gif"
     },
     {
@@ -659,7 +671,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 382485,
+      "gifBytes": 382690,
       "gif": "job-progress-390.gif"
     },
     {
@@ -739,7 +751,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1098820,
+      "gifBytes": 1120602,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -759,6 +771,12 @@
       "width": 390,
       "warnings": [],
       "png": "receipt-printed-390.png"
+    },
+    {
+      "scene": "receipt-files-removed",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-files-removed-390.png"
     },
     {
       "scene": "receipt-failed",
@@ -867,6 +885,12 @@
       "width": 390,
       "warnings": [],
       "png": "profile-editor-long-error-390.png"
+    },
+    {
+      "scene": "profile-editor-long-error-open",
+      "width": 390,
+      "warnings": [],
+      "png": "profile-editor-long-error-open-390.png"
     },
     {
       "scene": "profile-editor",
@@ -1007,7 +1031,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 524556,
+      "gifBytes": 505158,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1045,7 +1069,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 621102,
+      "gifBytes": 620958,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1059,7 +1083,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1356229,
+      "gifBytes": 1333121,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1073,7 +1097,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1007361,
+      "gifBytes": 1094869,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1105,7 +1129,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1119904,
+      "gifBytes": 1117694,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
