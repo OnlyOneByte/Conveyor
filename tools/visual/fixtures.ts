@@ -1,5 +1,7 @@
-import { chromium, type Page } from "playwright";
+import { afterAll, beforeAll } from "bun:test";
+import { type Browser, chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
+import { messageOf } from "./errors.ts";
 
 export function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
   const png = new PNG({ width, height });
@@ -12,11 +14,30 @@ export function solid(width: number, height: number, rgb: [number, number, numbe
   return PNG.sync.write(png);
 }
 
-export async function withPage<T>(run: (page: Page) => Promise<T>): Promise<T> {
-  const browser = await chromium.launch();
-  try {
-    return await run(await browser.newPage({ viewport: { width: 400, height: 300 } }));
-  } finally {
-    await browser.close();
-  }
+export const BROWSER_SETUP_MS = 30_000;
+
+export function browserPages() {
+  let browser: Browser | undefined;
+  let failed = "";
+  beforeAll(async () => {
+    failed = `Chromium was still launching after ${BROWSER_SETUP_MS / 1000} s`;
+    browser = await chromium.launch().catch((err: unknown) => {
+      failed = `Chromium didn't launch: ${messageOf(err)}`;
+      throw err;
+    });
+    failed = "";
+  }, BROWSER_SETUP_MS);
+  afterAll(async () => {
+    await browser?.close();
+  }, BROWSER_SETUP_MS);
+  return async <T>(run: (page: Page) => Promise<T>): Promise<T> => {
+    if (failed) throw new Error(`browserPages: ${failed}`);
+    if (!browser) throw new Error("browserPages: call it at the top of a test file");
+    const context = await browser.newContext({ viewport: { width: 400, height: 300 } });
+    try {
+      return await run(await context.newPage());
+    } finally {
+      await context.close();
+    }
+  };
 }
