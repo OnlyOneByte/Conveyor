@@ -9,6 +9,7 @@ import { registerErrorReplies } from "./error-replies.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
+import { redisPing, registerHealthRoutes } from "./routes/health.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { frameworkErrors, registerSecurityHeaders } from "./security-headers.js";
@@ -43,6 +44,8 @@ app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 
 registerAuthGuard(app);
 await registerAuthRoutes(app);
+
+registerHealthRoutes(app, redisPing(queue));
 
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app, uploads);

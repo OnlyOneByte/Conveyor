@@ -9,8 +9,8 @@ Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from o
 
 ## Boot order (`index.ts`)
 
-`index.ts` registers `GET /health`, the auth guard, the login routes, then the generator, upload, catalog and job
-routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
+`index.ts` registers `GET /health`, the auth guard, the login routes, `GET /health/deep` (`health.ts`, which
+needs a session), then the generator, upload, catalog and job routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
 registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
