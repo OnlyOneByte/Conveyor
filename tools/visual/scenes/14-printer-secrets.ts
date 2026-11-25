@@ -51,6 +51,22 @@ export const scenes: Scene[] = [
     },
     { waitFor: `${dialog} >> text=An API key is saved for this printer.` },
   ]),
+  fleetPage("printers-clear-secrets-keyboard", [
+    { click: "button[aria-label='Edit Garage Klipper']" },
+    { fulfill: "**/api/catalog/printers", method: "PUT", status: 200, json: { ok: true } },
+    {
+      fulfill: "**/api/catalog/printers",
+      method: "GET",
+      status: 200,
+      json: fleet.map((printer) =>
+        printer.id === "klipper-garage" ? { ...printer, hasSecrets: false } : printer,
+      ),
+    },
+    { click: `${dialog} button:has-text('Clear saved secrets')` },
+    { press: "Tab" },
+    { press: "Enter" },
+    { waitFor: `${dialog} p[role=status]:focus >> text=Saved API key cleared.`, timeout: 3000 },
+  ]),
   fleetPage("printers-clear-secrets-reset", [
     { click: "button[aria-label='Edit Garage Klipper']" },
     { click: `${dialog} button:has-text('Clear saved secrets')` },

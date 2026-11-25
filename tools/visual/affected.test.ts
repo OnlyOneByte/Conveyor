@@ -64,6 +64,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-clear-secrets-keep",
     "printers-clear-secrets-confirm",
     "printers-clear-secrets-double",
+    "printers-clear-secrets-keyboard",
     "printers-clear-secrets-reset",
     "printers-clear-secrets-fails",
   ]);

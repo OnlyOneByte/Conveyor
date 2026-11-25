@@ -15,8 +15,9 @@
   $: if (!saved) asking = false;
 
   const ask = () => ([asking, askedAt] = [true, performance.now()]);
-  const confirm = () => {
-    if (busy || performance.now() - askedAt < ARM_MS) return;
+  const pointerTooSoon = (event: MouseEvent) => event.detail !== 0 && performance.now() - askedAt < ARM_MS;
+  const confirm = (event: MouseEvent) => {
+    if (busy || pointerTooSoon(event)) return;
     void clear();
   };
 </script>

@@ -75,7 +75,8 @@ Add and Edit open `PrinterDialog.svelte`, a `Dialog` with `Field`s and a real `S
 moves to the first field with an error. A new printer's ID follows its name (`slugOf`) until you edit the ID.
 The secret field is write-only: blank keeps what is saved, and the dialog names the saved field (an API key
 for Moonraker, a Mainboard ID for Elegoo, in `SavedSecrets.svelte`). **Clear saved secrets** asks first, since
-Cancel can't undo it, and ignores **Clear it** for its first 500 ms so a double-click can't confirm; the question
+Cancel can't undo it, and ignores a pointer click on **Clear it** for its first 500 ms so a double-click can't confirm (a
+keyboard or assistive-technology activation, `detail === 0`, goes through at once); the question
 resets whenever the dialog closes or shows another printer, and a failed clear keeps focus on **Clear it**; **Clear it** resends the saved printer, not the form, with `secrets: null`, and **Keep it**
 returns focus to the button. On a touch screen the job links on each printer card are 44 px tall. **Delete printer** asks first in the same dialog, and stays disabled while
 the printer has jobs on the belt, because the API refuses that delete with `409`; a `409` from a race is shown
