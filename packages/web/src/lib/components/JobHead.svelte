@@ -22,6 +22,7 @@
 <style>
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1.05; letter-spacing: -0.04em; }
   .crumb { font-weight: 600; color: var(--muted); text-decoration: none; }
+  @media (pointer: coarse) { .crumb { display: inline-flex; align-items: center; min-height: var(--tap); } }
   .head {
     display: flex; align-items: flex-start; gap: var(--s4); flex-wrap: wrap;
     margin: var(--s2) 0 var(--s5);
@@ -33,7 +34,7 @@
   }
   .pill {
     display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
-    border: 1.5px solid currentColor; border-radius: 99px; font-weight: 700;
+    border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700;
   }
   .pill.done { color: var(--ok); }
   .pill.failed { color: var(--err); }

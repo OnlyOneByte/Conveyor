@@ -14,6 +14,7 @@ export * from "./retry-claims.js";
 export { DEFAULT_PROFILES } from "./seed.js";
 export * from "./sessions.js";
 export * from "./typical.js";
+export * from "./worker-heartbeat.js";
 
 let singleton: Database | null = null;
 

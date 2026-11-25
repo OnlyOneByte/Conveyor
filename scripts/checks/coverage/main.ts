@@ -11,6 +11,7 @@ import {
   newPackages,
   type Percents,
   parseBaseline,
+  riseIsWarning,
   updateRefusal,
 } from "./ratchet";
 import { parseReclassifications, RECLASSIFIED_PATH, reclassificationFloors } from "./reclassified";
@@ -137,15 +138,17 @@ function check(summary: Summary, ref: string): number {
     return 1;
   }
   const moves = reclassified(summary, ref, base.baseline);
-  const { errors } = checkRatchet({
+  const { errors, warnings } = checkRatchet({
     current: percents(summary),
     committed: readCommitted(),
     base: base.baseline,
     baseHasChecker: base.hasChecker,
     basePackages: base.packages,
     reclassifiedFloors: moves.floors,
+    riseIsWarning: riseIsWarning(process.env),
   });
   for (const error of [...moves.errors, ...errors]) console.error(error);
+  for (const warning of warnings) console.log(`::warning::${warning}`);
   for (const note of moves.notes) console.log(note);
   for (const name of newPackages(base.packages)) {
     console.log(

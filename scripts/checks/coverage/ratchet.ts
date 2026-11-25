@@ -67,10 +67,12 @@ export interface RatchetInput {
   baseHasChecker: boolean;
   basePackages?: readonly string[] | null;
   reclassifiedFloors?: Percents;
+  riseIsWarning?: boolean;
 }
 
 export interface RatchetResult {
   errors: string[];
+  warnings: string[];
 }
 
 interface Loaded {
@@ -112,30 +114,36 @@ function load(input: RatchetInput): Loaded | string {
 
 const fmt = (value: number) => `${round2(value).toFixed(2)}%`;
 
-function packageErrors(name: string, current: number, loaded: Loaded): string[] {
-  const floor = loaded.allowed.lines[name];
-  const claimed = loaded.committed.lines[name];
-  if (claimed === undefined) return [`${name}: ${baselinePath(name)} is missing`];
-  const added = floor === undefined && loaded.newPackages.has(name);
-  if (floor === undefined && !added) return [`${name}: base ${baselinePath(name)} is missing`];
-  if (floor === undefined) return claimErrors(name, current, claimed);
-  if (!loaded.bootstrap && round2(current) < round2(floor - TOLERANCE)) {
-    return [`${name}: line coverage ${fmt(current)} dropped below base ${fmt(floor)}`];
-  }
-  if (!loaded.bootstrap && round2(claimed) < round2(floor)) {
-    return [`${name}: baseline lowered to ${fmt(claimed)} (base has ${fmt(floor)})`];
-  }
-  return claimErrors(name, current, claimed);
+interface Finding {
+  message: string;
+  rise: boolean;
 }
 
-function claimErrors(name: string, current: number, claimed: number): string[] {
+const error = (message: string): Finding[] => [{ message, rise: false }];
+
+function packageFindings(name: string, current: number, loaded: Loaded): Finding[] {
+  const floor = loaded.allowed.lines[name];
+  const claimed = loaded.committed.lines[name];
+  if (claimed === undefined) return error(`${name}: ${baselinePath(name)} is missing`);
+  const added = floor === undefined && loaded.newPackages.has(name);
+  if (floor === undefined && !added) return error(`${name}: base ${baselinePath(name)} is missing`);
+  if (floor === undefined) return claimFindings(name, current, claimed);
+  if (!loaded.bootstrap && round2(current) < round2(floor - TOLERANCE)) {
+    return error(`${name}: line coverage ${fmt(current)} dropped below base ${fmt(floor)}`);
+  }
+  if (!loaded.bootstrap && round2(claimed) < round2(floor)) {
+    return error(`${name}: baseline lowered to ${fmt(claimed)} (base has ${fmt(floor)})`);
+  }
+  return claimFindings(name, current, claimed);
+}
+
+function claimFindings(name: string, current: number, claimed: number): Finding[] {
   if (round2(claimed) > round2(current + TOLERANCE)) {
-    return [`${name}: baseline claims ${fmt(claimed)} but measured ${fmt(current)}`];
+    return error(`${name}: baseline claims ${fmt(claimed)} but measured ${fmt(current)}`);
   }
   if (round2(current - claimed) >= TOLERANCE) {
-    return [
-      `${name}: line coverage ${fmt(current)} is ${TOLERANCE} or more above the committed ${fmt(claimed)}; run \`bun run check:coverage:update\` and commit it`,
-    ];
+    const message = `${name}: line coverage ${fmt(current)} is ${TOLERANCE} or more above the committed ${fmt(claimed)}; run \`bun run check:coverage:update\` and commit it`;
+    return [{ message, rise: true }];
   }
   return [];
 }
@@ -143,10 +151,18 @@ function claimErrors(name: string, current: number, claimed: number): string[] {
 export const updateRefusal = (env: Record<string, string | undefined>): string | null =>
   env.CI ? "--update is local only; commit the regenerated baseline instead" : null;
 
+export const riseIsWarning = (env: Record<string, string | undefined>): boolean =>
+  env.GITHUB_REF === "refs/heads/main" && env.GITHUB_EVENT_NAME !== "pull_request";
+
 export function checkRatchet(input: RatchetInput): RatchetResult {
   const loaded = load(input);
-  if (typeof loaded === "string") return { errors: [loaded] };
+  if (typeof loaded === "string") return { errors: [loaded], warnings: [] };
+  const findings = PACKAGES.flatMap((name) =>
+    packageFindings(name, input.current[name] ?? 0, loaded),
+  );
+  const warned = (finding: Finding) => finding.rise && input.riseIsWarning === true;
   return {
-    errors: PACKAGES.flatMap((name) => packageErrors(name, input.current[name] ?? 0, loaded)),
+    errors: findings.filter((finding) => !warned(finding)).map((finding) => finding.message),
+    warnings: findings.filter(warned).map((finding) => finding.message),
   };
 }

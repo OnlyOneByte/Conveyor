@@ -1,6 +1,7 @@
 import { queueMode, retentionDays } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import { uploadSettings } from "@conveyor/shared/uploads";
+import { startHeartbeat } from "./heartbeat.js";
 import { workerConcurrency } from "./mode.js";
 import {
   sqliteFinishedBefore,
@@ -12,6 +13,11 @@ import {
 export interface StartedWorker {
   mode: string;
   stop: () => Promise<void>;
+}
+
+function stopAfter(stopHeartbeat: () => void, worker: { stop: () => Promise<void> }) {
+  stopHeartbeat();
+  return worker.stop();
 }
 
 export async function startWorker(env: Record<string, string | undefined>): Promise<StartedWorker> {
@@ -27,6 +33,7 @@ export async function startWorker(env: Record<string, string | undefined>): Prom
   };
   const concurrency = mode === "sqlite" ? workerConcurrency(env) : 0;
   console.log(`conveyor worker queue: ${mode}`);
+  const stopHeartbeat = startHeartbeat(db, env, (message) => console.error(message));
   if (mode === "sqlite") {
     const { startSqliteWorker } = await import("./sqlite.js");
     const worker = startSqliteWorker(env, concurrency);
@@ -34,9 +41,9 @@ export async function startWorker(env: Record<string, string | undefined>): Prom
     console.log("conveyor worker ready");
     return {
       mode,
-      stop: async () => {
+      stop: () => {
         stopRetention();
-        await worker.stop();
+        return stopAfter(stopHeartbeat, worker);
       },
     };
   }
@@ -45,9 +52,9 @@ export async function startWorker(env: Record<string, string | undefined>): Prom
   const stopRetention = startRetention(env, { ...dirs, live: worker.live });
   return {
     mode,
-    stop: async () => {
+    stop: () => {
       stopRetention();
-      await worker.stop();
+      return stopAfter(stopHeartbeat, worker);
     },
   };
 }

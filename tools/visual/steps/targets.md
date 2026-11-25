@@ -1,0 +1,1 @@
+`targets` lists every interactive element inside its selector whose real hit area (probed with `elementFromPoint`, so a `::after` that widens it counts) is under 44×44 px, or whose centre another element covers (naming it), and fails on any, as the `touch-*` scenes do at 390 with `touch`.

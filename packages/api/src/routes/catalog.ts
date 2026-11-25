@@ -17,6 +17,7 @@ import {
   dbUpsertProfile,
   openDb,
   PrinterSecretsWriteError,
+  type Profile,
 } from "@conveyor/shared/db";
 import { checkPrinterAddress, PrinterAddressRefusedError } from "@conveyor/shared/node";
 import type { FastifyInstance } from "fastify";
@@ -107,13 +108,18 @@ export async function registerCatalogRoutes(
 
   app.get("/catalog/slicers", async () => listSlicers());
 
-  app.get("/catalog/profiles", async () => {
+  app.get("/catalog/profiles", async (req) => {
     const db = openDb();
+    const volumeOf = (p: Profile) =>
+      profileVolume(db, p).catch((err: unknown) => {
+        req.log.error({ err, profileId: p.id }, "profile print volume unreadable");
+        return null;
+      });
     return Promise.all(
       dbListProfiles(db).map(async (p) => ({
         ...p,
         bundled: BUNDLED_PROFILE_IDS.has(p.id),
-        volume: (await profileVolume(db, p)) ?? undefined,
+        volume: (await volumeOf(p)) ?? undefined,
       })),
     );
   });
