@@ -1,0 +1,1 @@
+`mark` sets a `data-mark` attribute on its selector's first match, so a later `absent` on `[data-mark]` fails if the page kept that element instead of rendering a new one, as `print-unreachable` does to prove a second failure re-inserts the alert headline.
