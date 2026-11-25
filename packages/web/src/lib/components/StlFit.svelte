@@ -1,13 +1,6 @@
 <script lang="ts">
-  import {
-    fitOnBed,
-    inches,
-    looksInInches,
-    overBy,
-    type Size,
-    sizeLine,
-  } from "#lib/stl-size.js";
   import { measureStl } from "#lib/measure-stl.js";
+  import { fitOnBed, inches, looksInInches, overBy, type Size, sizeLine } from "#lib/stl-size.js";
 
   export let file: File;
   export let bed: Size | undefined = undefined;
