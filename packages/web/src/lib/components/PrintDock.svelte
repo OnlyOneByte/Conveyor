@@ -12,11 +12,20 @@
   export let error: string | null = null;
   export let retried: string | null = null;
   export let why: string | null = null;
+
+  let say: HTMLElement | null = null;
+  let print: HTMLButtonElement;
+
+  $: if (!error || retried) handOff();
+
+  function handOff() {
+    if (say?.contains(document.activeElement)) print.focus();
+  }
 </script>
 
 <div class="dock" use:measured={"dock-h"}>
   {#if error}
-    <div class="say">
+    <div class="say" role="alert" bind:this={say}>
       <Notice tone="err" title="Your print didn't go out">
         <span>
           {error}
@@ -24,7 +33,7 @@
         </span>
         <ErrorDetails detail={why} />
         <svelte:fragment slot="action">
-          {#if !retried}<Button type="submit" disabled={!ready}>Try again</Button>{/if}
+          {#if !retried}<Button type="submit" disabled={!ready}>{busy ? "Sending…" : "Try again"}</Button>{/if}
         </svelte:fragment>
       </Notice>
     </div>
@@ -40,7 +49,7 @@
         <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
       </span>
     </p>
-    <button type="submit" class="print" disabled={!ready} aria-disabled={busy}>
+    <button type="submit" class="print" bind:this={print} disabled={!ready} aria-disabled={busy}>
       {sent ? "Sent ✓" : busy ? "Sending…" : "Print"}
     </button>
   </div>

@@ -108,7 +108,6 @@
   async function print() {
     if (!ready || busy || !printer || !profile) return;
     busy = true;
-    error = retried = null;
     const generator = upload
       ? { id: "passthrough", params: { uploadId, filename: file?.name ?? "" } }
       : { id: tab, params };
@@ -117,6 +116,7 @@
       const to = `/?job=${encodeURIComponent(res.jobId)}`;
       await goto(to, { replace: true, reset: false });
       announce(`${jobLabel} sent to ${printer.name}.`);
+      error = retried = null;
       last = { id: res.jobId, printer: printer.name };
       jobSent();
       sent = true;

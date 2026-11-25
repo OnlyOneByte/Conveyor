@@ -3,7 +3,7 @@
   export let title: string;
 </script>
 
-<div class="notice {tone}" role={tone === "err" ? "alert" : "status"}>
+<div class="notice {tone}">
   <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
     {#if tone === "err"}
       <circle cx="10" cy="10" r="7.75" />

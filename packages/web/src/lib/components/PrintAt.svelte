@@ -46,11 +46,9 @@
       </label>
     {/each}
   </div>
-  {#if unreachable.has(printerId)}
-    <Notice tone="warn" title="{printers.find((p) => p.id === printerId)?.name} isn't answering">
+  <div class="live" role="status">{#if unreachable.has(printerId)}<Notice tone="warn" title="{printers.find((p) => p.id === printerId)?.name} isn't answering">
       Send anyway and the job waits in Needs you, ready to retry.
-    </Notice>
-  {/if}
+    </Notice>{/if}</div>
   {#if hidden}<p class="note">{hidden} more can't print this kind of job.</p>{/if}
 </fieldset>
 
@@ -86,5 +84,6 @@
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
+  .live:empty { margin-top: calc(-1 * var(--s2)); }
   @media (pointer: coarse) { .pill { min-height: var(--tap); } }
 </style>
