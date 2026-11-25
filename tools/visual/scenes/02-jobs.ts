@@ -54,6 +54,7 @@ export const scenes: Scene[] = [
       { click: ".pill >> text=All" },
       { waitFor: "[aria-live=assertive] >> text=Can't reach Conveyor" },
       { waitFor: "[data-id='j1']" },
+      { waitFor: "#belt .mini i >> visible=true", timeout: 8000 },
       { wait: 300 },
     ],
   },
