@@ -41,7 +41,7 @@
         <p class="none">{offline ? OFFLINE : IDLE}</p>
       {/each}
       <div class="bins">
-        <a class="done" href="/history">{BINS.finished}<span class="n">{today(finishedToday ?? 0)}</span></a>
+        <a class="done" href="/jobs?day=today">{BINS.finished}<span class="n">{today(finishedToday ?? 0)}</span></a>
         {#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}
       </div>
     </div>

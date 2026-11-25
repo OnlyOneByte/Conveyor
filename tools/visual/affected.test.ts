@@ -22,7 +22,7 @@ test("a scene's pages are its route, its follows, its Back/Forward landings and 
   const forward = find("print-forward");
   const retry = find("retry-link");
   if (!forward || !retry) throw new Error("scenes renamed");
-  expect(scenePaths(forward)).toEqual(["/history", "/", "/jobs/scene-forward"]);
+  expect(scenePaths(forward)).toEqual(["/jobs", "/", "/jobs/scene-forward"]);
   expect(scenePaths(retry)).toEqual(["/jobs/seed-failed", "/", "/jobs/seed-printed"]);
 });
 

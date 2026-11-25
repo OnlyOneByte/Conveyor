@@ -53,7 +53,7 @@
     <span class="seg" class:off={offline}>{offline ? OFFLINE : `${waiting} ${BINS.waiting}`}</span>
     <span class="mini" class:stale={offline} aria-hidden="true">{#each TICKS as x (x)}<u style="left: {x * 100}%"></u>{/each}{#each dots as dot (dot.id)}<i style="left: {dot.x * 100}%"></i>{/each}</span>
     <span class="sr">{dots.length} on the rail{offline ? ", the last jobs it saw" : ""}</span>
-    {#if finishedToday !== undefined}<a class="seg good" href="/history">{BINS.finished} {today(finishedToday)}</a>{/if}
+    {#if finishedToday !== undefined}<a class="seg good" href="/jobs?day=today">{BINS.finished} {today(finishedToday)}</a>{/if}
     {#if needs.length}<button class="seg bad" type="button" on:click={openNeeds}>{BINS.needs} {needs.length}</button>{/if}
     <button class="exp" type="button" aria-expanded="false" aria-controls={full} aria-label="Expand the belt" bind:this={toggle} on:click={() => open(true)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
   </section>

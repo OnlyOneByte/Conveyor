@@ -14,7 +14,7 @@
     <p>There's nothing at <code>{page.url.pathname}</code>. It may have moved, or the link is mistyped.</p>
     <div class="acts">
       <a class="btn primary" href="/">Go to Make</a>
-      <a class="btn" href="/history">See your jobs</a>
+      <a class="btn" href="/jobs">See your jobs</a>
     </div>
   {:else}
     <p>Conveyor couldn't load this page. Try again; if it keeps happening, check that Conveyor is running.</p>
