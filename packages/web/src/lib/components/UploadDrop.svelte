@@ -46,7 +46,12 @@
     <b>Drop an STL file here</b><span>or click to choose one</span>
   {/if}
 </label>
-{#if error}<p id="upload-error" class="error" role="alert">{error}</p><ErrorDetails detail={why} />{/if}
+{#if error}
+  <div class="fail">
+    <p id="upload-error" class="error" role="alert">{error}</p>
+    <ErrorDetails detail={why} />
+  </div>
+{/if}
 {#if ready && file}<StlFit {file} {bed} {printer} />{/if}
 {#if ready}
   <button type="button" class="btn clear" on:click={() => (dispatch("clear", null), input.focus())}>
@@ -70,7 +75,8 @@
   span { color: var(--muted); }
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .up { display: flex; flex-direction: column; align-items: stretch; }
-  .error { margin: var(--s2) 0 0; color: var(--err); font-weight: 600; }
-  @media (max-width: 759px) { .error { order: -1; margin: 0 0 var(--s2); } }
+  .fail { margin: var(--s2) 0 0; }
+  .error { margin: 0; color: var(--err); font-weight: 600; }
+  @media (max-width: 759px) { .fail { order: -1; margin: 0 0 var(--s2); } }
   .clear { align-self: flex-start; margin-top: var(--s2); }
 </style>

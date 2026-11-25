@@ -23,3 +23,35 @@ test("only the size limit is a 413; a broken body is a 400; anything else is the
   expect(readFailure(new RangeError("Array buffer allocation failed"))).toBeNull();
   expect(readFailure("not an error")).toBeNull();
 });
+
+test("a binary STL is exactly 84 + 50 × triangles bytes, no more and no fewer", () => {
+  const stl = Buffer.alloc(84 + 50 * 2 + 1);
+  stl.writeUInt32LE(2, 80);
+  expect(looksLikeStl(stl)).toBe(false);
+  expect(looksLikeStl(stl.subarray(0, 84 + 50 * 2 - 1))).toBe(false);
+  expect(looksLikeStl(stl.subarray(0, 84 + 50 * 2))).toBe(true);
+});
+
+test("a binary STL with no triangles is refused, since there is nothing to slice", () => {
+  expect(looksLikeStl(Buffer.alloc(84))).toBe(false);
+});
+
+test("an ASCII STL saved with a UTF-8 byte-order mark is accepted", () => {
+  const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+  expect(looksLikeStl(Buffer.concat([bom, Buffer.from("solid a\nfacet normal 0 0 1\n")]))).toBe(
+    true,
+  );
+  expect(looksLikeStl(Buffer.concat([bom, Buffer.from("not a model")]))).toBe(false);
+});
+
+test("only the exact UTF-8 byte-order mark is skipped, not any leading bytes", () => {
+  const ascii = Buffer.from("solid a\nfacet normal 0 0 1\n");
+  for (const lead of [
+    [0xef, 0xbb, 0xbe],
+    [0xef, 0xbb],
+    [0xff, 0xfe],
+    [0x00],
+    [0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf],
+  ])
+    expect(looksLikeStl(Buffer.concat([Buffer.from(lead), ascii]))).toBe(false);
+});

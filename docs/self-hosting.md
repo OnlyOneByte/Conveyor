@@ -189,6 +189,7 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 | --- | --- |
 | A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS` (30 days by default). The job page then says "Files removed after 30 days." in place of the download buttons, and the download links answer `410`; its history stays |
 | An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` (30 days by default) and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
+| An unfinished upload write, `./data/uploads/<uploadId>.stl.part` | Its last write is more than an hour old (`ABANDONED_PART_AGE_MS` in `packages/worker/src/retention.ts`). The api writes the whole body to this file and renames it to `<uploadId>.stl` within seconds, so only a crash mid-write leaves one. Its age is not counted from the first run, but nothing is removed while `CONVEYOR_RETENTION_DAYS` is `0` |
 | Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
 | BullMQ's record of a finished job | After 7 days |
 
