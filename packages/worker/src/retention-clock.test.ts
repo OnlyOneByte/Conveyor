@@ -83,6 +83,20 @@ describe("the reaper clock", () => {
     },
   );
 
+  test("the very first run removes no upload write, even with the system clock hours ahead", async () => {
+    const dirs = layout();
+    const inFlight = part(dirs.uploadDir, "in-flight", NOW - ABANDONED_PART_AGE_MS / 2);
+    const abandoned = part(dirs.uploadDir, "abandoned", NOW - 2 * DAY);
+    const state = memoryState({});
+    const process = fakeProcess();
+    const first = await reapOnce(at(dirs, {}, NOW + 6 * HOUR, state, process));
+    expect(first.parts).toEqual([]);
+    expect(existsSync(inFlight)).toBe(true);
+    process.advance(HOUR);
+    await reapOnce(at(dirs, {}, NOW + 7 * HOUR, state, process));
+    expect(existsSync(abandoned)).toBe(false);
+  });
+
   test("after 10 days down, an abandoned upload write goes on the first run, a new one stays", async () => {
     const dirs = layout();
     const abandoned = part(dirs.uploadDir, "abandoned", NOW - 10 * DAY + 60_000);
