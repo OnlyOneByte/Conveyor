@@ -439,7 +439,7 @@ OpenSCAD is GPL-2.0-or-later, so the worker image must come with its exact sourc
 - **On each Conveyor release:** the release workflow attaches the same tarball, its `.asc` and its sha256 to the GitHub release, so the source stays available from Conveyor even if upstream moves it.
 - **The libraries it links:** Debian trixie packages, whose source is the matching Debian source package (`apt-get source`, or <https://snapshot.debian.org>).
 
-`scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. The `ORCA_ENABLE` build argument picks the mode:
+`scripts/install-orca.sh <x.y.z> <auto|1|0>` installs the OrcaSlicer AppImage for the host architecture from the pinned release, 2.4.1 by default, and checks it against a pinned sha256. A checksum mismatch fails the build in every mode. If the build is given an `orca-cache` build context (`--build-context orca-cache=<dir>`) holding the AppImage for its architecture, the script uses that file instead of asking GitHub's API, and checks it against the same pin. Without one, the Dockerfile's empty `orca-cache` stage is used and the script downloads as usual. The `ORCA_ENABLE` build argument picks the mode:
 
 | `ORCA_ENABLE` | Behaviour |
 | --- | --- |
@@ -465,5 +465,5 @@ The bundled profile in `profiles/orca-klipper-pla-0.2/` only loads in the Orca r
 
 1. In the new OrcaSlicer, re-export the three leaf presets (machine, process, filament) into `profiles/orca-klipper-pla-0.2/`, and update the version in its `README.md`.
 2. Set the new version as the `ORCA_RELEASE` default in `packages/worker/Dockerfile` and `scripts/install-orca.sh`.
-3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/OrcaSlicer/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads.
+3. Replace the `pinned_sha256` entries in `scripts/install-orca.sh` with the new x86_64 and aarch64 AppImage names and their sha256. `gh api repos/OrcaSlicer/OrcaSlicer/releases/tags/v<x.y.z> --jq '.assets[] | "\(.name) \(.digest)"'` lists both, or run `sha256sum` on the downloads. Also update `ORCA_RELEASE`, `ORCA_ASSET` and `ORCA_SHA256` (the x86_64 AppImage) in the `orca slice` job of `.github/workflows/ci.yml`: that job downloads the AppImage itself, authenticated with the job's token, caches it by version and sha256, and hands it to the build.
 4. Open the PR. CI's `orca slice` job builds the worker with `ORCA_ENABLE=1` and slices a cube with the bundled profile as uid 10001, so a profile the new release rejects fails there.

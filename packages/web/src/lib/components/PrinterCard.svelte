@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CatalogPrinter } from "#lib/api.js";
+  import { secretFieldFor } from "#lib/printer-secrets.js";
   import type { PrinterCard } from "#lib/printer-status.js";
 
   export let printer: CatalogPrinter;
@@ -43,7 +44,7 @@
     {/if}
   </div>
   <div class="foot">
-    <span>{printer.hasSecrets ? `${limits} · key saved` : limits}</span>
+    <span>{printer.hasSecrets ? `${limits} · ${secretFieldFor(printer.transportId).label} saved` : limits}</span>
     <button class="btn" type="button" aria-label="Edit {printer.name}" on:click={edit}>Edit</button>
   </div>
 </li>
@@ -73,6 +74,7 @@
   ol { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
   ol a { display: inline-flex; align-items: center; min-height: 24px; }
   .now a { align-self: flex-start; display: inline-flex; align-items: center; min-height: 24px; }
+  @media (pointer: coarse) { ol a, .now a { min-height: var(--tap); } }
   .foot { display: flex; align-items: center; gap: var(--s2); margin-top: auto; color: var(--muted); font-size: var(--fs-chip); }
   .foot span { flex: 1; }
   .foot .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); border-color: var(--field-line); }
