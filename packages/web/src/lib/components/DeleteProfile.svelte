@@ -67,5 +67,5 @@
 
 <style>
   p { margin: 0; }
-  .problem { margin-top: var(--s3); color: var(--err); font-weight: 600; }
+  .problem { margin-top: var(--s3); color: var(--err); font-weight: 600; overflow-wrap: anywhere; }
 </style>
