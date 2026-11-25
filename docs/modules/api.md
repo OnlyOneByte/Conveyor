@@ -325,7 +325,8 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
     as a 500.
 - The bytes are written to `<uploadId>.stl.part` in the same folder, then renamed to `<uploadId>.stl`. A
   write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
-  under an id.
+  under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
+  A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
 - `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,
   the worker and passthrough. `MAX_UPLOAD_BYTES` must be a positive integer: the api and worker exit 1 at
   boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`

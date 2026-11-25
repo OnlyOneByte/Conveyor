@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import multipart from "@fastify/multipart";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerErrorReplies } from "../error-replies.js";
-import { registerUploadRoutes } from "./uploads.js";
+import { registerUploadRoutes, store } from "./uploads.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-"));
 const maxBytes = 84 + 50 * 3;
@@ -165,6 +165,7 @@ describe("POST /uploads when storage fails", () => {
 
 describe("POST /uploads when the write fails partway", () => {
   const full = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-full-"));
+  const written: string[] = [];
   let app: FastifyInstance;
   let at = "";
 
@@ -173,6 +174,7 @@ describe("POST /uploads when the write fails partway", () => {
     registerErrorReplies(app);
     await app.register(multipart, { limits: { fileSize: maxBytes } });
     const diskFull = async (path: string, data: Buffer) => {
+      written.push(path);
       writeFileSync(path, data.subarray(0, 10));
       throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
     };
@@ -192,5 +194,19 @@ describe("POST /uploads when the write fails partway", () => {
     const res = await fetch(`${at}/uploads`, { method: "POST", body: form });
     expect(res.status).toBe(500);
     expect(readdirSync(full)).toEqual([]);
+    expect(written).toHaveLength(1);
+    expect(written[0]).toMatch(/[0-9a-f-]{36}\.stl\.part$/);
+  });
+
+  test("a failed clean-up keeps the write's own error as the cause", async () => {
+    const enospc = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
+    const path = join(full, "stuck.stl");
+    const blocked = async (part: string) => {
+      mkdirSync(join(part, "child"), { recursive: true });
+      throw enospc;
+    };
+    const failure = await store(path, Buffer.from(ASCII), blocked).catch((e: unknown) => e);
+    expect(failure instanceof Error && failure.cause).toBe(enospc);
+    rmSync(`${path}.part`, { recursive: true, force: true });
   });
 });

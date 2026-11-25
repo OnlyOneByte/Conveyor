@@ -7,6 +7,9 @@ export const RETENTION_INTERVAL_MS = 60 * 60 * 1000;
 
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl$/i;
+const PART_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl\.part$/i;
+
+export const ABANDONED_PART_AGE_MS = 60 * 60 * 1000;
 
 export interface LiveJobs {
   ids: Set<string>;
@@ -72,6 +75,7 @@ const removeTree = (path: string) => rm(path, { recursive: true, force: true });
 export interface Reaped {
   dirs: string[];
   uploads: string[];
+  parts: string[];
 }
 
 function inside(root: string, name: string): string | undefined {
@@ -156,11 +160,32 @@ async function reapUploads(deps: RetentionDeps, cutoff: number, live: LiveJobs):
   return reaped;
 }
 
+async function reapParts(deps: RetentionDeps): Promise<string[]> {
+  const cutoff = deps.now() - ABANDONED_PART_AGE_MS;
+  const names = await readdir(deps.uploadDir).catch(() => []);
+  const reaped: string[] = [];
+  for (const name of names) {
+    const uploadId = PART_FILE.exec(name)?.[1];
+    const path = uploadId && inside(deps.uploadDir, name);
+    if (!uploadId || !path || !(await plain(path, "file"))) continue;
+    if ((await lstat(path)).mtimeMs >= cutoff) continue;
+    await (deps.remove ?? removeTree)(path);
+    reaped.push(uploadId);
+  }
+  if (reaped.length) deps.log(`[retention] removed ${reaped.length} unfinished upload writes`);
+  return reaped;
+}
+
 function anchor(clock: ProcessClock, at: number): void {
   clock.anchor = { clock: at, at: clock.mark() };
 }
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
+  const parts = await reapParts(deps);
+  return { ...(await reapAged(deps)), parts };
+}
+
+async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts">> {
   const real = deps.now();
   const { startedAt, lastRunAt } = deps.state.read();
   const process = deps.process ?? processClock();

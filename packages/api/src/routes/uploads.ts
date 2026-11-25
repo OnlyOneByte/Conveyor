@@ -9,13 +9,15 @@ type Write = (path: string, data: Buffer) => Promise<void>;
 
 const INCOMPLETE = "the upload didn't finish. Try again.";
 
-async function store(path: string, buf: Buffer, write: Write): Promise<void> {
+export async function store(path: string, buf: Buffer, write: Write): Promise<void> {
   const part = `${path}.part`;
   try {
     await write(part, buf);
     await rename(part, path);
   } catch (error) {
-    await rm(part, { force: true });
+    await rm(part, { force: true }).catch((cleanup: unknown) => {
+      throw new Error(`couldn't remove ${part}: ${String(cleanup)}`, { cause: error });
+    });
     throw error;
   }
 }

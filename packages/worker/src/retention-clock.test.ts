@@ -63,16 +63,16 @@ describe("the reaper clock", () => {
     const process = fakeProcess();
     const settled = { [id]: NOW - 400 * DAY };
     const run = (elapsed: number) => reapOnce(at(dirs, settled, NOW + elapsed, state, process));
-    expect(await run(0)).toEqual({ dirs: [], uploads: [] });
+    expect(await run(0)).toEqual({ dirs: [], uploads: [], parts: [] });
     expect(state.clock.startedAt).toBe(NOW);
-    let removed: Reaped = { dirs: [], uploads: [] };
+    let removed: Reaped = { dirs: [], uploads: [], parts: [] };
     let elapsed = 0;
     while (!removed.dirs.length && elapsed < 31 * DAY) {
       elapsed += HOUR;
       process.advance(HOUR);
       removed = await run(elapsed);
     }
-    expect(removed).toEqual({ dirs: [id], uploads: [stale] });
+    expect(removed).toEqual({ dirs: [id], uploads: [stale], parts: [] });
     expect(elapsed).toBeGreaterThan(29 * DAY);
   });
 
@@ -111,6 +111,7 @@ describe("the reaper clock", () => {
     expect(await reapOnce(at(dirs, settled, NOW, state, process, lines))).toEqual({
       dirs: [],
       uploads: [],
+      parts: [],
     });
     expect(lines.join("\n")).toContain("is ahead of the system clock");
     expect(state.clock).toEqual({ startedAt: NOW, lastRunAt: NOW });
@@ -146,6 +147,7 @@ describe("the reaper clock", () => {
     expect(await reapOnce(at(dirs, settled, NOW + THIRTY, state, process, lines))).toEqual({
       dirs: [],
       uploads: [],
+      parts: [],
     });
     expect(state.clock).toEqual({ startedAt: NOW + THIRTY, lastRunAt: NOW + THIRTY });
     expect(lines.join("\n")).toContain("the stored reaper clock was missing");

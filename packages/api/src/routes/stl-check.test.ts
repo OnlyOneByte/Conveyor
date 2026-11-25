@@ -43,3 +43,15 @@ test("an ASCII STL saved with a UTF-8 byte-order mark is accepted", () => {
   );
   expect(looksLikeStl(Buffer.concat([bom, Buffer.from("not a model")]))).toBe(false);
 });
+
+test("only the exact UTF-8 byte-order mark is skipped, not any leading bytes", () => {
+  const ascii = Buffer.from("solid a\nfacet normal 0 0 1\n");
+  for (const lead of [
+    [0xef, 0xbb, 0xbe],
+    [0xef, 0xbb],
+    [0xff, 0xfe],
+    [0x00],
+    [0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf],
+  ])
+    expect(looksLikeStl(Buffer.concat([Buffer.from(lead), ascii]))).toBe(false);
+});

@@ -9,10 +9,11 @@ import {
   jobDir,
   layout,
   memoryState,
+  NOW,
   none,
   upload,
 } from "../test/helpers/retention";
-import { type LiveJobs, reapOnce, startRetention } from "./retention";
+import { ABANDONED_PART_AGE_MS, type LiveJobs, reapOnce, startRetention } from "./retention";
 
 afterEach(cleanupRoots);
 
@@ -20,7 +21,7 @@ describe("job folders", () => {
   test("removes a finished job's folder once it is older than the setting", async () => {
     const dirs = layout();
     const id = jobDir(dirs.dataDir);
-    expect(await reapOnce(deps(dirs, [id]))).toEqual({ dirs: [id], uploads: [] });
+    expect(await reapOnce(deps(dirs, [id]))).toEqual({ dirs: [id], uploads: [], parts: [] });
     expect(existsSync(join(dirs.dataDir, id))).toBe(false);
   });
 
@@ -61,6 +62,7 @@ describe("job folders", () => {
     expect(await reapOnce(deps(dirs, [first, second]))).toEqual({
       dirs: [first, second],
       uploads: [stale],
+      parts: [],
     });
     expect(existsSync(join(dirs.dataDir, first))).toBe(false);
   });
@@ -91,6 +93,23 @@ describe("uploads", () => {
     for (const kept of [fresh, used])
       expect(existsSync(join(dirs.uploadDir, `${kept}.stl`))).toBe(true);
     expect(existsSync(join(dirs.uploadDir, "notes.txt"))).toBe(true);
+  });
+
+  test("removes an upload write abandoned over an hour ago and keeps one still in flight", async () => {
+    const dirs = layout();
+    const part = (id: string, ageMs: number) => {
+      const path = join(dirs.uploadDir, `${id}.stl.part`);
+      writeFileSync(path, "sol");
+      utimesSync(path, (NOW - ageMs) / 1000, (NOW - ageMs) / 1000);
+      return path;
+    };
+    const [old, fresh] = [randomUUID(), randomUUID()];
+    part(old, ABANDONED_PART_AGE_MS + 1000);
+    const inFlight = part(fresh, ABANDONED_PART_AGE_MS - 60_000);
+    const reaped = await reapOnce(deps(dirs, []));
+    expect(reaped.parts).toEqual([old]);
+    expect(existsSync(join(dirs.uploadDir, `${old}.stl.part`))).toBe(false);
+    expect(existsSync(inFlight)).toBe(true);
   });
 
   test("never follows a symlink or removes a folder named like an upload", async () => {
