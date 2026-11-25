@@ -50,14 +50,14 @@ wins. What it counts today:
 Instead of a comment, in order: rename the symbol, extract a named function, encode it in a type, write a
 test whose name states the rule, or write it in `docs/modules/<module>.md`.
 
-**How the ratchet works.** `scripts/checks/comments.ts` counts comment lines and suppressions per file and
-compares each file with the base branch's `scripts/checks/comments/baseline/<area>.json` files (one per area: `api`, `worker`, `shared`, `web`, `plugins`, `repo`). The `no-comments` check:
+**How the ratchet works.** `scripts/checks/comments.ts` counts comment lines and suppressions in every file of
+the PR's tree and of the base branch's tree, and compares them file by file. Nothing is stored, so there is no
+baseline to update or to conflict on. The `no-comments` check:
 
 | You did | Result |
 |---|---|
-| Added a comment to any file | `added: …` and the check fails |
-| Removed comments | `baseline … is stale`: run `bun run check:comments:update` and commit the area files it rewrites |
-| Raised a number in the baseline by hand | `baseline raised: …` and the check fails |
+| Added a comment or a suppression to any file | `added: …` and the check fails |
+| Removed comments | passes; the base the next PR is checked against has the lower count |
 
 Counts only go down. The target is 0 everywhere; then the check switches to `--strict`.
 
@@ -81,7 +81,7 @@ Counts only go down. The target is 0 everywhere; then the check switches to `--s
 | Cognitive complexity per function | 12 | [CI] in `scripts/**`; [review], S1, elsewhere |
 | Positional parameters | 3 (then pass one object) | [CI] in `scripts/**`; [review], S1, elsewhere |
 
-The `file-size` check counts lines in code, style and component files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.svelte`, `.css`). A file listed in `scripts/checks/lines/baseline.json` may stay as long as its entry there; every other file must keep to the limit. The baseline only shrinks: an entry above the base branch's, or a new entry, fails, and so does a baseline that no longer matches the files over the limit.
+The `file-size` check counts lines in code, style and component files (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`, `.jsx`, `.svelte`, `.css`) in the PR's tree and the base branch's. A file the base already has over the limit may keep its length or shrink, never grow; every other file, a renamed one included, must keep to the limit. Nothing is stored, so shrinking a file needs no other change.
 
 ## 5. Types
 
@@ -93,8 +93,9 @@ The `file-size` check counts lines in code, style and component files (`.ts`, `.
   `JSON.parse`, a `catch (e)` used as an object): use `unknown` and narrow. [review]
 - No non-null `!`. [CI: `lint`, outside `packages/web`; review inside it]
 - No `as` casts except `as const` (or `<const>`). Parse values; don't assert them. [CI: `lint`, through
-  `bun run check:casts` over every `.ts` file and Svelte `<script>` block; the casts that predate it are
-  listed in `scripts/checks/casts/baseline.json`, which may only shrink. A file that is new to the base may
+  `bun run check:casts` over every `.ts` file and Svelte `<script>` block; a file may have no
+  more casts than it has on the base branch, counted in both trees, so removing one needs no other change. A
+  file that is new to the base may
   take over a removed file's allowance only when `git diff -M -C` pairs the two as a rename or copy (a
   split), and never more than the removed file had. Casts inside Svelte markup: review]
 - No `enum`. Use a string-literal union with a `const` array:
@@ -160,12 +161,12 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 
 | Check | Local command |
 |---|---|
-| `lint` | `bun run lint && bun run check:casts`; after removing a cast, run `bun run check:casts:update` and commit `scripts/checks/casts/baseline.json` |
+| `lint` | `bun run lint && bun run check:casts` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
 | `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in anything every page loads: the layout node and the app and start entries, with their imports) |
 | `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order over an `LC_ALL=C`-sorted file list (the log prints the seed, the commit, how to check it out and the rerun command, not the file list itself); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
-| `file-size` | `bun run check:lines`; after shrinking a file in `scripts/checks/lines/baseline.json`, run `bun run check:lines:update` and commit the baseline |
+| `file-size` | `bun run check:lines` |
 | `Docker build (api / worker / web)` | `docker build --build-arg ORCA_ENABLE=0 -f packages/<service>/Dockerfile .` |
 | `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/api/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
 | `pr-meta` | CI only, from the PR's own metadata, no code checked out: the title pattern, length and single line, the labels, and the issue lines (§8). Its errors never echo PR text across lines. It re-runs when the title, body or labels change, so fix them in place. It reads them from the API as they are now, not from the event that started the run, so re-running a run that failed before the fix passes; Dependabot PRs are skipped |
@@ -208,8 +209,9 @@ then push. Never set the status yourself, and never argue a rule away in a threa
 
 Guardrail paths: `.github/**`, `scripts/checks/**`, `AGENTS.md`, `CLAUDE.md`, and `CODEOWNERS`, `biome.json`,
 `biome.jsonc`, `tsconfig*.json` and `bunfig.toml` at any depth (so `packages/web/tsconfig.json` counts).
-`merge.sh` exempts `scripts/checks/comments/baseline/{api,worker,shared,web,plugins,repo}.json` and `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR
-that only lowers a baseline is not held. A guardrail-path PR needs a passing adversarial review from
+`merge.sh` exempts `scripts/checks/coverage/baseline/{api,worker,shared,plugins}.json`, so a PR that only
+raises coverage is not held. The comment, cast and file-size ratchets store nothing, so no PR touches them to
+record progress. A guardrail-path PR needs a passing adversarial review from
 a second, independent reviewer session that saw none of the earlier rounds. The merge tooling refuses
 guardrail-path PRs unless the conductor sets `CONVEYOR_GUARDRAIL_OK=1`, which it does only after that
 independent pass. Keep guardrail changes in their own PR.

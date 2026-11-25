@@ -3,7 +3,6 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Git, pullRequestBase } from "./base";
-import { BASELINE_PATH, serializeBaseline } from "./lines/baseline";
 import { commit, sh } from "./test-repo";
 
 const scratch = mkdtempSync(join(tmpdir(), "conveyor-base-test-"));
@@ -55,26 +54,15 @@ function staleMergeRepo() {
   mkdirSync(join(root, "scripts", "checks"), { recursive: true });
   cpSync(import.meta.dir, join(root, "scripts", "checks"), {
     recursive: true,
-    filter: (path) =>
-      !/\/coverage(\/|$)|\.test\.ts$|\/baseline(\/|$)|baseline\.json$/.test(
-        path.slice(import.meta.dir.length),
-      ),
+    filter: (path) => !/\/coverage(\/|$)|\.test\.ts$/.test(path.slice(import.meta.dir.length)),
   });
   sh(root, ["git", "init", "-q", "-b", "main"]);
   const big = "x\n".repeat(300);
-  const oldMain = commit(
-    root,
-    { "big.ts": big, [BASELINE_PATH]: serializeBaseline({ "big.ts": 300 }) },
-    "old main",
-  );
+  const oldMain = commit(root, { "big.ts": big }, "old main");
   sh(root, ["git", "switch", "-q", "-c", "feature"]);
   commit(root, { "feature.ts": "export const f = 1;\n" }, "feature");
   sh(root, ["git", "switch", "-q", "main"]);
-  const tip = commit(
-    root,
-    { "big.ts": "x\n".repeat(240), [BASELINE_PATH]: serializeBaseline({}) },
-    "main shrinks big.ts",
-  );
+  const tip = commit(root, { "big.ts": "x\n".repeat(240) }, "main shrinks big.ts");
   sh(root, ["git", "switch", "-q", "--detach", oldMain]);
   sh(root, ["git", "merge", "-q", "--no-edit", "feature"]);
   return { root, oldMain, tip };

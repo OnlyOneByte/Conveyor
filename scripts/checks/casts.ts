@@ -1,29 +1,12 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { measure } from "./casts/count";
-import { BASELINE_PATH, checkRatchet, parsePairs } from "./casts/ratchet";
-import { updateRefusal } from "./comments/ratchet";
+import { checkRatchet, parsePairs } from "./casts/ratchet";
 import { treeAt, workingTree } from "./comments/tree";
-import { serializeBaseline } from "./lines/baseline";
 
 const ROOT = join(import.meta.dir, "..", "..");
 
 const total = (counts: Record<string, number>) => Object.values(counts).reduce((a, b) => a + b, 0);
-
-const update = () => {
-  const refusal = updateRefusal(process.env);
-  if (refusal !== null) {
-    console.error(refusal);
-    return 1;
-  }
-  const counts = measure(workingTree(ROOT));
-  writeFileSync(join(ROOT, BASELINE_PATH), serializeBaseline(counts));
-  console.log(
-    `wrote ${BASELINE_PATH}: ${total(counts)} casts in ${Object.keys(counts).length} files`,
-  );
-  return 0;
-};
 
 const check = (baseRef: string) => {
   const base = treeAt(ROOT, baseRef);
@@ -39,8 +22,7 @@ const check = (baseRef: string) => {
     cwd: ROOT,
   });
   const pairs = diff.exitCode === 0 ? parsePairs(diff.stdout.toString()) : [];
-  const committed = tree.read(BASELINE_PATH);
-  const errors = checkRatchet({ current, committed, base, present, pairs });
+  const errors = checkRatchet({ current, base, present, pairs });
   for (const error of errors) console.error(error);
   return errors.length === 0 ? 0 : 1;
 };
@@ -48,12 +30,9 @@ const check = (baseRef: string) => {
 function main(argv: string[]): number {
   const { values } = parseArgs({
     args: argv,
-    options: {
-      update: { type: "boolean", default: false },
-      base: { type: "string", default: "origin/main" },
-    },
+    options: { base: { type: "string", default: "origin/main" } },
   });
-  return values.update ? update() : check(values.base);
+  return check(values.base);
 }
 
 if (import.meta.main) process.exit(main(process.argv.slice(2)));
