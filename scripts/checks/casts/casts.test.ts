@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { Tree } from "../comments/tree";
-import { serializeBaseline } from "../lines/baseline";
 import type { Counts } from "../lines/count";
 import { countCasts, measure } from "./count";
-import { BASELINE_PATH, CHECKER_PATH, checkRatchet, type Pair, parsePairs } from "./ratchet";
+import { checkRatchet, type Pair, parsePairs } from "./ratchet";
 
 const treeOf = (files: Record<string, string>): Tree => ({
   list: () => Object.keys(files),
@@ -12,11 +11,7 @@ const treeOf = (files: Record<string, string>): Tree => ({
 
 const cast = "const n = value as number;\n";
 
-const baseWith = (files: Record<string, string>, baseline: Counts) =>
-  treeOf({ ...files, [CHECKER_PATH]: "", [BASELINE_PATH]: serializeBaseline(baseline) });
-
 interface Change {
-  committed?: Counts;
   present?: string[];
   pairs?: Pair[];
 }
@@ -25,7 +20,6 @@ const run = (current: Counts, base: Tree, change: Change = {}) =>
   checkRatchet({
     current,
     base,
-    committed: serializeBaseline(change.committed ?? current),
     present: new Set(change.present ?? Object.keys(current)),
     pairs: change.pairs ?? [],
   });
@@ -65,9 +59,9 @@ describe("counting casts", () => {
 });
 
 describe("the cast ratchet", () => {
-  const base = baseWith({ "a.ts": cast }, { "a.ts": 1 });
+  const base = treeOf({ "a.ts": cast });
 
-  test("passes when the tree matches the base's baseline", () => {
+  test("passes when the tree keeps the base's casts", () => {
     expect(run({ "a.ts": 1 }, base)).toEqual([]);
   });
 
@@ -75,28 +69,14 @@ describe("the cast ratchet", () => {
     expect(run({ "a.ts": 1, "b.ts": 1 }, base)[0]).toContain("new cast: b.ts: 1");
   });
 
-  test("fails on a second cast in a baselined file, even with the baseline raised", () => {
-    const errors = run({ "a.ts": 2 }, base);
-    expect(errors).toEqual([
-      expect.stringContaining("new cast: a.ts: 2"),
-      expect.stringContaining("baseline raised: a.ts: 2"),
-    ]);
+  test("fails on a second cast in a file the base has one in", () => {
+    expect(run({ "a.ts": 2 }, base)).toEqual([expect.stringContaining("new cast: a.ts: 2")]);
   });
 
-  test("a removed cast must lower the baseline", () => {
-    const present = ["a.ts"];
-    expect(run({}, base, { committed: { "a.ts": 1 }, present })[0]).toContain("is stale");
-    expect(run({}, base, { committed: {}, present })).toEqual([]);
-  });
-
-  test("a missing or invalid committed baseline fails", () => {
-    const change = { present: new Set<string>(), pairs: [] };
-    expect(checkRatchet({ current: {}, base, committed: null, ...change })[0]).toContain(
-      "is missing",
-    );
-    expect(checkRatchet({ current: {}, base, committed: "[]", ...change })[0]).toContain(
-      "not a valid",
-    );
+  test("a removed cast needs no update, and the base it lands on allows no more", () => {
+    expect(run({}, base, { present: ["a.ts"] })).toEqual([]);
+    const after = treeOf({ "a.ts": "const k = 1;\n" });
+    expect(run({ "a.ts": 1 }, after)[0]).toContain("new cast: a.ts: 1 `as` casts (base allows 0)");
   });
 
   test("a file git pairs as a rename keeps its allowance", () => {
@@ -104,14 +84,14 @@ describe("the cast ratchet", () => {
   });
 
   test("a file git pairs as the halves of a split shares its allowance, capped", () => {
-    const big = baseWith({ "a.ts": cast.repeat(3) }, { "a.ts": 3 });
+    const big = treeOf({ "a.ts": cast.repeat(3) });
     const pairs = moved("a.ts", "b.ts", "c.ts");
     expect(run({ "b.ts": 2, "c.ts": 1 }, big, { pairs })).toEqual([]);
     expect(run({ "b.ts": 2, "c.ts": 2 }, big, { pairs })[0]).toContain("new cast: c.ts: 2");
   });
 
   test("a removed file's allowance does not move to an unrelated new file", () => {
-    const big = baseWith({ "a.ts": cast.repeat(8) }, { "a.ts": 8 });
+    const big = treeOf({ "a.ts": cast.repeat(8) });
     expect(run({ "laundered.ts": 8 }, big)[0]).toContain("new cast: laundered.ts: 8");
     const other = moved("elsewhere.ts", "laundered.ts");
     expect(run({ "laundered.ts": 8 }, big, { pairs: other })[0]).toContain("new cast");
@@ -125,7 +105,7 @@ describe("the cast ratchet", () => {
   });
 
   test("a removed file's allowance does not move to a file the base already has", () => {
-    const two = baseWith({ "a.ts": cast, "b.ts": "" }, { "a.ts": 1 });
+    const two = treeOf({ "a.ts": cast, "b.ts": "" });
     expect(run({ "b.ts": 1 }, two, { pairs: moved("a.ts", "b.ts") })[0]).toContain(
       "new cast: b.ts: 1",
     );
@@ -137,15 +117,9 @@ describe("the cast ratchet", () => {
     expect(parsePairs("")).toEqual([]);
   });
 
-  test("a base without the checker allows exactly the casts it already has", () => {
-    const before = treeOf({ "a.ts": cast + cast });
-    expect(run({ "a.ts": 2 }, before)).toEqual([]);
-    expect(run({ "a.ts": 3 }, before)[0]).toContain("new cast: a.ts: 3");
-  });
-
-  test("a base with the checker but no baseline fails closed", () => {
-    expect(run({}, treeOf({ [CHECKER_PATH]: "" }))[0]).toContain(
-      "no scripts/checks/casts/baseline.json",
-    );
+  test("the allowance is what the base has, file by file", () => {
+    const before = treeOf({ "a.ts": cast + cast, "b.ts": cast });
+    expect(run({ "a.ts": 2, "b.ts": 1 }, before)).toEqual([]);
+    expect(run({ "a.ts": 3, "b.ts": 0 }, before)[0]).toContain("new cast: a.ts: 3");
   });
 });

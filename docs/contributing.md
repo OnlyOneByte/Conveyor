@@ -56,10 +56,9 @@ passes the test files explicitly, sorted byte-wise so every locale gives the sam
 command to get the same order locally. A test that only fails there depends on what ran before it: make it
 set up its own state.
 
-How the comments baseline works, and what each `check:comments` message means, is in
-[AGENTS.md §2](../AGENTS.md#2-no-comments). It is one file per area,
-`scripts/checks/comments/baseline/<area>.json`, and `bun run check:comments:update` rewrites only the areas
-whose counts changed.
+How the comment ratchet works, and what each `check:comments` message means, is in
+[AGENTS.md §2](../AGENTS.md#2-no-comments). It counts both trees each run and stores nothing, so removing a
+comment needs no other change.
 
 The coverage baseline is one file per package, `scripts/checks/coverage/baseline/<package>.json`, each holding
 a single line-coverage percent, so PRs that move different packages never touch the same file. If
@@ -124,14 +123,19 @@ the same. The checker parses each file with TypeScript and drops a line only whe
 a type (a type annotation, a type literal, an `interface` or a `type` alias), apart from bare `,` and `;`. A line
 with any other token stays counted, and so do `extends`/`implements` clauses and `enum`s.
 
-The file-size baseline, `scripts/checks/lines/baseline.json`, lists each file over its limit
-([AGENTS.md §4](../AGENTS.md#4-size-limits)) with its line count. `check:lines` compares every file with the base
-commit's baseline. In CI that is the commit the PR's merge commit was built on (`HEAD^1`), the merge base with
-`main` for a manual run on another branch, and the previous commit on `main` for a push; `scripts/checks/base.ts`
-picks it, as it does for `audit`, the comment ratchet (`no-comments`) and the coverage ratchet (`test`). Comparing
-with `main`'s newer tip instead would judge a PR against baselines it was never built on. A listed file may stay at or under its entry; any other file fails past 250 lines, or 150 for a
-`.svelte` component. When you shrink a listed file, the check says the baseline is stale: run
-`bun run check:lines:update` and commit it. A file that drops to its limit leaves the baseline.
+The file-size, comment and cast ratchets store no baseline. `check:lines` counts every file
+([AGENTS.md §4](../AGENTS.md#4-size-limits)) in the PR's tree and in the base commit's tree. In CI the base is
+the commit the PR's merge commit was built on (`HEAD^1`), the merge base with `main` for a manual run on another
+branch, and the previous commit on `main` for a push; `scripts/checks/base.ts` picks it, as it does for `audit`,
+the comment ratchet (`no-comments`), the cast ratchet (`lint`) and the coverage ratchet (`test`). Comparing
+with `main`'s newer tip instead would judge a PR against a tree it was never built on. A file the base has over
+its limit may keep its length or shrink; any other file fails past 250 lines, or 150 for a `.svelte`
+component. Shrinking a file needs no other change, so two PRs that shrink different files never conflict.
+
+Because the allowance is the base's own tree, two PRs that each pass can still fail together, like two PRs
+whose tests pass alone: one shrinks a long file and the other, checked on the older `main`, adds lines to it.
+`main`'s push run then fails against the commit before it. A stored count turned that into a merge conflict
+instead, and also made every pair of PRs that shrank neighbouring entries conflict.
 
 ## The PR flow
 

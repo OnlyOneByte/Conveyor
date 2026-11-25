@@ -1,9 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { areaWrites, BASELINE_DIR, readAreas } from "./comments/areas";
 import { totals } from "./comments/baseline";
-import { checkRatchet, updateRefusal } from "./comments/ratchet";
+import { checkRatchet } from "./comments/ratchet";
 import { commentLines, languageOf } from "./comments/tally";
 import { measure, type Tree, treeAt, workingTree } from "./comments/tree";
 
@@ -18,35 +16,18 @@ const printStrict = (tree: Tree) => {
   }
 };
 
-const update = (tree: Tree) => {
-  const refusal = updateRefusal(process.env);
-  if (refusal !== null) {
-    console.error(refusal);
+const check = (tree: Tree, baseRef: string) => {
+  const base = treeAt(ROOT, baseRef);
+  if (base.list().length === 0) {
+    console.error(`base ${baseRef} does not resolve to a commit`);
     return 1;
   }
-  const current = measure(tree);
-  mkdirSync(join(ROOT, BASELINE_DIR), { recursive: true });
-  for (const [path, text] of areaWrites(current, tree)) {
-    writeFileSync(join(ROOT, path), text);
-    console.log(`wrote ${path}`);
-  }
-  const sum = totals(current);
-  console.log(`wrote baseline: ${sum.comments} comment lines, ${sum.suppressions} suppressions`);
-  return 0;
-};
-
-const check = (tree: Tree, baseRef: string) => {
   const current = measure(tree);
   const sum = totals(current);
   console.log(
     `comment lines: ${sum.comments}, suppressions: ${sum.suppressions} (base ${baseRef})`,
   );
-  const { errors } = checkRatchet({
-    current,
-    present: new Set(tree.list()),
-    committed: readAreas(tree),
-    base: treeAt(ROOT, baseRef),
-  });
+  const { errors } = checkRatchet({ current, present: new Set(tree.list()), base });
   for (const error of errors) console.error(error);
   return errors.length === 0 ? 0 : 1;
 };
@@ -62,13 +43,11 @@ function main(argv: string[]): number {
   const { values } = parseArgs({
     args: argv,
     options: {
-      update: { type: "boolean", default: false },
       strict: { type: "boolean", default: false },
       base: { type: "string", default: "origin/main" },
     },
   });
   const tree = workingTree(ROOT);
-  if (values.update) return update(tree);
   if (values.strict) return strict(tree);
   return check(tree, values.base);
 }

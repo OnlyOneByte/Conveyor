@@ -10,30 +10,24 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 const CHECKS = (root: string) => join(root, "scripts", "checks");
 
-function updateBaseline(root: string, message: string) {
-  const wrote = sh(root, ["bun", join(CHECKS(root), "comments.ts"), "--update"], { CI: "" });
-  expect(wrote.code).toBe(0);
-  return commit(root, {}, message);
-}
-
 function staleMergeRepo() {
   const root = mkdtempSync(join(scratch, "repo-"));
   mkdirSync(CHECKS(root), { recursive: true });
   cpSync(import.meta.dir, CHECKS(root), {
     recursive: true,
     filter: (path) =>
-      !/\/coverage(\/|$)|\/lines(\/|$)|\.test\.ts$|\/baseline(\/|$)|baseline\.json$/.test(
-        path.slice(import.meta.dir.length),
-      ),
+      !/\/coverage(\/|$)|\/lines(\/|$)|\.test\.ts$/.test(path.slice(import.meta.dir.length)),
   });
   sh(root, ["git", "init", "-q", "-b", "main"]);
-  commit(root, { "a.ts": "// kept until main drops it\nexport const a = 1;\n" }, "old main");
-  const oldMain = updateBaseline(root, "old main baseline");
+  const oldMain = commit(
+    root,
+    { "a.ts": "// kept until main drops it\nexport const a = 1;\n" },
+    "old main",
+  );
   sh(root, ["git", "switch", "-q", "-c", "feature"]);
   commit(root, { "feature.ts": "export const f = 1;\n" }, "feature");
   sh(root, ["git", "switch", "-q", "main"]);
-  commit(root, { "a.ts": "export const a = 1;\n" }, "main drops the comment");
-  const tip = updateBaseline(root, "main lowers its baseline");
+  const tip = commit(root, { "a.ts": "export const a = 1;\n" }, "main drops the comment");
   sh(root, ["git", "switch", "-q", "--detach", oldMain]);
   sh(root, ["git", "merge", "-q", "--no-edit", "feature"]);
   return { root, oldMain, tip };
