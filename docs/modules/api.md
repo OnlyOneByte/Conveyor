@@ -315,11 +315,11 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 - The bytes are never treated as code; they go to the slicer as-is. Before anything is written the route checks:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
   - **Extension:** the file must end in `.stl`, otherwise 415.
-  - **Complete body:** a multipart body that breaks off is a 400, "the upload didn't finish. Try again".
-  - **Not empty:** an empty file is a 400, "the file is empty".
+  - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
+  - **Not empty:** an empty file is a 400: "the file is empty."
   - **Looks like an STL** (`routes/stl-check.ts`): either binary, with exactly `84 + 50 × triangles` bytes, or
-    ASCII, starting with `solid` and naming a `facet` in its first 4 KiB. Anything else is a 400, "the file
-    isn't an STL model".
+    ASCII, starting with `solid` and naming a `facet` in its first 4 KiB. Anything else is a 400: "the file
+    isn't an STL model."
   - **Server faults:** a failed write, or any read error that isn't the client's, goes to the error handler
     as a 500.
 - `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,

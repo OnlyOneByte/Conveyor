@@ -5,7 +5,7 @@ import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance } from "fastify";
 import { looksLikeStl, readFailure } from "./stl-check.js";
 
-const INCOMPLETE = "the upload didn't finish. Try again";
+const INCOMPLETE = "the upload didn't finish. Try again.";
 
 export async function registerUploadRoutes(
   app: FastifyInstance,
@@ -28,8 +28,8 @@ export async function registerUploadRoutes(
       const said = status === 413 ? `file exceeds ${settings.maxBytes} bytes` : INCOMPLETE;
       return reply.code(status).send({ error: said });
     }
-    if (!buf.byteLength) return reply.code(400).send({ error: "the file is empty" });
-    if (!looksLikeStl(buf)) return reply.code(400).send({ error: "the file isn't an STL model" });
+    if (!buf.byteLength) return reply.code(400).send({ error: "the file is empty." });
+    if (!looksLikeStl(buf)) return reply.code(400).send({ error: "the file isn't an STL model." });
 
     const uploadId = randomUUID();
     await mkdir(settings.dir, { recursive: true });

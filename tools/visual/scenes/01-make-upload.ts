@@ -27,8 +27,8 @@ const fault: Step = {
 };
 
 export const scenes: Scene[] = [
-  refused("make-upload-empty", "empty.stl", "", "Couldn't upload empty.stl: the file is empty"),
-  refused("make-upload-not-stl", "notes.stl", "not a model", "the file isn't an STL model"),
+  refused("make-upload-empty", "empty.stl", "", "Couldn't upload empty.stl: the file is empty."),
+  refused("make-upload-not-stl", "notes.stl", "not a model", "the file isn't an STL model."),
   refused(
     "make-upload-fault",
     "bin.stl",

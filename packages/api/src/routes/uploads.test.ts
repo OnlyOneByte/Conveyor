@@ -88,13 +88,13 @@ describe("POST /uploads", () => {
   });
 
   test.each([
-    ["an empty file", "", "the file is empty"],
-    ["random bytes", "not a model at all", "the file isn't an STL model"],
-    ["ASCII with no facets", "solid bin\nendsolid bin\n", "the file isn't an STL model"],
+    ["an empty file", "", "the file is empty."],
+    ["random bytes", "not a model at all", "the file isn't an STL model."],
+    ["ASCII with no facets", "solid bin\nendsolid bin\n", "the file isn't an STL model."],
     [
       "a binary STL missing a triangle",
       binaryStl(2).subarray(0, 84 + 50),
-      "the file isn't an STL model",
+      "the file isn't an STL model.",
     ],
   ])("rejects %s with 400 and stores nothing", async (_, content, error) => {
     const before = readdirSync(dir).length;
@@ -113,7 +113,7 @@ describe("POST /uploads", () => {
       body: `${head}solid bin\nfacet`,
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "the upload didn't finish. Try again" });
+    expect(await res.json()).toEqual({ error: "the upload didn't finish. Try again." });
     expect(readdirSync(dir).length).toBe(before);
   });
 
@@ -138,6 +138,7 @@ describe("POST /uploads", () => {
 describe("POST /uploads when storage fails", () => {
   const blocked = join(dir, "not-a-dir");
   let broken: FastifyInstance;
+  let at = "";
 
   beforeAll(async () => {
     writeFileSync(blocked, "");
@@ -145,16 +146,19 @@ describe("POST /uploads when storage fails", () => {
     registerErrorReplies(broken);
     await broken.register(multipart, { limits: { fileSize: maxBytes } });
     await registerUploadRoutes(broken, { dir: join(blocked, "uploads"), maxBytes });
-    await broken.ready();
+    at = await broken.listen({ host: "127.0.0.1", port: 0 });
   });
 
-  afterAll(() => broken.close());
+  afterAll(async () => {
+    broken.server.closeAllConnections();
+    await broken.close();
+  });
 
   test("is a 500, because the fault is the server's, not the upload's", async () => {
     const form = new FormData();
     form.append("file", new Blob([ASCII]), "bin.stl");
-    const res = await broken.inject({ method: "POST", url: "/uploads", body: form });
-    expect(res.statusCode).toBe(500);
-    expect(res.json()).toEqual({ error: "internal error" });
+    const res = await fetch(`${at}/uploads`, { method: "POST", body: form });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "internal error" });
   });
 });
