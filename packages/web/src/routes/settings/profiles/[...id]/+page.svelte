@@ -29,7 +29,7 @@
   </div>
 {:else if problem}
   <div class="empty" role="alert">
-    <p class="sub">Conveyor answered: {problem}</p>
+    <p class="sub answer">Conveyor answered: {problem}</p>
     <div>
       <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
     </div>
@@ -58,6 +58,7 @@
   .head { display: flex; flex-direction: column; gap: var(--s1); margin: 0 0 var(--s4); }
   h1, p { margin: 0; line-height: 1.1; }
   .sub { color: var(--muted); line-height: 1.45; }
+  .answer { overflow-wrap: anywhere; }
   .empty { display: flex; flex-direction: column; gap: var(--s3); }
   .big { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
 </style>
