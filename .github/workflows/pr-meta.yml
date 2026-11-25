@@ -7,6 +7,7 @@ on:
 
 permissions:
   issues: read
+  pull-requests: read
 
 jobs:
   pr-meta:
@@ -18,15 +19,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           AGENT_LOGIN: OnlyOneByte
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         shell: bash
         run: |
           set -euo pipefail
           fail=0
           err() { echo "::error::$1"; fail=1; }
+          if ! pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER"); then
+            echo "::error::Could not read PR #$PR_NUMBER, so re-run this check."
+            exit 1
+          fi
+          PR_AUTHOR=$(jq -r '.user.login' <<<"$pr")
+          PR_TITLE=$(jq -r '.title' <<<"$pr")
+          PR_BODY=$(jq -r '.body // ""' <<<"$pr")
+          PR_LABELS=$(jq -c '[.labels[].name]' <<<"$pr")
           if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
             echo "dependabot PR: metadata rules don't apply"
             exit 0
