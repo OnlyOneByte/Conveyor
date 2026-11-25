@@ -1,2 +1,5 @@
-// Client-rendered surface: it polls live job + printer state in the browser.
-export const ssr = false;
+import { redirect } from "@sveltejs/kit";
+
+export const ssr = true;
+
+export const load = () => redirect(308, "/jobs");

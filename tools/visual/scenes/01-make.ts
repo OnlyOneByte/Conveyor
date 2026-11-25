@@ -98,16 +98,14 @@ export const scenes: Scene[] = [
   {
     name: "job-progress",
     route: "/",
+    visits: ["/jobs/job"],
     ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },
       { click: "button.print" },
-      { scroll: "ol.stages, .status" },
-      {
-        waitFor: "ol.stages li.done:last-child, .status .failed",
-        timeout: 12000,
-      },
+      { click: "text=See the job" },
+      { waitFor: "text=Print again", timeout: 15000 },
       { wait: 800 },
     ],
   },

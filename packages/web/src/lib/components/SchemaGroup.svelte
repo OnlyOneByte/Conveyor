@@ -154,18 +154,18 @@
   /* Editable stepper: −/+ flank a real number input, so ±1 is one tap and an exact
      value can still be typed. The wrapper carries the 44px tap target, so the inner
      input opts out of the global min-height. */
-  .stepper { display: flex; align-items: center; background: var(--surface-2);
+  .stepper { display: flex; align-items: center; background: var(--sunk);
     border: 1.5px solid var(--field-line); border-radius: var(--r-control); overflow: hidden; }
   .stepper button { border: 0; background: transparent; border-radius: 0; width: 40px;
-    padding: 0; font-size: 1.05rem; line-height: 1; color: var(--text); flex: none; }
+    padding: 0; font-size: 1.05rem; line-height: 1; color: var(--ink); flex: none; }
   @media (hover: hover) {
-    .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
+    .stepper button:hover:not(:disabled) { background: var(--line-2); color: var(--live); }
   }
   .stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
   .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 0.12rem; }
   .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
     text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;
-    color: var(--text); -moz-appearance: textfield; appearance: textfield; }
+    color: var(--ink); -moz-appearance: textfield; appearance: textfield; }
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }

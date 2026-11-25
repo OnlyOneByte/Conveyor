@@ -1,6 +1,7 @@
 import type {
   FormUiHints,
   JobState,
+  JobStatusEvent,
   JobView,
   OrcaEditableProfile,
   OrcaProfileDocuments,
@@ -19,17 +20,6 @@ export interface GeneratorSummary {
   ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
-}
-
-export interface JobStatusEvent {
-  jobId: string;
-  state: JobState;
-  stage?: string | null;
-  progress?: number;
-  message?: string;
-  error?: { stage: string; reason: string };
-  timings?: StageTiming[];
-  at: number;
 }
 
 export async function fetchGenerators(fetchFn: typeof fetch = fetch): Promise<GeneratorSummary[]> {
@@ -145,12 +135,12 @@ export interface CatalogProfile {
 
 export type CatalogSlicer = { id: string; name: string };
 
-export interface OrcaProfileContent extends OrcaEditableProfile {
+interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
 
 /** Response of GET /catalog/profiles/:id/content for a Prusa (prusa-ini) profile. */
-export interface PrusaProfileContent {
+interface PrusaProfileContent {
   format: "prusa-ini";
   source: "bundled" | "edited";
   document: PrusaProfileDocument;

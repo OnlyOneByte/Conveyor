@@ -35,13 +35,12 @@ submit it themselves.
     counts come from `GET /jobs-history/counts`.
   - **Keys:** the rows share one Tab stop. `J`/`K` move real focus, Enter opens, `C` cancels a job on the belt after
     a confirm dialog, `R` retries a failure, and `/` focuses the filter.
-  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` redirects here.
+  - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` and `/monitor` redirect here.
 - **The belt's feed** (`lib/belt.ts`, `lib/active-jobs.ts`). The shell runs the only `GET /jobs/active` poll:
-  - **Sharing:** each answer goes into the `activeJobs` store, which `/monitor` and the queued job card read
-    instead of polling themselves.
+  - **Sharing:** each answer goes into the `activeJobs` store, which the queued job card reads instead of
+    polling itself.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
-    on the belt is on the rail with an open socket and no page is watching (`watchActive`; `/monitor` watches, so it
-    keeps 2 s). A queued job, or a closed socket, brings it back to 2 s.
+    on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
     so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
@@ -77,7 +76,7 @@ the printer has jobs on the belt, because the API refuses that delete with `409`
 in plain words.
 
 Settings keeps profiles and preferences; the nav's Printers tab stays current on `/settings` too, and the
-page's **More** menu links there. `/monitor` keeps its active-jobs list only.
+page's **More** menu links there.
 
 ### Settings
 
