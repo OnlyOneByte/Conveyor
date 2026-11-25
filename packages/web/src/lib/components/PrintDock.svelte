@@ -1,6 +1,8 @@
 <script lang="ts">
+  import Button from "#lib/ui/Button.svelte";
   import { measured } from "#lib/ui/behaviour.js";
   import ErrorDetails from "./ErrorDetails.svelte";
+  import Notice from "./Notice.svelte";
   export let summary: string;
   export let detail: string;
   export let ready: boolean;
@@ -10,15 +12,32 @@
   export let error: string | null = null;
   export let retried: string | null = null;
   export let why: string | null = null;
+  export let attempt = 0;
+
+  let say: HTMLElement | null = null;
+  let print: HTMLButtonElement;
+
+  $: if (!error || retried) handOff();
+
+  function handOff() {
+    if (say?.contains(document.activeElement)) print.focus();
+  }
 </script>
 
 <div class="dock" use:measured={"dock-h"}>
   {#if error}
-    <p class="last err" role="alert">
-      {error}
-      {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
-    </p>
-    <ErrorDetails detail={why} />
+    <div class="say" bind:this={say}>
+      <Notice tone="err" title="Your print didn't go out" role="alert" stamp={attempt}>
+        <span slot="message">
+          {error}
+          {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
+        </span>
+        <ErrorDetails detail={why} />
+        <svelte:fragment slot="action">
+          {#if !retried}<Button type="submit" disabled={!ready}>{busy ? "Sending…" : "Try again"}</Button>{/if}
+        </svelte:fragment>
+      </Notice>
+    </div>
   {:else if last}
     <p class="last" role="status">
       Sent to {last.printer} · <a href="/jobs/{encodeURIComponent(last.id)}">See the job</a>
@@ -31,7 +50,7 @@
         <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
       </span>
     </p>
-    <button type="submit" class="print" disabled={!ready} aria-disabled={busy}>
+    <button type="submit" class="print" bind:this={print} disabled={!ready} aria-disabled={busy}>
       {sent ? "Sent ✓" : busy ? "Sending…" : "Print"}
     </button>
   </div>
@@ -54,7 +73,8 @@
   .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .change { flex: none; }
   .last { margin: 0 0 var(--s2); font-weight: 600; }
-  .err { color: var(--err); }
+  .say { margin: 0 0 var(--s2); }
+  .say a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
   .last a, .change { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   @media (pointer: coarse) {
     .last a, .change { position: relative; }

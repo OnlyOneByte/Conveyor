@@ -6,6 +6,7 @@
     fetchPrinterReachable,
   } from "#lib/api.js";
   import { printerStatus } from "#lib/make.js";
+  import Notice from "./Notice.svelte";
 
   export let printers: CatalogPrinter[];
   export let profiles: CatalogProfile[];
@@ -45,12 +46,9 @@
       </label>
     {/each}
   </div>
-  {#if unreachable.has(printerId)}
-    <p class="warn" role="status">
-      {printers.find((p) => p.id === printerId)?.name} didn't answer just now. A job sent now
-      stops at Send to printer and waits in Needs you, ready to retry.
-    </p>
-  {/if}
+  <div class="live" role="status">{#if unreachable.has(printerId)}<Notice tone="warn" title="{printers.find((p) => p.id === printerId)?.name} isn't answering">
+      Send anyway and the job waits in Needs you, ready to retry.
+    </Notice>{/if}</div>
   {#if hidden}<p class="note">{hidden} more can't print this kind of job.</p>{/if}
 </fieldset>
 
@@ -86,6 +84,6 @@
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
-  .warn { margin: 0; color: var(--err); font-weight: 600; }
+  .live:empty { position: absolute; }
   @media (pointer: coarse) { .pill { min-height: var(--tap); } }
 </style>
