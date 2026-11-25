@@ -10,6 +10,9 @@ export class Unreachable extends Error {}
 
 export const unreachable = (e: unknown) => e instanceof TypeError || e instanceof Unreachable;
 
+export const statusError = (r: Response, label: string): Error =>
+  GATEWAY.has(r.status) ? new Unreachable(`${label} ${r.status}`) : new Error(`${label} ${r.status}`);
+
 export async function failure(r: Response, label: string): Promise<Error> {
   const fallback = `${label} ${r.status}`;
   if (GATEWAY.has(r.status)) return new Unreachable(fallback);

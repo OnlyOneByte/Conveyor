@@ -62,10 +62,10 @@ describe("profile form", () => {
     expect(profileErrors(draft, [])).toEqual({});
   });
 
-  test("asks for a name, a free id and a folder in the profiles volume", () => {
+  test("asks for a name, a free id and a folder under /profiles", () => {
     expect(profileErrors({ ...draft, name: " - ", path: "/etc/x" }, [])).toEqual({
       name: "Give the profile a name.",
-      path: "Use a folder in the profiles volume, like /profiles/voron-petg.",
+      path: "Use a folder under /profiles, like /profiles/voron-petg.",
     });
     expect(profileErrors(draft, ["orca/voron-petg-0-25mm"]).name).toBe(
       "Another profile already has this name.",

@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import type { Page } from "playwright";
-import { withPage } from "./fixtures.ts";
+import { browserPages } from "./fixtures.ts";
 import { assertStyles, stylesProblem } from "./styles.ts";
+
+const withPage = browserPages();
 
 const applied = {
   sheets: 1,

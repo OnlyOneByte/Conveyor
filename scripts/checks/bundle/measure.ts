@@ -3,6 +3,7 @@ import { join, relative } from "node:path";
 import { runInNewContext } from "node:vm";
 import { gzipSync } from "node:zlib";
 import { z } from "zod";
+import { buildsCode } from "./builds-code";
 
 export interface Chunk {
   file: string;
@@ -42,14 +43,6 @@ export const parseChunkModules = (text: string): Record<string, string[]> =>
 
 export const THREE_SIGNATURE = "__THREE__";
 export const ZOD_SIGNATURE = "ZodError";
-export const EVAL_SIGNATURES = [
-  /(?<![\w$])Function\(/,
-  /[=(,:?]\s*Function(?![\w$.(])/,
-  /(?<![\w$.])eval(?![\w$])/,
-  /\.constructor\(\s*[`"']/,
-];
-
-export const buildsCode = (source: string) => EVAL_SIGNATURES.some((re) => re.test(source));
 
 export interface RouteJs extends Sizes {
   three: boolean;

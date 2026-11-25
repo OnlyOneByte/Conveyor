@@ -2,6 +2,7 @@ import type { Politeness } from "./announce";
 import { API, type JobHistoryEntry } from "./api";
 import { trackJob } from "./belt";
 import type { Catalog } from "./catalog";
+import { statusError } from "./http-error";
 import { rerunRequest } from "./rerun";
 import { type Retried, retryJob } from "./retry";
 import { shortName, type TrackJob } from "./track";
@@ -87,20 +88,20 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(),
 const send = async (path: string, body?: unknown) => {
   const init = body === undefined ? { method: "POST" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
   const r = await fetch(`${API}${path}`, init);
-  if (!r.ok) throw new Error(`POST ${path} ${r.status}`);
+  if (!r.ok) throw statusError(r, `POST ${path}`);
   return r.json();
 };
 
 export const http = {
   finished: async (since: number): Promise<number> => {
     const r = await fetch(`${API}/jobs-history/counts?since=${since}`);
-    if (!r.ok) throw new Error(`GET /jobs-history/counts ${r.status}`);
+    if (!r.ok) throw statusError(r, "GET /jobs-history/counts");
     const counts: unknown = await r.json();
     return typeof counts === "object" && counts !== null && "done" in counts && typeof counts.done === "number" ? counts.done : 0;
   },
   needsYou: async (): Promise<JobHistoryEntry[]> => {
     const r = await fetch(`${API}/jobs/needs-you`);
-    if (!r.ok) throw new Error(`GET /jobs/needs-you ${r.status}`);
+    if (!r.ok) throw statusError(r, "GET /jobs/needs-you");
     return r.json();
   },
   submit: (body: Request) => send("/jobs", body),
