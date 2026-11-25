@@ -20,19 +20,36 @@
 </li>
 
 <style>
-  .row { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) 150px 170px 130px; gap: 14px; align-items: center; min-height: 56px; padding: 8px 16px; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+  .row {
+    position: relative; display: grid; gap: 0 14px; align-content: center; align-items: center;
+    grid-template-areas: "g b pr st tm" ". why . . ." ". note . . .";
+    grid-template-columns: 28px minmax(0, 1fr) 150px 170px 130px;
+    min-height: 56px; padding: 8px 16px; border-top: 1px solid var(--line);
+    color: var(--ink); text-decoration: none;
+  }
   li:first-child .row { border-top: 0; }
   @media (hover: hover) { .row:hover { background: var(--sunk); } }
   .row.sel { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
   .row:focus-visible { outline-offset: -3px; }
-  .name { display: flex; flex-direction: column; min-width: 0; }
-  b { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .why { margin-top: 1px; color: var(--ink); font-size: var(--fs-chip); line-height: 1.4; }
+  .name { display: contents; }
+  .g { grid-area: g; }
+  b {
+    grid-area: b; min-width: 0; overflow: hidden; font-weight: 700;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .why {
+    grid-area: why; margin-top: 1px; color: var(--ink); font-size: var(--fs-chip);
+    line-height: 1.4;
+  }
   .note {
-    display: -webkit-box; overflow: hidden; margin-top: 1px; color: var(--muted);
+    grid-area: note; display: -webkit-box; overflow: hidden; margin-top: 1px;
+    color: var(--muted);
     font-size: var(--fs-mono); line-height: 1.4; -webkit-box-orient: vertical;
     -webkit-line-clamp: 2; line-clamp: 2;
   }
+  .pr { grid-area: pr; }
+  .st { grid-area: st; }
+  .tm { grid-area: tm; }
   .pr, .st, .tm { font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .s-failed .st { color: var(--err); }
   .tm { white-space: nowrap; }
@@ -48,15 +65,11 @@
   .s-queued .g::before { display: none; }
   @media (max-width: 759px) {
     .row {
-      grid-template: "g b st" auto ". why why" auto ". note note" auto / 24px minmax(0, 1fr) auto;
+      grid-template-areas: "g b st" ". why why" ". note note";
+      grid-template-columns: 24px minmax(0, 1fr) auto;
       gap: 0 10px; padding: 10px 12px;
     }
-    .name { display: contents; }
-    .g { grid-area: g; }
-    b { grid-area: b; }
-    .why { grid-area: why; }
-    .note { grid-area: note; }
     .pr, .tm { display: none; }
-    .st { grid-area: st; text-align: right; }
+    .st { text-align: right; }
   }
 </style>

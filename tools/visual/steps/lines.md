@@ -1,0 +1,1 @@
+`lines` fails when its target shows more than `max` lines, counted as its height over its computed line height (1.2 × the font size when that is `normal`). `jobs-failed-note` uses it to cap a 120-character note at two lines at 390.
