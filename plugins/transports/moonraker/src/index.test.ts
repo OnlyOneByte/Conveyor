@@ -1,9 +1,11 @@
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PrintNotStartedError, type StageCtx, StageError } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { moonraker } from "./index";
+
+const tempDir = tempDirs("conveyor-moonraker-");
 
 const handle = {
   transportId: "moonraker",
@@ -61,7 +63,7 @@ describe("moonraker cancel", () => {
 
 describe("moonraker submit", () => {
   test("a cancel during the upload never starts the print", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const dir = await tempDir();
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\n");
     const controller = new AbortController();
@@ -85,7 +87,7 @@ describe("moonraker submit", () => {
 
 describe("moonraker submit, the printer answers", () => {
   async function gcodeCtx() {
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-moonraker-"));
+    const dir = await tempDir();
     const path = join(dir, "bin 1.gcode");
     await writeFile(path, "G28\n");
     const ctx: StageCtx = {

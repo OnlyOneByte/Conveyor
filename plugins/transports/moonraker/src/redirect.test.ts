@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { PrintStatus, StageCtx } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { moonraker } from "./index.ts";
+
+const tempDir = tempDirs("conveyor-redirect-");
 
 const stops: (() => void)[] = [];
 afterEach(() => {
@@ -39,7 +41,7 @@ function servers(redirectPaths: string[]) {
 }
 
 async function gcode(): Promise<{ path: string; ctx: StageCtx }> {
-  const dir = await mkdtemp(join(tmpdir(), "conveyor-redirect-"));
+  const dir = await tempDir();
   const path = join(dir, "a.gcode");
   await writeFile(path, "G28\n");
   const ctx: StageCtx = {

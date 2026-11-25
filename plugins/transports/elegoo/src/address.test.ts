@@ -1,9 +1,11 @@
 import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type PrintHandle, PrintNotStartedError, type StageCtx } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
+
+const tempDir = tempDirs("conveyor-elegoo-");
 
 const RealWebSocket = globalThis.WebSocket;
 const { preconnect } = globalThis.fetch;
@@ -56,7 +58,7 @@ describe("elegoo printer addresses", () => {
 
   test("a bare IPv6 address is bracketed in the upload URL", async () => {
     useAckingSocket();
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const dir = await tempDir();
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\n");
     const controller = new AbortController();

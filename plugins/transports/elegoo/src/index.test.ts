@@ -1,6 +1,5 @@
 import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type PrintHandle,
@@ -8,8 +7,11 @@ import {
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
 import { SDCP_CMD } from "./sdcp";
+
+const tempDir = tempDirs("conveyor-elegoo-");
 
 const RealWebSocket = globalThis.WebSocket;
 
@@ -126,7 +128,7 @@ afterAll(() => {
 describe("elegoo submit", () => {
   test("a cancel during the upload never sends START_PRINT", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const dir = await tempDir();
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\n");
     const controller = new AbortController();
@@ -150,7 +152,7 @@ describe("elegoo submit", () => {
 
   test("streams the g-code as the multipart File part", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const dir = await tempDir();
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\nG1 X5\n");
     const parts: { field: string; name: string; text: string }[] = [];
@@ -182,7 +184,7 @@ describe("elegoo submit", () => {
 
   test("an upload the printer never answers times out and never sends START_PRINT", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
+    const dir = await tempDir();
     const path = join(dir, "a.gcode");
     await writeFile(path, "G28\n");
     const hang = (_url: string | URL | Request, init?: RequestInit) =>
