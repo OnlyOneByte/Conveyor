@@ -177,8 +177,11 @@ test("the stack runs compose's caddy image, pinned by digest so Dependabot moves
 test("compose's caddy image is read from the caddy service, quoted or commented", () => {
   const pinned = `caddy:2@sha256:${"a".repeat(64)}`;
   const other = `caddy:2@sha256:${"b".repeat(64)}`;
-  const compose = (caddy: string) =>
-    `services:\n  caddy-init:\n    image: ${other}\n  caddy:\n    image: ${caddy}\n  redis:\n    image: redis:8\n`;
+  const compose = (caddy: string, init = pinned) =>
+    `services:\n  caddy-init:\n    image: ${init}\n  caddy:\n    image: ${caddy}\n  redis:\n    image: redis:8\n`;
+  expect(() => composeCaddyImage(compose(pinned, other))).toThrow(
+    `docker-compose.yml's caddy-init runs ${other}, not the caddy service's ${pinned}`,
+  );
   expect(composeCaddyImage(compose(`"${pinned}"`))).toBe(pinned);
   expect(composeCaddyImage(compose(`'${pinned}' # bumped by Dependabot`))).toBe(pinned);
   expect(composeCaddyImage(compose(`${pinned}  # bumped by Dependabot`))).toBe(pinned);

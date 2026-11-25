@@ -7,11 +7,17 @@ const field = (value: unknown, key: string): unknown =>
   entries(value).find(([name]) => name === key)?.[1];
 
 export function composeCaddyImage(compose: string): string {
-  const image = field(field(field(Bun.YAML.parse(compose), "services"), "caddy"), "image");
+  const services = field(Bun.YAML.parse(compose), "services");
+  const image = field(field(services, "caddy"), "image");
   if (typeof image !== "string" || !image.startsWith("caddy:"))
     throw new Error("docker-compose.yml's caddy service has no caddy image");
   if (!/^caddy:[^@\s]+@sha256:[0-9a-f]{64}$/.test(image))
     throw new Error(`docker-compose.yml's ${image} isn't pinned by digest`);
+  const init = field(field(services, "caddy-init"), "image");
+  if (init !== undefined && init !== image)
+    throw new Error(
+      `docker-compose.yml's caddy-init runs ${init}, not the caddy service's ${image}`,
+    );
   return image;
 }
 
