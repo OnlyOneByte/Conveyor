@@ -165,7 +165,7 @@ Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds fr
 
 Every service logs through Docker's `json-file` driver capped at 3 files of 10 MB, so logs can't fill a small SD card. `docker compose logs <service>` reads them.
 
-`docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second. The `worker` stops taking jobs and exits as soon as no job is running. On the default Redis queue it waits for a running job to finish, for up to its 60 s grace period (`stop_grace_period`); then Docker kills it, and that job runs again from the start when the worker comes back (#5 tracks the repeat this can cause on a printer). So the whole stack stops in about 3 seconds when idle, and in up to a minute mid-job.
+`docker compose stop` and `docker compose down` send SIGTERM. The api then stops taking requests, tells every open job page "server restarting" (WebSocket close code `1012`, so the page knows to reconnect and doesn't treat it as the job finishing), and exits within about a second. If it has not finished closing after 3 seconds, it exits anyway. The `web` container also stops in under a second. The `worker` stops taking jobs and exits as soon as no job is running. On the default Redis queue it waits for a running job to finish, for up to its 60 s grace period (`stop_grace_period`); then Docker kills it. That job is not run again: once the worker is back, it's recorded as failed and shows in **Needs you** with "the worker stopped before recording how this job ended; check the printer before you retry". Look at the printer before you retry it, since the print may already be on the bed. So the whole stack stops in about 3 seconds when idle, and in up to a minute mid-job.
 
 ## Printer secrets and backups
 
@@ -214,13 +214,13 @@ SQLite's `VACUUM INTO` writes a consistent copy of a live database. Run it in th
   umask 077
   mkdir -p backups
   docker compose exec -T --user 10001:10001 api rm -f /data/backup.db
-  docker compose exec -T --user 10001:10001 api bun -e 'const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'
+  docker compose exec -T --user 10001:10001 api sh -c 'umask 077 && bun -e '\''const { Database } = require("bun:sqlite"); new Database("/data/conveyor.db").query("VACUUM INTO ?").run("/data/backup.db")'\'
   docker compose exec -T --user 10001:10001 api cat /data/backup.db > "backups/conveyor-$(date +%F).db"
   docker compose exec -T --user 10001:10001 api rm /data/backup.db
 )
 ```
 
-`umask 077` makes the folder `0700` and the backup `0600`, readable only by you. The parentheses run it in a subshell, so your shell's own umask is left alone. Keep it that way: the database holds the printer credentials, encrypted with the secrets key. Back up `.env` and the secrets key (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not, the same way: `( umask 077; docker compose exec -T --user 10001:10001 api cat /data/secrets.key > secrets.key.backup )`. `.gitignore` lists `backups/` and `secrets.key.backup`, so neither can be committed by accident; move them out of the checkout to keep them.
+`umask 077` makes the folder `0700` and the backup `0600`, readable only by you. The `umask 077` inside the container does the same for the temporary `/data/backup.db`, so the full copy is never readable by other users while the backup runs. The parentheses run it in a subshell, so your shell's own umask is left alone. Keep it that way: the database holds the printer credentials, encrypted with the secrets key. Back up `.env` and the secrets key (if you didn't set `CONVEYOR_SECRETS_KEY`) separately, somewhere the database backups are not, the same way: `( umask 077; docker compose exec -T --user 10001:10001 api cat /data/secrets.key > secrets.key.backup )`. `.gitignore` lists `backups/` and `secrets.key.backup`, so neither can be committed by accident; move them out of the checkout to keep them.
 
 ### Restore the database
 
