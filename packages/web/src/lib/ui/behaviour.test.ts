@@ -9,6 +9,7 @@ import {
   syncTabStop,
   TABBABLE,
   TOAST_MS,
+  tabIfScrolls,
   wrapTab,
 } from "./behaviour";
 
@@ -182,5 +183,48 @@ describe("a scrolling text block's Tab stop", () => {
     const { node, attrs } = block(40, 40);
     syncTabStop(node);
     expect(attrs.has("tabindex")).toBe(false);
+  });
+});
+
+describe("the Tab stop's resize watch", () => {
+  class Watch {
+    static made: Watch[] = [];
+    watched: unknown[] = [];
+    disconnected = false;
+    constructor(readonly changed: () => void) {
+      Watch.made.push(this);
+    }
+    observe(node: unknown) {
+      this.watched.push(node);
+    }
+    disconnect() {
+      this.disconnected = true;
+    }
+  }
+
+  test("re-checks on resize while mounted and stops watching on unmount", () => {
+    const real = Reflect.get(globalThis, "ResizeObserver");
+    Reflect.set(globalThis, "ResizeObserver", Watch);
+    try {
+      const attrs = new Map<string, string>();
+      const node = {
+        scrollHeight: 40,
+        clientHeight: 40,
+        setAttribute: (name: string, value: string) => void attrs.set(name, value),
+        removeAttribute: (name: string) => void attrs.delete(name),
+      };
+      const mounted = Reflect.apply(tabIfScrolls, undefined, [node]);
+      const [watch] = Watch.made;
+      expect(watch?.watched).toEqual([node]);
+      expect(attrs.has("tabindex")).toBe(false);
+      node.scrollHeight = 400;
+      watch?.changed();
+      expect(attrs.get("tabindex")).toBe("0");
+      expect(watch?.disconnected).toBe(false);
+      mounted.destroy();
+      expect(watch?.disconnected).toBe(true);
+    } finally {
+      Reflect.set(globalThis, "ResizeObserver", real);
+    }
   });
 });

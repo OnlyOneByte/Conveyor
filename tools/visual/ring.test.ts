@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { PNG } from "pngjs";
 import { browserPages } from "./fixtures.ts";
-import { assertRing, ringBand, ringShown } from "./ring.ts";
+import { assertKeyScrolls, assertRing, ringBand, ringShown } from "./ring.ts";
 
 const withPage = browserPages();
 
@@ -45,4 +45,32 @@ test("a ring shows against the pixels beyond it, and a plain button shows none",
     });
   expect(await shown("box-shadow: 0 0 0 3px #2a2118;")).toBe(1);
   expect(await shown("box-shadow: none;")).toBe(0);
+}, 30000);
+
+const block = (ring: string, lines: number) =>
+  `<style>body { margin: 0; padding: 40px; background: #fbf8f2; } pre { width: 300px; max-height: 120px; overflow-y: auto; margin: 0; background: #efe8db; } pre:focus-visible { ${ring} }</style><pre tabindex="0">${Array.from({ length: lines }, () => "x").join("\n")}</pre>`;
+
+const keyScrolls = (ring: string, lines: number) =>
+  withPage(async (page) => {
+    await page.setContent(block(ring, lines));
+    await page.keyboard.press("Tab");
+    await assertKeyScrolls(page, "pre");
+  });
+
+const RING = "outline: 3px solid #2a2118; outline-offset: 2px;";
+
+test("an overflowing block with an offset focus ring that PageDown scrolls passes", async () => {
+  await keyScrolls(RING, 80);
+}, 30000);
+
+test("a focused block with no ring fails", async () => {
+  await expect(keyScrolls("outline: none;", 80)).rejects.toThrow(
+    "keyScrolls pre: focus shows a 3:1 ring within 6 px along 0% of its edge; 90% must",
+  );
+}, 30000);
+
+test("a focused block with nothing to scroll fails", async () => {
+  await expect(keyScrolls(RING, 2)).rejects.toThrow(
+    "keyScrolls pre: PageDown left it at scrollTop 0 (was 0)",
+  );
 }, 30000);

@@ -6,6 +6,8 @@ export const RING_SHARE = 0.9;
 export const RING_PAD = 6;
 export const BEYOND = 3;
 
+declare const document: { activeElement: { blur(): void } | null };
+
 export interface Box {
   x: number;
   y: number;
@@ -125,4 +127,55 @@ export async function assertRing(page: Page, selector: string): Promise<void> {
   const box = { ...found, x: found.x - clip.x, y: found.y - clip.y };
   const problem = ringProblem(rest, hover, box);
   if (problem) throw new Error(`ring ${selector}: ${problem}`);
+}
+
+export function focusRingProblem(rest: PNG, focused: PNG, box: Box): string | null {
+  const inset = 12;
+  const [left, top] = [Math.floor(box.x), Math.floor(box.y)];
+  const [right, bottom] = [Math.ceil(box.x + box.width) - 1, Math.ceil(box.y + box.height) - 1];
+  const depths = span(1, RING_PAD + 1);
+  const xs = span(left + inset, right - inset);
+  const ys = span(top + inset, bottom - inset);
+  const lines: Point[][] = [
+    ...xs.map((x) => depths.map((d): Point => [x, top - d])),
+    ...xs.map((x) => depths.map((d): Point => [x, bottom + d])),
+    ...ys.map((y) => depths.map((d): Point => [left - d, y])),
+    ...ys.map((y) => depths.map((d): Point => [right + d, y])),
+  ];
+  if (lines.length === 0) return "the target has no edge to sample";
+  const changes = (p: Point) => contrast(luminance(rest, p), luminance(focused, p)) >= RING_RATIO;
+  const share = lines.filter((line) => line.some(changes)).length / lines.length;
+  if (share >= RING_SHARE) return null;
+  return `focus shows a ${RING_RATIO}:1 ring within ${RING_PAD} px along ${Math.round(share * 100)}% of its edge; ${RING_SHARE * 100}% must`;
+}
+
+export async function assertKeyScrolls(page: Page, selector: string): Promise<void> {
+  const target = page.locator(selector).first();
+  if (!(await target.evaluate((el) => el === document.activeElement)))
+    throw new Error(`keyScrolls ${selector}: it doesn't have focus; tabTo it first`);
+  await Bun.sleep(300);
+  const found = await target.boundingBox();
+  if (!found) throw new Error(`keyScrolls ${selector}: not on the page`);
+  const clip = around(found);
+  const shot = async () => PNG.sync.read(await page.screenshot({ clip }));
+  const focused = await shot();
+  const top = () => target.evaluate((el) => el.scrollTop);
+  const before = await top();
+  await page.keyboard.press("PageDown");
+  await Bun.sleep(300);
+  const after = await top();
+  await page.evaluate(() => document.activeElement?.blur());
+  await Bun.sleep(300);
+  const rest = await shot();
+  await target.focus();
+  const problem = focusRingProblem(rest, focused, {
+    ...found,
+    x: found.x - clip.x,
+    y: found.y - clip.y,
+  });
+  if (problem) throw new Error(`keyScrolls ${selector}: ${problem}`);
+  if (after <= before)
+    throw new Error(
+      `keyScrolls ${selector}: PageDown left it at scrollTop ${after} (was ${before})`,
+    );
 }
