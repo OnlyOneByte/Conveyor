@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { beforeNavigate, goto } from "$app/navigation";
   import type { CatalogProfile } from "#lib/api.js";
   import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
   import * as editing from "#lib/profile-content.js";
   import { couldnt } from "#lib/said.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
+  import { beforeNavigate, goto } from "$app/navigation";
   import CodeEditor from "./CodeEditor.svelte";
   import Confirm from "./Confirm.svelte";
   import EditorBar from "./EditorBar.svelte";
@@ -17,14 +17,13 @@
   let edited = content.edited;
   let file = content.files[0] ?? "";
   let [busy, discarding, letGo, ready] = [false, false, false, false];
-  let [failure, leaving]: [string, URL | null] = ["", null];
-  let version = 0;
+  let [failure, leaving, version]: [string, URL | null, number] = ["", null, 0];
   const [errorId, panelId] = [uid("editor-error"), uid("editor-panel")];
   const tabbed = content.files.length > 1;
 
   $: problem = problemOf(content.lang, docs);
   $: dirty = editing.changed(docs, saved);
-  $: status = editing.status(problem !== null, busy, dirty);
+  $: barStatus = editing.status(problem !== null, busy, dirty);
   $: label = tabbed ? `${fileLabel(file)} settings, JSON` : "Settings, config.ini";
   $: tidied = content.lang === "json" ? editing.formatted(docs[file] ?? "") : null;
   $: can = editing.gate({ ready, problem: problem !== null, dirty, busy, tidied: tidied !== null });
@@ -44,13 +43,10 @@
   async function attempt(work: () => Promise<void>, what: string, allowed = true) {
     if (!allowed) return;
     [busy, failure] = [true, ""];
-    try {
-      await work();
-    } catch (e) {
-      failure = couldnt(what, e);
-    } finally {
-      busy = false;
-    }
+    failure = await work()
+      .then(() => "")
+      .catch((e: unknown) => couldnt(what, e));
+    busy = false;
   }
 
   async function save() {
@@ -63,13 +59,17 @@
   }
 
   const reset = () =>
-    attempt(async () => {
-      await editing.resetContent(profile);
-      const fresh = await editing.loadContent(profile);
-      if (fresh) [docs, saved, edited] = [{ ...fresh.docs }, { ...fresh.docs }, fresh.edited];
-      version += 1;
-      toasts.show(`Reset ${profile.name}`);
-    }, `reset ${profile.name}`, can.reset);
+    attempt(
+      async () => {
+        await editing.resetContent(profile);
+        const fresh = await editing.loadContent(profile);
+        if (fresh) [docs, saved, edited] = [{ ...fresh.docs }, { ...fresh.docs }, fresh.edited];
+        version += 1;
+        toasts.show(`Reset ${profile.name}`);
+      },
+      `reset ${profile.name}`,
+      can.reset,
+    );
 
   function tidy() {
     if (can.tidy && tidied !== null) [docs, version] = [{ ...docs, [file]: tidied }, version + 1];
@@ -124,7 +124,7 @@
 
 <EditorBar
   name={profile.name}
-  {status}
+  status={barStatus}
   busy={!can.reset}
   {edited}
   canSave={can.save}

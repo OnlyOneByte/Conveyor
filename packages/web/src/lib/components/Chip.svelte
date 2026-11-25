@@ -1,6 +1,16 @@
 <script lang="ts">
-  import { ACTIONS, chipName, groupName, groupVisible, shortName, status, type TrackJob, value, visible } from "#lib/track.js";
   import { tick } from "svelte";
+  import {
+    ACTIONS,
+    chipName,
+    groupName,
+    groupVisible,
+    shortName,
+    status,
+    type TrackJob,
+    value,
+    visible,
+  } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
 
   export let jobs: TrackJob[];
@@ -35,8 +45,7 @@
     else if (event.key === "ArrowDown" && !inCard) {
       open = index >= 0;
       void tick().then(() => slot.querySelector<HTMLElement>(".card a, .card button")?.focus());
-    }
-    else if (event.key === "ArrowUp" && inCard) chip.focus();
+    } else if (event.key === "ArrowUp" && inCard) chip.focus();
     else return;
     if (inCard && event.key === "Escape") chip.focus();
     event.preventDefault();

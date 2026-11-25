@@ -1,9 +1,18 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import {
+    BINS,
+    centre,
+    collapsedBelt,
+    OFFLINE,
+    onRail,
+    SPANS,
+    type TrackJob,
+    today,
+  } from "#lib/track.js";
+  import { uid } from "#lib/ui/behaviour.js";
   import { afterNavigate } from "$app/navigation";
   import { page } from "$app/state";
-  import { BINS, centre, collapsedBelt, OFFLINE, onRail, SPANS, today, type TrackJob } from "#lib/track.js";
-  import { uid } from "#lib/ui/behaviour.js";
   import MobileBelt from "./MobileBelt.svelte";
   import Track from "./Track.svelte";
 
@@ -17,14 +26,24 @@
   let scrollY = 0;
   let opened = false;
   let toggle: HTMLButtonElement | undefined;
-  const TICKS = [...Object.values(SPANS).slice(1).map(([start]) => start), 1];
+  const TICKS = [
+    ...Object.values(SPANS)
+      .slice(1)
+      .map(([start]) => start),
+    1,
+  ];
   let collapsed = false;
   const next = (path: string, y: number, open: boolean) => collapsedBelt(path, y, open, collapsed);
 
   let path = page.url.pathname;
-  afterNavigate(({ to }) => ((opened = false), (path = to?.url.pathname ?? path)));
+  afterNavigate(({ to }) => {
+    opened = false;
+    path = to?.url.pathname ?? path;
+  });
   $: collapsed = next(path, scrollY, opened);
-  $: dots = jobs.flatMap((job) => (onRail(job.state) ? [{ id: job.id, x: centre(job.state, job.progress ?? 0) }] : []));
+  $: dots = jobs.flatMap((job) =>
+    onRail(job.state) ? [{ id: job.id, x: centre(job.state, job.progress ?? 0) }] : [],
+  );
   $: waiting = jobs.filter((job) => job.state === "queued").length;
 
   async function open(to: boolean) {
@@ -39,7 +58,8 @@
     button?.click();
   }
   function keys(event: KeyboardEvent) {
-    const tray = event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
+    const tray =
+      event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
     if (event.key === "Escape" && opened && !event.defaultPrevented && !tray) void open(false);
   }
 </script>

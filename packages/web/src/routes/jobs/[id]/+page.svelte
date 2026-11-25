@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
-  import { afterNavigate, goto, invalidateAll, replaceState } from "$app/navigation";
   import type { JobView } from "@conveyor/shared";
+  import { onDestroy } from "svelte";
   import { titled } from "#lib/belt.js";
   import CancelJob from "#lib/components/CancelJob.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
@@ -9,9 +8,10 @@
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import Viewport from "#lib/components/Viewport.svelte";
   import { failureText } from "#lib/job-failure.js";
-  import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
   import { followJob, pillText, SETTLED } from "#lib/job-live.js";
+  import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
+  import { afterNavigate, goto, invalidateAll, replaceState } from "$app/navigation";
   import type { PageData } from "./$types";
 
   export let data: PageData;
@@ -39,14 +39,21 @@
   $: rows = settingRows(params, schema, gen?.ui ?? null);
   $: generatorId = job?.request.generator.id ?? live?.generator?.id;
   $: fallback = generatorId ? titled(generatorId) : "";
+  let name: string;
   $: name = fallback ? jobName(gen?.name ?? fallback, params, schema, gen?.ui ?? null) : "";
   $: title = name || (live ? "Job on the belt" : "We can't find that job");
-  $: state = job?.state === "done" || job?.state === "failed" || job?.state === "canceled"
-    ? job.state
-    : null;
+  $: state =
+    job?.state === "done" || job?.state === "failed" || job?.state === "canceled"
+      ? job.state
+      : null;
   $: failure = job?.error ? failureText(job.error.stage, job.error.reason) : null;
-  $: retryOf = job?.state === "failed" && job.request.generator.id !== "passthrough"
-    && job.request.printerId && job.request.profileId ? job.id : undefined;
+  $: retryOf =
+    job?.state === "failed" &&
+    job.request.generator.id !== "passthrough" &&
+    job.request.printerId &&
+    job.request.profileId
+      ? job.id
+      : undefined;
   $: rerun = job ? (rerunRequest(job) ?? (retryOf ? job.request : null)) : null;
   $: started = live?.timings?.[0]?.enteredAt ?? live?.createdAt;
   $: at = job ? job.updatedAt : live?.state === "queued" ? live.createdAt : started;

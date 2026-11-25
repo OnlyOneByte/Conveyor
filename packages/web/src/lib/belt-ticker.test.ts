@@ -4,14 +4,24 @@ import { createBelt, createTicker, type Feed, type Socket } from "./belt";
 import type { News } from "./belt-news";
 import type { TrackJob } from "./track";
 
-const printing = (jobId: string): JobView => ({ jobId, state: "printing", at: 1, printerId: "voron" });
+const printing = (jobId: string): JobView => ({
+  jobId,
+  state: "printing",
+  at: 1,
+  printerId: "voron",
+});
 
 function held() {
   const answers: Promise<JobView[]>[] = [];
   const release: ((jobs: JobView[]) => void)[] = [];
   const fail: ((error: Error) => void)[] = [];
   const hold = () =>
-    answers.push(new Promise<JobView[]>((done, refuse) => (release.push(done), fail.push(refuse))));
+    answers.push(
+      new Promise<JobView[]>((done, refuse) => {
+        release.push(done);
+        fail.push(refuse);
+      }),
+    );
   return { answers, release, fail, hold };
 }
 
@@ -56,8 +66,16 @@ describe("the belt's ticker", () => {
   test("a forced tick skips the covered wait, but queues behind a poll in flight", async () => {
     let finish = () => {};
     const polls: number[] = [];
-    const poll = () => new Promise<void>((done) => (polls.push(polls.length), (finish = done)));
-    const tick = createTicker({ poll, covered: () => true }, () => true, () => 0);
+    const poll = () =>
+      new Promise<void>((done) => {
+        polls.push(polls.length);
+        finish = done;
+      });
+    const tick = createTicker(
+      { poll, covered: () => true },
+      () => true,
+      () => 0,
+    );
     tick();
     tick.force();
     tick.force();

@@ -1,7 +1,12 @@
 import { unreachable } from "./http-error.js";
 
 const STATUS_LINE = /^(GET|POST|PUT|PATCH|DELETE) \S+ \d{3}$/;
-const STOCK = new Set(["Internal Server Error", "Bad Gateway", "Service Unavailable", "Gateway Timeout"]);
+const STOCK = new Set([
+  "Internal Server Error",
+  "Bad Gateway",
+  "Service Unavailable",
+  "Gateway Timeout",
+]);
 
 export const UNREACHABLE = "Can't reach Conveyor. Check your connection, then try again.";
 export const FAILED = "Conveyor couldn't do that just now. Try again.";
@@ -15,7 +20,8 @@ export function serverSaid(e: unknown): string | null {
 
 export const said = (e: unknown) => serverSaid(e) ?? (unreachable(e) ? UNREACHABLE : FAILED);
 
-export const saidOnLoad = (e: unknown) => serverSaid(e) ?? (unreachable(e) ? UNREACHABLE : NOT_LOADED);
+export const saidOnLoad = (e: unknown) =>
+  serverSaid(e) ?? (unreachable(e) ? UNREACHABLE : NOT_LOADED);
 
 export function couldnt(what: string, e: unknown): string {
   const why = serverSaid(e);

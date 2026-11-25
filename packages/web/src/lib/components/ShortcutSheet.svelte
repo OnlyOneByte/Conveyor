@@ -4,7 +4,6 @@
   import Button from "#lib/ui/Button.svelte";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Switch from "#lib/ui/Switch.svelte";
-
   export let open = false;
 </script>
 

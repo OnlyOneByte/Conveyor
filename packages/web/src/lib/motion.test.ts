@@ -5,7 +5,10 @@ import type { TrackJob } from "./track";
 const job = (id: string, state: TrackJob["state"]): TrackJob => ({ id, name: `Bin ${id}`, state });
 
 test("a job that ended leaves from where its chip last sat, once; one that never had a chip doesn't", () => {
-  const lefts = new Map([["a", 120], ["b", 480]]);
+  const lefts = new Map([
+    ["a", 120],
+    ["b", 480],
+  ]);
   const out = departures([job("a", "done"), job("c", "failed")], lefts);
   expect(out).toEqual([{ job: job("a", "done"), left: 120 }]);
   expect([...lefts.keys()]).toEqual(["b"]);

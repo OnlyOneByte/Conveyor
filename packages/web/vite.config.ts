@@ -1,8 +1,8 @@
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import adapter from "@sveltejs/adapter-node";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
 const API = process.env.CONVEYOR_API_TARGET ?? "http://127.0.0.1:3000";

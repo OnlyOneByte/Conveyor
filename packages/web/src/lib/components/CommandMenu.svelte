@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { matchCommands, type Command } from "#lib/commands.js";
+  import { type Command, matchCommands } from "#lib/commands.js";
   import { nextIndex, rememberFocus, uid } from "#lib/ui/behaviour.js";
 
   export let open = false;
@@ -14,14 +14,20 @@
   $: groups = [...new Set(results.map((c) => c.group))];
   $: if (active >= results.length) active = 0;
   $: if (dialog && open && !dialog.open) {
-    restore = rememberFocus(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+    restore = rememberFocus(() =>
+      document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    );
     query = "";
     active = 0;
     dialog.showModal();
   }
   $: if (dialog && !open && dialog.open) dialog.close();
 
-  const run = (command: Command | undefined) => { if (!command) return; open = false; command.run(); };
+  const run = (command: Command | undefined) => {
+    if (!command) return;
+    open = false;
+    command.run();
+  };
 
   function keydown(event: KeyboardEvent) {
     const to = nextIndex(event.key, active, results.length);

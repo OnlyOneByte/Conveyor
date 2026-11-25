@@ -24,7 +24,12 @@
     if (event instanceof KeyboardEvent && event.key === "Escape") {
       if (wrap.contains(document.activeElement)) button.focus();
       open = false;
-    } else if (event.type === "pointerdown" && event.target instanceof Node && !wrap.contains(event.target)) open = false;
+    } else if (
+      event.type === "pointerdown" &&
+      event.target instanceof Node &&
+      !wrap.contains(event.target)
+    )
+      open = false;
   }
 </script>
 

@@ -15,7 +15,12 @@ describe("a failed request", () => {
 
   test("falls back to the method, path and status when the body has no message", async () => {
     const blank = JSON.stringify({ error: " \n\t " });
-    for (const body of ["<html>oops</html>", JSON.stringify({ error: "" }), JSON.stringify({}), blank]) {
+    for (const body of [
+      "<html>oops</html>",
+      JSON.stringify({ error: "" }),
+      JSON.stringify({}),
+      blank,
+    ]) {
       const err = await failure(new Response(body, { status: 500 }), "GET /api/catalog/profiles");
       expect(err.message).toBe("GET /api/catalog/profiles 500");
       expect(unreachable(err)).toBe(false);
@@ -40,7 +45,10 @@ describe("a failed request", () => {
 
 describe("a server message", () => {
   test("is trimmed", async () => {
-    const err = await failure(Response.json({ error: "  database is locked \n" }, { status: 500 }), "GET /x");
+    const err = await failure(
+      Response.json({ error: "  database is locked \n" }, { status: 500 }),
+      "GET /x",
+    );
     expect(err.message).toBe("database is locked");
   });
 
@@ -59,8 +67,19 @@ describe("a server message", () => {
       { preconnect: real.preconnect },
     );
     try {
-      const { deleteProfile, saveProfile } = await import("./api.js");
-      for (const call of [() => deleteProfile("a"), () => saveProfile({ id: "a", slicerId: "orca", name: "A", path: "/profiles/a", gcodeFlavor: "klipper" })]) {
+      const { saveProfile } = await import("./api.js");
+      const { deleteProfile } = await import("./api-delete.js");
+      for (const call of [
+        () => deleteProfile("a"),
+        () =>
+          saveProfile({
+            id: "a",
+            slicerId: "orca",
+            name: "A",
+            path: "/profiles/a",
+            gcodeFlavor: "klipper",
+          }),
+      ]) {
         const err = await call().catch((e: unknown) => e);
         expect(err instanceof Error && err.message.length).toBe(MESSAGE_MAX);
       }
