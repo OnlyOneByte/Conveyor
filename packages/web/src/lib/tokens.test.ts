@@ -87,3 +87,20 @@ describe("control boundaries and state indicators", () => {
     expect(toast).toMatch(/\.toast \{[^}]*background: var\(--ink\);[^}]*--focus: var\(--bg\);/);
   });
 });
+
+describe("hover cues", () => {
+  for (const selector of THEMES) {
+    test(`the primary hover ring and the Needs-you hover fill reach 3:1 in ${selector}`, () => {
+      const block = themeBlock(selector);
+      for (const surface of ["--bg", "--paper", "--sunk"]) expect(ratio(block, "--ink", surface)).toBeGreaterThanOrEqual(3);
+      expect(ratio(block, "--err", "--paper")).toBeGreaterThanOrEqual(3);
+    });
+  }
+
+  test("primary buttons ring in --ink on hover, and Needs-you fills with --err", () => {
+    const app = readFileSync(join(import.meta.dir, "styles/app.css"), "utf8");
+    const needs = readFileSync(join(import.meta.dir, "components/NeedsYou.svelte"), "utf8");
+    expect(app).toContain("button.primary:hover:not(:disabled) { box-shadow: 0 0 0 2px var(--ink); }");
+    expect(needs).toContain(".needs:hover { border-color: var(--err); background: var(--err); color: var(--paper); }");
+  });
+});

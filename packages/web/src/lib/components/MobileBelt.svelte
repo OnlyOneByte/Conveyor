@@ -1,6 +1,6 @@
 <script lang="ts">
   import { afterNavigate } from "$app/navigation";
-  import { beltSummary, centre, onRail, shortName, status, type TrackJob, value } from "#lib/track.js";
+  import { BINS, beltSummary, centre, IDLE, OFFLINE, onRail, shortName, status, today, type TrackJob, value } from "#lib/track.js";
   import { uid } from "#lib/ui/behaviour.js";
   import NeedsYou from "./NeedsYou.svelte";
 
@@ -8,6 +8,7 @@
   export let onAction: (job: TrackJob, action: string) => void;
   export let finishedToday: number | undefined = undefined;
   export let needs: TrackJob[] = [];
+  export let offline = false;
   const sheet = uid("sheet");
   let open = false;
   let toggle: HTMLButtonElement;
@@ -26,9 +27,9 @@
 <section class="m" aria-label="On the belt"><div role="presentation" on:keydown={keys}>
   <div class="chip">
     <div class="tx">
-      <b>{beltSummary(jobs)}</b>
-      <span>{waiting} waiting{needs.length ? ` · ${needs.length} needs you` : ""}</span>
-      <span class="mini" aria-hidden="true">{#each moving as { job, x } (job.id)}<i style="left: {x * 100}%"></i>{/each}</span>
+      <b>{offline ? OFFLINE : beltSummary(jobs)}</b>
+      <span>{offline ? "Last known jobs" : `${waiting} ${BINS.waiting}`}{#if needs.length}{" · "}<span class="bad">{BINS.needs} {needs.length}</span>{/if}</span>
+      <span class="mini" class:stale={offline} aria-hidden="true">{#each moving as { job, x } (job.id)}<i style="left: {x * 100}%"></i>{/each}</span>
     </div>
     <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={() => (open = !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
   </div>
@@ -37,10 +38,10 @@
       {#each moving as { job } (job.id)}
         <a class="row" href="/jobs/{job.id}"><span class="t">{shortName(job.name)}</span><span class="v">{value(job)}</span><span class="st">{status(job)}</span></a>
       {:else}
-        <p class="none">Nothing is moving right now.</p>
+        <p class="none">{offline ? OFFLINE : IDLE}</p>
       {/each}
       <div class="bins">
-        <a class="done" href="/jobs?day=today">Finished<span class="n">{finishedToday ?? 0} today</span></a>
+        <a class="done" href="/jobs?day=today">{BINS.finished}<span class="n">{today(finishedToday ?? 0)}</span></a>
         {#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}
       </div>
     </div>
@@ -53,6 +54,9 @@
   .tx { flex: 1; min-width: 0; }
   b { display: block; overflow: hidden; font-size: 14.5px; text-overflow: ellipsis; white-space: nowrap; }
   .tx > span { display: block; font: 500 11.5px var(--mono); }
+  .bad { color: var(--belt-err); font-weight: 700; }
+  .stale { opacity: 0.45; }
+  :global([data-theme="dark"]) .chip { box-shadow: 0 0 0 1px var(--faint); }
   .mini { position: relative; height: 8px; margin-top: 6px; border-radius: 4px; background: color-mix(in oklch, var(--belt-ink) 18%, transparent); }
   .mini i { position: absolute; top: -3px; width: 14px; height: 14px; border: 2px solid var(--belt-ink); border-radius: 50%; background: var(--live); transform: translateX(-50%); }
   .exp { display: grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: color-mix(in oklch, var(--belt-ink) 16%, transparent); color: var(--belt-ink); cursor: pointer; }

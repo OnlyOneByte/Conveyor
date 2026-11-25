@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { centre, type Group, MIN_CHIP_PX, merge, onRail, type RailState, SPANS, STAGE_LABELS, type TrackJob } from "#lib/track.js";
+  import { BINS, centre, type Group, IDLE, MIN_CHIP_PX, merge, OFFLINE, onRail, type RailState, SPANS, STAGE_LABELS, today, type TrackJob } from "#lib/track.js";
   import { type Departure, departures, hopDistance } from "#lib/motion.js";
   import { prefersReducedMotion } from "#lib/preferences.js";
   import { step } from "#lib/shortcuts.js";
@@ -8,7 +8,8 @@
 
   export let jobs: TrackJob[];
   export let ended: TrackJob[] = [];
-  export let idle = "Nothing on the rail";
+  export let idle = IDLE;
+  export let offline = false;
   export let onAction: (job: TrackJob, action: string) => void = () => {};
   export let finishedToday: number | undefined = undefined;
   export let needs: TrackJob[] | undefined = undefined;
@@ -62,9 +63,9 @@
 <section class="belt" class:paused={hidden} aria-label="On the belt">
   <div class="queue">
     <span class="label">Queue</span>
-    <span class="slot q">{waiting ? "Waiting" : "Empty"}{#if waiting}<span class="n">{waiting}</span>{/if}</span>
+    <span class="slot q">{offline ? "Not known" : waiting ? "Waiting" : "Empty"}{#if waiting && !offline}<span class="n">{waiting}</span>{/if}</span>
   </div>
-  <div class="lane" role="group" aria-label="Rail, {moving.length} moving">
+  <div class="lane" class:stale={offline} role="group" aria-label="Rail, {moving.length} moving">
     {#each stages as stage (stage.state)}
       <i class="tick" style="left: {stage.start * 100}%"></i>
       <span class="stage" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
@@ -78,15 +79,15 @@
         <div class="gone" data-end={job.state} style="--left: {left}px; --dx: {hopDistance(left, railPx)}px" aria-hidden="true" inert on:animationend={(event) => event.target === event.currentTarget && landed(job)}><Chip jobs={[job]} left={0} /></div>
       {/each}
     </div>
-    {#if moving.length === 0 && waiting === 0}<span class="label idle">{idle}</span>{/if}
+    {#if offline}<span class="label idle off" role="status">{OFFLINE}{moving.length ? " · showing the last jobs it saw" : ""}</span>{:else if moving.length === 0 && waiting === 0}<span class="label idle">{idle}</span>{/if}
     <div class="measure" aria-hidden="true" inert>
       {#each moving as job (job.id)}<Chip jobs={[job]} bind:width={widths[job.id]} />{/each}
       {#each groups.filter((g) => g.ids.length > 1) as group (group.ids.join(" "))}<Chip jobs={members(group)} bind:width={groupWidths[group.ids.join(" ")]} />{/each}
     </div>
   </div>
   <div class="bins">
-    <a class="slot done" href="/jobs?day=today">Finished<span class="n">{finished} today</span></a>
-    {#if needs}{#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}{:else if failed}<span class="slot needs">Needs you<span class="n">{failed}</span></span>{/if}
+    <a class="slot done" href="/jobs?day=today">{BINS.finished}<span class="n">{today(finished)}</span></a>
+    {#if needs}{#if needs.length}<NeedsYou jobs={needs} {onAction} />{/if}{:else if failed}<span class="slot needs">{BINS.needs}<span class="n">{failed}</span></span>{/if}
   </div>
 </section>
 
@@ -118,6 +119,9 @@
   :global([data-theme="dark"]) .rail { box-shadow: 0 0 0 1px var(--faint); }
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
   .idle { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  .off { top: 4px; z-index: 6; padding: var(--s1) var(--s2); border-radius: var(--r-control); background: var(--paper); color: var(--ink); box-shadow: var(--lift); }
+  .stale .rail, .stale .chips :global(.ring) { opacity: 0.45; }
+  .stale .chips :global(.v) { color: var(--muted); }
   .measure { position: absolute; visibility: hidden; pointer-events: none; }
   @media (max-width: 759px) { .belt { grid-template-columns: 1fr 1fr; } .lane { grid-column: 1 / -1; grid-row: 1; } .stage { display: none; } }
 </style>
