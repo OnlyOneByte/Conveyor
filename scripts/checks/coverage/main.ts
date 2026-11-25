@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { functionBodies } from "./bodies";
 import { runtimeResolver, sourceImportErrors, suiteErrors, symlinkErrors } from "./imports";
 import { parseLcov, serializeLcov } from "./lcov";
 import {
@@ -64,7 +65,8 @@ const table = (summary: Summary) => {
 function measure(lcovPath: string, outPath: string): Summary | null {
   const lcov = readOrNull(join(ROOT, lcovPath));
   if (lcov === null) {
-    console.error(`${lcovPath} not found; run \`bun test --coverage --coverage-reporter=lcov\``);
+    const missing = `${lcovPath} not found; run \`bun test --coverage --coverage-reporter=lcov\``;
+    printErrors([missing], process.env, console.error);
     return null;
   }
   const measured = parseLcov(lcov);
@@ -73,12 +75,14 @@ function measure(lcovPath: string, outPath: string): Summary | null {
   printSweepLog(sweep, console.error);
   const fallback = (path: string) => nonBlankLines(readOrNull(join(ROOT, path)) ?? "");
   const typeLines = (path: string) => typeOnlyLines(path, readOrNull(join(ROOT, path)) ?? "");
+  const bodies = (path: string) => functionBodies(path, readOrNull(join(ROOT, path)) ?? "");
   const merged = mergeCoverage({
     sources: all,
     measured,
     sweep: sweep.coverage,
     fallback,
     typeLines,
+    bodies,
   });
   writeFileSync(join(ROOT, outPath), serializeLcov(merged.coverage));
   const summary = summarize(merged.coverage);
@@ -98,7 +102,7 @@ function measure(lcovPath: string, outPath: string): Summary | null {
 function update(summary: Summary): number {
   const refusal = updateRefusal(process.env);
   if (refusal !== null) {
-    console.error(refusal);
+    printErrors([refusal], process.env, console.error);
     return 1;
   }
   mkdirSync(join(ROOT, BASELINE_DIR), { recursive: true });
@@ -165,7 +169,7 @@ export function ratchetInput({
 function check(summary: Summary, ref: string): number {
   const base = readBase(ref);
   if (base instanceof Error) {
-    console.error(base.message);
+    printErrors([base.message], process.env, console.error);
     return 1;
   }
   const moves = reclassified(summary, ref, base.baseline);

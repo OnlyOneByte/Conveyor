@@ -111,6 +111,12 @@ ones bun's own coverage run lists for it, so blank lines, closing braces and the
 multi-line string never count against it. For a file no test loads, the lines are the ones the sweep maps
 when it imports the file, all at 0 hits.
 
+Bun reports the last line of some functions that never ran as hit. The checker corrects that: in a loaded
+file, a function whose first statement has 0 hits never ran, so every line of its body counts 0
+(`scripts/checks/coverage/bodies.ts`, which finds function bodies with TypeScript's parser). One bun
+over-count is left as it is: when `if (x) return 1;` sits on one line, a later `return -1;` that never ran
+reads as hit. That function did run, and bun's lcov has no branch records to tell which return was taken.
+
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
 or measure them, so they are in neither the numerator nor the denominator, and the visual and end-to-end

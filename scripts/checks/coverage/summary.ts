@@ -1,3 +1,4 @@
+import { type Body, withoutUnrunBodies } from "./bodies";
 import { type Coverage, hitCount, type LineHits, zeroed } from "./lcov";
 
 export const SWEEP_ENV = "CONVEYOR_COVERAGE_SWEEP";
@@ -58,6 +59,7 @@ export interface MergeInput {
   sweep: Coverage;
   fallback: (path: string) => LineHits;
   typeLines: (path: string) => ReadonlySet<number>;
+  bodies: (path: string) => Body[];
 }
 
 const withoutLines = (lines: LineHits, drop: ReadonlySet<number>): LineHits =>
@@ -75,6 +77,7 @@ export function mergeCoverage({
   sweep,
   fallback,
   typeLines,
+  bodies,
 }: MergeInput): Merged {
   const coverage: Coverage = new Map();
   const unloaded: string[] = [];
@@ -85,7 +88,7 @@ export function mergeCoverage({
     const loaded = measured.get(path);
     if (!loaded) unloaded.push(path);
     const lines = withoutLines(loaded ?? mapped ?? fallback(path), typeLines(path));
-    coverage.set(path, loaded ? lines : zeroed(lines));
+    coverage.set(path, loaded ? withoutUnrunBodies(lines, bodies(path)) : zeroed(lines));
   }
   return { coverage, unloaded, estimated };
 }
