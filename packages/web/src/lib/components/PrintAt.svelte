@@ -84,6 +84,6 @@
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
-  .live:empty { margin-top: calc(-1 * var(--s2)); }
+  .live:empty { position: absolute; }
   @media (pointer: coarse) { .pill { min-height: var(--tap); } }
 </style>

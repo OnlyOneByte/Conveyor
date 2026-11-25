@@ -12,6 +12,7 @@
   export let error: string | null = null;
   export let retried: string | null = null;
   export let why: string | null = null;
+  export let attempt = 0;
 
   let say: HTMLElement | null = null;
   let print: HTMLButtonElement;
@@ -25,9 +26,9 @@
 
 <div class="dock" use:measured={"dock-h"}>
   {#if error}
-    <div class="say" role="alert" bind:this={say}>
-      <Notice tone="err" title="Your print didn't go out">
-        <span>
+    <div class="say" bind:this={say}>
+      <Notice tone="err" title="Your print didn't go out" role="alert" stamp={attempt}>
+        <span slot="message">
           {error}
           {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
         </span>

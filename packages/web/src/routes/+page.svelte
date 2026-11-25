@@ -94,7 +94,7 @@
     [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
-  let [busy, sent] = [false, false];
+  let [busy, sent, failures] = [false, false, 0];
   let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
@@ -122,7 +122,7 @@
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      [error, errorWhy] = [said(e), detailOf(e)];
+      [error, errorWhy, failures] = [said(e), detailOf(e), failures + 1];
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -175,7 +175,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} attempt={failures} />
   </form>
 </section>
 

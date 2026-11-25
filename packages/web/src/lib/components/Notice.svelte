@@ -1,6 +1,8 @@
 <script lang="ts">
   export let tone: "warn" | "err";
   export let title: string;
+  export let role: "alert" | null = null;
+  export let stamp: unknown = null;
 </script>
 
 <div class="notice {tone}">
@@ -14,7 +16,9 @@
     {/if}
   </svg>
   <div class="words">
-    <b>{title}</b>
+    <div class="head" {role}>
+      {#key stamp}<b>{title}</b><slot name="message" />{/key}
+    </div>
     <slot />
   </div>
   {#if $$slots.action}<div class="act"><slot name="action" /></div>{/if}
@@ -34,6 +38,7 @@
     fill: none; stroke: var(--tone); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
   }
   .words { display: grid; flex: 1; gap: 2px; min-width: 0; color: var(--muted); }
+  .head { display: grid; gap: 2px; }
   .act { flex: none; }
   b { color: var(--ink); font-size: var(--fs-body); font-weight: 650; line-height: 1.3; }
 </style>
