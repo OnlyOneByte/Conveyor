@@ -39,12 +39,13 @@
   });
   $: dark = resolveTheme($theme, osDark) === "dark";
 
-  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [], beltOffline = false;
+  let beltJobs: TrackJob[] = [], beltEnded: TrackJob[] = [], beltOffline = false, endsDown = false;
   let finishedToday: number | undefined, needs: TrackJob[] = [];
   const clock = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const toasted = new Set<string>();
   const ends = createEnds({ ...http, entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() }, {
     show: (finished, failures) => ((finishedToday = finished), (needs = failures)),
+    down: (down) => (endsDown = down),
     toast: (text, action) => toasts.show(text, action),
     say: (text, level) => void announce(text, level),
     pick: ({ generator, printerId, profileId }, retryOf) => {
@@ -98,7 +99,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline || endsDown} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />

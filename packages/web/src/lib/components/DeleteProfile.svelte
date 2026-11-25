@@ -1,7 +1,8 @@
 <script lang="ts">
   import { type CatalogProfile, deleteProfile, saveProfile } from "#lib/api.js";
   import { type Content, loadContent, saveContent } from "#lib/profile-content.js";
-  import { couldnt, said } from "#lib/said.js";
+  import { couldnt, detailOf, said } from "#lib/said.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
   import { toasts } from "#lib/ui/behaviour.js";
   import Confirm from "./Confirm.svelte";
 
@@ -11,7 +12,7 @@
   export let deleted: (id: string) => void = () => {};
 
   let busy = false;
-  let problem = "";
+  let [problem, why]: [string, string | null] = ["", null];
   const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
   $: if (open) problem = "";
@@ -35,7 +36,7 @@
       const undo = { label: "Undo", run: () => void restore(target, content) };
       toasts.show(`Deleted ${target.name}`, undo);
     } catch (e) {
-      problem = explain(target.name, e);
+      [problem, why] = [explain(target.name, e), detailOf(e)];
     } finally {
       busy = false;
     }
@@ -63,7 +64,7 @@
   run={remove}
 >
   <p>Make stops offering it. Jobs already printed with it keep their history.</p>
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
 </Confirm>
 
 <style>

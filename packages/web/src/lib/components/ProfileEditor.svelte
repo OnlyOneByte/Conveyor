@@ -3,7 +3,8 @@
   import type { CatalogProfile } from "#lib/api.js";
   import { describe, fileLabel, problemOf } from "#lib/profile-check.js";
   import * as editing from "#lib/profile-content.js";
-  import { couldnt } from "#lib/said.js";
+  import { couldnt, detailOf } from "#lib/said.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import CodeEditor from "./CodeEditor.svelte";
   import Confirm from "./Confirm.svelte";
@@ -17,8 +18,7 @@
   let edited = content.edited;
   let file = content.files[0] ?? "";
   let [busy, discarding, letGo, ready] = [false, false, false, false];
-  let [failure, leaving]: [string, URL | null] = ["", null];
-  let version = 0;
+  let [failure, leaving, why, version]: [string, URL | null, string | null, number] = ["", null, null, 0];
   const [errorId, panelId] = [uid("editor-error"), uid("editor-panel")];
   const tabbed = content.files.length > 1;
 
@@ -47,7 +47,7 @@
     try {
       await work();
     } catch (e) {
-      failure = couldnt(what, e);
+      [failure, why] = [couldnt(what, e), detailOf(e)];
     } finally {
       busy = false;
     }
@@ -108,7 +108,7 @@
     {/if}
   {/if}
 </p>
-{#if failure}<p class="problem shown" role="alert">{failure}</p>{/if}
+{#if failure}<p class="problem shown" role="alert">{failure}</p><ErrorDetails detail={why} />{/if}
 <div id={panelId} role={tabbed ? "tabpanel" : undefined} aria-label={fileLabel(file)}>
   <CodeEditor
     file="{file}:{version}"

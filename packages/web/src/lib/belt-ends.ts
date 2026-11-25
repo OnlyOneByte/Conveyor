@@ -27,6 +27,7 @@ interface EndsUi {
   toast(text: string, action?: { label: string; run: () => void }): void;
   say(text: string, level: Politeness): void;
   pick(request: Request, retryOf: string): void;
+  down?(down: boolean): void;
 }
 
 export const midnight = (now: Date) => new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -38,6 +39,7 @@ export function createEnds(feed: EndsFeed, ui: EndsUi, { now = () => new Date(),
 
   async function refresh(): Promise<boolean> {
     const [finished, needs, catalog] = await Promise.all([feed.finished(midnight(now())).catch(() => null), feed.needsYou().catch(() => null), feed.catalog().catch(() => null)]);
+    ui.down?.(finished === null || needs === null);
     if (finished === null || needs === null) return false;
     failures = new Map(needs.map((job) => [job.id, job]));
     ui.show(finished, needs.map((job) => trackJob(asStatus(job), undefined, catalog)));

@@ -1,11 +1,12 @@
 import { fetchCatalogProfiles, fetchCatalogSlicers, signedIn } from "#lib/api.js";
 import { unreachable } from "#lib/http-error.js";
 import { loadContent } from "#lib/profile-content.js";
-import { saidOnLoad, serverSaid } from "#lib/said.js";
+import { detailOf, saidOnLoad, serverSaid } from "#lib/said.js";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = async ({ params, fetch, parent }) => {
-  const empty = { profile: null, content: null, slicers: [], failed: false, problem: "" };
+  const none: string | null = null;
+  const empty = { profile: null, content: null, slicers: [], failed: false, problem: "", detail: none };
   if (!signedIn((await parent()).auth)) return empty;
   try {
     const [profiles, slicers] = await Promise.all([
@@ -19,10 +20,11 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
       content: profile ? await loadContent(profile, fetch) : null,
       failed: false,
       problem: "",
+      detail: none,
     };
   } catch (e) {
     if (unreachable(e)) return { ...empty, failed: true };
     const why = serverSaid(e);
-    return { ...empty, problem: why ? `Conveyor answered: ${why}` : saidOnLoad(e) };
+    return { ...empty, problem: why ? `Conveyor answered: ${why}` : saidOnLoad(e), detail: detailOf(e) };
   }
 };

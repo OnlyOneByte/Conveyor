@@ -3,7 +3,8 @@
   import { deletePrinter, savePrinter, type CatalogPrinter, type CatalogTransport, type GeneratorSummary } from "#lib/api.js";
   import { blankDraft, clearSecretsPayload, draftErrors, draftOf, type DraftErrors, printerPayload, slugOf } from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
-  import { said } from "#lib/said.js";
+  import { detailOf, said } from "#lib/said.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
@@ -20,7 +21,7 @@
 
   let draft = blankDraft();
   let errors: DraftErrors = {};
-  let problem = "";
+  let [problem, why]: [string, string | null] = ["", null];
   let [busy, idEdited, confirming, tried, secretsSaved, cleared] = [false, false, false, false, false, false];
   let form: HTMLFormElement;
   const formId = uid("printer-form");
@@ -59,7 +60,7 @@
     try {
       await work();
     } catch (e) {
-      problem = explain(e);
+      [problem, why] = [explain(e), detailOf(e)];
     } finally {
       busy = false;
     }
@@ -105,7 +106,7 @@
     <p>
       {jobs ? `${waiting}. Cancel ${them} or let ${them} finish, then delete it.` : "Jobs it already printed keep their history."}
     </p>
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
       <Field label="Name" bind:value={draft.name} error={errors.name ?? ""} />
@@ -124,7 +125,7 @@
         <p class="saved" role="status">Saved secrets cleared.</p>
       {/if}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
     </form>
   {/if}
   <svelte:fragment slot="actions">

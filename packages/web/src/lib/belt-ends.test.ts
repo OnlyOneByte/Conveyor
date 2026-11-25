@@ -27,6 +27,7 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
   const shown: [number, TrackJob[]][] = [];
   const toasts: { text: string; action?: { label: string; run: () => void } }[] = [];
   const picked: unknown[] = [];
+  const downs: boolean[] = [];
   const upload = { ...request, generator: { id: "passthrough", params: { uploadId: "u1", filename: "clip.stl" } } };
   const records = new Map<string, JobHistoryEntry>();
   const call = (name: string) => async (arg?: unknown) => {
@@ -52,11 +53,24 @@ function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }
     toast: (text, action) => toasts.push(action ? { text, action } : { text }),
     say: (text, level) => said.push([text, level]),
     pick: (asked, retryOf) => picked.push([asked, retryOf]),
+    down: (down) => downs.push(down),
   }, { now: () => NOW });
-  return { calls, said, shown, toasts, picked, ends, records, upload };
+  return { calls, said, shown, toasts, picked, ends, records, upload, downs };
 }
 
 describe("the belt's end states", () => {
+  test("a counts poll that fails says the belt is down until one answers again, without clearing the last counts", async () => {
+    const refuse: string[] = [];
+    const { ends, shown, downs } = rig(refuse);
+    await ends.refresh();
+    refuse.push("finished");
+    await ends.refresh();
+    refuse.length = 0;
+    await ends.refresh();
+    expect(downs).toEqual([false, true, false]);
+    expect(shown.map(([finished]) => finished)).toEqual([4, 4]);
+  });
+
   test("a refresh that can't read the counts keeps the last ones shown and says it didn't refresh", async () => {
     const up = rig();
     expect(await up.ends.refresh()).toBe(true);

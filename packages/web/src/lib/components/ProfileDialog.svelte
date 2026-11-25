@@ -9,7 +9,8 @@
     profileErrors,
     profilePayload,
   } from "#lib/profile-facts.js";
-  import { said } from "#lib/said.js";
+  import { detailOf, said } from "#lib/said.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
@@ -24,7 +25,7 @@
   let draft: ProfileDraft = blank();
   let errors: ProfileErrors = {};
   let [busy, tried, folderEdited, started] = [false, false, false, false];
-  let problem = "";
+  let [problem, why]: [string, string | null] = ["", null];
   let form: HTMLFormElement;
   const formId = uid("profile-form");
 
@@ -64,7 +65,7 @@
       open = false;
       changed();
     } catch (e) {
-      problem = said(e);
+      [problem, why] = [said(e), detailOf(e)];
     } finally {
       busy = false;
     }
@@ -93,7 +94,7 @@
       hint="The folder under /profiles that holds this profile's files."
       error={errors.path ?? ""}
     />
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
   </form>
   <svelte:fragment slot="actions">
     <button class="btn ghost" type="button" on:click={() => (open = false)}>Cancel</button>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { measured } from "#lib/ui/behaviour.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
 
   export let summary: string;
   export let detail: string;
@@ -9,6 +10,7 @@
   export let last: { id: string; printer: string } | null;
   export let error: string | null = null;
   export let retried: string | null = null;
+  export let why: string | null = null;
 </script>
 
 <div class="dock" use:measured={"dock-h"}>
@@ -17,6 +19,7 @@
       {error}
       {#if retried}<a href="/jobs/{encodeURIComponent(retried)}">See the retry</a>{/if}
     </p>
+    <ErrorDetails detail={why} />
   {:else if last}
     <p class="last" role="status">
       Sent to {last.printer} · <a href="/jobs/{encodeURIComponent(last.id)}">See the job</a>

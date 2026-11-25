@@ -14,7 +14,7 @@
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
-  import { couldnt, said } from "#lib/said.js";
+  import { couldnt, detailOf, said } from "#lib/said.js";
   import {
     AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
   } from "#lib/rerun.js";
@@ -69,7 +69,7 @@
   let file: File | null = null;
   let uploadId: string | null = null;
   let uploading = false;
-  let uploadError = "";
+  let [uploadError, uploadWhy, errorWhy]: [string, string | null, string | null] = ["", null, null];
 
   const uploads = latestOnly(uploadStl);
 
@@ -85,12 +85,12 @@
     if (!done) return;
     uploading = false;
     if (done.ok) uploadId = done.value.uploadId;
-    else uploadError = couldnt(`upload ${chosen.name}`, done.error);
+    else [uploadError, uploadWhy] = [couldnt(`upload ${chosen.name}`, done.error), detailOf(done.error)];
   }
 
   function clear() {
     uploads.drop();
-    [file, uploadId, uploading, uploadError] = [null, null, false, ""];
+    [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
   let busy = false;
@@ -122,7 +122,7 @@
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = said(e);
+      [error, errorWhy] = [said(e), detailOf(e)];
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -146,7 +146,7 @@
               <h2>Which file?</h2>
               <UploadDrop
                 name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
-                error={uploadError} on:file={choose} on:clear={clear}
+                error={uploadError} why={uploadWhy} on:file={choose} on:clear={clear}
               />
             </section>
           {:else if gen}
@@ -175,7 +175,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} />
   </form>
 </section>
 
