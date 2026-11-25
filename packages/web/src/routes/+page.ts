@@ -16,6 +16,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
   if (initialJobId && !makeShown()) redirect(307, `/jobs/${encodeURIComponent(initialJobId)}`);
   if (!signedIn((await parent()).auth))
     return { generators: [], printers: [], profiles: [], transports: [], initialJobId };
+  void import("#lib/components/ViewportCanvas.svelte").catch(() => {});
   const [generators, printers, profiles, transports] = await Promise.all([
     fetchGenerators(fetch).catch(() => []),
     fetchCatalogPrinters(fetch).catch(() => []),
