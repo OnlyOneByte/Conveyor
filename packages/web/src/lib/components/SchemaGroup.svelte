@@ -5,27 +5,14 @@
     type JsonSchemaProp, type Props,
   } from "#lib/form-schema.js";
 
-  // One group of the generated config form: optional heading + readout, then its
-  // fields laid out per `group.layout`. Rendered identically whether the group is in
-  // the primary section or inside the "More options" disclosure.
   export let group: FormGroup;
   export let schemaProps: Props;
   export let value: Record<string, unknown>;
   export let ui: FormUiHints | null = null;
-  /** Mutation is owned by the parent so the whole form dispatches one change event. */
   export let onSet: (key: string, v: unknown) => void;
 
   $: fields = group.fields.filter((f) => schemaProps[f]);
   $: summary = groupSummary(group, schemaProps, value, ui);
-  /**
-   * Current value per field, derived reactively.
-   *
-   * This MUST be a reactive statement rather than a `num(key)` call in the markup:
-   * Svelte tracks only the identifiers named in a template expression, so
-   * `value={num(key)}` depends on `num` and `key` — never on `value`, whose read is
-   * hidden inside the function body. The control would then never re-render and the
-   * stepper's number would sit frozen while everything else updated.
-   */
   $: cur = Object.fromEntries(
     fields.map((f) => [f, numOf(schemaProps, value, f)]),
   ) as Record<string, number>;
@@ -36,8 +23,6 @@
     onSet(key, clamp(num(key) + delta, p));
   }
 
-  // Typing is only committed while the value is already legal, so a half-typed "1" on
-  // a min-2 field isn't yanked out from under the caret.
   function typed(key: string, p: JsonSchemaProp, raw: string) {
     if (raw.trim() === "") return;
     let n = Number(raw);
@@ -46,9 +31,6 @@
     if (n >= lo(p) && n <= hi(p)) onSet(key, n);
   }
 
-  // On blur/Enter clamp and force the input back in sync with state — required because
-  // an out-of-range entry was never committed, so state may not have changed at all
-  // and Svelte would leave the stale text in the box.
   function settle(key: string, p: JsonSchemaProp, el: HTMLInputElement) {
     const raw = el.value.trim();
     let n = raw === "" ? num(key) : Number(raw);
@@ -147,7 +129,6 @@
   .fields.pair > .stepper { flex: 1; min-width: 0; }
   .times { color: var(--muted); }
 
-  /* Compact two-column grid for booleans. */
   .fields.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; }
   .cb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; min-height: 32px; }
   .cb input { margin: 0; }

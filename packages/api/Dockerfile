@@ -1,4 +1,4 @@
-FROM oven/bun:debian AS deps
+FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS deps
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
@@ -14,7 +14,7 @@ COPY plugins/transports/elegoo/package.json plugins/transports/elegoo/
 COPY plugins/registry/builtin/package.json plugins/registry/builtin/
 RUN bun install --frozen-lockfile --production
 
-FROM oven/bun:debian
+FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor API — REST + WebSocket front door" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
