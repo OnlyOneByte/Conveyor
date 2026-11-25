@@ -86,13 +86,25 @@ describe("uploads", () => {
     const stale = upload(dirs.uploadDir, 8);
     const fresh = upload(dirs.uploadDir, 6);
     const used = upload(dirs.uploadDir, 30);
-    writeFileSync(join(dirs.uploadDir, "notes.txt"), "x");
-    utimesSync(join(dirs.uploadDir, "notes.txt"), 0, 0);
+    const id = randomUUID();
+    const strays = [
+      "notes.txt",
+      `x${id}.stl`,
+      `${id}.stl.bak`,
+      `x${id}.stl.part`,
+      `${id}.stl.part.bak`,
+    ];
+    for (const name of strays) {
+      writeFileSync(join(dirs.uploadDir, name), "x");
+      utimesSync(join(dirs.uploadDir, name), 0, 0);
+    }
     const live = async () => ({ ids: new Set<string>(), uploads: new Set([used]) });
-    expect((await reapOnce(deps(dirs, [], live))).uploads).toEqual([stale]);
+    const reaped = await reapOnce(deps(dirs, [], live));
+    expect(reaped.uploads).toEqual([stale]);
+    expect(reaped.parts).toEqual([]);
     for (const kept of [fresh, used])
       expect(existsSync(join(dirs.uploadDir, `${kept}.stl`))).toBe(true);
-    expect(existsSync(join(dirs.uploadDir, "notes.txt"))).toBe(true);
+    for (const name of strays) expect(existsSync(join(dirs.uploadDir, name))).toBe(true);
   });
 
   test("removes an upload write abandoned over an hour ago and keeps one still in flight", async () => {
@@ -112,18 +124,23 @@ describe("uploads", () => {
     expect(existsSync(inFlight)).toBe(true);
   });
 
-  test("never follows a symlink or removes a folder named like an upload", async () => {
+  test("never follows a symlink or removes a folder named like an upload or an upload write", async () => {
     const dirs = layout();
     const linked = randomUUID();
     const target = join(dirs.outside, "keep.txt");
     symlinkSync(target, join(dirs.uploadDir, `${linked}.stl`));
+    symlinkSync(target, join(dirs.uploadDir, `${linked}.stl.part`));
     const folder = randomUUID();
-    mkdirSync(join(dirs.uploadDir, `${folder}.stl`));
-    for (const name of [`${linked}.stl`, `${folder}.stl`])
+    const folders = [`${folder}.stl`, `${folder}.stl.part`];
+    for (const name of folders)
+      mkdirSync(join(dirs.uploadDir, name, "inside"), { recursive: true });
+    for (const name of [`${linked}.stl`, `${linked}.stl.part`, ...folders])
       utimesSync(join(dirs.uploadDir, name), 0, 0);
-    expect((await reapOnce(deps(dirs, []))).uploads).toEqual([]);
+    const reaped = await reapOnce(deps(dirs, []));
+    expect(reaped.uploads).toEqual([]);
+    expect(reaped.parts).toEqual([]);
     expect(existsSync(target)).toBe(true);
-    expect(existsSync(join(dirs.uploadDir, `${folder}.stl`))).toBe(true);
+    for (const name of folders) expect(existsSync(join(dirs.uploadDir, name, "inside"))).toBe(true);
   });
 });
 

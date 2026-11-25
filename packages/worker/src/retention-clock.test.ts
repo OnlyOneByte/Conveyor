@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   cleanupRoots,
@@ -12,6 +12,7 @@ import {
   upload,
 } from "../test/helpers/retention";
 import {
+  ABANDONED_PART_AGE_MS,
   type ProcessClock,
   processClock,
   type Reaped,
@@ -55,6 +56,24 @@ function at(
 }
 
 describe("the reaper clock", () => {
+  test("a system clock that jumps ahead doesn't make an in-flight upload write look abandoned", async () => {
+    const dirs = layout();
+    const part = (name: string, at: number) => {
+      const path = join(dirs.uploadDir, `${name}.stl.part`);
+      writeFileSync(path, "sol");
+      utimesSync(path, at / 1000, at / 1000);
+      return path;
+    };
+    const [old, inFlight] = [crypto.randomUUID(), crypto.randomUUID()];
+    const oldPath = part(old, NOW - ABANDONED_PART_AGE_MS - HOUR);
+    const inFlightPath = part(inFlight, NOW - ABANDONED_PART_AGE_MS / 2);
+    const state = memoryState({ startedAt: NOW - 365 * DAY, lastRunAt: NOW });
+    const jumped = at(dirs, {}, NOW + 2 * HOUR, state, fakeProcess());
+    expect((await reapOnce(jumped)).parts).toEqual([old]);
+    expect(existsSync(oldPath)).toBe(false);
+    expect(existsSync(inFlightPath)).toBe(true);
+  });
+
   test("the first run after an upgrade removes nothing; old items go 30 days of uptime after it", async () => {
     const dirs = layout();
     const id = jobDir(dirs.dataDir);
