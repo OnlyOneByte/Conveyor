@@ -61,7 +61,7 @@
     refreshEnds();
     const timers = [setInterval(tick, POLL_MS), setInterval(refreshEnds, ENDS_MS)];
     document.addEventListener("visibilitychange", tick);
-    const unsent = onJobSent(() => (void belt.poll(), refreshEnds()));
+    const unsent = onJobSent(() => (tick.force(), refreshEnds()));
     return () => {
       for (const timer of timers) clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);

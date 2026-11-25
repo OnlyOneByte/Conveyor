@@ -133,13 +133,26 @@ export function createBelt(feed: Feed, show: (jobs: TrackJob[], ended: TrackJob[
 
 export function createTicker(belt: { poll(): Promise<void>; covered(): boolean }, ready: () => boolean, now = () => Date.now()) {
   let polling = false;
+  let again = false;
   let last = Number.NEGATIVE_INFINITY;
-  return () => {
-    if (polling || !ready() || (belt.covered() && now() - last < COVERED_MS)) return;
+  const run = () => {
     polling = true;
     last = now();
-    void belt.poll().finally(() => (polling = false));
+    void belt.poll().finally(() => {
+      polling = false;
+      if (again && ready()) run();
+      again = false;
+    });
   };
+  const tick = () => {
+    if (polling || !ready() || (belt.covered() && now() - last < COVERED_MS)) return;
+    run();
+  };
+  const force = () => {
+    if (polling) again = true;
+    else if (ready()) run();
+  };
+  return Object.assign(tick, { force });
 }
 
 const JOB_SENT = "conveyor:job-sent";
