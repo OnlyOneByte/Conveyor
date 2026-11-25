@@ -6,9 +6,6 @@
   import * as THREE from "three";
   import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
-  // Renders the user's *real* uploaded STL mesh (the passthrough source), as
-  // opposed to the procedural Gridfinity preview. Same loader powers the future
-  // "show exact model after slicing" feature.
   export let file: File | null = null;
 
   let geometry: THREE.BufferGeometry | null = null;
@@ -16,15 +13,13 @@
 
   const loader = new STLLoader();
 
-  // Re-parse whenever the file changes. STLLoader.parse() is synchronous on an
-  // ArrayBuffer — no network, just a local decode.
   $: if (file) loadFile(file);
   $: if (!file) geometry = null;
 
   async function loadFile(f: File) {
     const buf = await f.arrayBuffer();
     const geo = loader.parse(buf);
-    geo.center(); // recenter on origin so OrbitControls frames it
+    geo.center();
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
     radius = geo.boundingSphere?.radius ?? 60;
@@ -33,9 +28,6 @@
 
   $: camDist = radius * 2.6;
 
-  // Auto-spin is opt-in (Settings → Preferences) and off by default. Users who asked
-  // the OS for reduced motion never get it: autoRotate is a render-loop prop, not a
-  // CSS animation, so app.css's @media guard cannot cover it.
   const reducedMotion = prefersReducedMotion();
   $: autoRotate = $spinPreview && !reducedMotion;
 </script>

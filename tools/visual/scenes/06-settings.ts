@@ -149,7 +149,7 @@ export const scenes: Scene[] = [
     route: "/printers",
     ready: "h1",
     steps: [
-      { offline: "editor" },
+      { offline: "h1", only: "editor" },
       {
         fulfill: "**/content",
         method: "GET",

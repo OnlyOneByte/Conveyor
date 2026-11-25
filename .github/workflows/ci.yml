@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "23 5 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -269,6 +271,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Pick this week's OS package refresh
+        id: refresh
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
       - name: Build ${{ matrix.service }} image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -279,6 +284,7 @@ jobs:
           tags: conveyor-scan-${{ matrix.service }}
           build-args: |
             ORCA_ENABLE=0
+            OS_REFRESH=${{ steps.refresh.outputs.week }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       - name: Scan ${{ matrix.service }} for vulnerabilities with a fix
@@ -311,6 +317,9 @@ jobs:
         with:
           submodules: true
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Pick this week's OS package refresh
+        id: refresh
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
       - name: Build the worker with OrcaSlicer
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -321,10 +330,27 @@ jobs:
           tags: conveyor-worker
           build-args: |
             ORCA_ENABLE=1
-          cache-from: |
-            type=gha,scope=worker-orca
-            type=gha,scope=worker
-          cache-to: type=gha,mode=max,scope=worker-orca
+            OS_REFRESH=${{ steps.refresh.outputs.week }}
+          cache-from: type=gha,scope=worker
+      - name: Scan the worker with OrcaSlicer for vulnerabilities with a fix
+        env:
+          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
+          IMAGE: conveyor-worker
+        run: |
+          trivy() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
+              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$IMAGE"
+          }
+          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
+          { echo "### $IMAGE with OrcaSlicer: fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: image-scan-worker-orca
+          path: image-scan.txt
+          if-no-files-found: warn
+          retention-days: 14
       - name: Slice a cube with the bundled Orca profile as uid 10001 under the compose lockdown
         run: |
           docker compose run --rm --no-deps worker bun scripts/orca-smoke.ts | tee smoke.txt
@@ -352,6 +378,9 @@ jobs:
           echo "CONVEYOR_PASSWORD=$password" >> "$GITHUB_ENV"
           echo "CONVEYOR_AUTH_SECRET=$secret" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Pick this week's OS package refresh
+        id: refresh
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
       - name: Build the worker from source with the Docker build job's cache
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
@@ -362,6 +391,7 @@ jobs:
           tags: conveyor-worker
           build-args: |
             ORCA_ENABLE=0
+            OS_REFRESH=${{ steps.refresh.outputs.week }}
           cache-from: type=gha,scope=worker
       - name: Build the other images from source
         run: docker compose build --build-arg ORCA_ENABLE=0 api web

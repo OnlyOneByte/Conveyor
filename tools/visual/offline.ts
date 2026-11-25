@@ -14,7 +14,8 @@ export function editorChunks(root: string): string[] {
   return chunks;
 }
 
-export async function cutEditor(page: Page, root: string): Promise<void> {
+export function recordWrites(page: Page): void {
+  if (writes.has(page)) return;
   const sent: string[] = [];
   writes.set(page, sent);
   page.on("request", (request) => {
@@ -22,6 +23,9 @@ export async function cutEditor(page: Page, root: string): Promise<void> {
     if (request.method() !== "GET" && pathname.startsWith("/api/"))
       sent.push(`${request.method()} ${pathname}`);
   });
+}
+
+export async function blockEditor(page: Page, root: string): Promise<void> {
   for (const chunk of editorChunks(root))
     await page.route(`**/${chunk}`, (route) => route.abort("internetdisconnected"));
 }

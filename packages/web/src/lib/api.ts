@@ -15,7 +15,6 @@ export interface GeneratorSummary {
   id: string;
   name: string;
   paramSchema: Record<string, unknown>;
-  /** optional grouping / advanced / control hints for the generated form */
   ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
@@ -44,7 +43,6 @@ interface UploadResult {
   bytes: number;
 }
 
-/** Upload an STL for the passthrough generator. Returns an opaque uploadId. */
 export async function uploadStl(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file, file.name);
@@ -149,7 +147,6 @@ export interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
 
-/** Response of GET /catalog/profiles/:id/content for a Prusa (prusa-ini) profile. */
 export interface PrusaProfileContent {
   format: "prusa-ini";
   source: "bundled" | "edited";
@@ -222,12 +219,6 @@ export const savePrusaProfileContent = (id: string, document: PrusaProfileDocume
 
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
 
-/**
- * One settled job, or null when there is no such record. Deliberately NOT getJson():
- * that throws the same generic Error for every non-ok status, and the detail page has
- * to tell "no job with this id" (render a not-found page) apart from a genuine server
- * failure (surface the error). Only 404 becomes null; everything else still throws.
- */
 export async function fetchJobHistoryEntry(
   id: string,
   fetchFn: typeof fetch = fetch,

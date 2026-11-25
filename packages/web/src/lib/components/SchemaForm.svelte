@@ -4,13 +4,8 @@
   import SchemaGroup from "./SchemaGroup.svelte";
   import { primaryGroups, resolveRoot, type JsonSchema } from "#lib/form-schema.js";
 
-  // A JSON Schema (paramJsonSchema output) describing the generator's params.
-  // We render one control per property — zero per-generator UI code (ADR: dynamic forms).
   export let schema: JsonSchema | null = null;
   export let value: Record<string, unknown> = {};
-  // Optional presentation hints from the generator: grouping, which fields are
-  // advanced, preferred controls, unit→mm mapping. Without them every field renders
-  // in one flat group, exactly as this form behaved before hints existed.
   export let ui: FormUiHints | null = null;
   export let title: string;
   export let moreTitle: string;
@@ -20,7 +15,6 @@
   $: root = resolveRoot(schema);
   $: schemaProps = root?.properties ?? {};
 
-  // Seed defaults from the schema once, when the schema first resolves.
   let seeded = false;
   let mounted = false;
   let seedPending = false;
@@ -31,11 +25,6 @@
     }
     value = next;
     seeded = true;
-    // A dispatch from a reactive statement can run during component INIT, before the
-    // parent has attached its on:change listener — so this event used to be dropped
-    // and the parent kept its empty params object. Measured effect: printing without
-    // touching the form POSTed `params: {}`, and the job's durable history row
-    // recorded no parameters at all. Defer to onMount when we are not mounted yet.
     if (mounted) dispatch("change", value);
     else seedPending = true;
   }

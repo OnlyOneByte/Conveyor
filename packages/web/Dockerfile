@@ -1,4 +1,4 @@
-FROM oven/bun:debian AS build
+FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS build
 WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/shared/package.json packages/shared/
@@ -17,7 +17,7 @@ COPY . .
 ARG CONVEYOR_VERSION=""
 RUN cd packages/web && bunx vite build
 
-FROM node:26-bookworm-slim
+FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor web — SvelteKit + Threlte PWA" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
