@@ -31,9 +31,6 @@ export const hitCount = (lines: LineHits) => [...lines.values()].filter((hits) =
 
 export const zeroed = (lines: LineHits): LineHits => new Map([...lines.keys()].map((n) => [n, 0]));
 
-export const exactHits = (lines: LineHits, run: LineHits): LineHits =>
-  new Map([...lines.keys()].map((line) => [line, run.get(line) ?? 0]));
-
 const serializeFile = (file: string, lines: LineHits) => {
   const sorted = [...lines.entries()].sort(([a], [b]) => a - b);
   return [

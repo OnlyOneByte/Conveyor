@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FakeSubscriber } from "../test/fake-subscriber.ts";
+import { FakeSubscriber } from "../test/helpers/fake-subscriber.ts";
 import { createStatusHub } from "./status-hub";
 
 function hub() {

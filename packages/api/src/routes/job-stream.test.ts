@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
-import { FakeSubscriber } from "../../test/fake-subscriber.ts";
-import { silentClient } from "../../test/silent-client.ts";
+import { FakeSubscriber } from "../../test/helpers/fake-subscriber.ts";
+import { silentClient } from "../../test/helpers/silent-client.ts";
 import { createStatusHub, type StatusHub } from "../status-hub.js";
 import { type JobStreamDeps, registerJobStream } from "./job-stream.js";
 

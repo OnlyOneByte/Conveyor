@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JOB_QUEUE } from "@conveyor/shared";
 import { Redis } from "ioredis";
-import { type BootedApi, bootApi, job } from "../../test/booted-api.ts";
+import { type BootedApi, bootApi, job } from "../../test/helpers/booted-api.ts";
 import { SOCKET_TIMEOUT_MS } from "../queue.js";
 
 const url = process.env.REDIS_URL;

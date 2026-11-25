@@ -7,7 +7,7 @@ import { openDb } from "@conveyor/shared/db";
 import { claimJob, enqueueJob, type Lease, tailEvents, writeStatus } from "@conveyor/shared/queue";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
-import { silentClient } from "../../test/silent-client.ts";
+import { silentClient } from "../../test/helpers/silent-client.ts";
 import { DEFAULT_TAIL, registerJobRoutes, type TailOptions } from "./jobs-sqlite.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-stream-"));

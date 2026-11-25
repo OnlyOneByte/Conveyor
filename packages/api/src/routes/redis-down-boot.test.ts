@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BootedApi, bootApi, job } from "../../test/booted-api.ts";
+import { type BootedApi, bootApi, job } from "../../test/helpers/booted-api.ts";
 
 const ANSWER_WITHIN_MS = 5_000;
 
