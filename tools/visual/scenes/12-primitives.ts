@@ -21,7 +21,7 @@ export const scenes: Scene[] = [
     steps: [
       ...toastOnMake,
       {
-        hits: ".toasts button, .mobile-cta button, nav[aria-label='Main'] a",
+        hits: ".toasts button, .dock button, nav[aria-label='Main'] a",
         viewports: REACH,
       },
     ],

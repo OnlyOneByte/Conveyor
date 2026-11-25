@@ -1,3 +1,4 @@
+import { chromium, type Page } from "playwright";
 import { PNG } from "pngjs";
 
 export function solid(width: number, height: number, rgb: [number, number, number]): Buffer {
@@ -9,4 +10,13 @@ export function solid(width: number, height: number, rgb: [number, number, numbe
     png.data[i + 3] = 255;
   }
   return PNG.sync.write(png);
+}
+
+export async function withPage<T>(run: (page: Page) => Promise<T>): Promise<T> {
+  const browser = await chromium.launch();
+  try {
+    return await run(await browser.newPage({ viewport: { width: 400, height: 300 } }));
+  } finally {
+    await browser.close();
+  }
 }

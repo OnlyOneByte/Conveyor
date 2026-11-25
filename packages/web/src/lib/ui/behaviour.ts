@@ -74,3 +74,11 @@ export function createToasts({ after, now }: Timer = realTimer, say: (text: stri
 }
 
 export const toasts = createToasts(realTimer, announce);
+
+export function measured(node: HTMLElement, name: string) {
+  const root = document.documentElement.style;
+  const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;
+  const seen = new ResizeObserver(() => root.setProperty(`--${name}`, height()));
+  seen.observe(node);
+  return { destroy: () => (seen.disconnect(), root.removeProperty(`--${name}`)) };
+}

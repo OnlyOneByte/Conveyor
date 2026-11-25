@@ -1,479 +1,221 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Viewport from "#lib/components/Viewport.svelte";
-  import SchemaForm from "#lib/components/SchemaForm.svelte";
-  import JobStatus from "#lib/components/JobStatus.svelte";
-  import {
-    uploadStl,
-    type CatalogPrinter,
-    type CatalogProfile,
-    type CatalogTransport,
-  } from "#lib/api.js";
-  import { AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun } from "#lib/rerun.js";
-  import { showMake } from "#lib/make-shown.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  import { announce } from "#lib/announce.js";
+  import { uploadStl } from "#lib/api.js";
+  import { jobSent, titled } from "#lib/belt.js";
+  import JobStatus from "#lib/components/JobStatus.svelte";
+  import MakeMat from "#lib/components/MakeMat.svelte";
+  import PrintAt from "#lib/components/PrintAt.svelte";
+  import PrintDock from "#lib/components/PrintDock.svelte";
+  import SchemaForm from "#lib/components/SchemaForm.svelte";
+  import SourceTabs from "#lib/components/SourceTabs.svelte";
+  import UploadDrop from "#lib/components/UploadDrop.svelte";
+  import { jobName } from "#lib/job-settings.js";
+  import { dockLine, latestOnly, measurements } from "#lib/make.js";
+  import { showMake } from "#lib/make-shown.js";
+  import {
+    AlreadyRetried, linkedRetry, type RerunPayload, sendJob, takeRerun,
+  } from "#lib/rerun.js";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
-  let generators = data.generators ?? [];
-  let printers: CatalogPrinter[] = data.printers ?? [];
-  let profiles: CatalogProfile[] = data.profiles ?? [];
-  let transports: CatalogTransport[] = data.transports ?? [];
+  const UPLOAD = "upload";
+  const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  const upFailed = (e: unknown) =>
+    e instanceof TypeError ? "check your connection and try again." : message(e);
+  const SENT_MS = 2500;
+
+  $: generators = data.generators ?? [];
+  $: pickable = generators.filter((g) => g.id !== "passthrough");
+  $: tabs = [
+    ...pickable.map((g) => ({ id: g.id, label: g.name })),
+    { id: UPLOAD, label: "Upload STL" },
+  ];
+
+  let tab = "";
+  let handoff: RerunPayload | null = null;
+  let printerId = "";
+  let profileId = "";
+  let params: Record<string, unknown> = {};
 
   onMount(showMake);
-  onMount(async () => {
-    if (page.url.searchParams.get("rerun")) {
-      const r = takeRerun();
-      if (r) {
-        source = "generate";
-        selectedGenId = r.generatorId;
-        selectedPrinterId = r.printerId;
-        selectedProfileId = r.profileId;
-        handoff = r;
-        if (r.params && typeof r.params === "object") params = r.params as Record<string, unknown>;
-      }
-    }
+  onMount(() => {
+    const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
+    if (!r) return;
+    tab = r.generatorId;
+    printerId = r.printerId;
+    profileId = r.profileId;
+    handoff = r;
+    if (r.params && typeof r.params === "object") params = { ...r.params };
   });
 
-  $: pickableGenerators = generators.filter((g) => g.id !== "passthrough");
+  $: if (!tab && generators.length) tab = tabs[0].id;
+  $: upload = tab === UPLOAD;
+  $: generatorId = upload ? "passthrough" : tab;
+  $: gen = pickable.find((g) => g.id === tab) ?? null;
+  $: retryOf = linkedRetry(handoff, upload ? "upload" : "generate", tab);
 
-  // Source: generate from a generator, or upload an STL (passthrough generator).
-  type Source = "generate" | "upload";
-  let source: Source = "generate";
-
-  let selectedGenId = "";
-  let handoff: RerunPayload | null = null;
-  let selectedPrinterId = "";
-  let selectedProfileId = "";
-  let params: Record<string, unknown> = {};
-  $: retryOf = linkedRetry(handoff, source, selectedGenId);
-
-  $: if (!selectedGenId && pickableGenerators.length) selectedGenId = pickableGenerators[0].id;
-  // The generator actually being submitted — the Upload STL tab submits `passthrough`,
-  // so an allowlist can restrict uploads too.
-  $: activeGeneratorId = source === "upload" ? "passthrough" : selectedGenId;
-
-  // A printer may carry an allowlist of generator ids. undefined = unrestricted;
-  // [] = allows nothing. Same principle as the profile filter: don't offer a printer
-  // the API would refuse.
-  $: eligiblePrinters = printers.filter(
-    (p) => !p.allowedGenerators || p.allowedGenerators.includes(activeGeneratorId),
+  $: eligible = data.printers.filter(
+    (p) => !p.allowedGenerators || p.allowedGenerators.includes(generatorId),
   );
-  $: if (eligiblePrinters.length && !eligiblePrinters.some((p) => p.id === selectedPrinterId))
-    selectedPrinterId = eligiblePrinters[0].id;
-  $: selectedPrinter = eligiblePrinters.find((p) => p.id === selectedPrinterId) ?? null;
+  $: if (eligible[0] && !eligible.some((p) => p.id === printerId)) printerId = eligible[0].id;
+  $: printer = eligible.find((p) => p.id === printerId) ?? null;
+  $: flavors = data.transports.find((t) => t.id === printer?.transportId)?.acceptsFlavors ?? [];
+  $: compatible = data.profiles.filter((pr) => flavors.includes(pr.gcodeFlavor));
+  $: if (compatible[0] && !compatible.some((pr) => pr.id === profileId))
+    profileId = compatible[0].id;
+  $: profile = compatible.find((pr) => pr.id === profileId);
 
-  // A pair is printable when the profile's g-code flavour is one the printer's
-  // transport accepts — the same check the API runs, so an unprintable combination
-  // is never offered rather than being rejected at submit.
-  $: acceptedFlavors =
-    transports.find((t) => t.id === selectedPrinter?.transportId)?.acceptsFlavors ?? [];
-  $: compatibleProfiles = profiles.filter((pr) => acceptedFlavors.includes(pr.gcodeFlavor));
-  // Re-default whenever the printer changes and the held profile is no longer valid.
-  $: if (compatibleProfiles.length && !compatibleProfiles.some((pr) => pr.id === selectedProfileId))
-    selectedProfileId = compatibleProfiles[0].id;
-
-  $: selectedGen = generators.find((g) => g.id === selectedGenId) ?? null;
-
-  // Only the gridfinity generator has a procedural preview wired today; others
-  // fall back to a generic message (the preview module is per-generator).
-  $: hasPreview = source === "generate" && selectedGen?.preview?.module === "gridfinity";
-
-  // ── Upload state ──────────────────────────────────────────────
-  let uploadFile: File | null = null; // local File → real-mesh preview
-  let uploadId: string | null = null; // server ref → passthrough job param
-  let uploadName = "";
+  let file: File | null = null;
+  let uploadId: string | null = null;
   let uploading = false;
-  let dragOver = false;
+  let uploadError = "";
 
-  async function onFile(f: File | null | undefined) {
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".stl")) {
-      error = "Please choose an .stl file.";
+  const uploads = latestOnly(uploadStl);
+
+  async function choose(event: CustomEvent<File>) {
+    const chosen = event.detail;
+    clear();
+    if (!chosen.name.toLowerCase().endsWith(".stl")) {
+      uploadError = `${chosen.name} isn't an STL file. Choose a file whose name ends in .stl.`;
       return;
     }
-    error = retried = null;
-    uploadFile = f; // render the real mesh immediately (client-side)
-    uploadName = f.name;
-    uploading = true;
-    uploadId = null;
-    try {
-      const res = await uploadStl(f); // then persist server-side for printing
-      uploadId = res.uploadId;
-    } catch (e) {
-      error = (e as Error).message;
-    } finally {
-      uploading = false;
-    }
+    [file, uploading] = [chosen, true];
+    const done = await uploads.run(chosen);
+    if (!done) return;
+    uploading = false;
+    if (done.ok) uploadId = done.value.uploadId;
+    else uploadError = `Couldn't upload ${chosen.name}: ${upFailed(done.error)}`;
   }
 
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-    onFile(e.dataTransfer?.files?.[0]);
+  function clear() {
+    uploads.drop();
+    [file, uploadId, uploading, uploadError] = [null, null, false, ""];
   }
 
-  let submitting = false;
   $: jobId = data.initialJobId ?? null;
+  let busy = false;
+  let sent = false;
+  let last: { id: string; printer: string } | null = null;
   let error: string | null = null;
   let retried: string | null = null;
 
-  $: canPrint =
-    !!selectedPrinterId &&
-    !!selectedProfileId &&
-    !submitting &&
-    (source === "generate" ? !!selectedGen : !!uploadId && !uploading);
+  $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
+  $: name = upload ? (file?.name ?? "Your STL") : made;
+  $: summary = printer ? `${name} on ${printer.name}` : name;
+  $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
+  $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
   async function print() {
-    if (!selectedPrinterId || !selectedProfileId) return;
-    if (source === "generate" && !selectedGen) return;
-    if (source === "upload" && !uploadId) return;
-    submitting = true;
+    if (!ready || busy || !printer || !profile) return;
+    busy = true;
     error = retried = null;
-    jobId = null;
+    const generator = upload
+      ? { id: "passthrough", params: { uploadId, filename: file?.name ?? "" } }
+      : { id: tab, params };
     try {
-      const generator =
-        source === "upload"
-          ? { id: "passthrough", params: { uploadId, filename: uploadName } }
-          : { id: selectedGen!.id, params };
-      const res = await sendJob({ generator, printerId: selectedPrinterId, profileId: selectedProfileId }, retryOf);
-      await goto(`/?job=${encodeURIComponent(res.jobId)}`, { replaceState: true });
+      const res = await sendJob({ generator, printerId, profileId }, retryOf);
+      const to = `/?job=${encodeURIComponent(res.jobId)}`;
+      await goto(to, { replace: true, reset: false });
       jobId = res.jobId;
+      announce(`${name} sent to ${printer.name}.`);
+      last = { id: res.jobId, printer: printer.name };
+      jobSent();
+      sent = true;
+      setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = (e as Error).message;
+      error = message(e);
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
-      submitting = false;
+      busy = false;
       handoff = null;
-    }
-  }
-
-  // Real chips from the chosen profile (flavor/material/quality come
-  // from the bound profile, server-side — no more regex-on-name guessing). Order:
-  // flavor → material → quality, skipping any the profile doesn't carry.
-  // Material + quality are not stored fields: they are parsed out of the profile
-  // name, which is what the API's deleted station-summary.ts used to do.
-  const MATERIALS = ["PLA", "PETG", "ABS", "TPU", "ASA", "NYLON", "PC"];
-  function parseMaterial(name: string): string | undefined {
-    const upper = name.toUpperCase();
-    // Longest-first so PETG wins over a hypothetical PET; word boundary so
-    // "PLApple" cannot false-positive.
-    for (const m of [...MATERIALS].sort((a, b) => b.length - a.length)) {
-      if (new RegExp(`\\b${m}\\b`).test(upper)) return m;
-    }
-    return undefined;
-  }
-  function parseQuality(name: string): string | undefined {
-    const m = name.match(/(\d+\.\d+)\s*mm/i);
-    return m ? `${m[1]}mm` : undefined;
-  }
-  function chips(pr: CatalogProfile): string[] {
-    const out: string[] = [];
-    if (pr.gcodeFlavor) out.push(titleCase(pr.gcodeFlavor));
-    const material = parseMaterial(pr.name);
-    if (material) out.push(material);
-    const quality = parseQuality(pr.name);
-    if (quality) out.push(quality);
-    return out;
-  }
-  function titleCase(v: string): string {
-    return v.charAt(0).toUpperCase() + v.slice(1);
-  }
-
-  // The preset dot encodes the gcode flavor the profile emits,
-  // not a random index — same flavor, same color across the list.
-  function dotColor(pr: CatalogProfile): string {
-    switch (pr.gcodeFlavor?.toLowerCase()) {
-      case "klipper":
-        return "var(--accent)";
-      case "marlin":
-      case "marlin2":
-        return "var(--ok)";
-      default:
-        return "var(--muted)"; // unknown / dangling profile
     }
   }
 </script>
 
 <svelte:head><title>What are we making? · Conveyor</title></svelte:head>
 
-<h1 class="title">What are we making?</h1>
-
-<div class="layout">
-  <!-- Live preview: the wicked-fast client-side viewport (DOM-first so it pins on top in mobile) -->
-  <section class="card viewport">
-    {#if hasPreview}
-      <Viewport {params} />
-      <span class="badge">live preview</span>
-    {:else if source === "upload" && uploadFile}
-      <Viewport file={uploadFile} />
-      <span class="badge">uploaded mesh</span>
-    {:else if source === "upload"}
-      <div class="noview">
-        <p>Your STL renders here once selected.</p>
-        <p>Drop a file in the Upload panel →</p>
-      </div>
-    {:else}
-      <div class="noview">
-        <p>No live preview for this generator.</p>
-        <p>The exact model is generated server-side at print time.</p>
-      </div>
-    {/if}
-  </section>
-
-  <!-- Config panel -->
-  <section class="panel">
-    <!-- ① SOURCE -->
-    <div class="card">
-      <h3><span class="step-n">1</span>Source</h3>
-      <div class="seg" role="tablist" aria-label="Model source">
-        <button
-          role="tab"
-          id="tab-generate"
-          aria-selected={source === "generate"}
-          aria-controls="source-panel"
-          tabindex={source === "generate" ? 0 : -1}
-          class:active={source === "generate"}
-          on:click={() => (source = "generate")}>Generate</button>
-        <button
-          role="tab"
-          id="tab-upload"
-          aria-selected={source === "upload"}
-          aria-controls="source-panel"
-          tabindex={source === "upload" ? 0 : -1}
-          class:active={source === "upload"}
-          on:click={() => (source = "upload")}>Upload STL</button>
-      </div>
-
-      <div
-        id="source-panel"
-        role="tabpanel"
-        aria-labelledby={source === "generate" ? "tab-generate" : "tab-upload"}
-      >
-      {#if source === "generate"}
-        <label class="pick">
-          <span class="muted">Generator</span>
-          <select bind:value={selectedGenId}>
-            {#each pickableGenerators as g}<option value={g.id}>{g.name}</option>{/each}
-          </select>
-        </label>
-      {:else}
-        <label
-          class="drop"
-          class:over={dragOver}
-          on:dragover|preventDefault={() => (dragOver = true)}
-          on:dragleave={() => (dragOver = false)}
-          on:drop={onDrop}
-        >
-          <input
-            type="file"
-            accept=".stl"
-            class="file-input"
-            on:change={(e) => onFile(e.currentTarget.files?.[0])}
-          />
-          {#if uploading}
-            <p><strong>Uploading…</strong></p>
-            <p class="muted">{uploadName}</p>
-          {:else if uploadId}
-            <p><strong>✓ {uploadName}</strong></p>
-            <p class="muted">Ready to print — choose a printer and profile below.</p>
-          {:else}
-            <p><strong>Drop an STL</strong> or click to browse</p>
-            <p class="muted">The real mesh renders in the preview.</p>
+<section class="make" aria-labelledby="make-title">
+  <MakeMat preview={gen?.preview?.module === "gridfinity"} {params} {file} {upload} />
+  <form class="order" on:submit|preventDefault={print}>
+    <div class="fields">
+      <h1 id="make-title">What are we making?</h1>
+      {#if generators.length}
+        <SourceTabs {tabs} bind:value={tab} panel="make-source" />
+        <div id="make-source" role="tabpanel" aria-labelledby="tab-{tab}" class="questions">
+          {#if upload}
+            <section>
+              <h2>Which file?</h2>
+              <UploadDrop
+                name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
+                error={uploadError} on:file={choose} on:clear={clear}
+              />
+            </section>
+          {:else if gen}
+            {#key gen.id}
+              <SchemaForm
+                schema={gen.paramSchema} ui={gen.ui ?? null} value={params}
+                title="How big?" moreTitle="What's inside?" on:change={(e) => (params = e.detail)}
+              />
+            {/key}
           {/if}
-        </label>
-      {/if}
-      </div>
-    </div>
-
-    <!-- ② CONFIGURE -->
-    {#if source === "generate"}
-      <div class="card">
-        <h3><span class="step-n">2</span>Configure</h3>
-        {#if selectedGen}
-          <SchemaForm
-            schema={selectedGen.paramSchema}
-            ui={selectedGen.ui ?? null}
-            persistKey={selectedGen.id}
-            value={params}
-            on:change={(e) => (params = e.detail)}
-          />
-        {/if}
-      </div>
-    {/if}
-
-    <!-- ③ PRINT AT -->
-    <div class="card">
-      <h3><span class="step-n">3</span>Print at</h3>
-      {#if eligiblePrinters.length && profiles.length}
-        <label class="pick">
-          <span>Printer</span>
-          <select bind:value={selectedPrinterId}>
-            {#each eligiblePrinters as p}<option value={p.id}>{p.name} ({p.transportId})</option>{/each}
-          </select>
-        </label>
-        {#if eligiblePrinters.length < printers.length}
-          <p class="muted note">
-            {printers.length - eligiblePrinters.length} printer(s) hidden: their generator
-            allowlist excludes <span class="mono">{activeGeneratorId}</span>.
-          </p>
-        {/if}
-
-        <span class="subhead">Profile</span>
-        {#if compatibleProfiles.length}
-          <div class="presets" role="radiogroup" aria-label="Choose a profile">
-            {#each compatibleProfiles as pr}
-              <button
-                type="button"
-                class="preset"
-                class:sel={pr.id === selectedProfileId}
-                role="radio"
-                aria-checked={pr.id === selectedProfileId}
-                on:click={() => (selectedProfileId = pr.id)}
-              >
-                <span class="dot" style={`background:${dotColor(pr)}`} title={pr.gcodeFlavor ?? "unknown flavor"}></span>
-                <span class="pmeta">
-                  <span class="pn">{pr.name}</span>
-                  {#if chips(pr).length}
-                    <span class="chips">{#each chips(pr) as c}<span class="chip">{c}</span>{/each}</span>
-                  {/if}
-                </span>
-                <span class="check">✓</span>
-              </button>
-            {/each}
-          </div>
-        {:else}
-          <!-- Every profile emits a flavour this printer's transport rejects. Showing
-               them anyway would let you pick a pair the API refuses at submit. -->
-          <p class="muted">
-            No profile is compatible with this printer. Its transport
-            (<span class="mono">{selectedPrinter?.transportId}</span>) accepts
-            {acceptedFlavors.length ? acceptedFlavors.join(", ") : "no known flavours"}.
-          </p>
-        {/if}
-      {:else if printers.length && !eligiblePrinters.length}
-        <p class="muted">
-          No printer accepts <span class="mono">{activeGeneratorId}</span>. Change which
-          generators a printer takes on <a href="/printers">Printers</a>.
-        </p>
+        </div>
       {:else}
-        <p class="muted">
-          {#if printers.length}No profiles registered. Add one in <a href="/settings">Settings</a>.{:else}No printers yet. Add one on <a href="/printers">Printers</a>.{/if}
+        <p class="note">
+          Conveyor can't reach its server right now. Check that the api service is running.
         </p>
       {/if}
-
-      <button class="primary print desktop-print" on:click={print} disabled={!canPrint}>
-        {submitting ? "Submitting…" : "Print"}
-      </button>
-      {#if error}
-        <p class="err">{error} {#if retried}<a href="/jobs/{retried}">See the retry</a>{/if}</p>
-      {/if}
+      <section id="make-where" class="where" tabindex="-1">
+        <h2>Where should it print?</h2>
+        {#if eligible.length}
+          <PrintAt
+            printers={eligible} profiles={compatible}
+            hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
+          />
+        {:else}
+          <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
+        {/if}
+      </section>
+      {#if jobId}{#key jobId}
+        <section class="job">
+          <h3>Job</h3>
+          <JobStatus {jobId} />
+        </section>
+      {/key}{/if}
     </div>
-
-    {#if jobId}{#key jobId}
-      <div class="card">
-        <h3>Job</h3>
-        <JobStatus {jobId} />
-      </div>
-    {/key}{/if}
-
-    {#if generators.length === 0}
-      <div class="card muted">
-        API unreachable — start the api service (and redis). See README.
-      </div>
-    {/if}
-  </section>
-</div>
-
-<!-- mobile sticky CTA -->
-<div class="mobile-cta">
-  <button class="primary" on:click={print} disabled={!canPrint}>
-    {submitting ? "Submitting…" : "Print"}
-  </button>
-</div>
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
+  </form>
+</section>
 
 <style>
-  .title { margin: 0 0 var(--s4); }
-  .layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.25rem; align-items: start; }
-  /* Config panel on the left, viewport on the right (DOM order keeps viewport
-     first so it stays on top when the layout collapses to one column). */
-  .panel { order: 1; }
-  .viewport { order: 2; }
-
-  .viewport {
-    position: relative; height: 60vh; min-height: 360px; padding: 0; overflow: hidden; position: sticky; top: 1rem;
-    /* Depth backdrop from the locked mockup — replaces the flat .card surface so
-       the empty state and 3D viewport both sit on a subtle dome of light. */
-    background: var(--mat);
+  .make {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 28px; align-items: start;
   }
-  .badge {
-    position: absolute; top: 0.75rem; left: 0.75rem; font-size: 0.75rem;
-    background: var(--paper); color: var(--ink);
-    padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid var(--accent-dim);
+  .order { min-width: 0; }
+  .fields { display: flex; flex-direction: column; gap: var(--s5); }
+  .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
+  h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
+  h2 { margin: 0 0 10px; font-size: var(--fs-section); }
+  h3 { margin: 0 0 var(--s2); font-size: var(--fs-body); }
+  .questions { display: flex; flex-direction: column; gap: var(--s5); }
+  .note { margin: 0; color: var(--muted); }
+  .job {
+    padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r-card);
+    background: var(--paper);
   }
-  .noview { position: absolute; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100% - 2rem); display: flex; flex-direction: column; text-align: center; gap: 0.25rem; padding: var(--s4) var(--s5); border-radius: var(--r-card); border: 1px solid var(--line); background: var(--paper); color: var(--ink); } .noview p { margin: 0; }
-  .panel { display: flex; flex-direction: column; gap: 1rem; }
-
-  h3 { margin: 0 0 0.75rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; align-items: center; }
-  .step-n {
-    display: inline-flex; width: 1.4rem; height: 1.4rem; border-radius: 50%;
-    background: var(--surface-2); color: var(--live); align-items: center; justify-content: center;
-    font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem;
+  @media (min-width: 1200px) {
+    .make { grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); }
+    .fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
+    .fields > :global(*) { grid-column: 1 / -1; }
+    .fields > .questions { grid-column: 1; }
+    .fields > .where { grid-column: 2; grid-row: 3; }
   }
-
-  /* segmented source toggle */
-  .seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 0.25rem; gap: 0.25rem; margin-bottom: 0.85rem; }
-  .seg button { flex: 1; border: none; background: transparent; border-radius: 7px; min-height: 38px; }
-  .seg button.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
-
-  .pick { display: flex; flex-direction: column; gap: 0.3rem; }
-  .pick span { font-size: 0.85rem; }
-
-  .drop { display: block; position: relative; border: 2px dashed var(--border); border-radius: 10px; padding: 1.5rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-  .drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 6%, transparent); }
-  .drop p { margin: 0.2rem 0; }
-  .drop strong { color: var(--live); }
-  /* native input fills the dropzone but stays invisible (the label is the UI) */
-  .file-input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-
-  /* preset cards */
-  /* NOT a second `.pick` rule: .pick is already defined above for the generator
-     select, so redefining it here silently restyled that one too (and the existing
-     `.pick span` out-specifies any new label class). The printer picker reuses .pick
-     verbatim; only the standalone Profile heading needs its own class. */
-  .subhead { display: block; font-size: 0.85rem; margin: 0.8rem 0 0.35rem; }
-  .presets { display: flex; flex-direction: column; gap: 0.6rem; }
-  .preset {
-    display: flex; align-items: center; gap: 0.7rem; text-align: left; width: 100%;
-    border: 1px solid var(--border); background: var(--surface-2);
-    border-radius: 10px; padding: 0.7rem 0.8rem; cursor: pointer;
-  }
-  .preset:hover { border-color: var(--accent-dim); }
-  .preset.sel { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 8%, transparent); }
-  .preset .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .pmeta { display: flex; flex-direction: column; gap: 0.2rem; }
-  .preset .pn { font-weight: 600; color: var(--text); }
-  .chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-  .chip { font-size: 0.7rem; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 0.05rem 0.5rem; color: var(--muted); }
-  .preset .check { margin-left: auto; color: var(--live); opacity: 0; font-weight: 700; }
-  .preset.sel .check { opacity: 1; }
-
-  .print { width: 100%; margin-top: 0.85rem; }
-  .err { color: var(--danger); font-size: 0.85rem; margin: 0.5rem 0 0; }
-
-  /* mobile */
-  .mobile-cta { display: none; }
-  @media (max-width: 820px) {
-    .layout { grid-template-columns: 1fr; padding-bottom: 4.5rem; }
-    .viewport { order: 0; position: sticky; top: 0.5rem; height: 40vh; min-height: 0; } /* preview back on top for mobile */
-    .panel { order: 1; }
-    .desktop-print { display: none; }
-    .mobile-cta {
-      display: block; position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 0.7rem 1rem;
-      background: linear-gradient(transparent, var(--bg) 35%); z-index: 30;
-    }
-    .mobile-cta button { width: 100%; font-size: 1.05rem; }
+  @media (max-width: 759px) {
+    .make { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .order { padding-bottom: calc(var(--dock-h, 120px) + var(--s4)); }
   }
 </style>

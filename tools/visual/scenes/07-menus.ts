@@ -4,13 +4,13 @@ export const scenes: Scene[] = [
   {
     name: "command-menu",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ press: "Control+k" }, { waitFor: "dialog[open] >> text=Printers" }, { wait: 300 }],
   },
   ...["done", "2 x 3"].map((text) => ({
     name: `command-menu-${text.replaceAll(" ", "")}`,
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [
       { press: "Control+k" },
       { type: "dialog[open] input", text },
@@ -21,14 +21,14 @@ export const scenes: Scene[] = [
   {
     name: "shortcut-sheet",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [{ wait: 500 }, ...keys("?"), { click: "dialog[open] >> [role=switch]" }, { wait: 300 }],
   },
   {
     name: "keyboard",
     route: "/",
     visits: ["/jobs"],
-    ready: "text=Configure",
+    ready: "text=How big?",
     record: true,
     steps: [
       { wait: 800 },

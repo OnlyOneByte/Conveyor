@@ -17,7 +17,7 @@
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaForm.svelte": {
-      "comments": 16,
+      "comments": 11,
       "suppressions": 0
     },
     "packages/web/src/lib/components/SchemaGroup.svelte": {
@@ -38,10 +38,6 @@
     },
     "packages/web/src/lib/rerun.ts": {
       "comments": 13,
-      "suppressions": 0
-    },
-    "packages/web/src/routes/+page.svelte": {
-      "comments": 48,
       "suppressions": 0
     },
     "packages/web/src/routes/monitor/+page.svelte": {

@@ -25,7 +25,6 @@
     "packages/web/src/lib/form-schema.ts": 1,
     "packages/web/src/lib/preferences.test.ts": 3,
     "packages/web/src/lib/rerun.ts": 1,
-    "packages/web/src/routes/+page.svelte": 3,
     "packages/web/src/routes/monitor/+page.svelte": 1,
     "packages/web/src/service-worker/index.ts": 5,
     "plugins/generators/gridfinity/src/index.test.ts": 5,
