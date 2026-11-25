@@ -2,7 +2,7 @@ import type { Politeness } from "./announce";
 import { API, type JobHistoryEntry } from "./api";
 import { trackJob } from "./belt";
 import type { Catalog } from "./catalog";
-import { statusError } from "./http-error";
+import { statusError, unreachable } from "./http-error";
 import { rerunRequest } from "./rerun";
 import { type Retried, retryJob } from "./retry";
 import { shortName, type TrackJob } from "./track";
@@ -27,6 +27,7 @@ interface EndsUi {
   toast(text: string, action?: { label: string; run: () => void }): void;
   say(text: string, level: Politeness): void;
   pick(request: Request, retryOf: string): void;
+  down?(down: boolean): void;
 }
 
 export const midnight = (now: Date) =>
@@ -47,11 +48,17 @@ export function createEnds(
   let failures = new Map<string, JobHistoryEntry>();
 
   async function refresh(): Promise<boolean> {
+    let away = false;
+    const missed = (e: unknown) => {
+      away ||= unreachable(e);
+      return null;
+    };
     const [finished, needs, catalog] = await Promise.all([
-      feed.finished(midnight(now())).catch(() => null),
-      feed.needsYou().catch(() => null),
+      feed.finished(midnight(now())).catch(missed),
+      feed.needsYou().catch(missed),
       feed.catalog().catch(() => null),
     ]);
+    ui.down?.(away);
     if (finished === null || needs === null) return false;
     failures = new Map(needs.map((job) => [job.id, job]));
     ui.show(

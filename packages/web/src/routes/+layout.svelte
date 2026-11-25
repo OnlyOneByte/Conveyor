@@ -37,16 +37,18 @@
 
   let beltJobs: TrackJob[] = [],
     beltEnded: TrackJob[] = [],
-    beltOffline = false;
-  let finishedToday: number | undefined,
-    needs: TrackJob[] = [];
+    beltOffline = false,
+    endsDown = false;
+  let [finishedToday, needs]: [number | undefined, TrackJob[]] = [undefined, []];
   const toasted = new Set<string>();
   const ends = createEnds(
     { ...http, entry: fetchJobHistoryEntry, cancel: cancelJob, catalog: () => loadCatalog() },
     {
       show: (finished, failures) => {
-        finishedToday = finished;
-        needs = failures;
+        [finishedToday, needs] = [finished, failures];
+      },
+      down: (down) => {
+        endsDown = down;
       },
       toast: (text, action) => toasts.show(text, action),
       say: (text, level) => void announce(text, level),
@@ -66,9 +68,7 @@
       clock: localClock,
     },
     (jobs, ended, offline) => {
-      beltJobs = jobs;
-      beltEnded = ended;
-      beltOffline = offline;
+      [beltJobs, beltEnded, beltOffline] = [jobs, ended, offline];
     },
     (news) => {
       desk(news);
@@ -114,7 +114,7 @@
       <button class="btn ghost" type="button" on:click={signOut}>Sign out</button>
     {/if}
   </header>
-  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
+  <div class="belt" id="belt" use:measured={"belt-h"}>{#if showApp}<Belt jobs={beltJobs} ended={beltEnded} offline={beltOffline || endsDown} onAction={ends.act} {finishedToday} {needs} />{/if}</div>
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />

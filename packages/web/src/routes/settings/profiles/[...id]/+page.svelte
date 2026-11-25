@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ErrorDetails from "#lib/components/ErrorDetails.svelte";
   import ProfileEditor from "#lib/components/ProfileEditor.svelte";
   import { profileFacts, profileTag } from "#lib/profile-facts.js";
   import { invalidateAll } from "$app/navigation";
@@ -6,7 +7,7 @@
 
   export let data: PageData;
 
-  $: ({ profile, content, slicers, failed, problem } = data);
+  $: ({ profile, content, slicers, failed, problem, detail } = data);
   $: title =
     profile?.name ??
     (failed ? "Can't reach Conveyor" : problem ? "The profile didn't load" : "No such profile");
@@ -30,6 +31,7 @@
 {:else if problem}
   <div class="empty" role="alert">
     <p class="sub answer">{problem}</p>
+    <ErrorDetails {detail} />
     <div>
       <button class="btn big" type="button" on:click={() => invalidateAll()}>Try again</button>
     </div>

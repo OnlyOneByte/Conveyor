@@ -14,7 +14,7 @@
   import { showMake } from "#lib/make-shown.js";
   import type { RerunPayload } from "#lib/rerun.js";
   import { AlreadyRetried, linkedRetry, sendJob, takeRerun } from "#lib/rerun.js";
-  import { couldnt, said } from "#lib/said.js";
+  import { detailOf, failed, said } from "#lib/said.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
@@ -64,9 +64,9 @@
     profileId = compatible[0].id;
   $: profile = compatible.find((pr) => pr.id === profileId);
 
-  let file: File | null = null;
-  let uploadId: string | null = null;
+  let [file, uploadId]: [File | null, string | null] = [null, null];
   let [uploading, uploadError] = [false, ""];
+  let [uploadWhy, errorWhy]: [string | null, string | null] = [null, null];
 
   const uploads = latestOnly(uploadStl);
 
@@ -82,7 +82,7 @@
     if (!done) return;
     uploading = false;
     if (!done.ok) {
-      uploadError = couldnt(`upload ${chosen.name}`, done.error);
+      [uploadError, uploadWhy] = failed(`upload ${chosen.name}`, done.error);
       return;
     }
     uploadId = done.value.uploadId;
@@ -91,7 +91,7 @@
 
   function clear() {
     uploads.drop();
-    [file, uploadId, uploading, uploadError] = [null, null, false, ""];
+    [file, uploadId, uploading, uploadError, uploadWhy] = [null, null, false, "", null];
   }
 
   let [busy, sent] = [false, false];
@@ -122,7 +122,7 @@
       sent = true;
       setTimeout(() => (sent = false), SENT_MS);
     } catch (e) {
-      error = said(e);
+      [error, errorWhy] = [said(e), detailOf(e)];
       retried = e instanceof AlreadyRetried ? e.retriedBy : null;
     } finally {
       busy = false;
@@ -146,7 +146,7 @@
               <h2>Which file?</h2>
               <UploadDrop
                 name={file?.name ?? ""} size={file?.size ?? 0} {uploading} ready={!!uploadId}
-                error={uploadError} on:file={choose} on:clear={clear}
+                error={uploadError} why={uploadWhy} on:file={choose} on:clear={clear}
               />
             </section>
           {:else if gen}
@@ -175,7 +175,7 @@
         {/if}
       </section>
     </div>
-    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} />
+    <PrintDock {summary} {detail} {ready} {busy} {sent} {last} {error} {retried} why={errorWhy} />
   </form>
 </section>
 

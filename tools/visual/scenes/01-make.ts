@@ -177,4 +177,19 @@ export const scenes: Scene[] = [
       { wait: 1500 },
     ],
   },
+  {
+    name: "print-unreachable",
+    route: "/",
+    ready: "text=How big?",
+    fullPage: false,
+    steps: [
+      { wait: 800 },
+      { fulfill: "**/api/jobs", method: "POST", status: 502, json: {} },
+      { click: "button.print" },
+      { waitFor: "text=Check that it's running, then try again." },
+      { click: ".dock summary" },
+      { waitFor: ".dock pre >> text=POST /jobs 502" },
+      { wait: 300 },
+    ],
+  },
 ];

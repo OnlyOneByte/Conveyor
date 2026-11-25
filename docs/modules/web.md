@@ -44,7 +44,10 @@ submit it themselves.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
     on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
-    so once. The end counts keep their last values when `GET /jobs-history/counts` or Needs you fails.
+    so once. When `GET /jobs-history/counts` or Needs you fails, the end counts keep their last values and the belt
+    shows its offline state too ("Can't reach Conveyor", with the last jobs), until a refresh answers again:
+    `createEnds` reports each refresh through `down()`, and the layout passes `offline || endsDown`. So a failed
+    poll never reads as an empty belt (#530).
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
   isn't an upload (an upload's file isn't kept), and still has a printer and a profile.
   - **Users:** the receipt and the belt's Print-again toast both decide with it.
@@ -113,23 +116,28 @@ change is ever made to text nobody can see. A profile whose content answers `404
 folder has no files yet) opens with empty files and a note to paste the slicer's settings. Only a network
 failure, or a `502`, `503` or `504` from the proxy in front of a stopped api, reads "Can't reach Conveyor"
 (`http-error.ts`). Any other error shows "Conveyor answered:" and the server's `error` message, trimmed and cut
-to 300 characters with an ellipsis, and the error text wraps rather than widening the page. `api.ts`'s
-`getJson`, `putJson`, `del` and the profile content fetch all read failures through `failure()`. When the body
-has no message, the page says "Conveyor hit a problem loading this. Try again in a moment." instead of the method, path and
-status.
-
-## lib/said.ts (what a failure says on screen)
+to 300 characters with an ellipsis, and the error text wraps rathe## lib/said.ts (what a failure says on screen)
 
 Every place that shows an error to the user goes through `said(e)`, `saidOnLoad(e)` or `couldnt(what, e)`, so the
 words follow the spec's Words rules. The server's own `error` message is shown as it is. Conveyor being
-unreachable, by `http-error.ts`'s `unreachable(e)` (a network `TypeError`, or an `Unreachable` for a `502`, `503` or
-`504` from the proxy in front of a stopped api), reads "Can't reach Conveyor. Check your connection, then try
-again." Every status throw in `api.ts`, `belt-ends.ts` and `jobs-list.ts` gives a gateway status an `Unreachable`,
-through `failure()` or `statusError()`. A `GET /path 500`-style line (any of GET, POST, PUT, PATCH or DELETE), or a
-stock status text such as Fastify's `Internal Server Error`, becomes "Conveyor couldn't do that just now. Try
-again." after an action, and "Conveyor hit a problem loading this. Try again in a moment." on a page load
-(`saidOnLoad`). `couldnt("upload cube.stl", e)` reads "Couldn't upload cube.stl: <server message>", or "Couldn't
-upload cube.stl. Try again." when there is none. The thrown `Error` keeps its message, so code that matches on it
+unreachable, by `http-error.ts`'s `unreachable(e)`, has two sentences: a `502`, `503` or `504` from the proxy in front
+of a stopped api (an `Unreachable`) reads "Can't reach Conveyor. Check that it's running, then try again.", and a
+network `TypeError` reads "Can't reach Conveyor. Check your connection, then try again." Every status throw in
+`api.ts`, `belt-ends.ts` and `jobs-list.ts` gives a gateway status an `Unreachable`, through `failure()` or
+`statusError()`. A `GET /path 500`-style line (any of GET, POST, PUT, PATCH or DELETE), or a stock status text such
+as Fastify's `Internal Server Error`, becomes "Conveyor couldn't do that just now. Try again." after an action, and
+"Conveyor hit a problem loading this. Try again in a moment." on a page load (`saidOnLoad`). `couldnt("upload
+cube.stl", e)` reads "Couldn't upload cube.stl: <server message>", or "Couldn't upload cube.stl. Try again." when
+there is none. The thrown `Error` keeps its message, so code that matches on it (a profile or printer with jobs
+"queued or running") is unchanged.
+
+Whenever the page shows one of those plain sentences instead of the server's own words, `detailOf(e)` returns the
+original text (`POST /jobs 502`, `Failed to fetch`, `Internal Server Error`), and `ErrorDetails.svelte` shows it
+under the message in a closed **Details** disclosure, styled like the job receipt's (#37). When the server's own
+message is already on screen there is nothing more to say, so there is no disclosure. Make's dock and upload, the
+printer, profile and delete dialogs, the profile editor and its page show it; the toast for a failed Undo does not,
+since a toast has no room for one.
+matches on it
 (a profile or printer with jobs "queued or running") is unchanged, and the method, path and status stay in the
 browser's Network panel and the api's request log. Make's dock and upload, the printer, profile and delete
 dialogs, the profile editor and its page use it.

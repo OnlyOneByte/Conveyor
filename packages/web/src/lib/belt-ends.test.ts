@@ -3,6 +3,28 @@ import { at, entry, job, request, rig } from "../../test/helpers/belt-ends";
 import { ENDS_MS, http, midnight } from "./belt-ends";
 
 describe("the belt's end states", () => {
+  test("a counts poll that can't reach Conveyor says the belt is down until one answers again, keeping the last counts", async () => {
+    const refuse: string[] = [];
+    const { ends, shown, downs } = rig(refuse);
+    await ends.refresh();
+    refuse.push("finished");
+    await ends.refresh();
+    refuse.length = 0;
+    await ends.refresh();
+    expect(downs).toEqual([false, true, false]);
+    expect(shown.map(([finished]) => finished)).toEqual([4, 4]);
+  });
+
+  test("a counts poll that answers with an error keeps the last counts and doesn't call the belt down", async () => {
+    const refuse: string[] = [];
+    const { ends, shown, downs } = rig(refuse);
+    await ends.refresh();
+    refuse.push("locked");
+    expect(await ends.refresh()).toBe(false);
+    expect(downs).toEqual([false, false]);
+    expect(shown.map(([finished]) => finished)).toEqual([4]);
+  });
+
   test("a refresh that can't read the counts keeps the last ones shown and says it didn't refresh", async () => {
     const up = rig();
     expect(await up.ends.refresh()).toBe(true);

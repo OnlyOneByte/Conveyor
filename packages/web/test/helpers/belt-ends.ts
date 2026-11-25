@@ -1,6 +1,7 @@
 import type { Politeness } from "../../src/lib/announce";
 import type { JobHistoryEntry } from "../../src/lib/api";
 import { createEnds, type EndsFeed } from "../../src/lib/belt-ends";
+import { Unreachable } from "../../src/lib/http-error";
 import type { Retried } from "../../src/lib/retry";
 import type { TrackJob } from "../../src/lib/track";
 
@@ -65,6 +66,7 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
   const shown: [number, TrackJob[]][] = [];
   const toasts: { text: string; action?: { label: string; run: () => void } }[] = [];
   const picked: unknown[] = [];
+  const downs: boolean[] = [];
   const upload = {
     ...request,
     generator: { id: "passthrough", params: { uploadId: "u1", filename: "clip.stl" } },
@@ -77,7 +79,8 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
   const feed: EndsFeed = {
     finished: async (since) => {
       calls.push(`finished ${since}`);
-      if (refuse.includes("finished")) throw new Error("503");
+      if (refuse.includes("finished")) throw new Unreachable("GET /jobs-history/counts 503");
+      if (refuse.includes("locked")) throw new Error("database is locked");
       return 4;
     },
     needsYou: async () => [
@@ -102,8 +105,9 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
       toast: (text, action) => toasts.push(action ? { text, action } : { text }),
       say: (text, level) => said.push([text, level]),
       pick: (asked, retryOf) => picked.push([asked, retryOf]),
+      down: (down) => downs.push(down),
     },
     { now: () => NOW },
   );
-  return { calls, said, shown, toasts, picked, ends, records, upload };
+  return { calls, said, shown, toasts, picked, ends, records, upload, downs };
 }

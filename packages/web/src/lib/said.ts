@@ -1,4 +1,4 @@
-import { unreachable } from "./http-error.js";
+import { Unreachable, unreachable } from "./http-error.js";
 
 const STATUS_LINE = /^(GET|POST|PUT|PATCH|DELETE) \S+ \d{3}$/;
 const STOCK = new Set([
@@ -9,22 +9,32 @@ const STOCK = new Set([
 ]);
 
 export const UNREACHABLE = "Can't reach Conveyor. Check your connection, then try again.";
+export const STOPPED = "Can't reach Conveyor. Check that it's running, then try again.";
 export const FAILED = "Conveyor couldn't do that just now. Try again.";
 export const NOT_LOADED = "Conveyor hit a problem loading this. Try again in a moment.";
 
+const raw = (e: unknown) => (e instanceof Error ? e.message : String(e)).trim();
+const away = (e: unknown) => (e instanceof Unreachable ? STOPPED : UNREACHABLE);
+
 export function serverSaid(e: unknown): string | null {
   if (unreachable(e)) return null;
-  const text = (e instanceof Error ? e.message : String(e)).trim();
+  const text = raw(e);
   return text && !STATUS_LINE.test(text) && !STOCK.has(text) ? text : null;
 }
 
-export const said = (e: unknown) => serverSaid(e) ?? (unreachable(e) ? UNREACHABLE : FAILED);
+export const detailOf = (e: unknown): string | null => (serverSaid(e) ? null : raw(e) || null);
 
-export const saidOnLoad = (e: unknown) =>
-  serverSaid(e) ?? (unreachable(e) ? UNREACHABLE : NOT_LOADED);
+export const said = (e: unknown) => serverSaid(e) ?? (unreachable(e) ? away(e) : FAILED);
+
+export const saidOnLoad = (e: unknown) => serverSaid(e) ?? (unreachable(e) ? away(e) : NOT_LOADED);
+
+export const failed = (what: string, e: unknown): [string, string | null] => [
+  couldnt(what, e),
+  detailOf(e),
+];
 
 export function couldnt(what: string, e: unknown): string {
   const why = serverSaid(e);
   if (why) return `Couldn't ${what}: ${why}`;
-  return `Couldn't ${what}. ${unreachable(e) ? "Can't reach Conveyor. Check your connection, then try again." : "Try again."}`;
+  return `Couldn't ${what}. ${unreachable(e) ? away(e) : "Try again."}`;
 }

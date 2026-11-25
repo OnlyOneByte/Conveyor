@@ -9,11 +9,12 @@
   import { deletePrinter } from "#lib/api-delete.js";
   import * as drafts from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
-  import { said } from "#lib/said.js";
+  import { detailOf, said } from "#lib/said.js";
   import { toasts, uid } from "#lib/ui/behaviour.js";
   import Dialog from "#lib/ui/Dialog.svelte";
   import Field from "#lib/ui/Field.svelte";
   import Select from "#lib/ui/Select.svelte";
+  import ErrorDetails from "./ErrorDetails.svelte";
   import GeneratorLimits from "./GeneratorLimits.svelte";
   import SavedSecrets from "./SavedSecrets.svelte";
 
@@ -27,7 +28,7 @@
 
   let draft = drafts.blankDraft();
   let errors: drafts.DraftErrors = {};
-  let problem = "";
+  let [problem, why]: [string, string | null] = ["", null];
   let [busy, idEdited, confirming] = [false, false, false];
   let [tried, secretsSaved, cleared] = [false, false, false];
   let form: HTMLFormElement;
@@ -61,7 +62,10 @@
 
   async function attempt(work: () => Promise<void>, explain = said) {
     [problem, busy] = ["", true];
-    problem = await work().then(() => "", explain);
+    [problem, why] = await work().then(
+      (): [string, string | null] => ["", null],
+      (e: unknown): [string, string | null] => [explain(e), detailOf(e)],
+    );
     busy = false;
   }
 
@@ -103,7 +107,7 @@
 <Dialog {title} bind:open>
   {#if confirming}
     <p>{drafts.deleteNote(jobs)}</p>
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
       <Field label="Name" bind:value={draft.name} error={errors.name ?? ""} />
@@ -120,7 +124,7 @@
         {/if}
       {/key}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
     </form>
   {/if}
   <svelte:fragment slot="actions">
