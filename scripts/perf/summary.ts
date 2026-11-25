@@ -62,6 +62,12 @@ export function summarize(
   ].join("\n");
 }
 
+export function shortfall(counts: Record<string, number>, runs: number): string[] {
+  return Object.entries(counts)
+    .filter(([, count]) => count * 2 < runs)
+    .map(([name, count]) => `${name} has ${count} of ${runs} runs; at least half must succeed`);
+}
+
 function runsIn(dir: string, variant: string): Run[] {
   return readdirSync(dir)
     .filter((name) => name.startsWith(`${variant}-`) && name.endsWith(".json"))
@@ -70,8 +76,13 @@ function runsIn(dir: string, variant: string): Run[] {
 
 if (import.meta.main) {
   const [dir, baseName = "base", headName = "head"] = Bun.argv.slice(2);
-  if (!dir) throw new Error("usage: bun scripts/perf/summary.ts <dir> [base name] [head name]");
-  console.log(
-    summarize(runsIn(dir, "base"), runsIn(dir, "head"), { base: baseName, head: headName }),
-  );
+  const runs = Number(process.env.RUNS ?? "10");
+  if (!dir || !Number.isInteger(runs) || runs < 1)
+    throw new Error("usage: RUNS=<runs> bun scripts/perf/summary.ts <dir> [base name] [head name]");
+  const base = runsIn(dir, "base");
+  const head = runsIn(dir, "head");
+  console.log(summarize(base, head, { base: baseName, head: headName }));
+  const errors = shortfall({ [baseName]: base.length, [headName]: head.length }, runs);
+  for (const error of errors) console.error(error);
+  if (errors.length > 0) process.exitCode = 1;
 }

@@ -1,0 +1,10 @@
+{
+  "name": "@conveyor/perf",
+  "license": "AGPL-3.0-or-later",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "lighthouse": "12.8.2"
+  }
+}
