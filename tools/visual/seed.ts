@@ -14,6 +14,8 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
       stage: "transport",
       reason: "elegoo upload failed: Unable to connect. Is the computer able to access the url?",
     },
+    notes:
+      "status stream did not close cleanly: socket hang up; work dir not removed: /data/jobs/seed-failed is busy",
   },
   {
     id: "seed-canceled",

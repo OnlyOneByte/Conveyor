@@ -148,7 +148,10 @@ instead, and also made every pair of PRs that shrank neighbouring entries confli
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
 6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, `file-size`, the three Docker builds and `compose`, which
-   brings the whole stack up and checks it through Caddy.
+   brings the whole stack up and checks it through Caddy. A new push cancels the older run for the same PR,
+   and a new push to `main` cancels any older `main` push run, queued or running, so runner slots go to the
+   newest commit. Scheduled runs, manual runs and re-runs of a `main` push run each get a group of their own:
+   they never cancel the head's push run, and pushes never cancel them.
 7. **Review.** A separate reviewer agent posts `conveyor/adversarial-review`, following
    [review-rubric.md](review-rubric.md). It may start before CI finishes. Fix or rebut every `[S0]` and
    `[S1]` finding, then push; the reviewer re-reviews the new head.
@@ -238,7 +241,7 @@ gh api repos/<owner>/<action>/git/ref/tags/<tag> --jq .object
 
 | Ecosystem | Covers | Grouping | Title prefix |
 | --- | --- | --- | --- |
-| `bun` | `bun.lock` and every workspace `package.json`, plus `tools/visual`'s own `package.json` and `bun.lock` | minor and patch in one PR (`minor`) across both directories, majors one per PR per directory | `fix(deps)`, or `chore(deps)` for dev dependencies |
+| `bun` | `bun.lock` and every workspace `package.json`, plus the own `package.json` and `bun.lock` of `tools/visual` and `scripts/perf` | minor and patch in one PR (`minor`) across all three directories, majors one per PR per directory | `fix(deps)`, or `chore(deps)` for dev dependencies |
 | `github-actions` | the SHA pins in `.github/workflows` | minor and patch in one PR (`minor`); majors are ignored | `ci` |
 | `docker` | the `FROM` lines in `packages/{api,web,worker}/Dockerfile` | minor and patch in one PR (`images`), majors one per PR | `fix(deps)` |
 | `docker-compose` | the `image:` lines in `docker-compose.yml` (`caddy`, `redis`) | one PR per image | `fix(deps)` |
@@ -253,7 +256,7 @@ major, so every compose bump is a major and should be reviewed on its own. `cadd
 that same pinned image from the `caddy` service in `docker-compose.yml`, so one bump moves both.
 
 `tools/visual` isn't a workspace member, so the `bun` entry lists it as a second directory
-(`directories: [/, /tools/visual]`) rather than in a separate entry. Both then share one schedule, PR limit,
+(`directories: [/, /tools/visual, /scripts/perf]`) rather than in a separate entry, and `scripts/perf`, which holds only Lighthouse for the Make measurement, is listed the same way. Both then share one schedule, PR limit,
 `minor` group and set of ignores, and a shared tool such as `typescript` or `@types/bun` moves in both in the
 same grouped PR.
 
@@ -336,8 +339,10 @@ CI's `bundle` job builds the web app and runs `scripts/checks/bundle.ts` on `pac
 An optional job compares how fast Make (`/`) loads on two refs, on a CI runner instead of a busy laptop. It runs only when asked: add the `measure:make` label to a PR (it compares the PR's base with its head), or run **Make performance** from the Actions tab with a `base` and a `head` ref.
 
 - It builds the web app at both refs and serves both through one Caddy configured like production: `encode gzip zstd`, TLS, and `/api` stripped and proxied, all on 127.0.0.1 with Caddy's admin API off. One api (SQLite queue, auth disabled) serves both. Every port is picked free at start, so a run can't collide with anything else on the machine, including a local run of the script.
-- Lighthouse 12.8.2 runs on each with its default mobile settings and simulated throttling: one warm-up each, then `runs` rounds (10 by default) in alternating order, base first on odd rounds, head first on even ones.
-- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse fails or reports as failed is left out, the job carries on, and the run counts show it. The summary is written even when an earlier step fails. The raw reports are in the `make-perf` artifact.
+- Lighthouse, at the version `scripts/perf/package.json` pins (`jq -r .dependencies.lighthouse scripts/perf/package.json`, the same value the job summary's header shows), runs on each with its default mobile settings and simulated throttling: one warm-up each, then `runs` rounds (10 by default) in alternating order, base first on odd rounds, head first on even ones.
+- The job summary has the medians of time to interactive, first contentful paint, largest contentful paint and total blocking time, with the change. A run Lighthouse fails or reports as failed is left out, the job carries on, and the run counts show it. The summary is written even when an earlier step fails. The raw reports are in the `make-perf` artifact, and a failed run's report, when Lighthouse wrote one, is kept there as `failed-<base|head>-<n>.json` (`failed-warmup-<base|head>.json` for a warm-up).
+- The job fails when either side has fewer than half of `runs` succeed (5 of 10, 3 of 5), so a run where Chrome never started can't pass with an empty table.
+- Lighthouse and its whole dependency tree are pinned by `scripts/perf/package.json` and `scripts/perf/bun.lock`, installed with `bun install --frozen-lockfile`. Dependabot's `bun` entry covers that directory too. To run the script locally, install there first; `LIGHTHOUSE` can point it at another Lighthouse, as a path or a command on `PATH` (`LIGHTHOUSE=lighthouse`).
 - Every label added to any PR starts a **Make performance** run, which skips at once unless the label is `measure:make`. GitHub can't filter `labeled` events by name before a run is created.
 - `scripts/perf/make-ab.sh` and `scripts/perf/summary.ts` do the work; the job runs them from the workflow's own commit, so either ref can predate them.
 

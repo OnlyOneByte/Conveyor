@@ -146,9 +146,9 @@ dropped. Two guards apply to every upload:
   address with a control character or line break inside it is rejected; surrounding whitespace is trimmed.
 - Saved addresses aren't validated on save, so every form that worked before still has to: `//host/path`
   and `user:pass@host[/path]` included.
-- Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). `status()` and
-  `cancel()` only get the handle, so they read `MOONRAKER_API_KEY` from the environment. Without a key, add the
-  worker host to Moonraker's `trusted_clients`.
+- Auth: `submit()` sends `X-Api-Key` from `printer.secrets.apiKey` (or `moonrakerApiKey`). The worker passes
+  the same printer to `status()` and `cancel()`, which send that key too, or `MOONRAKER_API_KEY` from the
+  environment when the printer has none. Without a key, add the worker host to Moonraker's `trusted_clients`.
 - Status polls `print_stats.state` every `MOONRAKER_POLL_MS` (default 2000). Klipper states are `standby`,
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
@@ -166,7 +166,9 @@ dropped. Two guards apply to every upload:
   field it cannot use (`print_duration`, `info`) reads as absent instead, so a cosmetic value never fails a
   running print: Klipper can report `print_duration` a hair below zero (`-1.2e-14`) after a pause before the
   first extrusion.
-- Cancel: `status(handle, signal)` passes the signal to every poll and to the sleep between polls.
+- Cancel: `status(handle, signal, printer)` passes the signal to every poll and to the sleep between polls.
+  Each poll also gives up after `MOONRAKER_STATUS_TIMEOUT_MS` (default 30000) and fails the stage with
+  `moonraker status query failed`, the same as a refused connection, so a hung request can't hold the job.
   `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
 
@@ -174,9 +176,8 @@ Verify on hardware:
 
 1. Set the `klipper-garage` printer's address to your Moonraker host, for example `192.168.1.50:7125` or a
    full `http://…` URL.
-2. Auth: either add the worker host to `[authorization] trusted_clients` in `moonraker.conf`, or give both
-   halves a key: the printer's `apiKey` secret for `submit()`, and `MOONRAKER_API_KEY` on the worker for
-   `status()` and `cancel()`.
+2. Auth: either add the worker host to `[authorization] trusted_clients` in `moonraker.conf`, or set the
+   printer's `apiKey` secret in Settings. Upload, status and cancel all send it.
 3. Unset `CONVEYOR_ENGINE_STUB`, restart the worker and submit a job to Garage Klipper. Confirm that progress
    advances and the job ends `done`.
 4. Mid-print, cancel the job from Monitor (or `POST /api/jobs/:id/cancel`). Confirm that the printer stops and

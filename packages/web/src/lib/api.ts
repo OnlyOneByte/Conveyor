@@ -150,6 +150,7 @@ export interface JobHistoryEntry {
   artifacts?: { model?: string; gcode?: string };
   timings?: StageTiming[];
   filament?: { grams?: number; metres?: number };
+  notes?: string;
   createdAt: number;
   updatedAt: number;
 }

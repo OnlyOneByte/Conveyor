@@ -19,7 +19,11 @@ export const CADDY_IMAGE = composeCaddyImage(
   readFileSync(join(import.meta.dir, "../../docker-compose.yml"), "utf8"),
 );
 
-const OUTBOUND = ["dynamic_upstreams", "forward_proxy_url", "network_proxy"];
+const MODULES: Record<string, string[]> = {
+  handler: ["encode", "headers", "reverse_proxy", "rewrite", "subroute"],
+  protocol: [],
+  provider: [],
+};
 
 export interface CaddyPorts {
   port: number;
@@ -51,8 +55,26 @@ const unexpected = (value: unknown, allowed: string[], what: string): string[] =
     .map(([name]) => name)
     .filter((name) => !allowed.includes(name))
     .map((name) => `${what} "${name}"`);
-const keys = (value: unknown): string[] =>
-  entries(value).flatMap(([name, inner]) => [name, ...keys(inner)]);
+const objects = (value: unknown): unknown[] =>
+  typeof value === "object" && value !== null
+    ? [value, ...entries(value).flatMap(([, inner]) => objects(inner))]
+    : [];
+const modules = (value: unknown): string[] =>
+  Object.entries(MODULES).flatMap(([kind, allowed]) => {
+    const name = field(value, kind);
+    return typeof name === "string" && !allowed.includes(name)
+      ? [`a ${kind} module production doesn't use ("${name}")`]
+      : [];
+  });
+const proxy = (value: unknown): string[] =>
+  field(value, "handler") === "reverse_proxy"
+    ? [
+        ...unexpected(value, ["handler", "upstreams"], "reverse_proxy option"),
+        ...entries(field(value, "upstreams")).flatMap(([, upstream]) =>
+          unexpected(upstream, ["dial"], "upstream option"),
+        ),
+      ]
+    : [];
 const dials = (value: unknown): string[] =>
   entries(value).flatMap(([name, inner]) =>
     (name === "dial" || name === "upstream") && typeof inner === "string" ? [inner] : dials(inner),
@@ -85,9 +107,7 @@ export function adaptedProblem(config: unknown, ports: CaddyPorts): string | nul
     ...dials(config)
       .filter((dial) => !upstreams.includes(dial))
       .map((dial) => `an upstream at ${dial}`),
-    ...[...new Set(keys(config))]
-      .filter((key) => OUTBOUND.includes(key))
-      .map((key) => `a proxy that can leave the stack ("${key}")`),
+    ...objects(config).flatMap((value) => [...modules(value), ...proxy(value)]),
   ];
   return problems.length > 0
     ? `the visual Caddy config isn't loopback-only: ${problems.join("; ")}`

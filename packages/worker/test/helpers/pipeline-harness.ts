@@ -33,8 +33,12 @@ export interface HarnessOptions {
   generate?: (ctx: StageCtx) => Promise<void>;
   slice?: (ctx: StageCtx) => Promise<void>;
   submit?: (ctx: StageCtx) => Promise<void>;
-  status?: (handle: PrintHandle, signal?: AbortSignal) => AsyncIterable<PrintStatus>;
-  cancel?: ((handle: PrintHandle) => Promise<void>) | null;
+  status?: (
+    handle: PrintHandle,
+    signal?: AbortSignal,
+    target?: PrinterTarget,
+  ) => AsyncIterable<PrintStatus>;
+  cancel?: ((handle: PrintHandle, target?: PrinterTarget) => Promise<void>) | null;
   handleFor?: (target: PrinterTarget, ref: string) => PrintHandle;
   cancelRequested?: () => Promise<boolean>;
   record?: () => void;
@@ -80,9 +84,9 @@ function buildTransport(h: Harness, opts: HarnessOptions): TransportPlugin {
   };
   if (opts.cancel !== null) {
     const custom = opts.cancel;
-    transport.cancel = async (handle) => {
+    transport.cancel = async (handle, target) => {
       h.order.push("stopped");
-      if (custom) await custom(handle);
+      if (custom) await custom(handle, target);
       h.cancels.push(handle);
     };
   }

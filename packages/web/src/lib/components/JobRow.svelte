@@ -8,10 +8,14 @@
 <li>
   <a class="row s-{row.state}" class:sel={selected} href="/jobs/{row.id}" tabindex={selected ? 0 : -1} data-id={row.id}>
     <span class="g" style="--p: {row.progress}" aria-hidden="true">{row.state === "done" ? "✓" : row.state === "failed" ? "!" : ""}</span>
-    <span class="name"><b>{row.name}</b>{#if row.why}<span class="sr">, </span><span class="why">{row.why}</span>{/if}</span>
-    {#if row.printer}<span class="sr">, on </span><span class="pr">{row.printer}</span>{/if}
-    <span class="sr">, </span><span class="st">{row.status}</span>
-    <span class="sr">, </span><span class="tm">{row.time}</span>
+    <span class="name">
+      <b>{row.name}</b>
+      {#if row.why}<span class="why"><span class="sr">, </span>{row.why}</span>{/if}
+      {#if row.note}<span class="note"><span class="sr">, </span>Note: {row.note}</span>{/if}
+    </span>
+    {#if row.printer}<span class="pr"><span class="sr">, on </span>{row.printer}</span>{/if}
+    <span class="st"><span class="sr">, </span>{row.status}</span>
+    <span class="tm"><span class="sr">, </span>{row.time}</span>
   </a>
 </li>
 
@@ -24,6 +28,10 @@
   .name { display: flex; flex-direction: column; min-width: 0; }
   b { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .why { color: var(--err); font: 500 12.5px var(--mono); }
+  .note {
+    overflow: hidden; color: var(--muted); font-size: 12.5px;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
   .pr, .st, .tm { font: 500 12.5px var(--mono); color: var(--muted); }
   .tm { white-space: nowrap; }
   .g { --ring: var(--live); position: relative; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--p) * 1turn), var(--line-2) 0); color: var(--paper); font: 800 12px / 1 var(--display); }

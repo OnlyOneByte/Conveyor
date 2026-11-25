@@ -34,6 +34,7 @@ export interface Row {
   printer: string | undefined;
   status: string;
   why: string | undefined;
+  note?: string;
   time: string;
   at: number;
   request: JobHistoryEntry["request"] | undefined;
@@ -59,6 +60,9 @@ const STAGES: Record<string, string> = {
   print: "Print",
 };
 
+export const NOTE_CHARS = 120;
+const clip = (text: string, max: number) =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text || undefined;
 const percent = (progress: number | undefined) => `${Math.round((progress ?? 0) * 100)}%`;
 const printerName = (id: string | undefined, catalog: Catalog | null) =>
   catalog?.printers.find((p) => p.id === id)?.name;
@@ -105,6 +109,7 @@ export function settledRow(entry: JobHistoryEntry, catalog: Catalog | null, now:
       entry.state === "failed" && entry.error
         ? failureText(entry.error.stage, entry.error.reason).detail
         : undefined,
+    note: clip(entry.notes?.trim() ?? "", NOTE_CHARS),
     time: ago(entry.updatedAt, now),
     at: entry.updatedAt,
     request: entry.request,

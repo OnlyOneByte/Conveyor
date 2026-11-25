@@ -109,5 +109,6 @@ describe("knownParams", () => {
     expect(knownParams({ gridY: 1, old: true }, ref)).toEqual({ gridY: 1 });
     expect(knownParams(undefined, schema)).toEqual({});
     expect(knownParams({ gridX: 2 }, null)).toEqual({});
+    expect(knownParams({ toString: 1, constructor: 2, gridX: 2 }, schema)).toEqual({ gridX: 2 });
   });
 });
