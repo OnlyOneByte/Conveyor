@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "tools/visual/**"
+      - "Caddyfile"
       - ".github/workflows/visual.yml"
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "tools/visual/**"
+      - "Caddyfile"
       - ".github/workflows/visual.yml"
 
 permissions: {}

@@ -1,0 +1,32 @@
+{
+	admin off
+	skip_install_trust
+	auto_https disable_redirects
+	default_bind 127.0.0.1
+}
+
+(conveyor) {
+	encode gzip zstd
+
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:{$API_PORT}
+	}
+}
+
+https://localhost:{$BASE_PORT} {
+	tls internal
+	import conveyor
+
+	handle {
+		reverse_proxy 127.0.0.1:{$WEB_BASE_PORT}
+	}
+}
+
+https://localhost:{$HEAD_PORT} {
+	tls internal
+	import conveyor
+
+	handle {
+		reverse_proxy 127.0.0.1:{$WEB_HEAD_PORT}
+	}
+}
