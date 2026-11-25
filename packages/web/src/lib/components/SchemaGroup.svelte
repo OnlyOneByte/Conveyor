@@ -106,7 +106,7 @@
                 if (e.key === "Enter") settle(key, prop, e.currentTarget);
               }}
             />
-            {#if ui?.unitMm?.[key] !== undefined}<em>u</em>{/if}
+            {#if ui?.unitMm?.[key] !== undefined}<em>u · {cur[key] * (ui.unitMm[key] ?? 0)} mm</em>{/if}
           </span>
           <button
             type="button"
@@ -156,7 +156,7 @@
      value can still be typed. The wrapper carries the 44px tap target, so the inner
      input opts out of the global min-height. */
   .stepper { display: flex; align-items: center; background: var(--surface-2);
-    border: 1.5px solid var(--field-line); border-radius: var(--radius); overflow: hidden; }
+    border: 1.5px solid var(--field-line); border-radius: var(--r-control); overflow: hidden; }
   .stepper button { border: 0; background: transparent; border-radius: 0; width: 40px;
     padding: 0; font-size: 1.05rem; line-height: 1; color: var(--text); flex: none; }
   .stepper button:hover:not(:disabled) { background: var(--border); color: var(--live); }
@@ -167,7 +167,7 @@
     color: var(--text); -moz-appearance: textfield; appearance: textfield; }
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; }
+  .sval em { font-style: normal; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 
   .stack1 { display: flex; flex-direction: column; gap: 0.3rem; width: 100%; }
   .stack1 label { font-size: 0.85rem; color: var(--muted); }

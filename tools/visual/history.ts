@@ -44,13 +44,22 @@ interface PinnableRoute<R extends Fetched> {
   fulfill(options: { response?: R; json?: unknown }): Promise<unknown>;
 }
 
+async function pinOne<R extends Fetched>(route: PinnableRoute<R>, pin: (body: unknown) => unknown) {
+  const response = await route.fetch();
+  if (!response.ok()) return route.fulfill({ response });
+  await route.fulfill({ response, json: pin(await response.json()) });
+}
+
+const CLOSED = /has been disposed|has been closed|Target closed/i;
+
+export const closedPage = (error: unknown) => error instanceof Error && CLOSED.test(error.message);
+
 const fulfillWith =
   (pin: (body: unknown) => unknown) =>
-  async <R extends Fetched>(route: PinnableRoute<R>) => {
-    const response = await route.fetch();
-    if (!response.ok()) return route.fulfill({ response });
-    await route.fulfill({ response, json: pin(await response.json()) });
-  };
+  <R extends Fetched>(route: PinnableRoute<R>) =>
+    pinOne(route, pin).catch((error: unknown) => {
+      if (!closedPage(error)) throw error;
+    });
 
 export const fulfillPinned = fulfillWith(pinHistory);
 

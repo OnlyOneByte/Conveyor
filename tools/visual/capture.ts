@@ -123,7 +123,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
   if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
   const context = await browser.newContext({
-    viewport: { width, height: HEIGHTS[width] ?? 900 },
+    viewport: { width, height: scene.height ?? HEIGHTS[width] ?? 900 },
     deviceScaleFactor: 1,
     colorScheme,
     reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",

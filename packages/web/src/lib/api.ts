@@ -7,6 +7,7 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
+import { failure } from "./http-error.js";
 
 export const API = "/api";
 
@@ -139,7 +140,10 @@ export interface CatalogProfile {
   path: string;
   gcodeFlavor: string;
   hasEditableContent?: boolean;
+  bundled?: boolean;
 }
+
+export type CatalogSlicer = { id: string; name: string };
 
 export interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
@@ -166,7 +170,7 @@ export interface JobHistoryEntry {
 
 async function getJson<T>(path: string, fetchFn: typeof fetch = fetch): Promise<T> {
   const r = await fetchFn(path);
-  if (!r.ok) throw new Error(`GET ${path} ${r.status}`);
+  if (!r.ok) throw await failure(r, `GET ${path}`);
   return r.json();
 }
 async function putJson(path: string, body: unknown): Promise<void> {
@@ -192,19 +196,18 @@ export interface CatalogTransport {
 export const fetchCatalogTransports = (f?: typeof fetch) =>
   getJson<CatalogTransport[]>(`${API}/catalog/transports`, f);
 export const fetchCatalogProfiles = (f?: typeof fetch) => getJson<CatalogProfile[]>(`${API}/catalog/profiles`, f);
+export const fetchCatalogSlicers = (f?: typeof fetch) => getJson<CatalogSlicer[]>(`${API}/catalog/slicers`, f);
 
-export async function fetchOrcaProfileContent(
-  id: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<OrcaProfileContent> {
+async function fetchProfileContent<T>(id: string, fetchFn: typeof fetch): Promise<T | null> {
   const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
   const r = await fetchFn(path);
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: unknown };
-    throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);
-  }
-  return r.json() as Promise<OrcaProfileContent>;
+  if (r.status === 404) return null;
+  if (!r.ok) throw await failure(r, `GET ${path}`);
+  return r.json();
 }
+
+export const fetchOrcaProfileContent = (id: string, f: typeof fetch = fetch) =>
+  fetchProfileContent<OrcaProfileContent>(id, f);
 
 export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocuments) =>
   putJson(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`, {
@@ -212,18 +215,8 @@ export const saveOrcaProfileContent = (id: string, documents: OrcaProfileDocumen
     documents,
   });
 
-export async function fetchPrusaProfileContent(
-  id: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<PrusaProfileContent> {
-  const path = `${API}/catalog/profiles/${encodeURIComponent(id)}/content`;
-  const r = await fetchFn(path);
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: unknown };
-    throw new Error(typeof body.error === "string" ? body.error : `GET ${path} ${r.status}`);
-  }
-  return r.json() as Promise<PrusaProfileContent>;
-}
+export const fetchPrusaProfileContent = (id: string, f: typeof fetch = fetch) =>
+  fetchProfileContent<PrusaProfileContent>(id, f);
 
 export const savePrusaProfileContent = (id: string, document: PrusaProfileDocument) =>
   putJson(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`, {
@@ -275,9 +268,5 @@ export const deletePrinter = (id: string) =>
 export const deleteProfile = (id: string) =>
   del(`${API}/catalog/profiles/${encodeURIComponent(id)}`);
 
-export const resetOrcaProfileContent = (id: string) =>
-  del(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`);
-
-/** The reset DELETE is format-agnostic (same URL); Prusa reuses it under a clear name. */
-export const resetPrusaProfileContent = (id: string) =>
+export const resetProfileContent = (id: string) =>
   del(`${API}/catalog/profiles/${encodeURIComponent(id)}/content`);

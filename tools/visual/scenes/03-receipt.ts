@@ -87,9 +87,9 @@ export const scenes: Scene[] = [
         },
       },
       { click: 'role=button[name="Retry"s]' },
-      { waitFor: "text=Configure" },
+      { waitFor: "text=How big?" },
       { wait: 800 },
-      { click: "button.desktop-print:visible, .mobile-cta button:visible" },
+      { click: "button.print" },
       { click: "text=See the retry" },
       { waitFor: "text=Model (STL)" },
       { wait: 1200 },
@@ -98,7 +98,7 @@ export const scenes: Scene[] = [
   {
     name: "job-switch",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     steps: [
       {
         fulfill: "**/api/jobs/scene-a",
@@ -129,7 +129,7 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [
       { follow: "/" },
-      { waitFor: "text=Configure" },
+      { waitFor: "text=How big?" },
       { wait: 800 },
       { fulfill: "**/api/jobs", method: "POST", status: 202, json: { jobId: "scene-forward" } },
       {
@@ -143,7 +143,7 @@ export const scenes: Scene[] = [
           at: 1,
         },
       },
-      { click: "button.desktop-print:visible, .mobile-cta button:visible" },
+      { click: "button.print" },
       { waitFor: "text=42%" },
       { history: "back" },
       { waitFor: "h1 >> text=Jobs" },

@@ -104,13 +104,14 @@ export const scenes: Scene[] = [
   {
     name: "belt-bar-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
+    height: 720,
     fullPage: false,
     steps: [
       live,
       { waitFor: "#belt .chips a.chip", timeout: 8000 },
-      { scroll: "button.desktop-print" },
+      { press: "End" },
       { waitFor: "#belt .bar .mini i" },
       { wait: 300 },
     ],
@@ -118,8 +119,9 @@ export const scenes: Scene[] = [
   {
     name: "belt-holds-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
+    height: 720,
     fullPage: false,
     steps: [
       live,
@@ -148,7 +150,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-motion",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     record: true,
@@ -157,7 +159,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-motion-reduced",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     record: true,
@@ -168,7 +170,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-offline-make",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     widths: [1440],
     fullPage: false,
     steps: offline,
@@ -176,7 +178,7 @@ export const scenes: Scene[] = [
   {
     name: "belt-region",
     route: "/",
-    ready: "text=Configure",
+    ready: "text=How big?",
     fullPage: false,
     steps: [
       region,
