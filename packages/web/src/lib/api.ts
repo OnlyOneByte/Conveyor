@@ -16,7 +16,6 @@ export interface GeneratorSummary {
   id: string;
   name: string;
   paramSchema: Record<string, unknown>;
-  /** optional grouping / advanced / control hints for the generated form */
   ui?: FormUiHints;
   preview?: { kind: string; module: string };
   outputs: string[];
@@ -34,7 +33,6 @@ interface UploadResult {
   bytes: number;
 }
 
-/** Upload an STL for the passthrough generator. Returns an opaque uploadId. */
 export async function uploadStl(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file, file.name);
@@ -139,7 +137,6 @@ interface OrcaProfileContent extends OrcaEditableProfile {
   source: "bundled" | "edited";
 }
 
-/** Response of GET /catalog/profiles/:id/content for a Prusa (prusa-ini) profile. */
 interface PrusaProfileContent {
   format: "prusa-ini";
   source: "bundled" | "edited";
@@ -216,12 +213,6 @@ export const savePrusaProfileContent = (id: string, document: PrusaProfileDocume
 
 export const fetchJobHistory = (f?: typeof fetch) => getJson<JobHistoryEntry[]>(`${API}/jobs-history?limit=200`, f);
 
-/**
- * One settled job, or null when there is no such record. Deliberately NOT getJson():
- * that throws the same generic Error for every non-ok status, and the detail page has
- * to tell "no job with this id" (render a not-found page) apart from a genuine server
- * failure (surface the error). Only 404 becomes null; everything else still throws.
- */
 export async function fetchJobHistoryEntry(
   id: string,
   fetchFn: typeof fetch = fetch,
@@ -236,20 +227,19 @@ export async function fetchJobHistoryEntry(
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
 
-/**
- * DELETE that surfaces the server's message instead of flattening it to a status code,
- * so a refusal explains itself in the UI.
- */
+async function serverErrorOrEmpty(r: Response): Promise<string> {
+  try {
+    const body = (await r.json()) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : "";
+  } catch {
+    return "";
+  }
+}
+
 async function del(path: string): Promise<void> {
   const r = await fetch(path, { method: "DELETE" });
   if (r.ok) return;
-  let detail = "";
-  try {
-    const body = (await r.json()) as { error?: unknown };
-    if (typeof body.error === "string") detail = body.error;
-  } catch {
-    /* non-JSON body — fall back to the status line */
-  }
+  const detail = await serverErrorOrEmpty(r);
   throw new Error(detail || `DELETE ${path} ${r.status}`);
 }
 
