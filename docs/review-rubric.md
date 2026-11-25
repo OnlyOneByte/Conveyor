@@ -81,7 +81,7 @@ Check the ones that apply and name them in the body:
 - A name that needs a comment to make sense is S2; one that is actively misleading is S1.
 
 ### 8. File and module size
-- A file is at most 250 lines, a Svelte component at most 150. Over is S1. CI's `file-size` check enforces this, except for the files in `scripts/checks/lines/baseline.json`, which it only stops from growing.
+- A file is at most 250 lines, a Svelte component at most 150. Over is S1. CI's `file-size` check enforces this, except for files the base branch already has over the limit, which it only stops from growing.
 - Cognitive complexity at most 12 per function, at most 3 positional parameters. Over is S1.
 - Dependency direction follows `docs/architecture.md` in the repo (today: `web → shared`, `api → shared`, `worker → shared`, generator plugins depend only on `shared`). An import against the documented direction is S1.
 - One concern per PR. Related small issues in one area count as one concern. Two unrelated changes is S1: ask for a split. The size of the diff is never a finding on its own.

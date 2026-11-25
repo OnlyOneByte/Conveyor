@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Tree } from "../comments/tree";
-import { BASELINE_PATH, parseBaseline, serializeBaseline } from "./baseline";
 import { type Counts, countLines, measure, overLimit } from "./count";
-import { CHECKER_PATH, checkRatchet } from "./ratchet";
+import { checkRatchet } from "./ratchet";
 
 const treeOf = (files: Record<string, string>): Tree => ({
   list: () => Object.keys(files),
@@ -11,22 +10,10 @@ const treeOf = (files: Record<string, string>): Tree => ({
 
 const lines = (n: number) => "x\n".repeat(n);
 
-const baseWith = (files: Record<string, string>, baseline?: Counts) =>
-  treeOf({
-    ...files,
-    [CHECKER_PATH]: "",
-    ...(baseline ? { [BASELINE_PATH]: serializeBaseline(baseline) } : {}),
-  });
+const baseOf = (counts: Counts) =>
+  treeOf(Object.fromEntries(Object.entries(counts).map(([path, n]) => [path, lines(n)])));
 
-const run = (current: Counts, base: Tree, committed: Counts | string | null = overLimit(current)) =>
-  checkRatchet({
-    current,
-    base,
-    committed:
-      typeof committed === "object" && committed !== null
-        ? serializeBaseline(committed)
-        : committed,
-  }).errors;
+const run = (current: Counts, base: Tree) => checkRatchet({ current, base }).errors;
 
 describe("counting lines", () => {
   test("counts a last line with or without a trailing newline", () => {
@@ -67,75 +54,35 @@ describe("counting lines", () => {
 
 describe("the line ratchet", () => {
   test("a new file passes at the limit and fails one line over it", () => {
-    const base = baseWith({}, {});
+    const base = baseOf({});
     expect(run({ "a.ts": 250, "b.svelte": 150 }, base)).toEqual([]);
-    expect(run({ "a.ts": 251 }, base, {})).toEqual(["too long: a.ts: 251 lines (limit 250)"]);
-    expect(run({ "b.svelte": 151 }, base, {})).toEqual([
-      "too long: b.svelte: 151 lines (limit 150)",
-    ]);
+    expect(run({ "a.ts": 251 }, base)).toEqual(["too long: a.ts: 251 lines (limit 250)"]);
+    expect(run({ "b.svelte": 151 }, base)).toEqual(["too long: b.svelte: 151 lines (limit 150)"]);
   });
 
-  test("a file in the base baseline may grow up to its entry and no further", () => {
-    const base = baseWith({}, { "big.ts": 400 });
+  test("a file over the limit on the base may keep its length and no more", () => {
+    const base = baseOf({ "big.ts": 400 });
     expect(run({ "big.ts": 400 }, base)).toEqual([]);
-    expect(run({ "big.ts": 401 }, base, { "big.ts": 400 })).toEqual([
-      "too long: big.ts: 401 lines (base allows 400)",
+    expect(run({ "big.ts": 380 }, base)).toEqual([]);
+    expect(run({ "big.ts": 401 }, base)).toEqual(["too long: big.ts: 401 lines (base allows 400)"]);
+  });
+
+  test("a file the base had under the limit may grow to the limit, not past it", () => {
+    const base = baseOf({ "ok.ts": 200 });
+    expect(run({ "ok.ts": 250 }, base)).toEqual([]);
+    expect(run({ "ok.ts": 251 }, base)).toEqual(["too long: ok.ts: 251 lines (limit 250)"]);
+  });
+
+  test("a shrink on the base is the new ceiling, with nothing to update", () => {
+    const shrunk = baseOf({ "big.ts": 300 });
+    expect(run({ "big.ts": 300 }, shrunk)).toEqual([]);
+    expect(run({ "big.ts": 320 }, shrunk)).toEqual([
+      "too long: big.ts: 320 lines (base allows 300)",
     ]);
   });
 
-  test("raising an entry, or adding one the base lacks, is refused", () => {
-    const base = baseWith({}, { "big.ts": 400 });
-    expect(run({ "big.ts": 401 }, base)).toEqual([
-      "too long: big.ts: 401 lines (base allows 400)",
-      "baseline raised: big.ts: 401 lines (base allows 400)",
-    ]);
-    expect(run({ "new.ts": 300 }, base)).toEqual([
-      "too long: new.ts: 300 lines (limit 250)",
-      "baseline raised: new.ts: 300 lines (limit 250)",
-    ]);
-  });
-
-  test("a baselined file that shrinks makes the baseline stale until it shrinks too", () => {
-    const base = baseWith({}, { "big.ts": 400, "page.svelte": 300 });
-    const stale = `${BASELINE_PATH} is stale; run \`bun run check:lines:update\` and commit it`;
-    const current = { "big.ts": 380, "page.svelte": 120 };
-    expect(run(current, base, { "big.ts": 400, "page.svelte": 300 })).toEqual([stale]);
-    expect(run(current, base, { "big.ts": 380, "page.svelte": 300 })).toEqual([stale]);
-    expect(run(current, base, { "big.ts": 380 })).toEqual([]);
-  });
-
-  test("a base without the checker allows what it already has, so the first baseline passes", () => {
-    const base = treeOf({ "big.ts": lines(400), "ok.ts": lines(10), "README.md": lines(900) });
-    expect(run({ "big.ts": 400, "ok.ts": 10 }, base)).toEqual([]);
-    expect(run({ "big.ts": 401 }, base, { "big.ts": 400 })).toEqual([
-      "too long: big.ts: 401 lines (base allows 400)",
-    ]);
-  });
-
-  test("a base with the checker but no baseline is an error, not an empty allowance", () => {
-    const base = treeOf({ [CHECKER_PATH]: "", "big.ts": lines(400) });
-    expect(run({ "big.ts": 400 }, base)).toEqual([`base has the checker but no ${BASELINE_PATH}`]);
-  });
-
-  test("a missing or malformed baseline is an error", () => {
-    const base = baseWith({}, {});
-    expect(run({}, base, null)).toEqual([`${BASELINE_PATH} is missing`]);
-    for (const text of [
-      "{",
-      "[]",
-      '{"files":[]}',
-      '{"files":{"a.ts":-1}}',
-      '{"files":{"a.ts":1.5}}',
-    ]) {
-      expect(run({}, base, text)).toEqual([`${BASELINE_PATH} is not a valid baseline`]);
-    }
-    const broken = treeOf({ [CHECKER_PATH]: "", [BASELINE_PATH]: '{"files":{"a.ts":"x"}}' });
-    expect(run({}, broken)).toEqual([`base ${BASELINE_PATH} is not a valid baseline`]);
-  });
-
-  test("the baseline is written sorted, so a stale check compares text", () => {
-    const text = serializeBaseline({ "b.ts": 300, "a.ts": 260 });
-    expect(text).toBe('{\n  "files": {\n    "a.ts": 260,\n    "b.ts": 300\n  }\n}\n');
-    expect(parseBaseline(text)).toEqual({ "a.ts": 260, "b.ts": 300 });
+  test("a renamed long file is new, so it must keep to the limit", () => {
+    const base = baseOf({ "old.ts": 400 });
+    expect(run({ "new.ts": 400 }, base)).toEqual(["too long: new.ts: 400 lines (limit 250)"]);
   });
 });
