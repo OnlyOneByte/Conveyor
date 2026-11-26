@@ -62,7 +62,12 @@
   }
   .bar {
     display: flex; align-items: center; gap: var(--s4); padding: var(--s3-5) var(--s3-5) var(--s3-5) var(--s5);
-    border-radius: var(--r-panel); background: var(--ink); color: var(--bg); --focus: var(--bg);
+    --dock-bg: var(--ink); --dock-ink: var(--bg);
+    border-radius: var(--r-panel); background: var(--dock-bg); color: var(--dock-ink);
+    --focus: var(--dock-ink);
+  }
+  :global([data-theme="dark"]) .bar {
+    --dock-bg: var(--raised); --dock-ink: var(--ink); box-shadow: 0 0 0 1px var(--line-2), var(--lift-hi);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
   b {
@@ -71,7 +76,7 @@
   }
   .line {
     display: flex; gap: 0.6ch; min-width: 0; font: 500 var(--fs-mono) var(--mono);
-    color: color-mix(in oklch, var(--bg) 85%, var(--ink));
+    color: color-mix(in oklch, var(--dock-ink) 85%, var(--dock-bg));
   }
   .detail { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .change { flex: none; }
@@ -90,10 +95,11 @@
     min-height: 54px; padding: 0 var(--s5); border: 0; border-radius: var(--r-chip);
     background: var(--accent); color: var(--accent-ink); font-size: var(--fs-section); font-weight: 800;
   }
-  @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); } }
-  .print:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
+  @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--dock-ink); } }
+  .print:focus-visible { outline: 3px solid var(--dock-ink); outline-offset: 3px; }
   .print:disabled {
-    opacity: 1; background: color-mix(in oklch, var(--bg) 25%, var(--ink)); color: var(--bg);
+    opacity: 1; background: color-mix(in oklch, var(--dock-ink) 25%, var(--dock-bg));
+    color: var(--dock-ink);
   }
   @media (max-width: 759px) {
     .dock {

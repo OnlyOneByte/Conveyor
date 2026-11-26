@@ -12,7 +12,7 @@
     today,
     value,
   } from "#lib/track.js";
-  import { uid } from "#lib/ui/behaviour.js";
+  import { leave, uid } from "#lib/ui/behaviour.js";
   import { afterNavigate } from "$app/navigation";
   import NeedsYou from "./NeedsYou.svelte";
 
@@ -49,7 +49,7 @@
     <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={() => (open = !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
   </div>
   {#if open}
-    <div class="sheet" id={sheet}>
+    <div class="sheet" id={sheet} out:leave>
       {#each moving as { job } (job.id)}
         <a class="row" href="/jobs/{job.id}"><span class="t">{shortName(job.name)}</span><span class="v">{value(job)}</span><span class="st">{status(job)}</span></a>
       {:else}
@@ -78,6 +78,8 @@
   .chip :focus-visible { outline-color: var(--belt-ink); }
   .exp svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .sheet { display: grid; gap: var(--s1-5); max-height: 60vh; margin: var(--s2) calc(-1 * var(--s1-5)) 0; padding: var(--s1-5); overflow-y: auto; }
+  .sheet { transition: opacity var(--t-move) var(--ease-move), translate var(--t-move) var(--ease-move); }
+  @starting-style { .sheet { opacity: 0; translate: 0 calc(-1 * var(--s2)); } }
   .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s0) var(--s2); min-height: 48px; padding: var(--s1-5) var(--s3-5); border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
   .t { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .v { font: 500 var(--fs-mono) var(--mono); color: var(--live); }

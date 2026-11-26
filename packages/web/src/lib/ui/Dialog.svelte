@@ -40,7 +40,7 @@
 </dialog>
 
 <style>
-  dialog { width: min(440px, calc(100vw - 2 * var(--s4))); padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
+  dialog { width: min(440px, calc(100vw - 2 * var(--s4))); padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--raised); color: var(--ink); box-shadow: var(--lift-hi); }
   dialog::backdrop { background: color-mix(in oklch, var(--belt) 55%, transparent); }
   h2 { margin: 0 0 var(--s3); }
   .actions { display: flex; justify-content: flex-end; gap: var(--s2); margin-top: var(--s5); }

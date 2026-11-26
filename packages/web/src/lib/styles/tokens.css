@@ -15,6 +15,7 @@
   color-scheme: light;
   --bg: oklch(0.952 0.016 85);
   --paper: oklch(0.992 0.006 85);
+  --raised: var(--paper);
   --sunk: oklch(0.93 0.016 85);
   --ink: oklch(0.22 0.02 55);
   --muted: oklch(0.45 0.02 60);
@@ -42,6 +43,7 @@
   color-scheme: dark;
   --bg: oklch(0.19 0.01 60);
   --paper: oklch(0.25 0.012 60);
+  --raised: oklch(0.29 0.013 60);
   --sunk: oklch(0.215 0.011 60);
   --ink: oklch(0.95 0.012 85);
   --muted: oklch(0.78 0.015 80);
