@@ -24,7 +24,7 @@
 <style>
   .sk { display: grid; gap: var(--s3); }
   i {
-    display: block; border-radius: var(--r-inner); background: var(--sunk);
+    display: block; border-radius: var(--r-inner); background: var(--line);
     animation: pulse var(--t-breathe) ease-in-out infinite alternate;
   }
   .item {
