@@ -3,6 +3,7 @@
   import { fileSize } from "#lib/make.js";
   import type { Size } from "#lib/stl-size.js";
   import ErrorDetails from "./ErrorDetails.svelte";
+  import Notice from "./Notice.svelte";
   import StlFit from "./StlFit.svelte";
 
   export let file: File | null = null;
@@ -28,7 +29,7 @@
 
 <div class="up">
 <label
-  class="drop" class:over class:bad={error} class:ready
+  class="drop" class:over class:ready
   on:dragover|preventDefault={() => (over = true)} on:dragleave={() => (over = false)}
   on:drop|preventDefault={(event) => take(event.dataTransfer?.files?.[0])}
 >
@@ -48,8 +49,10 @@
 </label>
 {#if error}
   <div class="fail">
-    <p id="upload-error" class="error" role="alert">{error}</p>
-    <ErrorDetails detail={why} />
+    <Notice tone="err" title="The file didn't upload" role="alert" stamp={error}>
+      <span id="upload-error" slot="message">{error}</span>
+      <ErrorDetails detail={why} />
+    </Notice>
   </div>
 {/if}
 {#if ready && file}<StlFit {file} {bed} {printer} />{/if}
@@ -70,13 +73,11 @@
   @media (hover: hover) { .drop:hover { border-color: var(--ink); } }
   .drop:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .drop.ready { border-style: solid; border-color: var(--ok); }
-  .drop.bad { border-color: var(--err); }
   b { font-size: var(--fs-section); overflow-wrap: anywhere; }
   span { color: var(--muted); }
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .up { display: flex; flex-direction: column; align-items: stretch; }
   .fail { margin: var(--s2) 0 0; }
-  .error { margin: 0; color: var(--err); font-weight: 600; }
   @media (max-width: 759px) { .fail { order: -1; margin: 0 0 var(--s2); } }
   .clear { align-self: flex-start; margin-top: var(--s2); }
 </style>
