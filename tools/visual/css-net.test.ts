@@ -103,7 +103,13 @@ test("a failed shot's error names its CSS requests and Caddy's errors, saved bes
   try {
     const path = join(dir, "s-390.caddy.log");
     const logs = () => '{"level":"error","ts":5,"msg":"aborting with incomplete response"}\n';
-    expect(await noteNetwork("styles not applied", ["a.css answered HTTP 502"], { logs, since: 0, path })).toBe(
+    expect(
+      await noteNetwork("styles not applied", ["a.css answered HTTP 502"], {
+        logs,
+        since: 0,
+        path,
+      }),
+    ).toBe(
       "styles not applied. CSS requests: a.css answered HTTP 502. Caddy logged 1 error line(s) during the shot (s-390.caddy.log)",
     );
     expect(readFileSync(path, "utf8")).toBe(`${logs().trim()}\n`);
