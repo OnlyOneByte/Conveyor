@@ -61,7 +61,10 @@ export const scenes: Scene[] = [
     route: "/jobs/seed-failed",
     ready: "text=didn't finish",
     steps: [
-      { waitFor: "section.note >> text=work dir not removed: /data/jobs/seed-failed is busy" },
+      { waitFor: "section.note p >> text=This job's working files weren't cleaned up." },
+      { absent: "section.note details[open]" },
+      { click: "section.note summary:has-text('Details')" },
+      { waitFor: "section.note pre >> text=work dir not removed: /data/jobs/seed-failed is busy" },
       { wait: 1200 },
     ],
   },

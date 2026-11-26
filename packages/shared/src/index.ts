@@ -3,6 +3,7 @@ export * from "./context.js";
 export * from "./events.js";
 export * from "./exhaustive.js";
 export * from "./job.js";
+export * from "./job-notes.js";
 export * from "./job-view.js";
 export * from "./log-errors.js";
 export * from "./param-schema.js";

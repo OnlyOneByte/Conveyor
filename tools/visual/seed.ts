@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type * as Db from "../../packages/shared/src/db/index.ts";
+import { note, notesText } from "../../packages/shared/src/job-notes.ts";
 
 export const SEEDED_JOBS: Db.SettledJob[] = [
   {
@@ -14,8 +15,10 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
       stage: "transport",
       reason: "elegoo upload failed: Unable to connect. Is the computer able to access the url?",
     },
-    notes:
-      "status stream did not close cleanly: socket hang up; work dir not removed: /data/jobs/seed-failed is busy",
+    notes: notesText([
+      note("streamNotClosed", "socket hang up"),
+      note("workDirNotRemoved", "/data/jobs/seed-failed is busy"),
+    ]),
   },
   {
     id: "seed-canceled",

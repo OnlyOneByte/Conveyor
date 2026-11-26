@@ -25,6 +25,7 @@ export const scenes: Scene[] = [
   touch("touch-receipt-failed", "/jobs/seed-failed", "text=didn't finish", [
     { wait: 800 },
     { targets: `${SHELL}, main` },
+    { marker: "main summary" },
   ]),
   touch("touch-receipt-printed", "/jobs/seed-printed", "text=Print again", [
     { wait: 800 },

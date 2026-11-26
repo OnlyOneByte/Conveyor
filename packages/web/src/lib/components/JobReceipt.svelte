@@ -1,7 +1,9 @@
 <script lang="ts">
   import { announce } from "#lib/announce.js";
   import { API, type JobHistoryEntry } from "#lib/api.js";
+  import { readNote } from "#lib/job-notes.js";
   import { duration, type SettingRow } from "#lib/job-settings.js";
+  import ErrorDetails from "./ErrorDetails.svelte";
 
   export let job: Pick<JobHistoryEntry, "id" | "state"> & Partial<JobHistoryEntry>;
   export let rows: SettingRow[];
@@ -13,6 +15,7 @@
   };
 
   $: id = encodeURIComponent(job.id);
+  $: note = readNote(job.notes);
   $: times = job.timings?.filter((t) => t.durationMs !== undefined) ?? [];
   $: took = times.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
   $: used = [
@@ -35,10 +38,11 @@
 
 <div class="receipt">
   <slot />
-  {#if job.notes?.trim()}
+  {#if note}
     <section class="note">
       <h2>Note</h2>
-      <p>{job.notes.trim()}</p>
+      <p>{note.plain.join(" ")}</p>
+      <ErrorDetails detail={note.raw} />
     </section>
   {/if}
   {#if rows.length}

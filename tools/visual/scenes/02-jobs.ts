@@ -111,7 +111,8 @@ export const scenes: Scene[] = [
     steps: [
       { click: ".pill >> text=Failed" },
       { waitFor: ".pill[aria-pressed='true'] >> text=Failed" },
-      { waitFor: "a.row .note:has-text('Note: status stream did not close cleanly')" },
+      { waitFor: "a.row .note >> text=Note: The printer's status updates didn't end cleanly." },
+      { absent: "a.row .note:has-text('/data/jobs')" },
       { sameLine: ["a.row.s-failed .g", "a.row.s-failed b"] },
       { wait: 600 },
     ],

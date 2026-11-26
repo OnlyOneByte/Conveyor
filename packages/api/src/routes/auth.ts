@@ -1,3 +1,4 @@
+import type { AuthStatus } from "@conveyor/shared/auth-status";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
@@ -38,7 +39,7 @@ export async function registerAuthRoutes(
   limiter: LoginLimiter = loginLimiter(),
   now: () => number = Date.now,
 ): Promise<void> {
-  app.get("/auth/status", PUBLIC_ROUTE, async (req) => {
+  app.get("/auth/status", PUBLIC_ROUTE, async (req): Promise<AuthStatus> => {
     return { authEnabled, authenticated: hasSession(req) };
   });
 

@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
+import type { NoteText } from "../job-notes.js";
 import type { Stage } from "../plugins.js";
 import { type JobRow, rowToJob } from "./job-row.js";
 import { dbGetPrinter } from "./printers.js";
@@ -38,7 +39,7 @@ export interface SettledJob {
   gcodePath?: string;
   timings?: StageTiming[];
   filament?: FilamentUse;
-  notes?: string;
+  notes?: NoteText;
 }
 
 export function dbRecordJob(db: Database, job: SettledJob): void {

@@ -129,9 +129,11 @@ describe("the Jobs list", () => {
     expect(settledRow(timed, null, now).status).toBe("printed in 1 h 13 min");
   });
 
-  test("a settled row carries the job's note, trimmed, and a blank note is left out", () => {
+  test("a settled row carries the job's note in plain words, and a blank note is left out", () => {
     const noted = entry("n", "done", now, { notes: "  work dir not removed: /data/jobs/n  " });
-    expect(settledRow(noted, catalog, now).note).toBe("work dir not removed: /data/jobs/n");
+    expect(settledRow(noted, catalog, now).note).toBe(
+      "This job's working files weren't cleaned up.",
+    );
     expect(
       settledRow(entry("m", "failed", now, { notes: "   " }), catalog, now).note,
     ).toBeUndefined();
