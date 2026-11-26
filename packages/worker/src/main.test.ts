@@ -7,6 +7,8 @@ import { enqueueJob } from "@conveyor/shared/queue";
 import { startWorker } from "./main";
 import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 
+const JOB = "0b0c4b9e-5d33-4c52-9f3a-7f1c2a4e8d10";
+
 const MAIN = join(import.meta.dir, "main.ts");
 const PROFILES = resolve(import.meta.dir, "../../../profiles");
 let dir = "";
@@ -94,7 +96,7 @@ describe("the worker entry point on the sqlite queue", () => {
        VALUES ('busy', 'gridfinity', 'klipper-garage', 'prusa/klipper-pla-0.2', 'printing', 'other', ?, 0, 0)`,
     ).run(Date.now() + 25_000);
     enqueueJob(db, {
-      id: "a",
+      id: JOB,
       request: {
         generator: { id: "gridfinity", params: {} },
         printerId: "klipper-garage",
@@ -102,7 +104,7 @@ describe("the worker entry point on the sqlite queue", () => {
       },
     });
     const row = () =>
-      db.query<Record<string, unknown>, []>("SELECT * FROM jobs WHERE id = 'a'").get() ?? {};
+      db.query<Record<string, unknown>, []>(`SELECT * FROM jobs WHERE id = '${JOB}'`).get() ?? {};
     const proc = spawnMain({ WORKER_CONCURRENCY: "1" });
     try {
       const deadline = Date.now() + 15_000;

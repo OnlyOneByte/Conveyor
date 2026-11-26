@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +18,7 @@ export async function cleanup() {
   await Promise.all(workers.map((w) => w.stop()));
   workers = [];
   logs.length = 0;
+  ids.clear();
   loggedAt.length = 0;
   db.close();
   rmSync(dir, { recursive: true, force: true });
@@ -62,10 +64,21 @@ export function start(opts: HarnessOptions = {}, w: Partial<QueueWorkerOptions> 
   return { h, worker };
 }
 
-export const enqueue = (id: string, printerId = "p1") =>
+const ids = new Map<string, string>();
+export const uid = (alias: string): string => {
+  const known = ids.get(alias) ?? randomUUID();
+  ids.set(alias, known);
+  return known;
+};
+export const enqueueRaw = (id: string, printerId = "p1") =>
   enqueueJob(db, { id, request: { ...req, printerId } });
-export const row = (id: string) =>
-  db.query<Record<string, unknown>, [string]>("SELECT * FROM jobs WHERE id = ?").get(id) ?? {};
+export const enqueue = (alias: string, printerId = "p1") => enqueueRaw(uid(alias), printerId);
+export const jobDir = (alias: string) => join(dir, uid(alias));
+export const sql = (text: string, alias: string, ...rest: (string | number)[]) =>
+  db.query(text).run(uid(alias), ...rest);
+export const row = (alias: string) =>
+  db.query<Record<string, unknown>, [string]>("SELECT * FROM jobs WHERE id = ?").get(uid(alias)) ??
+  {};
 
 export async function until(check: () => boolean, ms = 3000): Promise<void> {
   const deadline = Date.now() + ms;

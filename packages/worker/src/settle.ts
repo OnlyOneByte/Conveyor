@@ -55,6 +55,7 @@ async function clearWorkDir(workDir: string, keepEngineLog: boolean): Promise<vo
 }
 
 async function cleanup(run: Run, keepEngineLog = false): Promise<void> {
+  run.deps.queue?.checkLease();
   const failure = await clearWorkDir(run.opts.workDir, keepEngineLog).then(
     () => undefined,
     (err: unknown) => note("workDirNotRemoved", messageOf(err)),

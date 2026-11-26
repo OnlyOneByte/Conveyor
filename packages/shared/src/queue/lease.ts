@@ -196,3 +196,11 @@ export function releaseLease(
     return cancel ? "canceled" : unsent ? "requeued" : "orphaned";
   });
 }
+
+export function leaseHeld(
+  db: Database,
+  lease: Lease,
+  timing: QueueTiming = DEFAULT_TIMING,
+): boolean {
+  return db.query(`SELECT 1 FROM jobs WHERE ${FENCE}`).get(fenceOf(lease, timing.now())) !== null;
+}

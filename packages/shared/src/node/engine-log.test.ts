@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { existsSync, rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { testCtx } from "../../test/helpers/index.ts";
@@ -83,6 +84,30 @@ test("a work directory that can't hold the log never fails the run, and says so 
     expect(ctx.logs).toHaveLength(1);
     expect(ctx.logs[0]).toStartWith("engine log not written, the job still runs: ");
     expect(ctx.logs[0]).toContain("ENOENT");
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test("the lease is checked once the engine has run, whatever its exit code", async () => {
+  const ctx = testCtx();
+  const lost = new Error("job lease lost");
+  const ran = join(ctx.workDir, "engine-ran");
+  const withLease = {
+    ...ctx,
+    checkLease: () => {
+      if (existsSync(ran)) throw lost;
+    },
+  };
+  try {
+    for (const code of [0, 3]) {
+      rmSync(ran, { force: true });
+      const engine = runEngine("slicer", "sh", ["-c", `touch "$0"; exit ${code}`, ran], withLease);
+      await expect(engine).rejects.toBe(lost);
+    }
+    rmSync(ran, { force: true });
+    const unchecked = runEngine("slicer", "sh", ["-c", 'touch "$0"', ran], ctx);
+    await expect(unchecked).resolves.toEqual({ stderr: "" });
   } finally {
     ctx.cleanup();
   }

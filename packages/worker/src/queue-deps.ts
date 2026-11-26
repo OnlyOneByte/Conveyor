@@ -8,6 +8,7 @@ import {
   inImmediate,
   isCancelRequested,
   type Lease,
+  leaseHeld,
   markSubmitted,
   type QueueTiming,
   readResumeState,
@@ -136,6 +137,9 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
           if (!markSubmitted(db, lease, handle, timing)) throw lose();
         },
         resumeState: () => readResumeState(db, lease, timing),
+        checkLease: () => {
+          if (!leaseHeld(db, lease, timing)) throw lose();
+        },
         failResume: async (): Promise<TerminalState> => {
           dispose();
           if (!failResume(db, lease, timing)) throw lose();

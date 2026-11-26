@@ -1,11 +1,10 @@
 import type { Database } from "bun:sqlite";
 import { lstat, readdir, rm } from "node:fs/promises";
-import { resolve, sep } from "node:path";
 import { DAY_MS, retentionDays, TERMINAL_STATES } from "@conveyor/shared";
+import { inside, JOB_ID } from "./job-folder.js";
 
 export const RETENTION_INTERVAL_MS = 60 * 60 * 1000;
 
-const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl$/i;
 const PART_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl\.part$/i;
 
@@ -77,14 +76,6 @@ export interface Reaped {
   dirs: string[];
   uploads: string[];
   parts: string[];
-}
-
-export function inside(root: string, name: string): string | undefined {
-  const base = resolve(root);
-  const path = resolve(base, name);
-  return path.startsWith(base + sep) && !path.slice(base.length + 1).includes(sep)
-    ? path
-    : undefined;
 }
 
 async function plain(path: string, kind: "dir" | "file"): Promise<boolean> {

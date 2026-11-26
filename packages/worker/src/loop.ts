@@ -14,9 +14,9 @@ import {
   releaseLease,
   renewLease,
 } from "@conveyor/shared/queue";
+import { jobFolder, refusedJobId } from "./job-folder.js";
 import { resumeJob, runJob } from "./pipeline.js";
 import { queueDeps } from "./queue-deps.js";
-import { inside } from "./retention.js";
 import { LeaseLostError, type PipelineDeps, type QueueHooks } from "./run.js";
 
 export type BaseDeps = Omit<PipelineDeps, "publish" | "record" | "cancelRequested" | "queue"> & {
@@ -135,10 +135,17 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       }
       if (tick % renewEvery === 0) void renew(job);
     }, tickMs);
-    const workDir = inside(o.dataDir, jobId);
+    const workDir = jobFolder(o.dataDir, jobId);
     try {
-      if (!workDir)
-        throw new Error(`job id ${JSON.stringify(jobId)} names no folder in the data dir`);
+      if (!workDir) {
+        const reason = refusedJobId(jobId);
+        await q.deps.publish(jobId, "failed", {
+          stage: "generator",
+          error: { stage: "generator", reason },
+        });
+        o.base.log(`job ${jobId}: ${reason}`);
+        return;
+      }
       if (!claimed.resumed) await rm(workDir, { recursive: true, force: true });
       await mkdir(workDir, { recursive: true });
       const log = o.base.logFor?.(jobId) ?? o.base.log;

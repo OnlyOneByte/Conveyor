@@ -23,7 +23,7 @@ export type ModelArtifact = Artifact;    // generator output / slicer input
 export type GcodeArtifact = Artifact;    // slicer output / transport input
 ```
 
-Every stage also gets a `StageCtx` (`jobId`, `workDir`, `report`, `reportUpload`, `confirmStart`, `signal`, `log`) and fails by throwing a
+Every stage also gets a `StageCtx` (`jobId`, `workDir`, `report`, `reportUpload`, `confirmStart`, `checkLease`, `signal`, `log`) and fails by throwing a
 `StageError`; both are described in [modules/shared.md](modules/shared.md#contextts).
 
 ## Common manifest

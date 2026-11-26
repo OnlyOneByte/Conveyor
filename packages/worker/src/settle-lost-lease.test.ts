@@ -56,3 +56,43 @@ test("redis: a run aborted for a lost lease leaves its folder in place", async (
   await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
   expect(readdirSync(dir).sort()).toEqual([ENGINE_LOG, "model.stl"]);
 });
+
+test("sqlite: an engine step's lease check fails the run as a lost lease once the job is taken", async () => {
+  const dir = await workDir();
+  let held: unknown = "unchecked";
+  let taken: unknown = "unchecked";
+  const outcome = (check?: () => void): unknown => {
+    try {
+      check?.();
+      return check ? "held" : "no check";
+    } catch (err) {
+      return err;
+    }
+  };
+  const h = queued({
+    workDir: dir,
+    generate: async (ctx) => {
+      held = outcome(ctx.checkLease);
+      bumpToken();
+      taken = outcome(ctx.checkLease);
+    },
+  });
+  try {
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(held).toBe("held");
+    expect(taken).toBeInstanceOf(LeaseLostError);
+  } finally {
+    cleanup();
+  }
+});
+
+test("redis: stages get no lease check", async () => {
+  let check: unknown = "unset";
+  const h = harness({
+    generate: async (ctx) => {
+      check = ctx.checkLease;
+    },
+  });
+  expect(await h.run()).toBe("done");
+  expect(check).toBeUndefined();
+});

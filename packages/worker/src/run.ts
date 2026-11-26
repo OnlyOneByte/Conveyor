@@ -53,6 +53,7 @@ export interface QueueHooks {
   settleCancel(stopConfirmed: boolean): Promise<TerminalState>;
   resumeState(): ResumeState | null;
   failResume(): Promise<TerminalState>;
+  checkLease(): void;
 }
 
 export interface PipelineDeps {
@@ -161,6 +162,7 @@ export function createRun(opts: RunJobOptions, deps: PipelineDeps): Run {
           bytesTotal,
         }),
       log: deps.log,
+      checkLease: deps.queue && (() => deps.queue?.checkLease()),
     },
   };
   return run;

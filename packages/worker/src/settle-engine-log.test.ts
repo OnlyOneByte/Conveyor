@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type StageCtx, StageError } from "@conveyor/shared";
 import { ENGINE_LOG } from "@conveyor/shared/node";
-import { cleanup, dir, enqueue, row, setup, start, until } from "../test/helpers/loop-harness";
+import { cleanup, enqueue, jobDir, row, setup, start, until } from "../test/helpers/loop-harness";
 import { harness } from "../test/helpers/pipeline-harness";
 
 const LOG = "$ engine --run\n[exited 1]\n";
@@ -78,7 +78,7 @@ describe("sqlite mode: a failed job keeps only its engine log", () => {
       start(stageOpts(stage));
       enqueue(`j-${stage}`);
       await until(() => row(`j-${stage}`).state === "failed");
-      const workDir = join(dir, `j-${stage}`);
+      const workDir = jobDir(`j-${stage}`);
       await until(() => !existsSync(join(workDir, "model.stl")));
       expect(row(`j-${stage}`).stage).toBe(stage);
       expect(readdirSync(workDir)).toEqual([ENGINE_LOG]);
