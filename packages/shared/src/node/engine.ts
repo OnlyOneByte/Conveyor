@@ -72,10 +72,23 @@ export async function runEngine(
   }
 }
 
+function killGroup(pid: number | undefined, ctx: StageCtx): void {
+  if (pid === undefined) return;
+  try {
+    process.kill(-pid, "SIGKILL");
+  } catch (err) {
+    if (!(err instanceof Error && "code" in err && err.code === "ESRCH")) {
+      ctx.log(
+        `engine process group ${pid} not stopped: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+}
+
 function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): Promise<EngineRun> {
   return new Promise((resolve, reject) => {
     const log = openEngineLog(ctx, cmd, args);
-    const child = spawn(cmd, args, { signal: ctx.signal });
+    const child = spawn(cmd, args, { signal: ctx.signal, detached: true });
     let stderr = "";
     let failed = false;
     child.stdout.on("data", (b) => log.write(b.toString()));
@@ -84,6 +97,7 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
       log.write(b.toString());
     });
     child.on("error", (e) => {
+      if (ctx.signal.aborted) killGroup(child.pid, ctx);
       failed = true;
       log.write(`[${e.message}]\n`);
       void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));

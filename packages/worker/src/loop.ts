@@ -8,6 +8,7 @@ import {
   EVENT_RETENTION_MS,
   isCancelRequested,
   type Lease,
+  leaseHeld,
   pruneEvents,
   type QueueTiming,
   reapExpired,
@@ -130,6 +131,7 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       tick++;
       try {
         if (isCancelRequested(o.db, jobId)) job.controller.abort();
+        if (!job.released && !leaseHeld(o.db, job.lease, timing)) lose(job);
       } catch (err) {
         o.base.log(`job ${jobId}: cancel check failed: ${String(err)}`);
       }

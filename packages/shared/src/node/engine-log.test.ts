@@ -10,19 +10,16 @@ test("an engine run writes its command, stdout, stderr and exit to engine.log", 
   try {
     await runEngine("slicer", "sh", ["-c", "echo sliced; echo warned >&2"], ctx);
     await runEngine("slicer", "sh", ["-c", "echo boom >&2; exit 3"], ctx).catch(() => undefined);
-    const log = await readFile(join(ctx.workDir, ENGINE_LOG), "utf8");
-    expect(log).toBe(
-      [
-        "$ sh -c echo sliced; echo warned >&2",
-        "sliced",
-        "warned",
-        "[exited 0]",
-        "$ sh -c echo boom >&2; exit 3",
-        "boom",
-        "[exited 3]",
-        "",
-      ].join("\n"),
-    );
+    const lines = (await readFile(join(ctx.workDir, ENGINE_LOG), "utf8")).split("\n");
+    expect(lines[0]).toBe("$ sh -c echo sliced; echo warned >&2");
+    expect(lines.slice(1, 3).sort()).toEqual(["sliced", "warned"]);
+    expect(lines.slice(3)).toEqual([
+      "[exited 0]",
+      "$ sh -c echo boom >&2; exit 3",
+      "boom",
+      "[exited 3]",
+      "",
+    ]);
   } finally {
     ctx.cleanup();
   }
