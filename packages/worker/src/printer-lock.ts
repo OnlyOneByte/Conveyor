@@ -51,7 +51,7 @@ export interface PrinterLockOptions {
 
 export const printerLockKey = (printerId: string) => `printer:${printerId}:lock`;
 
-const pause = (ms: number, signal: AbortSignal) =>
+export const pause = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
     const timer = setTimeout(done, ms);
     function done() {
