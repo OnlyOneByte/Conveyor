@@ -14,6 +14,7 @@ import {
   type PrintStatus,
   StageError,
 } from "@conveyor/shared";
+import { prunePrinter } from "./printer-files.js";
 import {
   checkpoint,
   enterStage,
@@ -50,15 +51,27 @@ export async function printStage(
     if ((await queue.takeSlot(run.signal)) === "canceled") throw new JobCanceledError();
   }
   const lock = queue ? undefined : run.deps.printerLock;
-  if (!lock) return sendAndWatch(run, target, gcode);
+  if (!lock) return sendWatchAndPrune(run, target, gcode);
   await checkpoint(run);
   const held = await lock.acquire(target.printerId, run.signal);
   run.ctx.confirmStart = () => held.confirm();
   try {
-    return await sendAndWatch(run, target, gcode);
+    return await sendWatchAndPrune(run, target, gcode);
   } finally {
     run.ctx.confirmStart = undefined;
     await held.release();
+  }
+}
+
+async function sendWatchAndPrune(
+  run: Run,
+  target: JobTarget,
+  gcode: GcodeArtifact,
+): Promise<PrintOutcome> {
+  try {
+    return await sendAndWatch(run, target, gcode);
+  } finally {
+    await prunePrinter(run);
   }
 }
 
@@ -76,8 +89,10 @@ async function sendAndWatch(
   run.print = attempt;
   attempt.handle = await transport.submit(gcode, printer, run.ctx).catch((err) => {
     if (err instanceof PrintNotStartedError) attempt.notStarted = true;
-    if (err instanceof PrintMayHaveStartedError)
+    if (err instanceof PrintMayHaveStartedError) {
+      attempt.mayHaveStarted = true;
       run.deps.holdPrinter?.(run.opts.jobId, target.printerId, err.reason);
+    }
     throw err;
   });
   await queue?.markSubmitted(attempt.handle);

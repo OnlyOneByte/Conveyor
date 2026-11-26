@@ -64,6 +64,7 @@ export interface PipelineDeps {
   printerSeen(printerId: string): void;
   printerLock?: PrinterLock;
   holdPrinter?(jobId: string, printerId: string, reason: string): void;
+  printerFilesToKeep?(printerId: string, jobId: string): string[];
   readFilament(gcodePath: string): Promise<FilamentUse | undefined>;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
@@ -104,6 +105,7 @@ export interface PrintAttempt {
   ref: string;
   handle?: PrintHandle;
   notStarted?: boolean;
+  mayHaveStarted?: boolean;
 }
 
 export interface Run {

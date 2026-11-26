@@ -16,6 +16,7 @@ import {
   requirePrinterAddress,
   uploadSignal,
 } from "@conveyor/shared/node";
+import { pruneLocalFiles } from "./prune.js";
 import { elegooReadiness } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
@@ -90,6 +91,12 @@ export const elegoo: TransportPlugin = {
     await requirePrinterAddress(handle.address);
     const mainboardId = handle.deviceId ?? handle.printerId;
     await sendCommand(handle.address, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
+  },
+
+  async pruneFiles(target, keep, signal) {
+    if (STUB) return [];
+    await requirePrinterAddress(target.address);
+    return pruneLocalFiles(target.address, mainboardIdOf(target), keep, signal);
   },
 };
 

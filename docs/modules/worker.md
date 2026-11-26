@@ -69,6 +69,16 @@ and refuses the job with `printer is on hold: <reason>` while one is set. When a
 `PrintMayHaveStartedError` (Moonraker's print start gave no answer), `printStage` holds the printer in either queue
 mode, with that error as the reason, until someone releases it.
 
+## printer-files.ts
+
+After every print `printStage` starts settles (done or failed), and while the printer lock or the SQLite slot is
+still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
+from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
+earlier jobs from `dbListJobs`, up to that many; at 0 it keeps none, so the job's own file goes too. A canceled
+run, or one whose submit threw `PrintMayHaveStartedError`, is skipped. A prune that throws or passes its 60 s
+timeout is logged in the worker log and never fails the job. `printerKeepFiles` parses the variable when the
+worker starts and stops it, naming the variable, on anything but a whole number 0 or more.
+
 ## sqlite.ts
 
 `startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the

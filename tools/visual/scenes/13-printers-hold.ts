@@ -30,6 +30,11 @@ const heldPage = (name: string, extra: Step[] = []): Scene => ({
 
 export const scenes: Scene[] = [
   heldPage("printers-hold"),
+  heldPage("printers-hold-details", [
+    { click: "text=Details" },
+    { waitFor: "details[open] >> text=moonraker gave no answer" },
+    { wait: 300 },
+  ]),
   heldPage("printers-hold-confirm", [
     { click: "role=button[name='Release hold']" },
     { waitFor: "dialog[open] >> text=Release the hold on Garage Klipper?" },

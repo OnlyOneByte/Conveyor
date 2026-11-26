@@ -19,6 +19,7 @@ import {
   uploadSignal,
 } from "@conveyor/shared/node";
 import { poll, positiveSetting, unresolved } from "./poll.ts";
+import { pruneGcodes } from "./prune.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
 import { moonrakerReadiness } from "./ready.ts";
 
@@ -195,6 +196,13 @@ export const moonraker: TransportPlugin = {
     });
     refuseRedirect(res, "moonraker cancel");
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);
+  },
+
+  async pruneFiles(target, keep, signal) {
+    if (STUB) return [];
+    await requirePrinterAddress(target.address);
+    const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
+    return pruneGcodes(baseUrl(target.address), apiKeyHeaders(target), keep, timeoutMs, signal);
   },
 };
 

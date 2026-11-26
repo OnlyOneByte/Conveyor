@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type PrintProgress, type PrintStatus, StageError } from "@conveyor/shared";
 import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
-import { AckFrame, decodeFrame } from "./frames.js";
+import { AckFrame, decodeFrame, ReplyFrame } from "./frames.js";
 import {
   buildCommand,
   exhaustive,
@@ -52,22 +52,27 @@ export function ackCode(raw: string, requestId: string): SdcpRead<number> {
   return { kind: "frame", frame: data?.Data?.Ack ?? data?.Ack ?? 0 };
 }
 
+function replyData(raw: string): unknown {
+  const decoded = decodeFrame(ReplyFrame, raw);
+  return decoded.kind === "decoded" ? decoded.value.Data?.Data : undefined;
+}
+
 export function sendCommand(
   address: string,
   { mainboardId, cmd, data }: SdcpCommand,
   requireAck = false,
-): Promise<void> {
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(socketUrl(address));
     const requestId = randomUUID();
     let settled = false;
-    const done = (err?: Error) => {
+    const done = (err?: Error, reply?: unknown) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       ws.close();
       if (err) reject(err);
-      else resolve();
+      else resolve(reply);
     };
     const timer = setTimeout(
       () => done(new StageError("transport", `elegoo cmd ${cmd} timed out`)),
@@ -86,11 +91,9 @@ export function sendCommand(
             new StageError("transport", `elegoo cmd ${cmd}: unreadable reply: ${reply.reason}`),
           );
         case "frame":
-          return done(
-            reply.frame === 0
-              ? undefined
-              : new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${reply.frame})`),
-          );
+          return reply.frame === 0
+            ? done(undefined, replyData(String(ev.data)))
+            : done(new StageError("transport", `elegoo cmd ${cmd} rejected (ack ${reply.frame})`));
         default:
           return exhaustive(reply);
       }

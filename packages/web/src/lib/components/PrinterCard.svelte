@@ -3,6 +3,7 @@
   import { secretFieldFor } from "#lib/printer-secrets.js";
   import type { PrinterCard } from "#lib/printer-status.js";
   import Confirm from "./Confirm.svelte";
+  import ErrorDetails from "./ErrorDetails.svelte";
 
   export let printer: CatalogPrinter;
   export let card: PrinterCard;
@@ -49,7 +50,7 @@
     <div class="hold" role="status">
       <h3>On hold</h3>
       <p>Conveyor stopped sending jobs here because it couldn't tell whether a print started.</p>
-      {#if printer.hold.reason}<p class="why">{printer.hold.reason}</p>{/if}
+      <ErrorDetails detail={printer.hold.reason || null} />
       {#if refused}<p class="refused" role="alert">The hold wasn't released: {refused}</p>{/if}
       <button class="btn" type="button" on:click={() => (asking = true)}>Release hold</button>
     </div>
@@ -121,7 +122,6 @@
   @media (pointer: coarse) { ol a, .now a { min-height: var(--tap); } }
   .hold { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s3); border: 1.5px solid var(--err); border-radius: var(--r-inner); }
   .hold h3 { color: var(--err); font-size: var(--fs-body); }
-  .hold .why { font: 500 var(--fs-chip) var(--mono); color: var(--muted); overflow-wrap: anywhere; }
   .hold .refused { color: var(--err); }
   .hold .btn { align-self: flex-start; min-height: var(--tap); margin-top: var(--s1); padding: 0 var(--s4); border-color: var(--field-line); }
   .foot { display: flex; align-items: center; gap: var(--s2); margin-top: auto; color: var(--muted); font-size: var(--fs-chip); }

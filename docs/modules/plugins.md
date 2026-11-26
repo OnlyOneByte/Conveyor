@@ -185,8 +185,15 @@ dropped. Two guards apply to every upload:
     or "Conveyor couldn't check that the printer is free, so it didn't send the job." (`web/src/lib/job-failure.ts`).
 - Both transports upload the g-code to the printer as `conveyor-<jobId>.gcode` (`printerFileName` in
   `@conveyor/shared`) and start that name, so two jobs sent to one printer never overwrite each other's file.
-  The handle's `ref` is that name. Conveyor never deletes files from the printer, so one file per job stays
-  there until someone deletes it ([#596](https://github.com/OnlyOneByte/Conveyor/issues/596)).
+  The handle's `ref` is that name.
+- Both implement `pruneFiles(target, keep, signal)`, which the worker calls after a print settles
+  ([worker.md](worker.md#printer-filests)). It reads what the printer has loaded, lists its top-level files,
+  and deletes those `filesToPrune` (`@conveyor/shared`) picks: a whole name matching
+  `conveyor-[A-Za-z0-9_-]+.gcode`, not in `keep`, and not the loaded file. A printer state it can't read, or a
+  busy printer that names no file, deletes nothing. Moonraker reads `print_stats.state` and `filename`, lists
+  `GET /server/files/list?root=gcodes` and sends `DELETE /server/files/gcodes/<name>` per file. Elegoo reads the
+  status push's `PrintInfo.Filename`, lists `Cmd 258` with `Url: "/local"` (skipping folders, `type` 0) and
+  deletes with one `Cmd 259`; a path in its `ErrData` fails the call. Neither has run on hardware yet.
 - Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
   `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in

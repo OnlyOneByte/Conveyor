@@ -35,14 +35,14 @@ test("two jobs to one printer upload and start their own files", async () => {
     report: () => {},
     log: () => {},
   });
-  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+  const target = { id: "p", transportId: "moonraker", address: "192.0.2.9:7125", secrets: {} };
   const first = await moonraker.submit({ path, format: "gcode" }, target, ctx("a1"));
   const second = await moonraker.submit({ path, format: "gcode" }, target, ctx("b2"));
   expect([first.ref, second.ref]).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
   expect(uploaded).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
   expect(starts).toEqual([
-    "http://10.0.0.9:7125/printer/print/start?filename=conveyor-a1.gcode",
-    "http://10.0.0.9:7125/printer/print/start?filename=conveyor-b2.gcode",
+    "http://192.0.2.9:7125/printer/print/start?filename=conveyor-a1.gcode",
+    "http://192.0.2.9:7125/printer/print/start?filename=conveyor-b2.gcode",
   ]);
 });
 
@@ -68,9 +68,9 @@ test("a start the worker can no longer confirm uploads but never starts the prin
       throw new PrintNotStartedError("the printer lock was lost");
     },
   };
-  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+  const target = { id: "p", transportId: "moonraker", address: "192.0.2.9:7125", secrets: {} };
   await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
     PrintNotStartedError,
   );
-  expect(urls).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
+  expect(urls).toEqual(["http://192.0.2.9:7125/server/files/upload"]);
 });

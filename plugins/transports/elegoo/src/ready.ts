@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { type PrinterReadiness, PrintNotStartedError } from "@conveyor/shared";
-import { buildCommand, parsePushFrame, SDCP_CMD, type SdcpStatusFrame } from "./sdcp.js";
+import {
+  buildCommand,
+  parsePushFrame,
+  SDCP_CMD,
+  type SdcpPush,
+  type SdcpStatusFrame,
+} from "./sdcp.js";
 import { socketUrl } from "./socket.js";
 
 export const READY_TIMEOUT_MS = 15000;
@@ -15,12 +21,22 @@ export function elegooState(status: SdcpStatusFrame): PrinterReadiness {
   return !active && SETTLED.has(status.printStatus) ? "idle" : "printing";
 }
 
-export function elegooReadiness(
+export async function elegooReadiness(
   address: string,
   mainboardId: string,
   timeoutMs = READY_TIMEOUT_MS,
   signal?: AbortSignal,
 ): Promise<PrinterReadiness> {
+  const push = await elegooStatusOnce(address, mainboardId, timeoutMs, signal);
+  return push.kind === "error" ? "error" : elegooState(push.status);
+}
+
+export function elegooStatusOnce(
+  address: string,
+  mainboardId: string,
+  timeoutMs = READY_TIMEOUT_MS,
+  signal?: AbortSignal,
+): Promise<SdcpPush> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new PrintNotStartedError("canceled before upload"));
     const ws = new WebSocket(socketUrl(address));
@@ -48,7 +64,7 @@ export function elegooReadiness(
       const read = parsePushFrame(String(ev.data));
       if (read.kind !== "frame") return;
       finish();
-      resolve(read.frame.kind === "error" ? "error" : elegooState(read.frame.status));
+      resolve(read.frame);
     };
     ws.onerror = () => fail("socket error");
     ws.onclose = () => fail("socket closed before a status arrived");

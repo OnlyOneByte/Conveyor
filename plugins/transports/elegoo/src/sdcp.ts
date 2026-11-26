@@ -5,6 +5,8 @@ export const SDCP_CMD = {
   ATTRIBUTES: 1,
   START_PRINT: 128,
   STOP_PRINT: 130,
+  FILE_LIST: 258,
+  DELETE_FILES: 259,
 } as const;
 
 export type SdcpRead<T> =
@@ -45,6 +47,7 @@ export interface SdcpStatusFrame {
   totalLayer: number | null;
   currentTicks: number | null;
   totalTicks: number | null;
+  filename?: string;
 }
 
 export type SdcpPush =
@@ -71,6 +74,7 @@ function readStatus(data: unknown, buf: string): SdcpRead<SdcpPush> {
     currentTicks: pi.CurrentTicks ?? null,
     totalTicks: pi.TotalTicks ?? null,
   };
+  if (pi.Filename) status.filename = pi.Filename;
   return { kind: "frame", frame: { kind: "status", status } };
 }
 

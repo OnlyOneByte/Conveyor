@@ -13,6 +13,7 @@ const QueryReply = z.object({
             .object({
               state: z.string().optional(),
               message: z.string().optional(),
+              filename: z.string().optional().catch(undefined),
               print_duration: z.number().optional().catch(undefined),
               info: z
                 .object({ current_layer: count, total_layer: count })

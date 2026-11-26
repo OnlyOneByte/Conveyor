@@ -40,6 +40,7 @@ export interface HarnessOptions {
   ) => AsyncIterable<PrintStatus>;
   cancel?: ((handle: PrintHandle, target?: PrinterTarget) => Promise<void>) | null;
   handleFor?: (target: PrinterTarget, ref: string) => PrintHandle;
+  pruneFiles?: TransportPlugin["pruneFiles"];
   cancelRequested?: () => Promise<boolean>;
   record?: () => void;
   profileCleanup?: () => Promise<void>;
@@ -81,6 +82,7 @@ function buildTransport(h: Harness, opts: HarnessOptions): TransportPlugin {
     },
     status: opts.status ?? doneOnly,
     handleFor: opts.handleFor,
+    pruneFiles: opts.pruneFiles,
   };
   if (opts.cancel !== null) {
     const custom = opts.cancel;

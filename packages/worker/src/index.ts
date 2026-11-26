@@ -17,6 +17,7 @@ import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
+import { filesToKeep, printerKeepFiles } from "./printer-files.js";
 import { printerLock, redisLockStore } from "./printer-lock.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
@@ -69,6 +70,7 @@ export function startRedisWorker(
 ): RedisWorker {
   const url = env.REDIS_URL ?? "redis://redis:6379";
   const dataDir = env.DATA_DIR ?? "/data";
+  const keepFiles = printerKeepFiles(env);
   const db = () => openDb(env.DB_PATH);
   const connect = (name: string, options?: RedisOptions) =>
     logErrors(deps.connect(url, options), name);
@@ -141,6 +143,8 @@ export function startRedisWorker(
           printerLock: printers,
           holdPrinter: (holdJob, printerId, reason) =>
             holdPrinter(db(), { printerId, jobId: holdJob, reason, at: Date.now() }),
+          printerFilesToKeep: (printerId, keepJob) =>
+            filesToKeep(db(), keepFiles, printerId, keepJob),
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
