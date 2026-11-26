@@ -188,7 +188,8 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
 - A failed job, in either queue mode, removes everything in its work directory but `engine.log`, so the job
   page keeps its **Engine log** download; a failure before any engine ran removes the whole directory. A
   canceled job removes it all. The retention reaper removes what a failed job kept, like any finished job's
-  folder.
+  folder. A job the queue reaper cancels without a worker (`queue/reaper.ts`) keeps whatever its folder holds
+  until retention.
 
 ## loop.ts
 
@@ -197,7 +198,10 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
 - **Claim.** Every `claimIdleMs` (1 s), and at once when a job leaves engine work or ends, it claims while
   fewer than `concurrency` (`WORKER_CONCURRENCY`) of its jobs run an engine. A job counts from its claim
   until it reaches the printer slot; a job waiting at the slot, on the printer or resumed does not count.
-  A claimed orphan runs `resumeJob`, any other job `runJob`, in `<dataDir>/<jobId>`.
+  A claimed orphan runs `resumeJob`, any other job `runJob`, in `<dataDir>/<jobId>`. Before `runJob` the
+  folder is emptied, so a requeued job never reuses the run before's model, g-code or `engine.log`: a slicer
+  that exits 0 without writing fails the job instead of passing on the old file. A resumed job keeps its
+  folder.
 - **Run timer.** Each job has one timer, every `tickMs` (1 s). Each tick reads `isCancelRequested` and aborts
   the run when it is set, so a cancel reaches a running engine within a second. Every `renewEvery`-th tick
   (10th) renews the lease.

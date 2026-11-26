@@ -1,5 +1,5 @@
 import { type Database, SQLiteError } from "bun:sqlite";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -137,6 +137,7 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
     }, tickMs);
     const workDir = join(o.dataDir, jobId);
     try {
+      if (!claimed.resumed) await rm(workDir, { recursive: true, force: true });
       await mkdir(workDir, { recursive: true });
       const log = o.base.logFor?.(jobId) ?? o.base.log;
       const deps: PipelineDeps = { ...o.base, ...q.deps, log };
