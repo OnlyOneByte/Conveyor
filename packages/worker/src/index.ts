@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { buildRegistry } from "@conveyor/plugin-registry";
@@ -64,14 +65,34 @@ function requestOf(data: unknown): JobRequest {
   };
 }
 
+type PrinterDeps = Pick<
+  PipelineDeps,
+  "resolveJobTarget" | "resolvePrinter" | "printerSeen" | "holdPrinter" | "printerFilesToKeep"
+>;
+
+export function redisPrinterDeps(
+  db: () => Database,
+  env: Record<string, string | undefined>,
+): PrinterDeps {
+  const keepFiles = printerKeepFiles(env);
+  return {
+    resolveJobTarget: (r) => dbResolveJobTarget(db(), r.printerId, r.profileId),
+    resolvePrinter: async (printerId) => resolvePrinterTarget(db(), printerId),
+    printerSeen: (printerId) => markPrinterSeen(db(), printerId),
+    holdPrinter: (jobId, printerId, reason) =>
+      holdPrinter(db(), { printerId, jobId, reason, at: Date.now() }),
+    printerFilesToKeep: (printerId, jobId) => filesToKeep(db(), keepFiles, printerId, jobId),
+  };
+}
+
 export function startRedisWorker(
   env: Record<string, string | undefined>,
   deps: RedisWorkerDeps = defaultDeps,
 ): RedisWorker {
   const url = env.REDIS_URL ?? "redis://redis:6379";
   const dataDir = env.DATA_DIR ?? "/data";
-  const keepFiles = printerKeepFiles(env);
   const db = () => openDb(env.DB_PATH);
+  const printerDeps = redisPrinterDeps(db, env);
   const connect = (name: string, options?: RedisOptions) =>
     logErrors(deps.connect(url, options), name);
   const connection = connect("queue connection", { maxRetriesPerRequest: null });
@@ -137,14 +158,8 @@ export function startRedisWorker(
           registry,
           publish,
           record: recordTerminal,
-          resolveJobTarget: (r) => dbResolveJobTarget(db(), r.printerId, r.profileId),
-          resolvePrinter: async (printerId) => resolvePrinterTarget(db(), printerId),
-          printerSeen: (printerId) => markPrinterSeen(db(), printerId),
+          ...printerDeps,
           printerLock: printers,
-          holdPrinter: (holdJob, printerId, reason) =>
-            holdPrinter(db(), { printerId, jobId: holdJob, reason, at: Date.now() }),
-          printerFilesToKeep: (printerId, keepJob) =>
-            filesToKeep(db(), keepFiles, printerId, keepJob),
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,

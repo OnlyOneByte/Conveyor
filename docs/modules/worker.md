@@ -90,7 +90,8 @@ printers from that database, as the BullMQ worker does from its own connection.
 The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`. `startRedisWorker(env, deps)` reads `REDIS_URL`,
 `DATA_DIR`, `DB_PATH` and `WORKER_CONCURRENCY` from `env`; `deps` supplies the Redis clients, the work-dir
 `mkdir` and the queue name, so tests run it on real Redis with their own queue. `stop()` closes the worker and
-its two connections.
+its two connections. `redisPrinterDeps(db, env)` builds the job's printer lookups, hold and keep set the way
+`sqliteBase` does, parsing `CONVEYOR_PRINTER_KEEP_FILES` before any Redis connection is opened.
 
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
