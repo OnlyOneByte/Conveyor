@@ -16,20 +16,23 @@
   let host: HTMLDivElement;
   let editor: EditorHandle | null = null;
   let shown = file;
-  let failed = false;
+  let [failed, busy] = [false, false];
 
   async function load() {
+    if (busy) return;
+    busy = true;
+    const module = await import("#lib/code-editor.js").catch(() => null);
+    busy = false;
+    if (!module) {
+      failed = true;
+      return;
+    }
     failed = false;
     await tick();
-    try {
-      const { createEditor } = await import("#lib/code-editor.js");
-      const check = (t: string) => diagnose(t);
-      editor = createEditor(host, { text, lang, label, described, change, diagnose: check });
-      ready = true;
-      host.querySelector<HTMLElement>(".cm-content")?.focus();
-    } catch {
-      failed = true;
-    }
+    const check = (t: string) => diagnose(t);
+    editor = module.createEditor(host, { text, lang, label, described, change, diagnose: check });
+    ready = true;
+    host.querySelector<HTMLElement>(".cm-content")?.focus();
   }
 
   onMount(load);
@@ -45,7 +48,7 @@
 {#if failed}
   <Notice tone="warn" title="You're offline" role="alert">
     <span>This profile opens once Conveyor is reachable again.</span>
-    <button slot="action" class="btn" type="button" on:click={load}>Try again</button>
+    <button slot="action" class="btn" type="button" aria-disabled={busy} on:click={load}>{busy ? "Trying…" : "Try again"}</button>
   </Notice>
 {:else}
   <div class="code" class:bad={invalid} bind:this={host}>

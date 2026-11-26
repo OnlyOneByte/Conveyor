@@ -190,7 +190,7 @@ export const scenes: Scene[] = [
       { absent: ".code" },
       { press: "Control+s" },
       { click: "button:has-text('Try again')" },
-      { waitFor: "text=You're offline", timeout: 5000 },
+      { waitFor: ".notice button:focus >> text=Try again", timeout: 5000 },
       { wait: 500 },
       { absent: "dialog[open]" },
       { unsent: "*" },
