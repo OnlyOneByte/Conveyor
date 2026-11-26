@@ -1,0 +1,1 @@
+`computed` fails unless its target's computed `property` matches the regular expression `matches`. With `pseudo` (such as `"::before"`), it reads that pseudo-element instead. `printers` uses it to keep the Offline chip's mark a slashed ring: its `::before` must draw a `linear-gradient`. That way Offline differs from Busy and Ready by shape, not only by colour (WCAG 1.4.1).

@@ -64,8 +64,16 @@
   .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-chip); white-space: nowrap; }
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .pill.ready { color: var(--ok); }
-  .pill.busy { color: var(--live); }
+  .pill.busy {
+    border-color: color-mix(in oklch, var(--live) 80%, var(--paper));
+    background: color-mix(in oklch, var(--live) 14%, var(--paper)); color: var(--ink);
+  }
+  .pill.busy::before { background: var(--live); }
   .pill.offline { color: var(--err); }
+  .pill.offline::before {
+    box-sizing: border-box; border: 1.5px solid currentColor;
+    background: linear-gradient(45deg, transparent 42%, currentColor 42% 58%, transparent 58%);
+  }
   .pill.checking { color: var(--muted); }
   .pill.checking::before { box-sizing: border-box; background: none; border: 1.5px solid currentColor; }
   .now { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
