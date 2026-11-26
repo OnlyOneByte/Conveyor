@@ -1,1 +1,1 @@
-`release` lets go of every request a `stall` step for the same glob is holding, and fails if no `stall` names it. The `loading-*` scenes use it once their skeleton has been checked.
+`release` lets go of every request a `stall` step for the same glob is holding. It fails if no `stall` names that glob, or if no request ever reached it, so a glob that matches nothing can't pass by accident. The `loading-*` scenes use it once their skeleton has been checked.

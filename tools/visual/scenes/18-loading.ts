@@ -32,7 +32,7 @@ export const scenes: Scene[] = [
     "loading-make",
     "/settings",
     "/",
-    "**/api/catalog/generators",
+    "**/api/generators",
     "Loading Make",
     "h1 >> text=What are we making?",
   ),
