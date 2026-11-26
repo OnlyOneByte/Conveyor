@@ -89,10 +89,10 @@
   }
   fieldset + fieldset { margin-top: var(--s4); }
   .label { padding: 0; }
-  .pills { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .pills { --row: 42px; display: flex; flex-wrap: wrap; gap: var(--s2); }
   .pill {
     display: inline-flex; align-items: center; gap: var(--s2);
-    min-height: 42px; padding: 0 var(--s4);
+    min-height: var(--row); padding: 0 var(--s4);
     border: 1.5px solid var(--field-line); border-radius: var(--r-pill); font-weight: 600; cursor: pointer;
   }
   .pill { position: relative; max-width: 100%; min-width: 0; }
@@ -101,7 +101,8 @@
   }
   .pill span { flex: none; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .many {
-    flex-direction: column; flex-wrap: nowrap; max-height: calc(var(--s1-5) + 4.5 * 42px + 4 * var(--s2));
+    flex-direction: column; flex-wrap: nowrap;
+    max-height: calc(var(--s1-5) + 4.5 * var(--row) + 4 * var(--s2));
     overflow-y: auto; overscroll-behavior: contain; padding: var(--s1-5); scrollbar-gutter: stable;
   }
   .many .pill { flex: none; justify-content: space-between; border-radius: var(--r-control); }
@@ -111,5 +112,5 @@
   input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .note { margin: 0; color: var(--muted); }
   .live:empty { position: absolute; }
-  @media (pointer: coarse) { .pill { min-height: var(--tap); } }
+  @media (pointer: coarse) { .pills { --row: var(--tap); } }
 </style>
