@@ -69,6 +69,22 @@ and refuses the job with `printer is on hold: <reason>` while one is set. When a
 `PrintMayHaveStartedError` (Moonraker's print start gave no answer), `printStage` holds the printer in either queue
 mode, with that error as the reason, until someone releases it.
 
+## printer-files.ts
+
+After every print `printStage` starts settles (done or failed), and while the printer lock or the SQLite slot is
+still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
+from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
+earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`, which drops rows whose stage is `generator` or `slicer`; a finished job is recorded with no stage), up to that many. Jobs
+that failed while generating or slicing never put a file on the printer, so they don't use up a place. At 0 it
+names none, but the transport still spares whatever file the printer has loaded, and Klipper keeps a finished
+print's file loaded, so on Moonraker that file goes at a later cleanup rather than at settle. The prune is
+skipped for a canceled run, a submit that threw `PrintNotStartedError` (refused, or its lock lost before START)
+or `PrintMayHaveStartedError`. Just before pruning it calls `ctx.confirmStart()`, the Redis lock's token check,
+and leaves the files alone if the lock was lost, so a job that lost the printer never deletes the file the
+job now holding it uploaded. A prune that throws or passes its 60 s timeout is logged in the worker log, naming
+any files it did remove, and never fails the job. `printerKeepFiles` parses the variable when the worker starts
+and stops it, naming the variable, on anything but a whole number 0 or more.
+
 ## sqlite.ts
 
 `startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the
@@ -80,7 +96,8 @@ printers from that database, as the BullMQ worker does from its own connection.
 The BullMQ worker, used when `CONVEYOR_QUEUE` is `redis`. `startRedisWorker(env, deps)` reads `REDIS_URL`,
 `DATA_DIR`, `DB_PATH` and `WORKER_CONCURRENCY` from `env`; `deps` supplies the Redis clients, the work-dir
 `mkdir` and the queue name, so tests run it on real Redis with their own queue. `stop()` closes the worker and
-its two connections.
+its two connections. `redisPrinterDeps(db, env)` builds the job's printer lookups, hold and keep set the way
+`sqliteBase` does, parsing `CONVEYOR_PRINTER_KEEP_FILES` before any Redis connection is opened.
 
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not

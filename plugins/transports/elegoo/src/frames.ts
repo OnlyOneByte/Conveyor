@@ -57,6 +57,7 @@ export const StatusData = z
         CurrentStatus: z.union([z.array(z.number()), z.number()]).optional(),
         PrintInfo: z
           .object({
+            Filename: z.string().optional().catch(undefined),
             Status: reading,
             Progress: reading,
             CurrentLayer: reading,
@@ -78,4 +79,8 @@ const AckFields = z.object({ RequestID: text, Ack: count });
 
 export const AckFrame = z.object({
   Data: AckFields.extend({ Data: AckFields.optional() }).optional(),
+});
+
+export const ReplyFrame = z.object({
+  Data: z.object({ Data: z.unknown().optional() }).optional(),
 });

@@ -151,8 +151,11 @@ export interface TransportPlugin extends PluginManifest {
   status(handle: PrintHandle, signal?: AbortSignal, target?: PrinterTarget): AsyncIterable<PrintStatus>; // stop when signal aborts
   cancel?(handle: PrintHandle, target?: PrinterTarget): Promise<void>; // resolve only once the printer confirmed the stop
   handleFor?(target: PrinterTarget, ref: string): PrintHandle; // handle for a submit() that never returned
+  pruneFiles?(target: PrinterTarget, keep: ReadonlySet<string>, signal: AbortSignal): Promise<string[]>; // delete Conveyor's old files, return their names
 }
 ```
+
+`pruneFiles()` may delete only names `filesToPrune` (from `@conveyor/shared`) returns, so it never touches a file Conveyor didn't name, one in `keep`, or the one the printer has loaded. It throws, deleting nothing, when it can't tell what is loaded.
 
 The worker passes the job's printer, secrets included, as `target` to `status()` and `cancel()`, so a transport can authenticate every request the way `submit()` did. The handle is stored with the job, so keep secrets off it.
 

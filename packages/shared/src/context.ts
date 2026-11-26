@@ -13,6 +13,22 @@ export interface StageCtx {
 export const printerFileName = (jobId: string): string =>
   `conveyor-${jobId.replace(/[^A-Za-z0-9-]/g, "_")}.gcode`;
 
+const PRINTER_FILE = /^conveyor-[A-Za-z0-9_-]+\.gcode$/;
+
+const baseName = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+export function filesToPrune(
+  paths: readonly string[],
+  keep: ReadonlySet<string>,
+  printing: string | undefined,
+): string[] {
+  const busy = printing === undefined ? undefined : baseName(printing);
+  return paths.filter((path) => {
+    const name = baseName(path);
+    return PRINTER_FILE.test(name) && !keep.has(name) && name !== busy;
+  });
+}
+
 export class StageError extends Error {
   readonly stage: Stage;
   readonly reason: string;

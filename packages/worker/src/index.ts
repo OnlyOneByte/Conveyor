@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { buildRegistry } from "@conveyor/plugin-registry";
@@ -9,7 +10,7 @@ import {
   logErrors,
   StageError,
 } from "@conveyor/shared";
-import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbResolveJobTarget, openDb, type SettledJob } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
 import { holdPrinter, printerHoldReason } from "@conveyor/shared/queue";
 import { type Job, Queue, Worker } from "bullmq";
@@ -17,6 +18,7 @@ import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
+import { filesToKeep, printerKeepFiles } from "./printer-files.js";
 import { printerLock, redisLockStore } from "./printer-lock.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
@@ -63,6 +65,44 @@ function requestOf(data: unknown): JobRequest {
   };
 }
 
+export function settledJob(jobId: string, req: JobRequest, extra: TerminalRecord): SettledJob {
+  return {
+    id: jobId,
+    generatorId: req.generator.id,
+    params: req.generator.params,
+    printerId: req.printerId,
+    profileId: req.profileId,
+    state: extra.state,
+    stage: extra.stage ?? null,
+    error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
+    modelPath: extra.modelPath,
+    gcodePath: extra.gcodePath,
+    timings: extra.timings,
+    filament: extra.filament,
+    notes: extra.notes,
+  };
+}
+
+type PrinterDeps = Pick<
+  PipelineDeps,
+  "resolveJobTarget" | "resolvePrinter" | "printerSeen" | "holdPrinter" | "printerFilesToKeep"
+>;
+
+export function redisPrinterDeps(
+  db: () => Database,
+  env: Record<string, string | undefined>,
+): PrinterDeps {
+  const keepFiles = printerKeepFiles(env);
+  return {
+    resolveJobTarget: (r) => dbResolveJobTarget(db(), r.printerId, r.profileId),
+    resolvePrinter: async (printerId) => resolvePrinterTarget(db(), printerId),
+    printerSeen: (printerId) => markPrinterSeen(db(), printerId),
+    holdPrinter: (jobId, printerId, reason) =>
+      holdPrinter(db(), { printerId, jobId, reason, at: Date.now() }),
+    printerFilesToKeep: (printerId, jobId) => filesToKeep(db(), keepFiles, printerId, jobId),
+  };
+}
+
 export function startRedisWorker(
   env: Record<string, string | undefined>,
   deps: RedisWorkerDeps = defaultDeps,
@@ -70,6 +110,7 @@ export function startRedisWorker(
   const url = env.REDIS_URL ?? "redis://redis:6379";
   const dataDir = env.DATA_DIR ?? "/data";
   const db = () => openDb(env.DB_PATH);
+  const printerDeps = redisPrinterDeps(db, env);
   const connect = (name: string, options?: RedisOptions) =>
     logErrors(deps.connect(url, options), name);
   const connection = connect("queue connection", { maxRetriesPerRequest: null });
@@ -83,21 +124,7 @@ export function startRedisWorker(
   const publish: PipelineDeps["publish"] = (id, state, extra) => bus.publish(id, state, extra);
 
   function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
-    dbRecordJob(db(), {
-      id: jobId,
-      generatorId: req.generator.id,
-      params: req.generator.params,
-      printerId: req.printerId,
-      profileId: req.profileId,
-      state: extra.state,
-      stage: extra.stage ?? null,
-      error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
-      modelPath: extra.modelPath,
-      gcodePath: extra.gcodePath,
-      timings: extra.timings,
-      filament: extra.filament,
-      notes: extra.notes,
-    });
+    dbRecordJob(db(), settledJob(jobId, req, extra));
   }
 
   async function failEarly(jobId: string, req: JobRequest, err: unknown): Promise<void> {
@@ -135,12 +162,8 @@ export function startRedisWorker(
           registry,
           publish,
           record: recordTerminal,
-          resolveJobTarget: (r) => dbResolveJobTarget(db(), r.printerId, r.profileId),
-          resolvePrinter: async (printerId) => resolvePrinterTarget(db(), printerId),
-          printerSeen: (printerId) => markPrinterSeen(db(), printerId),
+          ...printerDeps,
           printerLock: printers,
-          holdPrinter: (holdJob, printerId, reason) =>
-            holdPrinter(db(), { printerId, jobId: holdJob, reason, at: Date.now() }),
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,

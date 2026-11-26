@@ -15,6 +15,8 @@ test("starts and stops on the database DB_PATH names, resolving printers from it
   dbUpsertPrinter(db, { id: "p1", transportId: "tr", name: "P1", address: "10.0.0.9" });
   const base = sqliteBase(db);
   expect(await base.resolvePrinter("p1")).toMatchObject({ id: "p1", address: "10.0.0.9" });
+  expect(base.printerFilesToKeep?.("p1", "j")).toEqual(["conveyor-j.gcode"]);
+  expect(sqliteBase(db, 0).printerFilesToKeep?.("p1", "j")).toEqual([]);
   await expect(base.resolvePrinter("missing")).rejects.toThrow("unknown printer missing");
   expect(
     base.resolveJobTarget({ generator: { id: "gen" }, printerId: "p1", profileId: "x" }),

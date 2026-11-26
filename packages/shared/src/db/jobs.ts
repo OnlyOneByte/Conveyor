@@ -83,6 +83,7 @@ export interface HistoryFilter {
 export interface HistoryPage extends HistoryFilter {
   limit: number;
   state?: HistoryState;
+  reachedPrinter?: boolean;
   before?: { updatedAt: number; id: string };
 }
 
@@ -96,6 +97,7 @@ function historyWhere(filter: Partial<HistoryPage>): { sql: string; params: SqlP
     params.push(...values);
   };
   if (filter.state) add("state = ?", filter.state);
+  if (filter.reachedPrinter) add("(stage IS NULL OR stage NOT IN ('generator', 'slicer'))");
   if (filter.printerId !== undefined) add("printer_id = ?", filter.printerId);
   if (filter.since !== undefined) add("updated_at >= ?", filter.since);
   if (filter.until !== undefined) add("updated_at < ?", filter.until);
