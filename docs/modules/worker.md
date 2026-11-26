@@ -47,10 +47,13 @@ Compose passes one `${CONVEYOR_QUEUE:-redis}` and one `${CONVEYOR_QUEUE_UNSTABLE
 worker, so in a normal install they always run the same queue; `queue-mode.test.ts` checks both services.
 
 In both modes `main.ts` starts `startHeartbeat` (`heartbeat.ts`). It writes `{ at, engines }` to the
-`worker_heartbeat` row of the `meta` table at start and every 15 seconds. `engines` says whether each engine's
-binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`) was
-found at start, or `stub` with `CONVEYOR_ENGINE_STUB=1`. A write that fails is logged and never stops the
-worker. The api's `GET /health/deep` reads that row.
+`worker_heartbeat:<id>` row of the `meta` table at start and every 15 seconds. `<id>` is `CONVEYOR_WORKER_ID`, or
+else the host name, so each worker has its own row. Each beat looks for every engine's binary again
+(`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`), so a binary
+removed while the worker runs shows as `missing` within a beat; `stub` with `CONVEYOR_ENGINE_STUB=1`. Each write
+also drops the single `worker_heartbeat` row from before per-worker beats and any row over a day old. A worker that stops cleanly (`SIGTERM`, as `docker compose up` sends
+before it recreates a container) removes its own row, so only a worker that died stays listed as down. A write that
+fails is logged and never stops the worker. The api's `GET /health/deep` reads these rows.
 
 ## sqlite.ts
 

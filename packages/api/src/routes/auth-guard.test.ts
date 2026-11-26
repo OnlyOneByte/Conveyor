@@ -83,6 +83,7 @@ describe("the global auth guard on a booted api", () => {
     ["PUT", "/catalog/profiles/x/content"],
     ["DELETE", "/catalog/profiles/x/content"],
     ["DELETE", "/catalog/profiles/x"],
+    ["GET", "/health/deep"],
   ])("refuses %s %s without a session", async (method, path) => {
     const response = await send(method, path);
     expect(response.status).toBe(401);
