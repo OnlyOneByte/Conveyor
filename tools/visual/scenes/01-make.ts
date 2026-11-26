@@ -116,6 +116,7 @@ export const scenes: Scene[] = [
     steps: [
       { wait: 800 },
       { click: "button.print" },
+      { waitFor: ".dock a[href^='/jobs/']:not([href='/jobs/']) >> text=See the job" },
       { click: "text=See the job" },
       { waitFor: "text=Print again", timeout: 15000 },
       { wait: 800 },

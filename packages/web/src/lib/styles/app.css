@@ -30,9 +30,9 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
   border-radius: var(--r-control);
   padding: var(--s2) var(--s3-5);
   min-height: var(--tap);
-  transition: border-color var(--t-fast), background var(--t-fast), scale var(--t-fast);
+  transition: border-color var(--t-fast), background var(--t-fast), filter var(--t-fast);
 }
-:where(button, .btn):active:not(:disabled) { scale: 0.98; }
+:where(button, .btn):active:not(:disabled) { filter: brightness(0.94); }
 
 dialog,
 [popover] {
