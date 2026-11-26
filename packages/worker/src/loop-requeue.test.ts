@@ -78,7 +78,9 @@ test("a requeued job whose slicer writes nothing fails instead of printing the o
 const rawRow = (id: string) =>
   db.query<Record<string, unknown>, [string]>("SELECT * FROM jobs WHERE id = ?").get(id) ?? {};
 
-for (const id of ["..", "", "conveyor.db", "secrets.key", "uploads", "x/../b"]) {
+const ANCHORED = "0b0c4b9e-5d33-4c52-9f3a-7f1c2a4e8d10/../conveyor.db";
+
+for (const id of ["..", "", "conveyor.db", "secrets.key", "uploads", "x/../b", ANCHORED]) {
   test(`a job id of ${JSON.stringify(id)} fails at its first claim and touches no file`, async () => {
     const dataDir = join(dir, "data");
     mkdirSync(join(dataDir, "uploads"), { recursive: true });
