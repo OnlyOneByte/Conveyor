@@ -153,7 +153,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `printer_id` | text null | printer used → its transport. Null/`""` when unrecoverable (see migration note) |
 | `profile_id` | text null | profile used → its slicer + g-code flavour |
 | `state` | text | a `JobState`. Redis mode writes only terminal ones: `done` \| `failed` \| `canceled`. SQLite mode also stores `queued` through `printing` |
-| `stage` | text null | the stage the job ended in. Redis mode: set for `failed` and `canceled`, null for `done`. SQLite mode: the live stage, kept when the job settles |
+| `stage` | text null | the stage the job ended in. Redis mode: set for `failed`, and for `canceled` once the job had started; null for `done`, for a job canceled while queued (`queuedCancelRecord`) and for one reaped before any stage. SQLite mode: the live stage, kept when the job settles |
 | `error_json` | text null | `{ stage, reason }` on failure |
 | `model_path` | text null | `/data/<id>/model.stl` |
 | `gcode_path` | text null | `/data/<id>/model.gcode` |

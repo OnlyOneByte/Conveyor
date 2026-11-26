@@ -455,8 +455,8 @@ is loopback, and the image publishes no port: caddy's publish, on `CONVEYOR_BIND
 ## Metrics (`routes/metrics.ts`, `metrics.ts`)
 
 `GET /metrics` renders Prometheus text (`text/plain; version=0.0.4; charset=utf-8`, `cache-control: no-store`).
-It does not opt in with `PUBLIC_ROUTE`, so it needs a session like every other route but `/health` and the
-`/auth/*` routes. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
+It does not opt in with `PUBLIC_ROUTE`, so it needs a session like every other route but `/health`,
+`/auth/status`, `/auth/login` and `/auth/logout`. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
 live counts (`liveJobCounts` from `routes/jobs.ts`, BullMQ `getJobCounts`, or from `routes/jobs-sqlite.ts`,
 `dbLiveJobCounts`), the fresh heartbeats (`workerFresh`, the same rule `/health/deep` uses) and
 `dbRecentStageDurations` (the timings of the last 500 done jobs). Those are a moving window, so they are

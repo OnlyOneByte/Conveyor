@@ -210,7 +210,7 @@ Verify on hardware:
    printer's `apiKey` secret on the Printers page. Upload, status and cancel all send it.
 3. Unset `CONVEYOR_ENGINE_STUB`, restart the worker and submit a job to Garage Klipper. Confirm that progress
    advances and the job ends `done`.
-4. Mid-print, cancel the job from Monitor (or `POST /api/jobs/:id/cancel`). Confirm that the printer stops and
+4. Mid-print, cancel the job from Jobs (or `POST /api/jobs/:id/cancel`). Confirm that the printer stops and
    the job ends `canceled`.
 
 ### Elegoo (`plugins/transports/elegoo`)

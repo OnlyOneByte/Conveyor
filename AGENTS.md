@@ -24,7 +24,7 @@ packages/worker/        job worker (BullMQ, or SQLite via CONVEYOR_QUEUE + CONVE
 packages/web/           SvelteKit PWA (Belt UI rewrite in progress, see Stack)
 plugins/<kind>/<name>/  generators | slicers | transports
 plugins/registry/builtin/  buildRegistry(): the built-in plugin set the worker loads
-scripts/checks/         house-rule checkers (comments, casts, file size, coverage, bundle budget, raw colours, Redis pins, test leaks, image scan)
+scripts/checks/         house-rule checkers (comments, casts, file size, coverage, bundle budget, layout bundle, raw colours, Redis pins, test leaks and their temp-prefix scan, image scan)
 tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
@@ -241,6 +241,7 @@ still written in Svelte 4 component syntax and follows the language-level rules 
 
 Still open, for a later PR:
 
+- Accessible primitives for dialogs, menus, selects and popovers, built on those native elements.
 - Component file naming and the 150-line component limit's exact scope.
 - Reactivity rules (runes only; no legacy APIs) and how logic moves out of components into
   testable `*.ts` modules.

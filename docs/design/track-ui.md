@@ -266,7 +266,7 @@ opens a member list in the card; ←/→ walk the members and Enter opens one.
 ### The collapsed rail (40 px)
 
 Shown after 80 px of scroll on Make, and always on every other page. One dark bar holds "Belt", the waiting count, a
-mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (#335; hidden until then), the Finished and Needs-you counts, and
+mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (not built yet; the data is `print.secondsLeft`), the Finished and Needs-you counts, and
 an expand button (`aria-expanded`, `aria-controls`) that opens the full Track in place. The bar is a `region` named
 "On the belt", like the Track and the mobile summary, and its Needs-you count is a button that opens the tray.
 
@@ -280,7 +280,7 @@ back." when the next poll succeeds.
 
 The full Track does not fit, so the belt becomes a **summary chip**: "6 on the belt · Ender 64%, 41 min", the waiting
 and Needs-you counts, and the mini-rail. Its expand button opens a sheet of full-width chips that show their status
-in words ("printing", plus "· 41 min left" once #335 lands), plus the two bins. It is sticky on every page, Make included, so it never scrolls away; one copy in the DOM, not a
+in words ("printing", plus "· 41 min left", not built yet), plus the two bins. It is sticky on every page, Make included, so it never scrolls away; one copy in the DOM, not a
 second sticky one. In the sheet the Needs-you tray opens in the flow below the bins, so the sheet's own scroll never
 clips it.
 
@@ -321,7 +321,7 @@ visually hidden text after it. No `aria-label` replaces visible words.
 
 | Element | Visible text | Accessible name |
 |---|---|---|
-| Chip | `Bin 2×3 · 6u 64%` | "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing" (plus ", 41 min left" once #335 lands) |
+| Chip | `Bin 2×3 · 6u 64%` | "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing" (plus ", 41 min left", not built yet) |
 | Group chip | `3 jobs 35% · … · 12%` | "3 jobs 35% · … · 12%: Bin 1×1 · 3u, slicing; …" |
 | Queue box | `Waiting 3` | "Waiting 3" |
 | Bins | `Finished 1 today`, `Needs you 1` | the same |

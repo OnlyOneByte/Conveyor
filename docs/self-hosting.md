@@ -488,8 +488,9 @@ Conveyor holds a printer when it can't tell whether a job started on it:
   printer didn't answer the print start, so it may have started", and the printer is held.
 - **SQLite queue only:** a worker stopped while it was sending a job to the printer, a worker restarted
   mid-print and couldn't reconnect, the printer never confirmed a cancel, or the job settled during upload
-  before the printer confirmed it. The job fails with a reason ending "check the printer before releasing it",
-  and the printer is held.
+  before the printer confirmed it. The printer is held with a reason ending "check the printer before releasing
+  it", and the job fails with the same reason, except that a settle during upload which already carried its own
+  error keeps that error.
 
 While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then choose **Release hold**
 on its card on the Printers page. To release it from a shell instead, log in first if authentication is on
@@ -512,7 +513,13 @@ certificate, add `-k` or trust its root ([HTTPS on the LAN](#https-on-the-lan-tr
 
 ## Local development without Docker
 
-`bun run dev:api` reads the same variables from your shell. Export `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET`, or `CONVEYOR_AUTH=disabled`, before you start it. Over plain HTTP, also set `CONVEYOR_COOKIE_INSECURE=1` so the browser keeps the session cookie. `DATA_DIR` and `DB_PATH` default to `/data` and `/data/conveyor.db`, and the folder isn't created for you, so point both at a writable folder: `mkdir -p data`, then `DATA_DIR=./data DB_PATH=./data/conveyor.db` for both the api and the worker.
+`bun run dev:api` reads the same variables from your shell. Export `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET`, or `CONVEYOR_AUTH=disabled`, before you start it. Over plain HTTP, also set `CONVEYOR_COOKIE_INSECURE=1` so the browser keeps the session cookie. Outside Compose, set these for both the api and the worker, with absolute paths, because `dev:api` and `dev:worker` each run in their own package folder and a relative path would give them separate databases and secrets keys:
+
+- `DATA_DIR` and `DB_PATH` default to `/data` and `/data/conveyor.db`, and the folder isn't created for you: `mkdir -p data`, then `DATA_DIR="$PWD/data" DB_PATH="$PWD/data/conveyor.db"` from the repo root.
+- `REDIS_URL` defaults to `redis://redis:6379`, the Compose service name; point it at your Redis, for example `redis://127.0.0.1:6379`.
+- `CONVEYOR_PROFILES_ROOT` defaults to `/profiles`; set it to `"$PWD/profiles"` so the worker finds the bundled profiles.
+
+The [README](../README.md#toolchain) has the full stub-mode commands.
 
 ## Printers on the LAN
 
