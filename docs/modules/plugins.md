@@ -171,7 +171,8 @@ dropped. Two guards apply to every upload:
   A failed poll (a timeout, a refused connection or an error reply) is retried after the usual wait; once
   `MOONRAKER_STATUS_FAILURES` (default 5) fail in a row, the stage fails with `moonraker status query failed:
   <last error> (<n> in a row)`. A good poll resets the count. Both settings must be whole numbers above 0.
-- Before uploading, both transports ask the printer whether it is free (`ready.ts`), and upload only if it is:
+- Once, just before uploading, both transports ask the printer whether it is free (`ready.ts`), and refuse the
+  upload unless it says so. The check is a snapshot, not a lock (see `docs/self-hosting.md`):
   - **Moonraker:** `GET /printer/objects/query?print_stats`, bounded by `MOONRAKER_STATUS_TIMEOUT_MS`. `standby`,
     `complete` and `cancelled` are idle; `printing` and `paused` are busy; `error` is an error; anything else is
     unknown.

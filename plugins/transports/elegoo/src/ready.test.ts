@@ -58,7 +58,9 @@ test.each([
   ["idle with nothing loaded", [0], 0, "idle"],
   ["idle after a finished print", [0], 9, "idle"],
   ["idle after a stopped print", [0], 8, "idle"],
-  ["idle with no print info", [0], null, "idle"],
+  ["reporting no print info", [0], null, "unknown"],
+  ["reporting no machine status", [], 0, "unknown"],
+  ["reporting an empty status", [], null, "unknown"],
   ["printing", [1], 13, "printing"],
   ["pausing", [1], 5, "paused"],
   ["paused", [1], 6, "paused"],
@@ -70,13 +72,32 @@ test.each([
 
 test("asks for STATUS and reads the first status push", async () => {
   const asked = printerSays(statusPush([1], 13));
-  expect(await elegooReadiness("10.0.0.8", "mb", 1000)).toBe("printing");
+  expect(await elegooReadiness("192.0.2.8", "mb", 1000)).toBe("printing");
   expect(asked).toEqual([0]);
+});
+
+test.each([
+  ["an empty Status", { Status: {} }],
+  ["an empty CurrentStatus", { Status: { CurrentStatus: [], PrintInfo: { Status: 0 } } }],
+  ["an empty PrintInfo", { Status: { CurrentStatus: [0], PrintInfo: {} } }],
+  ["no Status at all", {}],
+])("a status push with %s reads as unknown, so it is refused", async (_name, data) => {
+  printerSays(JSON.stringify({ Topic: "sdcp/status/mb", Data: data }));
+  expect(await elegooReadiness("192.0.2.8", "mb", 1000)).toBe("unknown");
+});
+
+test("a cancel during the check refuses as not started and closes the socket", async () => {
+  printerSays("silent");
+  const cancel = new AbortController();
+  const check = elegooReadiness("192.0.2.8", "mb", 5000, cancel.signal);
+  cancel.abort();
+  await expect(check).rejects.toBeInstanceOf(PrintNotStartedError);
+  await expect(check).rejects.toThrow("canceled before upload");
 });
 
 test("an SDCP error push reads as an error", async () => {
   printerSays(ERROR_PUSH);
-  expect(await elegooReadiness("10.0.0.8", "mb", 1000)).toBe("error");
+  expect(await elegooReadiness("192.0.2.8", "mb", 1000)).toBe("error");
 });
 
 test.each([
@@ -85,9 +106,9 @@ test.each([
   ["never answers", "silent", "no status within 30 ms"],
 ] as const)("a printer that %s fails closed as not started", async (_name, reply, why) => {
   printerSays(reply);
-  const check = elegooReadiness("10.0.0.8", "mb", 30);
+  const check = elegooReadiness("192.0.2.8", "mb", 30);
   await expect(check).rejects.toBeInstanceOf(PrintNotStartedError);
-  await expect(check).rejects.toThrow(`elegoo idle check from 10.0.0.8: ${why}`);
+  await expect(check).rejects.toThrow(`elegoo idle check from 192.0.2.8: ${why}`);
 });
 
 test.each([
@@ -112,7 +133,7 @@ test.each([
     report: () => {},
     log: () => {},
   };
-  const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
+  const target = { id: "p", transportId: "elegoo", address: "192.0.2.8", secrets: {} };
   await expect(elegoo.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
     PrintNotStartedError,
   );

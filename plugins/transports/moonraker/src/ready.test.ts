@@ -16,7 +16,7 @@ const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
 afterAll(() => fetchSpy.mockRestore());
 
-const BASE = "http://10.0.0.9:7125";
+const BASE = "http://192.0.2.9:7125";
 const stateReply = (state: string) =>
   Response.json({ result: { status: { print_stats: { state } } } });
 
@@ -92,7 +92,7 @@ test.each(["printing", "paused", "error"])(
       report: () => {},
       log: () => {},
     };
-    const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+    const target = { id: "p", transportId: "moonraker", address: "192.0.2.9:7125", secrets: {} };
     const submit = moonraker.submit({ path, format: "gcode" }, target, ctx);
     await expect(submit).rejects.toBeInstanceOf(PrintNotStartedError);
     expect(urls).toEqual([`${BASE}/printer/objects/query?print_stats`]);

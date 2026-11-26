@@ -39,7 +39,10 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
-    refuseUnlessIdle("elegoo", await elegooReadiness(target.address, mainboardId));
+    refuseUnlessIdle(
+      "elegoo",
+      await elegooReadiness(target.address, mainboardId, undefined, ctx.signal),
+    );
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
