@@ -1,0 +1,1 @@
+`reload` reloads the page, so data the app caches at boot (such as the 60 s printer catalog) is fetched again through any `fulfill` stub set up before it, as `long-printer-jobs` does to show a long printer name in the Jobs list.

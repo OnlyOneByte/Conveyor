@@ -109,7 +109,7 @@ const deleting = (
 });
 
 export const scenes: Scene[] = [
-  page("settings"),
+  page("settings", [{ waitFor: "role=link[name=/Bundled, edited/]" }]),
   page(
     "settings-add",
     [
