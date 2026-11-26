@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type PrintStatus, type Stage, StageError } from "@conveyor/shared";
-import { dbGetJob, dbRecordJob, openDb } from "@conveyor/shared/db";
+import { dbGetJob, dbRecordJob, openDb, queuedCancelRecord } from "@conveyor/shared/db";
+import { enqueueJob, requestCancel } from "@conveyor/shared/queue";
 import { type HarnessOptions, harness } from "../test/helpers/pipeline-harness";
 import { settledJob } from "./index";
 import { filesToKeep } from "./printer-files";
@@ -84,6 +85,40 @@ describe("filesToKeep", () => {
     expect(filesToKeep(db, 2, "p1", "now")).toEqual([
       "conveyor-now.gcode",
       "conveyor-failed-printing.gcode",
+    ]);
+  });
+
+  const queuedRequest = {
+    generator: { id: "gridfinity", params: { gridX: 1, gridY: 1, heightUnits: 3 } },
+    printerId: "p1",
+    profileId: "orca/klipper-pla-0.2",
+  };
+
+  const canceledRow = (db: Database) =>
+    db.query("SELECT state, stage, printer_id FROM jobs WHERE id = 'queued-cancel'").get();
+
+  test("a job canceled while queued in Redis mode takes no keep slot", async () => {
+    const db = dbWith([]);
+    await settle(db, "printed", 1);
+    dbRecordJob(db, queuedCancelRecord("queued-cancel", queuedRequest));
+    db.run("UPDATE jobs SET updated_at = 2 WHERE id = 'queued-cancel'");
+    expect(canceledRow(db)).toEqual({ state: "canceled", stage: null, printer_id: "p1" });
+    expect(filesToKeep(db, 2, "p1", "now")).toEqual([
+      "conveyor-now.gcode",
+      "conveyor-printed.gcode",
+    ]);
+  });
+
+  test("a job canceled while queued in SQLite mode takes no keep slot", async () => {
+    const db = dbWith([]);
+    await settle(db, "printed", 1);
+    enqueueJob(db, { id: "queued-cancel", request: queuedRequest });
+    expect(requestCancel(db, "queued-cancel")).toEqual({ kind: "canceled" });
+    db.run("UPDATE jobs SET updated_at = 2 WHERE id = 'queued-cancel'");
+    expect(canceledRow(db)).toEqual({ state: "canceled", stage: null, printer_id: "p1" });
+    expect(filesToKeep(db, 2, "p1", "now")).toEqual([
+      "conveyor-now.gcode",
+      "conveyor-printed.gcode",
     ]);
   });
 

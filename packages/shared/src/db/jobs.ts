@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
+import type { FilamentUse, Job, JobRequest, JobState, JobTarget, StageTiming } from "../job.js";
 import type { NoteText } from "../job-notes.js";
 import type { Stage } from "../plugins.js";
 import { type JobRow, rowToJob } from "./job-row.js";
@@ -40,6 +40,17 @@ export interface SettledJob {
   timings?: StageTiming[];
   filament?: FilamentUse;
   notes?: NoteText;
+}
+
+export function queuedCancelRecord(id: string, request: JobRequest): SettledJob {
+  return {
+    id,
+    generatorId: request.generator.id,
+    params: request.generator.params,
+    printerId: request.printerId,
+    profileId: request.profileId,
+    state: "canceled",
+  };
 }
 
 export function dbRecordJob(db: Database, job: SettledJob): void {
