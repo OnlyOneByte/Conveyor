@@ -178,7 +178,7 @@ describe("elegoo submit", () => {
     };
     const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
     await elegoo.submit({ path, format: "gcode" }, target, ctx);
-    expect(parts).toEqual([{ field: "File", name: "a.gcode", text: "G28\nG1 X5\n" }]);
+    expect(parts).toEqual([{ field: "File", name: "conveyor-j.gcode", text: "G28\nG1 X5\n" }]);
     expect(sent).toEqual([[10, 10]]);
   });
 

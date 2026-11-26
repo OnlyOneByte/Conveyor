@@ -1,10 +1,10 @@
-import { basename } from "node:path";
 import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
   PrintNotStartedError,
   type PrintStatus,
+  printerFileName,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -29,7 +29,7 @@ export const elegoo: TransportPlugin = {
   acceptsFlavors: ["klipper", "marlin"],
 
   async submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle> {
-    const filename = basename(gcode.path);
+    const filename = printerFileName(ctx.jobId);
     if (STUB) {
       ctx.log(`[stub] elegoo upload ${gcode.path} → ${target.address}`);
       return elegooHandle(target, filename);
@@ -37,7 +37,7 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
-    await uploadGcode(target.address, gcode.path, ctx);
+    await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
     await requirePrinterAddress(target.address);
@@ -100,8 +100,12 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
   };
 }
 
-async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
-  const filename = basename(path);
+async function uploadGcode(
+  address: string,
+  path: string,
+  filename: string,
+  ctx: StageCtx,
+): Promise<void> {
   const upload = multipartFileUpload({ field: "File", path, filename }, (sent, total) =>
     ctx.reportUpload?.(sent, total),
   );

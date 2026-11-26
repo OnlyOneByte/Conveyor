@@ -9,6 +9,9 @@ export interface StageCtx {
   log(msg: string): void;
 }
 
+export const printerFileName = (jobId: string): string =>
+  `conveyor-${jobId.replace(/[^A-Za-z0-9-]/g, "_")}.gcode`;
+
 export class StageError extends Error {
   readonly stage: Stage;
   readonly reason: string;

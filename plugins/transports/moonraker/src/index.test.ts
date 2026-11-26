@@ -121,12 +121,12 @@ describe("moonraker submit, the printer answers", () => {
     expect(await moonraker.submit({ path, format: "gcode" }, target, ctx)).toEqual({
       transportId: "moonraker",
       printerId: "p",
-      ref: "bin 1.gcode",
+      ref: "conveyor-j.gcode",
       address: "10.0.0.9:7125",
     });
     expect(calls.map((c) => c.url)).toEqual([
       "http://10.0.0.9:7125/server/files/upload",
-      "http://10.0.0.9:7125/printer/print/start?filename=bin%201.gcode",
+      "http://10.0.0.9:7125/printer/print/start?filename=conveyor-j.gcode",
     ]);
   });
 
@@ -151,7 +151,7 @@ describe("moonraker submit, the printer answers", () => {
     });
     const keyed = { ...target, secrets: { apiKey: "k1" } };
     await moonraker.submit({ path, format: "gcode" }, keyed, ctx);
-    expect(parts).toEqual([{ field: "file", name: "bin 1.gcode", text: "G28\n", key: "k1" }]);
+    expect(parts).toEqual([{ field: "file", name: "conveyor-j.gcode", text: "G28\n", key: "k1" }]);
   });
 
   test("an upload the printer never answers times out as a transport failure, not a cancel", async () => {
@@ -184,6 +184,29 @@ describe("moonraker submit, the printer answers", () => {
       "moonraker upload failed: 507",
     );
     expect(calls).toHaveLength(1);
+  });
+
+  test("a start the printer never answers times out as a transport failure", async () => {
+    const { path, ctx } = await gcodeCtx();
+    fakeFetch((url, init) =>
+      url.includes("/print/start")
+        ? new Promise((_resolve, reject) =>
+            init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), {
+              once: true,
+            }),
+          )
+        : Promise.resolve(new Response("{}", { status: 201 })),
+    );
+    const before = process.env.MOONRAKER_START_TIMEOUT_MS;
+    process.env.MOONRAKER_START_TIMEOUT_MS = "30";
+    try {
+      const submit = within(moonraker.submit({ path, format: "gcode" }, target, ctx), 2000);
+      await expect(submit).rejects.toBeInstanceOf(StageError);
+      await expect(submit).rejects.toThrow("moonraker gave no answer to print start within 30 ms");
+    } finally {
+      if (before === undefined) delete process.env.MOONRAKER_START_TIMEOUT_MS;
+      else process.env.MOONRAKER_START_TIMEOUT_MS = before;
+    }
   });
 
   test("a rejected start fails the transport stage", async () => {

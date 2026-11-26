@@ -313,7 +313,9 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 - `POST /uploads` stores STL bytes at `${UPLOAD_DIR}/<uploadId>.stl` (default `${DATA_DIR}/uploads`) on the
   shared volume, where the worker's passthrough generator reads them. The client submits the returned
   `uploadId` as the passthrough generator's `params.uploadId`.
-- The bytes are never treated as code; they go to the slicer as-is. Before anything is written the route checks:
+- The bytes are never treated as code; they go to the slicer as-is. The upload is streamed straight to
+  `<uploadId>.stl.part`, never held in memory whole; only its first 4 KiB and its length are kept for the
+  checks below. Anything that fails a check is removed before the reply:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
   - **Extension:** the file must end in `.stl`, otherwise 415.
   - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
@@ -324,7 +326,7 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
     isn't an STL model."
   - **Server faults:** a failed write, or any read error that isn't the client's, goes to the error handler
     as a 500.
-- The bytes are written to `<uploadId>.stl.part` in the same folder, then renamed to `<uploadId>.stl`. A
+- Once every check passes, the `.part` file is renamed to `<uploadId>.stl` in the same folder. A
   write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
   under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
   A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
