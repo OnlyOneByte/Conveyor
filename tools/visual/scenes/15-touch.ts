@@ -31,6 +31,15 @@ export const scenes: Scene[] = [
     { wait: 800 },
     { targets: `${SHELL}, main` },
   ]),
+  touch("touch-jobs-pills", "/jobs", "[data-id]", [
+    { wait: 500 },
+    { fits: ".pills .pill:last-child" },
+    { targets: ".pills" },
+    { click: ".pill >> text=Failed" },
+    { waitFor: ".pill[aria-pressed='true'] >> text=Failed" },
+    { fits: ".pills .pill:last-child" },
+    { wait: 800 },
+  ]),
   touch("touch-belt-sheet", "/jobs", "h1", [
     ...onChip,
     { click: "#belt .m .exp" },
