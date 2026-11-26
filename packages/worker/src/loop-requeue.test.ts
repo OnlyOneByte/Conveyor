@@ -14,12 +14,15 @@ import {
   db,
   dir,
   enqueue,
-  logs,
+  enqueueRaw,
+  jobDir,
   row,
   setup,
   start,
+  uid,
   until,
 } from "../test/helpers/loop-harness";
+import { refusedJobId } from "./job-folder";
 
 const STALE_LOG = "$ orca-slicer (the run before)\n[exited 0]\n";
 
@@ -29,13 +32,13 @@ afterEach(cleanup);
 function requeueWithLeftovers(id: string): string {
   enqueue(id);
   claimJob(db, "dead");
-  const workDir = join(dir, id);
+  const workDir = jobDir(id);
   mkdirSync(workDir, { recursive: true });
   writeFileSync(join(workDir, "plate_1.gcode"), "G28 ; the run before\n");
   writeFileSync(join(workDir, "model.gcode"), "G28 ; the run before\n");
   writeFileSync(join(workDir, "model.stl"), "solid before\n");
   writeFileSync(join(workDir, ENGINE_LOG), STALE_LOG);
-  db.query("UPDATE jobs SET lease_until = 0 WHERE id = ?").run(id);
+  db.query("UPDATE jobs SET lease_until = 0 WHERE id = ?").run(uid(id));
   return workDir;
 }
 
@@ -72,19 +75,29 @@ test("a requeued job whose slicer writes nothing fails instead of printing the o
   expect(existsSync(join(workDir, "plate_1.gcode"))).toBe(false);
 });
 
-for (const [name, id] of [
-  ["..", ".."],
-  ["an empty id", ""],
-] as const) {
-  test(`a job id of ${name} clears nothing and runs nothing`, async () => {
+const rawRow = (id: string) =>
+  db.query<Record<string, unknown>, [string]>("SELECT * FROM jobs WHERE id = ?").get(id) ?? {};
+
+for (const id of ["..", "", "conveyor.db", "secrets.key", "uploads", "x/../b"]) {
+  test(`a job id of ${JSON.stringify(id)} fails at its first claim and touches no file`, async () => {
     const dataDir = join(dir, "data");
-    mkdirSync(dataDir);
-    writeFileSync(join(dataDir, "keep.txt"), "data dir\n");
+    mkdirSync(join(dataDir, "uploads"), { recursive: true });
+    for (const name of ["keep.txt", "conveyor.db", "secrets.key", "b"]) {
+      writeFileSync(join(dataDir, name), `${name}\n`);
+    }
     writeFileSync(join(dir, "keep.txt"), "above the data dir\n");
-    enqueue(id);
+    enqueueRaw(id);
     const { h } = start({}, { dataDir });
-    await until(() => logs.some((line) => line.includes("names no folder in the data dir")));
-    expect(readFileSync(join(dataDir, "keep.txt"), "utf8")).toBe("data dir\n");
+    await until(() => rawRow(id).state === "failed");
+    expect(rawRow(id)).toMatchObject({ attempts: 1, lease_owner: null });
+    expect(JSON.parse(String(rawRow(id).error_json))).toEqual({
+      stage: "generator",
+      reason: refusedJobId(id),
+    });
+    for (const name of ["keep.txt", "conveyor.db", "secrets.key", "b"]) {
+      expect(readFileSync(join(dataDir, name), "utf8")).toBe(`${name}\n`);
+    }
+    expect(existsSync(join(dataDir, "uploads"))).toBe(true);
     expect(readFileSync(join(dir, "keep.txt"), "utf8")).toBe("above the data dir\n");
     expect(existsSync(join(dir, "conveyor.db"))).toBe(true);
     expect(h.generated).toBe(0);
@@ -109,10 +122,10 @@ test("a job resumed on the printer keeps the files its earlier run left", async 
   enqueue("c");
   const lease = claimJob(db, "gone")?.lease;
   if (!lease) throw new Error("not claimed");
-  const workDir = join(dir, "c");
+  const workDir = jobDir("c");
   mkdirSync(workDir, { recursive: true });
   writeFileSync(join(workDir, "model.gcode"), "G28 ; on the printer\n");
-  db.query("UPDATE jobs SET state = 'slicing' WHERE id = 'c'").run();
+  db.query("UPDATE jobs SET state = 'slicing' WHERE id = ?").run(uid("c"));
   takePrinterSlot(db, lease);
   markSubmitted(db, lease, { transportId: "tr", printerId: "p1", ref: "model.gcode" });
   releaseLease(db, lease);

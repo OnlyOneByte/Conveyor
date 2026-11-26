@@ -7,7 +7,7 @@ import {
   requestCancel,
   takePrinterSlot,
 } from "@conveyor/shared/queue";
-import { cleanup, db, enqueue, row, setup, start, until } from "../test/helpers/loop-harness";
+import { cleanup, db, enqueue, row, setup, start, uid, until } from "../test/helpers/loop-harness";
 import { waitForAbort } from "../test/helpers/pipeline-harness";
 
 afterEach(cleanup);
@@ -44,7 +44,7 @@ describe("the sqlite queue worker", () => {
     setup();
     enqueue("a");
     claimJob(db, "dead");
-    db.query("UPDATE jobs SET lease_until = 0 WHERE id = 'a'").run();
+    db.query(`UPDATE jobs SET lease_until = 0 WHERE id = '${uid("a")}'`).run();
     start({}, { timing: { ...DEFAULT_TIMING, backoffBaseMs: 0 } });
     await until(() => row("a").state === "done");
     expect(row("a").attempts).toBe(2);
@@ -63,7 +63,7 @@ describe("the sqlite queue worker", () => {
     enqueue("a");
     const lease = claimJob(db, "gone")?.lease;
     if (!lease) throw new Error("not claimed");
-    db.query("UPDATE jobs SET state = 'slicing' WHERE id = 'a'").run();
+    db.query(`UPDATE jobs SET state = 'slicing' WHERE id = '${uid("a")}'`).run();
     takePrinterSlot(db, lease);
     markSubmitted(db, lease, { transportId: "tr", printerId: "p1", ref: "model.gcode" });
     releaseLease(db, lease);
@@ -86,7 +86,7 @@ describe("the sqlite queue worker", () => {
     enqueue("a");
     const lease = claimJob(db, "gone")?.lease;
     if (!lease) throw new Error("not claimed");
-    db.query("UPDATE jobs SET state = 'slicing' WHERE id = 'a'").run();
+    db.query(`UPDATE jobs SET state = 'slicing' WHERE id = '${uid("a")}'`).run();
     takePrinterSlot(db, lease);
     markSubmitted(db, lease, { transportId: "tr", printerId: "p1", ref: "model.gcode" });
     releaseLease(db, lease);
@@ -100,14 +100,16 @@ describe("the sqlite queue worker", () => {
     start({}, { pruneMs: 20, retentionMs: 60_000 });
     enqueue("old");
     enqueue("recent");
-    db.query("UPDATE jobs SET state = 'done', updated_at = ? WHERE id = 'old'").run(
+    db.query(`UPDATE jobs SET state = 'done', updated_at = ? WHERE id = '${uid("old")}'`).run(
       Date.now() - 120_000,
     );
-    db.query("UPDATE jobs SET state = 'done', updated_at = ? WHERE id = 'recent'").run(Date.now());
+    db.query(`UPDATE jobs SET state = 'done', updated_at = ? WHERE id = '${uid("recent")}'`).run(
+      Date.now(),
+    );
     const events = (id: string) =>
       db
         .query<{ n: number }, [string]>("SELECT COUNT(*) AS n FROM job_events WHERE job_id = ?")
-        .get(id)?.n;
+        .get(uid(id))?.n;
     await until(() => events("old") === 0);
     expect(events("recent")).toBe(1);
   });
@@ -117,13 +119,16 @@ describe("the sqlite queue worker", () => {
     const { worker } = start({}, { pruneMs: 20, retentionMs: 60_000 });
     await worker.stop();
     enqueue("old");
-    db.query("UPDATE jobs SET state = 'done', updated_at = ? WHERE id = 'old'").run(
+    db.query(`UPDATE jobs SET state = 'done', updated_at = ? WHERE id = '${uid("old")}'`).run(
       Date.now() - 120_000,
     );
     await Bun.sleep(100);
     expect(
-      db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM job_events WHERE job_id = 'old'").get()
-        ?.n,
+      db
+        .query<{ n: number }, []>(
+          `SELECT COUNT(*) AS n FROM job_events WHERE job_id = '${uid("old")}'`,
+        )
+        .get()?.n,
     ).toBe(1);
   });
 
@@ -138,7 +143,7 @@ describe("the sqlite queue worker", () => {
       },
     });
     await until(() => running);
-    requestCancel(db, "a");
+    requestCancel(db, uid("a"));
     await until(() => row("a").state === "canceled");
   });
 });

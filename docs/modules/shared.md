@@ -72,6 +72,8 @@ An `Artifact` is a file on the shared `/data` volume that one stage hands to the
   file). `parseStatusEvent` takes both counts only as whole, non-negative numbers; old events without them
   still parse.
 - `signal` is cooperative cancellation. Adapters pass it to every spawned engine and every `fetch`.
+- `checkLease()` is set only on the SQLite queue. It throws when another worker has taken the job, and
+  `runEngine` calls it as each engine exits, before the adapter reads or copies the engine's output.
 
 `StageError` is the typed failure a stage adapter throws. It records which stage failed and why, and its
 message reads `[stage] reason`.

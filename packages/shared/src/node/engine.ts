@@ -59,12 +59,20 @@ function openEngineLog(ctx: StageCtx, cmd: string, args: string[]): EngineLog {
   return { write, close };
 }
 
-export function runEngine(
+export async function runEngine(
   stage: Stage,
   cmd: string,
   args: string[],
   ctx: StageCtx,
 ): Promise<EngineRun> {
+  try {
+    return await spawnEngine(stage, cmd, args, ctx);
+  } finally {
+    ctx.checkLease?.();
+  }
+}
+
+function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): Promise<EngineRun> {
   return new Promise((resolve, reject) => {
     const log = openEngineLog(ctx, cmd, args);
     const child = spawn(cmd, args, { signal: ctx.signal });

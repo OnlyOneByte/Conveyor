@@ -201,7 +201,8 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
   A claimed orphan runs `resumeJob`, any other job `runJob`, in `<dataDir>/<jobId>`. Before `runJob` the
   folder is emptied, so a requeued job never reuses the run before's model, g-code or `engine.log`: a slicer
   that exits 0 without writing fails the job instead of passing on the old file. A resumed job keeps its
-  folder.
+  folder. A job id that isn't a UUID (`job-folder.ts`) names no folder: the job fails at that first claim
+  with `refusedJobId`, before anything touches the disk. Every id the api has minted is a `randomUUID()`.
 - **Run timer.** Each job has one timer, every `tickMs` (1 s). Each tick reads `isCancelRequested` and aborts
   the run when it is set, so a cancel reaches a running engine within a second. Every `renewEvery`-th tick
   (10th) renews the lease.
@@ -242,7 +243,7 @@ not pass `queue`, so it is unchanged.
 | Cancel | `cancelRequested` reads `isCancelRequested`. A canceled job, or one the printer reports canceled, settles through `settleCancel`: confirmed when nothing reached the printer or it stopped, otherwise `failed` with the printer held |
 | History | the history step writes `model_path`, `gcode_path`, `notes`, the final `stage` and `timings` and the final message, and clears `progress`, all under the lease. A done or failed job's terminal status write then sets the same stage, timings and message; a canceled job settles through `settleCancel`, which writes only the state, so its history comes from this step |
 | Resume | `resumeJob` runs a claimed orphan: it reads the stored handle, artifact paths and stage timings (`readResumeState`) into the run, publishes `printing` with `resumed after worker restart` and the timings, and watches the print. So a resumed job that ends `done` keeps its download links and every stage's duration. It never generates, slices or submits. When it cannot reconnect (no readable handle, an unknown transport or printer, a first status read that fails or a stream that ends before any status) it settles through `failResume`: `failed` with the printer held. A cancel during that first read stops the printer as usual. A failure after the first status is an ordinary print failure |
-| Lost lease | a fenced write that changes nothing aborts the run with `LeaseLostError`. The run leaves its work directory to the job's new owner, or to retention, and writes nothing more; it does not stop the printer, because whoever holds the job next decides |
+| Lost lease | a fenced write that changes nothing aborts the run with `LeaseLostError`, and so does `checkLease` (`leaseHeld` in `@conveyor/shared/queue`), which runs when each engine exits (`ctx.checkLease`, called by `runEngine`) and before any settle deletes files. A run that stalled past its lease therefore never reads, copies or deletes the new owner's files after an engine step. The run leaves its work directory to the job's new owner, or to retention, and writes nothing more; it does not stop the printer, because whoever holds the job next decides |
 
 A `submit()` that fails, `PrintNotStartedError` included, settles `failed` inside the upload window, which
 holds the printer. Clearing the intent for `PrintNotStartedError` without a hold is not done yet.
