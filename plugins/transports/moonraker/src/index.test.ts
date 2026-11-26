@@ -205,6 +205,7 @@ describe("moonraker submit, the printer answers", () => {
       const submit = within(moonraker.submit({ path, format: "gcode" }, target, ctx), 2000);
       await expect(submit).rejects.toBeInstanceOf(StageError);
       await expect(submit).rejects.toThrow("moonraker gave no answer to print start within 30 ms");
+      await expect(submit).rejects.toMatchObject({ name: "PrintMayHaveStartedError" });
     } finally {
       if (before === undefined) delete process.env.MOONRAKER_START_TIMEOUT_MS;
       else process.env.MOONRAKER_START_TIMEOUT_MS = before;

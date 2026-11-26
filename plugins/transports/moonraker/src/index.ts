@@ -2,6 +2,7 @@ import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
   printerFileName,
@@ -85,8 +86,7 @@ export const moonraker: TransportPlugin = {
     ).catch((e) => {
       if (ctx.signal.aborted) throw e;
       const timedOut = e instanceof Error && e.name === "TimeoutError";
-      throw new StageError(
-        "transport",
+      throw new PrintMayHaveStartedError(
         timedOut
           ? `moonraker gave no answer to print start within ${startMs} ms`
           : `moonraker start failed: ${e instanceof Error ? e.message : String(e)}`,

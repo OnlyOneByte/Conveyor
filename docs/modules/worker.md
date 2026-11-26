@@ -57,6 +57,18 @@ before it recreates a container) removes its own row, so only a worker that died
 fails is logged and never stops the worker. The api's `GET /health/deep` reads these rows and ages them on its own clock, so the api and the workers
 must share a clock (one host, or synced clocks).
 
+## printer-lock.ts
+
+In Redis mode `printStage` takes a per-printer lock before the idle check and releases it in a `finally` once the
+print settles, so two workers never upload to or start one printer at once (the SQLite queue's `TAKE_SLOT` already
+serializes printers). The lock is `printer:<id>:lock`, set with `SET NX PX 60000` to a token per job; a timer renews
+it every 20 s, and renew and release are Lua scripts that only touch the key while it still holds the job's token.
+A job that finds the printer locked waits, polling every 2 s, until it gets the lock or is canceled. A worker that
+dies stops renewing, so its lock expires within 60 s. Before each claim the worker checks the printer's SQLite hold,
+and refuses the job with `printer is on hold: <reason>` while one is set. When a transport throws
+`PrintMayHaveStartedError` (Moonraker's print start gave no answer), `printStage` holds the printer in either queue
+mode, with that error as the reason, until someone releases it.
+
 ## sqlite.ts
 
 `startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the

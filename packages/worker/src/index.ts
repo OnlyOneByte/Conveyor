@@ -11,11 +11,13 @@ import {
 } from "@conveyor/shared";
 import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
+import { holdPrinter, printerHoldReason } from "@conveyor/shared/queue";
 import { type Job, Queue, Worker } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
+import { printerLock, redisLockStore } from "./printer-lock.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
 import { resolveProfileForSlice } from "./profile.js";
 import { redisReaperDeps, startRedisReaper, WORKER_OPTIONS } from "./redis-reaper.js";
@@ -74,6 +76,10 @@ export function startRedisWorker(
   const commands = connect("commands");
   const registry = buildRegistry();
   const bus = new StatusBus(commands);
+  const printers = printerLock(redisLockStore(commands), {
+    held: (printerId) => printerHoldReason(db(), printerId),
+    log: (message) => console.log(`[printer lock] ${message}`),
+  });
   const publish: PipelineDeps["publish"] = (id, state, extra) => bus.publish(id, state, extra);
 
   function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
@@ -132,6 +138,9 @@ export function startRedisWorker(
           resolveJobTarget: (r) => dbResolveJobTarget(db(), r.printerId, r.profileId),
           resolvePrinter: async (printerId) => resolvePrinterTarget(db(), printerId),
           printerSeen: (printerId) => markPrinterSeen(db(), printerId),
+          printerLock: printers,
+          holdPrinter: (holdJob, printerId, reason) =>
+            holdPrinter(db(), { printerId, jobId: holdJob, reason, at: Date.now() }),
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,

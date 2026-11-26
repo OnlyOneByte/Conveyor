@@ -23,6 +23,13 @@ export class StageError extends Error {
   }
 }
 
+export class PrintMayHaveStartedError extends StageError {
+  constructor(reason: string, options?: { cause?: unknown }) {
+    super("transport", reason, options);
+    this.name = "PrintMayHaveStartedError";
+  }
+}
+
 export class PrintNotStartedError extends StageError {
   constructor(reason: string, options?: { cause?: unknown }) {
     super("transport", reason, options);
