@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import type { FilamentUse, Job, JobState, JobTarget, StageTiming } from "../job.js";
+import type { FilamentUse, Job, JobRequest, JobState, JobTarget, StageTiming } from "../job.js";
 import type { NoteText } from "../job-notes.js";
 import type { Stage } from "../plugins.js";
 import { type JobRow, rowToJob } from "./job-row.js";
@@ -40,6 +40,17 @@ export interface SettledJob {
   timings?: StageTiming[];
   filament?: FilamentUse;
   notes?: NoteText;
+}
+
+export function queuedCancelRecord(id: string, request: JobRequest): SettledJob {
+  return {
+    id,
+    generatorId: request.generator.id,
+    params: request.generator.params,
+    printerId: request.printerId,
+    profileId: request.profileId,
+    state: "canceled",
+  };
 }
 
 export function dbRecordJob(db: Database, job: SettledJob): void {
@@ -97,7 +108,7 @@ function historyWhere(filter: Partial<HistoryPage>): { sql: string; params: SqlP
     params.push(...values);
   };
   if (filter.state) add("state = ?", filter.state);
-  if (filter.reachedPrinter) add("(stage IS NULL OR stage NOT IN ('generator', 'slicer'))");
+  if (filter.reachedPrinter) add("(state = 'done' OR stage = 'transport')");
   if (filter.printerId !== undefined) add("printer_id = ?", filter.printerId);
   if (filter.since !== undefined) add("updated_at >= ?", filter.since);
   if (filter.until !== undefined) add("updated_at < ?", filter.until);

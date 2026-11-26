@@ -74,7 +74,7 @@ mode, with that error as the reason, until someone releases it.
 After every print `printStage` starts settles (done or failed), and while the printer lock or the SQLite slot is
 still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
 from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
-earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`, which drops rows whose stage is `generator` or `slicer`; a finished job is recorded with no stage), up to that many. Jobs
+earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`: a `done` row, which is recorded with no stage, or any row whose stage is `transport`; a job canceled while queued or reaped before any stage, recorded with no stage, does not count), up to that many. Jobs
 that failed while generating or slicing never put a file on the printer, so they don't use up a place. At 0 it
 names none, but the transport still spares whatever file the printer has loaded, and Klipper keeps a finished
 print's file loaded, so on Moonraker that file goes at a later cleanup rather than at settle. The prune is

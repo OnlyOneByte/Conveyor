@@ -13,7 +13,7 @@ import {
   parseStatusEvent,
   publishStatus,
 } from "@conveyor/shared";
-import { dbRecordJob, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbTypicalStageMs, openDb, queuedCancelRecord } from "@conveyor/shared/db";
 import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
@@ -173,14 +173,7 @@ export async function registerJobRoutes(
           at: Date.now(),
         });
         if (written) {
-          dbRecordJob(openDb(), {
-            id,
-            generatorId: request.generator.id,
-            params: request.generator.params,
-            printerId: request.printerId,
-            profileId: request.profileId,
-            state: "canceled",
-          });
+          dbRecordJob(openDb(), queuedCancelRecord(id, request));
         }
         return written;
       },
