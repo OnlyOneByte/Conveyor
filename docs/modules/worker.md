@@ -54,7 +54,8 @@ else the host name, so each worker has its own row; two workers outside containe
 removed while the worker runs shows as `missing` within a beat; `stub` with `CONVEYOR_ENGINE_STUB=1`. Each write
 also drops the single `worker_heartbeat` row from before per-worker beats and any row over a day old. A worker that stops cleanly (`SIGTERM`, as `docker compose up` sends
 before it recreates a container) removes its own row, so only a worker that died stays listed as down. A write that
-fails is logged and never stops the worker. The api's `GET /health/deep` reads these rows.
+fails is logged and never stops the worker. The api's `GET /health/deep` reads these rows and ages them on its own clock, so the api and the workers
+must share a clock (one host, or synced clocks).
 
 ## sqlite.ts
 
