@@ -50,6 +50,37 @@ describe("tempDirCalls fails closed on any other first argument", () => {
   });
 });
 
+describe("tempDirCalls refuses a prefix that can leave its parent dir", () => {
+  test.each([
+    'mkdtempSync(join(tmpdir(), "conveyor-/../../home/evil-"))',
+    'mkdtempSync(join(tmpdir(), "conveyor-a/b-"))',
+    'mkdtempSync(join(tmpdir(), "conveyor-a\\\\b-"))',
+    'mkdtempSync(join(tmpdir(), "conveyor-..-"))',
+    'const made = mkdtempSync(join(tmpdir(), "conveyor-x-"));\nmkdtempSync(join(made, "../../../x-"));',
+  ])("%s", (source) => {
+    expect(verdicts(source).map((verdict) => verdict.kind)).toContain("unreadable");
+  });
+});
+
+describe("tempDirCalls fails on a mkdtemp name used other than as a direct call", () => {
+  test.each([
+    ["an alias", "const mk = fs.mkdtempSync;"],
+    [".call", 'mkdtempSync.call(null, join(tmpdir(), "conveyor-x-"));'],
+    ["promisify", "const mk = promisify(fs.mkdtemp);"],
+    ["a re-export", 'export { mkdtempSync as makeTemp } from "node:fs";'],
+    ["a require destructure", 'const { mkdtempSync: mk } = require("node:fs");'],
+    ["the disposable variant", 'const mk = fsp["mkdtempDisposable"];'],
+  ])("%s", (_name, source) => {
+    expect(verdicts(source).map((verdict) => verdict.kind)).toContain("indirect");
+  });
+
+  test("an import of a mkdtemp name and a method named mkdtemp are not references", () => {
+    const source =
+      'import { mkdtemp as make } from "node:fs/promises";\nconst fake = { mkdtemp: () => "" };\nawait make(join(tmpdir(), "conveyor-x-"));';
+    expect(verdicts(source)).toEqual(listed("conveyor-x-"));
+  });
+});
+
 describe("tempDirCalls in other file types and nested dirs", () => {
   test.each(["file.mts", "file.cts", "file.js", "file.mjs", "file.cjs"])(
     "scans a %s the same way",

@@ -75,6 +75,8 @@ describe("check:test-leaks", () => {
 const problemOf = (file: string, call: TempDirCall): string | null => {
   if (call.kind === "unreadable")
     return `${file}:${call.line}: mkdtemp's first argument isn't join(tmpdir(), <literal prefix>): ${call.arg}`;
+  if (call.kind === "indirect")
+    return `${file}:${call.line}: a mkdtemp name is used other than as a direct call: ${call.ref}`;
   if (call.kind === "listed" && !listedPrefix(call.prefix))
     return `${file}:${call.line}: ${call.prefix} isn't in TEMP_PREFIXES`;
   return null;

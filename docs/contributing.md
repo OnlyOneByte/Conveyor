@@ -50,17 +50,21 @@ removes every dir it made in the file's `afterAll`, or remove it yourself in a `
 `TMPDIR` at a fresh empty directory for its test steps, and `bun run check:test-leaks` runs after both test runs:
 it fails on any entry left in `$TMPDIR`, whatever its name and however it was made (`mkdtemp`, `mkdirSync`,
 `Bun.write`), and on any key left in Redis. That check is what catches a leak. The prefix scan below is a second
-line of defence that names the file and line before a leak happens, and a re-bound `mkdtemp`, a `require`
-destructure or a shadowed name can slip past it. Every temp name made
+line of defence that names the file and line before a leak happens, and a shadowed name or a computed
+`fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
+`TMPDIR`. Every temp name made
 directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
-any other. `test-leaks.test.ts` reads every `mkdtemp` and `mkdtempSync` call in the repository's `.ts`, `.mts`,
+any other. `test-leaks.test.ts` reads every `mkdtemp`-family call in the repository's `.ts`, `.mts`,
 `.cts`, `.js`, `.mjs` and `.cjs` files with TypeScript's parser (`scripts/checks/temp-prefix-scan.ts`), under any
 name it is imported as or through `fs.`, and it fails closed. A call passes only when its first argument is
 `join(tmpdir(), "<listed prefix>")` written out in place, with `join` or `resolve` and `tmpdir` under any import
 name or as `path.` and `os.`, or `join(<dir>, "<literal>")` inside a dir the same file made that way. Anything
 else fails, naming the file and line: a template that starts with `${...}`, a prefix in a variable or built
 with `+`, `tmpdir()` or the joined path held in a const, `process.env.TMPDIR`, a literal `/tmp` path, or
-`os["tmpdir"]()`. Two reviewed calls are the exceptions, listed with their reason in `REVIEWED`: `tempDirs`' own
+`os["tmpdir"]()`. A prefix or a name inside a made dir that contains `/`, `\` or `..` fails, since it could put
+the dir outside `TMPDIR`. Any use of a `mkdtemp`, `mkdtempSync`, `mkdtempDisposable` or `mkdtempDisposableSync`
+name other than a direct call fails too: an alias, `.call`, `promisify(...)`, a `require` destructure or a
+re-export. Two reviewed calls are the exceptions, listed with their reason in `REVIEWED`: `tempDirs`' own
 call, and the coverage sweep's probe, which has to sit inside the repository. A test file that writes
 to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
 deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
