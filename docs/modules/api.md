@@ -319,6 +319,13 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
   - **Extension:** the file must end in `.stl`, otherwise 415.
   - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
+  - **Time limits:** an upload that sends no bytes for `UPLOAD_IDLE_TIMEOUT_MS` (default 30 s), or isn't
+    finished within `UPLOAD_TIMEOUT_MS`, is cut off with a 408: "the upload took too long. Try again on a
+    faster connection." The reply carries `Connection: close`, and the api closes the socket once it is sent,
+    so a client trickling a byte at a time can't hold a connection or a `.part` file. The overall default is
+    one minute plus `MAX_UPLOAD_BYTES` at 64 KiB a second, about 27 minutes for 100 MiB. One per-request
+    timer covers both the wait for the file part and the file's bytes, and is cleared when the request ends
+    (`routes/upload-timer.ts`).
   - **Not empty:** an empty file is a 400: "the file is empty."
   - **Looks like an STL** (`routes/stl-check.ts`): either binary, with at least one triangle and exactly
     `84 + 50 × triangles` bytes, or ASCII, starting with `solid` (after an optional UTF-8 byte-order mark) and
@@ -330,9 +337,9 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
   write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
   under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
   A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
-- `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,
-  the worker and passthrough. `MAX_UPLOAD_BYTES` must be a positive integer: the api and worker exit 1 at
-  boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
+- `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR`, `MAX_UPLOAD_BYTES`,
+  `UPLOAD_IDLE_TIMEOUT_MS` and `UPLOAD_TIMEOUT_MS` for the api, the worker and passthrough. The last three
+  must be positive integers: the api and worker exit 1 at boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
   and logs the cause on the server only.
 
 ## Registry (`registry.ts`, `validate.ts`, `routes/generators.ts`)

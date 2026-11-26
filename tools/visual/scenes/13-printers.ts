@@ -97,7 +97,16 @@ const added = {
 const field = (name: string) => `${dialog} >> role=textbox[name="${name}"s]`;
 
 export const scenes: Scene[] = [
-  fleetPage("printers"),
+  fleetPage("printers", [
+    { notColour: ".card.busy .pill", token: "--err" },
+    { notColour: ".card.busy .pill", token: "--live" },
+    {
+      computed: ".pill.offline",
+      pseudo: "::before",
+      property: "background-image",
+      matches: "linear-gradient",
+    },
+  ]),
   fleetPage(
     "printers-keys",
     [

@@ -194,7 +194,7 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 | Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
 | BullMQ's record of a finished job | After 7 days |
 
-**Busy printers are refused.** Just before uploading, the worker asks the printer once whether it is free. If it is printing, paused, in error, or doesn't answer, the job fails with a plain note and nothing is uploaded. The check runs once, so it is not a lock. With the SQLite queue that's enough, because Conveyor itself never sends two jobs to one printer at once. In Redis mode, two jobs sent to one printer at the same moment can both see it free until the per-printer lock lands ([#10](https://github.com/OnlyOneByte/Conveyor/issues/10)).
+**Busy printers are refused.** Just before uploading, the worker asks the printer once whether it is free. If it is printing, paused, in error, or doesn't answer, the job fails with a plain note and nothing is uploaded. The check runs once, so it is not a lock. With the SQLite queue that's enough, because Conveyor itself never sends two jobs to one printer at once. In Redis mode each worker first takes a lock on the printer in Redis (`printer:<id>:lock`), holds it through the check, the upload and the whole print, and releases it when the print settles; a second job for that printer waits for it. The lock lasts 60 seconds and the worker renews it every 20, so a worker that dies frees the printer within a minute.
 
 **Files on the printer are not cleaned up.** Each job uploads its g-code to the printer as `conveyor-<jobId>.gcode`, so two jobs never share a file, and Conveyor never deletes it. One file per job stays on the printer's storage. To free space, delete old `conveyor-*.gcode` files from the printer's own file list: in Mainsail or Fluidd under G-code files, or on an Elegoo printer's screen under its files. Never delete the one it is printing. Automatic cleanup is tracked in [#596](https://github.com/OnlyOneByte/Conveyor/issues/596).
 
@@ -460,10 +460,14 @@ Redis 8's image loads four add-on modules on start (RedisBloom, RediSearch, Redi
 
 ## Releasing a held printer
 
-This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a
-printer. When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
-the job. It fails that job with "check the printer before releasing it" and holds the printer, so no other
-job is sent to it. Check the printer, stop or remove anything it should not be printing, then release the
+Conveyor holds a printer when it can't tell whether a job started on it:
+
+- **Any queue:** the printer didn't answer the print start (`MOONRAKER_START_TIMEOUT_MS`). The job fails with "The
+  printer didn't answer the print start, so it may have started", and the printer is held.
+- **SQLite queue only:** a worker stopped while it was sending a job to the printer. The job fails with "check the
+  printer before releasing it", and the printer is held.
+
+While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then release the
 hold. Until the UI has a button for it, release it from a shell. With authentication on (the default), log
 in first; the session cookie goes in a private temporary file:
 

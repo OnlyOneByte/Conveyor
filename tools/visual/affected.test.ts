@@ -58,6 +58,8 @@ test("one page's change captures only the scenes that reach it", () => {
     "settings-delete-focus-previous",
     "settings-delete-focus-empty",
     "belt-region",
+    "printers-hold",
+    "printers-hold-confirm",
     "printers",
     "printers-keys",
     "printers-add-invalid",

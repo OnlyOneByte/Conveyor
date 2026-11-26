@@ -5,6 +5,7 @@ export interface StageCtx {
   workDir: string;
   report(progress: number, message?: string): void;
   reportUpload?(bytesSent: number, bytesTotal: number): void;
+  confirmStart?(): Promise<void>;
   signal: AbortSignal;
   log(msg: string): void;
 }
@@ -20,6 +21,13 @@ export class StageError extends Error {
     this.name = "StageError";
     this.stage = stage;
     this.reason = reason;
+  }
+}
+
+export class PrintMayHaveStartedError extends StageError {
+  constructor(reason: string, options?: { cause?: unknown }) {
+    super("transport", reason, options);
+    this.name = "PrintMayHaveStartedError";
   }
 }
 
