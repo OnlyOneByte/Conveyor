@@ -1,6 +1,7 @@
 import type { Scene, Step } from "../scene.ts";
 
 const JOB = "**/api/jobs-history/seed-printed";
+const FAILED_JOB = "**/api/jobs-history/seed-failed";
 const PRINTERS = "**/api/catalog/printers";
 const ACTIVE = "**/api/jobs/active";
 
@@ -84,6 +85,23 @@ export const scenes: Scene[] = [
       { release: JOB },
       { waitFor: "main h1:not(#down-title)" },
       { absent: "text=Can't load this job" },
+    ],
+  },
+  {
+    name: "loading-job-to-failed-job",
+    route: "/jobs/seed-printed",
+    ready: "main h1",
+    visits: ["/jobs/seed-failed"],
+    fullPage: false,
+    steps: [
+      { waitFor: "main >> text=Print again" },
+      { stall: FAILED_JOB, status: 500, json: {} },
+      { follow: "/jobs/seed-failed" },
+      { waitFor: "[data-loading='Loading the job']" },
+      { absent: "main >> text=Print again" },
+      { release: FAILED_JOB },
+      { waitFor: "main h1 >> text=Can't load this job" },
+      { absent: "main >> text=Print again" },
     ],
   },
   {

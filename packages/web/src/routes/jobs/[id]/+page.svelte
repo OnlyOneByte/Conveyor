@@ -2,6 +2,7 @@
   import ErrorDetails from "#lib/components/ErrorDetails.svelte";
   import Skeleton from "#lib/ui/Skeleton.svelte";
   import { afterNavigate, refreshAll, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import type { JobPageData } from "./+page.js";
   import type { PageData } from "./$types";
   import JobPage from "./JobPage.svelte";
@@ -9,14 +10,17 @@
   export let data: PageData;
 
   let shown: JobPageData | null = null;
+  let shownId = "";
   let failed: string | null = null;
   afterNavigate(({ to }) => {
     if (to && location.pathname !== to.url.pathname) replaceState(to.url, {});
   });
-  $: show(data.page);
+  $: show(data.page, page.params.id ?? "");
+  $: down = failed !== null && !shown;
 
-  function show(pending: Promise<JobPageData>) {
+  function show(pending: Promise<JobPageData>, id: string) {
     failed = null;
+    if (id !== shownId) [shown, shownId] = [null, id];
     void pending.then(
       (loaded) => {
         if (pending === data.page) shown = loaded;
@@ -29,19 +33,19 @@
 </script>
 
 <svelte:head>
-  {#if failed !== null}<title>Can't load this job · Conveyor</title>
+  {#if down}<title>Can't load this job · Conveyor</title>
   {:else if !shown}<title>Job · Conveyor</title>{/if}
 </svelte:head>
 
-{#if shown}
-  <JobPage data={shown} />
-{:else if failed !== null}
+{#if down}
   <section class="down" role="alert" aria-labelledby="down-title">
     <h1 id="down-title">Can't load this job</h1>
     <p>Conveyor didn't answer. Check that it's running, then try again.</p>
     <ErrorDetails detail={failed || null} />
     <button class="btn primary" type="button" on:click={() => refreshAll()}>Try again</button>
   </section>
+{:else if shown}
+  <JobPage data={shown} />
 {:else}
   <Skeleton kind="receipt" count={4} label="Loading the job" />
 {/if}
