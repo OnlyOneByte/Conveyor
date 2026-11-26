@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import type { Diagnose, EditorHandle, Lang } from "#lib/code-editor.js";
+  import Notice from "./Notice.svelte";
 
   export let file: string;
   export let text: string;
@@ -17,7 +18,9 @@
   let shown = file;
   let failed = false;
 
-  onMount(async () => {
+  async function load() {
+    failed = false;
+    await tick();
     try {
       const { createEditor } = await import("#lib/code-editor.js");
       const check = (t: string) => diagnose(t);
@@ -27,7 +30,9 @@
     } catch {
       failed = true;
     }
-  });
+  }
+
+  onMount(load);
 
   $: if (editor && file !== shown) {
     shown = file;
@@ -37,15 +42,16 @@
   onDestroy(() => editor?.destroy());
 </script>
 
-<div class="code" class:bad={invalid} bind:this={host}>
-  {#if failed}
-    <p class="note" role="alert">
-      The editor needs a connection to load. Reconnect, then reload the page.
-    </p>
-  {:else if !editor}
-    <p class="note">Loading the editor…</p>
-  {/if}
-</div>
+{#if failed}
+  <Notice tone="warn" title="You're offline" role="alert">
+    <span>This profile opens once Conveyor is reachable again.</span>
+    <button slot="action" class="btn" type="button" on:click={load}>Try again</button>
+  </Notice>
+{:else}
+  <div class="code" class:bad={invalid} bind:this={host}>
+    {#if !editor}<p class="note">Loading the editor…</p>{/if}
+  </div>
+{/if}
 
 <style>
   .code {
@@ -56,5 +62,6 @@
   .code.bad { border-color: var(--err); }
   .code:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .note { margin: 0; padding: var(--s4); color: var(--muted); }
+  .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
   @media (max-width: 759px) { .code { height: max(240px, calc(100dvh - 600px)); } }
 </style>
