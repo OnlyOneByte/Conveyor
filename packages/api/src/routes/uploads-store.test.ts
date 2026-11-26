@@ -9,6 +9,7 @@ import { HEAD_BYTES } from "./stl-check.js";
 import { registerUploadRoutes, store, type Write } from "./uploads.js";
 
 const maxBytes = 84 + 50 * 3;
+const SLACK = { idleMs: 30_000, deadlineMs: 600_000 };
 const ASCII = "solid bin\nfacet normal 0 0 1\nendfacet\nendsolid bin\n";
 const uploaded = z.object({ uploadId: z.string(), filename: z.string(), bytes: z.number() });
 
@@ -63,7 +64,7 @@ describe("storing an upload", () => {
     const app = Fastify();
     await app.register(multipart, { limits: { fileSize: maxBytes } });
     const folder = join(into, "default");
-    await registerUploadRoutes(app, { dir: folder, maxBytes });
+    await registerUploadRoutes(app, { dir: folder, maxBytes, ...SLACK });
     const at = await app.listen({ host: "127.0.0.1", port: 0 });
     try {
       const form = new FormData();

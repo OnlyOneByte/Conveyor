@@ -4,14 +4,22 @@ import { mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { HEAD_BYTES, looksLikeStl, readFailure } from "./stl-check.js";
+import {
+  realTimers,
+  type Timers,
+  UploadTimeout,
+  type UploadTimer,
+  uploadTimer,
+} from "./upload-timer.js";
 
 export type Write = (path: string, source: AsyncIterable<Buffer>) => Promise<void>;
 
 const streamTo: Write = (path, source) => pipeline(source, createWriteStream(path));
 
 const INCOMPLETE = "the upload didn't finish. Try again.";
+const TOO_SLOW = "the upload took too long. Try again on a faster connection.";
 
 class ClientRead extends Error {}
 
@@ -20,9 +28,14 @@ export interface Received {
   head: Buffer;
 }
 
-async function* tap(source: AsyncIterable<Buffer>, seen: Received): AsyncIterable<Buffer> {
+async function* tap(
+  source: AsyncIterable<Buffer>,
+  seen: Received,
+  touch: () => void,
+): AsyncIterable<Buffer> {
   try {
     for await (const chunk of source) {
+      touch();
       seen.size += chunk.byteLength;
       if (seen.head.byteLength < HEAD_BYTES)
         seen.head = Buffer.concat([
@@ -46,10 +59,11 @@ export async function store(
   part: string,
   source: AsyncIterable<Buffer>,
   write: Write,
+  touch: () => void = () => undefined,
 ): Promise<Received> {
   const seen: Received = { size: 0, head: Buffer.alloc(0) };
   try {
-    await write(part, tap(source, seen));
+    await write(part, tap(source, seen, touch));
   } catch (error) {
     await removePart(part, error);
     throw error;
@@ -57,15 +71,52 @@ export async function store(
   return seen;
 }
 
+const timedOut = (error: unknown) =>
+  error instanceof UploadTimeout ||
+  (error instanceof ClientRead && error.cause instanceof UploadTimeout);
+
+function cutOff(req: FastifyRequest, reply: FastifyReply) {
+  if (reply.raw.headersSent) {
+    req.socket.destroy();
+    return reply;
+  }
+  reply.raw.once("finish", () => req.socket.destroy());
+  return reply.code(408).header("connection", "close").send({ error: TOO_SLOW });
+}
+
+interface Target {
+  uploadId: string;
+  path: string;
+  part: string;
+}
+
 export async function registerUploadRoutes(
   app: FastifyInstance,
   settings: UploadSettings = uploadSettings(process.env),
   write: Write = streamTo,
+  timers: Timers = realTimers,
 ): Promise<void> {
   app.post("/uploads", async (req, reply) => {
+    const timer = uploadTimer(settings, timers);
     const uploadId = randomUUID();
     const path = join(settings.dir, `${uploadId}.stl`);
-    const part = `${path}.part`;
+    const target: Target = { uploadId, path, part: `${path}.part` };
+    try {
+      return await receive(req, reply, target, timer);
+    } catch (error) {
+      if (!timedOut(error)) throw error;
+      return cutOff(req, reply);
+    } finally {
+      timer.clear();
+    }
+  });
+
+  async function receive(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    { uploadId, path, part }: Target,
+    timer: UploadTimer,
+  ) {
     const refuse = async (status: number, error: string) => {
       await removePart(part, new Error(error));
       return reply.code(status).send({ error });
@@ -74,13 +125,19 @@ export async function registerUploadRoutes(
       refuse(status, status === 413 ? `file exceeds ${settings.maxBytes} bytes` : INCOMPLETE);
     let file: Awaited<ReturnType<typeof req.file>>;
     try {
-      file = await req.file({ limits: { fileSize: settings.maxBytes } });
+      file = await Promise.race([
+        req.file({ limits: { fileSize: settings.maxBytes } }),
+        timer.expired,
+      ]);
     } catch (error) {
+      if (timedOut(error)) throw error;
       const status = readFailure(error);
       if (!status) throw error;
       return failed(status);
     }
     if (!file) return reply.code(400).send({ error: "no file in multipart body" });
+    const stream = file.file;
+    timer.onExpire((error) => stream.destroy(error));
     const name = file.filename ?? "model.stl";
     if (!name.toLowerCase().endsWith(".stl")) {
       return reply.code(415).send({ error: "only .stl uploads are supported in v1" });
@@ -88,8 +145,9 @@ export async function registerUploadRoutes(
     await mkdir(settings.dir, { recursive: true });
     let seen: Received;
     try {
-      seen = await store(part, file.file, write);
+      seen = await store(part, stream, write, timer.touch);
     } catch (error) {
+      if (timedOut(error)) throw error;
       const status = error instanceof ClientRead ? readFailure(error.cause) : null;
       if (!status) throw error;
       return failed(status);
@@ -101,5 +159,5 @@ export async function registerUploadRoutes(
 
     req.log.info(`upload ${uploadId} (${name}, ${seen.size} bytes)`);
     return reply.code(201).send({ uploadId, filename: name, bytes: seen.size });
-  });
+  }
 }
