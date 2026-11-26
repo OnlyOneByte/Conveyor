@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { WorkerBeat } from "@conveyor/shared/db";
-import { ago, type HealthChecks, healthReport, WORKER_STALE_MS } from "./health";
+import { ago, HEARTBEAT_SKEW_MS, type HealthChecks, healthReport, WORKER_STALE_MS } from "./health";
 
 const NOW = 10_000_000;
+const HOUR_AHEAD = 60 * 60 * 1000;
 const READY: WorkerBeat = {
   id: "w1",
   at: NOW - 5_000,
@@ -87,6 +88,25 @@ describe("healthReport", () => {
       lastSeenSecondsAgo: 46,
       says: "Last checked in 46 s ago, so it has probably stopped.",
     });
+  });
+
+  test("a heartbeat dated in the future reads as down once past the skew allowance", async () => {
+    const at = (aheadMs: number) =>
+      checks({ heartbeats: () => [READY, { ...READY, id: "w2", at: NOW + aheadMs }] });
+    expect((await healthReport(at(HEARTBEAT_SKEW_MS))).workers[1]).toMatchObject({
+      state: "ok",
+      says: "Checked in 0 s ago.",
+    });
+    const ahead = await healthReport(at(HEARTBEAT_SKEW_MS + 1_000));
+    expect(ahead.status).toBe("degraded");
+    expect(ahead.says).toBe(
+      "Worker w2's last check-in is dated in the future, so the clock may have been changed.",
+    );
+    expect(ahead.workers[1]).toMatchObject({ state: "down", future: true, lastSeenSecondsAgo: 0 });
+    const alone = await healthReport(
+      checks({ heartbeats: () => [{ ...READY, at: NOW + HOUR_AHEAD }] }),
+    );
+    expect(alone.status).toBe("degraded");
   });
 
   test("one stopped worker among live ones is named, though jobs still run", async () => {

@@ -48,7 +48,8 @@ worker, so in a normal install they always run the same queue; `queue-mode.test.
 
 In both modes `main.ts` starts `startHeartbeat` (`heartbeat.ts`). It writes `{ at, engines }` to the
 `worker_heartbeat:<id>` row of the `meta` table at start and every 15 seconds. `<id>` is `CONVEYOR_WORKER_ID`, or
-else the host name, so each worker has its own row. Each beat looks for every engine's binary again
+else the host name, so each worker has its own row; two workers outside containers on one machine need distinct
+`CONVEYOR_WORKER_ID`s. Each beat looks for every engine's binary again
 (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`), so a binary
 removed while the worker runs shows as `missing` within a beat; `stub` with `CONVEYOR_ENGINE_STUB=1`. Each write
 also drops the single `worker_heartbeat` row from before per-worker beats and any row over a day old. A worker that stops cleanly (`SIGTERM`, as `docker compose up` sends
