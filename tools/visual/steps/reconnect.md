@@ -1,1 +1,1 @@
-`reconnect: "editor"` lifts the block an earlier `offline` step with `only: "editor"` put on the editor's chunks, so the next download of them succeeds, as `profile-editor-offline` does to prove Try again loads the editor once Conveyor is reachable again.
+`reconnect` with `"editor"` lifts the block an earlier `offline` step with `only: "editor"` put on the editor's chunks, so their next download succeeds, as `profile-editor-reconnect` does to prove Try again loads the editor once Conveyor is reachable again.
