@@ -10,6 +10,7 @@ import { registerUploadRoutes, store, type Write } from "./uploads.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-"));
 const maxBytes = 84 + 50 * 3;
+const SLACK = { idleMs: 30_000, deadlineMs: 600_000 };
 let app: FastifyInstance;
 let base = "";
 
@@ -18,7 +19,7 @@ const uploaded = z.object({ uploadId: z.string(), filename: z.string(), bytes: z
 beforeAll(async () => {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: maxBytes } });
-  await registerUploadRoutes(app, { dir, maxBytes });
+  await registerUploadRoutes(app, { dir, maxBytes, ...SLACK });
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
@@ -90,7 +91,7 @@ describe("POST /uploads", () => {
   test("accepts a binary STL far bigger than the 4 KiB kept for the check", async () => {
     const big = Fastify();
     await big.register(multipart, { limits: { fileSize: 84 + 50 * 200 } });
-    await registerUploadRoutes(big, { dir, maxBytes: 84 + 50 * 200 });
+    await registerUploadRoutes(big, { dir, maxBytes: 84 + 50 * 200, ...SLACK });
     const at = await big.listen({ host: "127.0.0.1", port: 0 });
     try {
       const form = new FormData();
@@ -166,7 +167,7 @@ describe("POST /uploads when storage fails", () => {
     broken = Fastify();
     registerErrorReplies(broken);
     await broken.register(multipart, { limits: { fileSize: maxBytes } });
-    await registerUploadRoutes(broken, { dir: join(blocked, "uploads"), maxBytes });
+    await registerUploadRoutes(broken, { dir: join(blocked, "uploads"), maxBytes, ...SLACK });
     at = await broken.listen({ host: "127.0.0.1", port: 0 });
   });
 
@@ -202,7 +203,7 @@ describe("POST /uploads when the write fails partway", () => {
       }
       throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
     };
-    await registerUploadRoutes(app, { dir: full, maxBytes }, diskFull);
+    await registerUploadRoutes(app, { dir: full, maxBytes, ...SLACK }, diskFull);
     at = await app.listen({ host: "127.0.0.1", port: 0 });
   });
 
