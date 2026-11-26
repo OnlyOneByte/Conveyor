@@ -3,28 +3,31 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
-  import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
-  import PrintAt from "#lib/components/PrintAt.svelte";
+  import MakeWhere from "#lib/components/MakeWhere.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
   import SchemaForm from "#lib/components/SchemaForm.svelte";
   import SourceTabs from "#lib/components/SourceTabs.svelte";
   import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
-  import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
+  import { dockLine, EMPTY_CATALOG, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import { printJob } from "#lib/print-job.js";
   import { linkedRetry, type RerunPayload, takeRerun } from "#lib/rerun.js";
   import { failed } from "#lib/said.js";
+  import Skeleton from "#lib/ui/Skeleton.svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { PageData } from "./$types";
 
   export let data: PageData;
 
+  let cat: Awaited<PageData["catalog"]> | null = null;
+  $: void data.catalog.then((loaded) => (cat = loaded));
+  $: ({ generators, printers, profiles, transports } = cat ?? EMPTY_CATALOG);
+
   const UPLOAD = "upload";
 
-  $: generators = data.generators ?? [];
   $: pickable = generators.filter((g) => g.id !== "passthrough");
   $: tabs = [
     ...pickable.map((g) => ({ id: g.id, label: g.name })),
@@ -33,16 +36,18 @@
 
   let tab = "";
   let handoff: RerunPayload | null = null;
-  let [printerId, profileId] = ["", ""];
+  let printerId = "";
+  let profileId = "";
   let params: Record<string, unknown> = {};
 
   onMount(showMake);
-  onMount(() => {
+  onMount(async () => {
     const r = page.url.searchParams.get("rerun") ? takeRerun() : null;
     if (!r) return;
     tab = r.generatorId;
     [printerId, profileId, handoff] = [r.printerId, r.profileId, r];
-    const schema = pickable.find((g) => g.id === r.generatorId)?.paramSchema ?? null;
+    const known = (await data.catalog).generators.find((g) => g.id === r.generatorId);
+    const schema = known?.paramSchema ?? null;
     params = knownParams(r.params, schema);
   });
 
@@ -52,13 +57,13 @@
   $: gen = pickable.find((g) => g.id === tab) ?? null;
   $: retryOf = linkedRetry(handoff, upload ? "upload" : "generate", tab);
 
-  $: eligible = data.printers.filter(
+  $: eligible = printers.filter(
     (p) => !p.allowedGenerators || p.allowedGenerators.includes(generatorId),
   );
   $: if (eligible[0] && !eligible.some((p) => p.id === printerId)) printerId = eligible[0].id;
   $: printer = eligible.find((p) => p.id === printerId) ?? null;
-  $: flavors = data.transports.find((t) => t.id === printer?.transportId)?.acceptsFlavors ?? [];
-  $: compatible = data.profiles.filter((pr) => flavors.includes(pr.gcodeFlavor));
+  $: flavors = transports.find((t) => t.id === printer?.transportId)?.acceptsFlavors ?? [];
+  $: compatible = profiles.filter((pr) => flavors.includes(pr.gcodeFlavor));
   $: if (compatible[0] && !compatible.some((pr) => pr.id === profileId))
     profileId = compatible[0].id;
   $: profile = compatible.find((pr) => pr.id === profileId);
@@ -98,7 +103,7 @@
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
   $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
-  $: setup = data.printers.length ? "" : "Add a printer to print";
+  $: setup = printers.length ? "" : "Add a printer to print";
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name ?? setup);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -114,6 +119,7 @@
 
 <svelte:head><title>What are we making? · Conveyor</title></svelte:head>
 
+{#if !cat}<Skeleton kind="make" count={5} label="Loading Make" />{:else}
 <section class="make" aria-labelledby="make-title">
   <MakeMat preview={gen?.preview?.module === "gridfinity"} {params} {file} {upload} />
   <form class="order" on:submit|preventDefault={print}>
@@ -144,21 +150,12 @@
           Can't reach Conveyor right now. Check that it's running, then reload the page.
         </p>
       {/if}
-      <section id="make-where" class="where" tabindex="-1">
-        <h2>Where should it print?</h2>
-        {#if eligible.length}
-          <PrintAt
-            printers={eligible} profiles={compatible}
-            hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
-          />
-        {:else}
-          <FirstPrinter none={!data.printers.length} />
-        {/if}
-      </section>
+      <MakeWhere {eligible} {compatible} all={printers.length} bind:printerId bind:profileId />
     </div>
     <PrintDock {summary} {detail} {ready} {...$job} />
   </form>
 </section>
+{/if}
 
 <style>
   .make {
@@ -167,7 +164,6 @@
   }
   .order { min-width: 0; }
   .fields { display: flex; flex-direction: column; gap: var(--s5); }
-  .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 var(--s2-5); font-size: var(--fs-section); }
   .questions { display: flex; flex-direction: column; gap: var(--s5); }
@@ -177,7 +173,7 @@
     .fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
     .fields > :global(*) { grid-column: 1 / -1; }
     .fields > .questions { grid-column: 1; }
-    .fields > .where { grid-column: 2; grid-row: 3; }
+    .fields > :global(.where) { grid-column: 2; grid-row: 3; }
   }
   @media (max-width: 759px) {
     .make { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }

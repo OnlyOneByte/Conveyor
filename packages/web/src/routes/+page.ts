@@ -7,6 +7,7 @@ import {
   signedIn,
 } from "#lib/api.js";
 import { loadViewportCanvas } from "#lib/components/viewport-canvas.js";
+import { EMPTY_CATALOG } from "#lib/make.js";
 import { makeShown } from "#lib/make-shown.js";
 import type { PageLoad } from "./$types";
 
@@ -15,14 +16,18 @@ export const ssr = false;
 export const load: PageLoad = async ({ fetch, url, parent }) => {
   const job = url.searchParams.get("job");
   if (job && !makeShown()) redirect(307, `/jobs/${encodeURIComponent(job)}`);
-  if (!signedIn((await parent()).auth))
-    return { generators: [], printers: [], profiles: [], transports: [] };
+  if (!signedIn((await parent()).auth)) return { catalog: Promise.resolve(EMPTY_CATALOG) };
   void loadViewportCanvas();
-  const [generators, printers, profiles, transports] = await Promise.all([
+  const catalog = Promise.all([
     fetchGenerators(fetch).catch(() => []),
     fetchCatalogPrinters(fetch).catch(() => []),
     fetchCatalogProfiles(fetch).catch(() => []),
     fetchCatalogTransports(fetch).catch(() => []),
-  ]);
-  return { generators, printers, profiles, transports };
+  ]).then(([generators, printers, profiles, transports]) => ({
+    generators,
+    printers,
+    profiles,
+    transports,
+  }));
+  return { catalog };
 };

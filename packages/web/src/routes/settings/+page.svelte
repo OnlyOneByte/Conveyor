@@ -10,6 +10,7 @@
   import ProfileList from "#lib/components/ProfileList.svelte";
   import ThemePicker from "#lib/components/ThemePicker.svelte";
   import { prefersReducedMotion, singleKeyShortcuts, spinPreview } from "#lib/preferences.js";
+  import Skeleton from "#lib/ui/Skeleton.svelte";
   import Switch from "#lib/ui/Switch.svelte";
   import { version } from "$app/env";
 
@@ -59,7 +60,7 @@
 
 <div class="cols">
   {#if !loaded}
-    <p class="sub">Loading profiles…</p>
+    <div class="panel"><Skeleton count={3} label="Loading profiles" /></div>
   {:else if failed}
     <div class="panel" role="alert">
       <h2>Can't reach Conveyor</h2>

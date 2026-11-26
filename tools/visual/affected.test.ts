@@ -79,6 +79,10 @@ test("one page's change captures only the scenes that reach it", () => {
     "first-run-add",
     "first-run-printers",
     "first-run-limited",
+    "loading-make",
+    "loading-job",
+    "loading-printers",
+    "loading-settings",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");

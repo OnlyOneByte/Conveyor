@@ -83,7 +83,7 @@ export const scenes: Scene[] = [
         delayMs: 2500,
       },
       { click: ".pill >> text=Failed" },
-      { waitFor: "text=Loading jobs…" },
+      { waitFor: "[data-loading='Loading jobs']" },
       { click: ".pill >> text=Printed" },
       { wait: 3500 },
       {
