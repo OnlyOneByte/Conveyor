@@ -90,6 +90,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "long-printer-dock-word",
     "long-printer-card",
     "print-at-many",
+    "print-at-rerun",
     "print-at-many-narrow",
     "print-at-few",
     "print-at-word",

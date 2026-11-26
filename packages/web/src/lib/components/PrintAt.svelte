@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import {
     type CatalogPrinter,
     type CatalogProfile,
@@ -35,11 +36,22 @@
   }
 
   $: for (const { id } of printers) if (!asked.has(id)) void probe(id);
+
+  let list: HTMLDivElement | undefined;
+  $: if (list && printerId && printers.length > MANY) void tick().then(() => reveal(list));
+
+  function reveal(scroller: HTMLDivElement | undefined) {
+    const pill = scroller?.querySelector("input:checked")?.closest(".pill");
+    if (!scroller || !pill) return;
+    const [frame, row] = [scroller.getBoundingClientRect(), pill.getBoundingClientRect()];
+    if (row.top < frame.top) scroller.scrollTop -= frame.top - row.top;
+    else if (row.bottom > frame.bottom) scroller.scrollTop += row.bottom - frame.bottom;
+  }
 </script>
 
 <fieldset>
   <legend class="label">Printer</legend>
-  <div class="pills" class:many={printers.length > MANY}>
+  <div class="pills" class:many={printers.length > MANY} bind:this={list}>
     {#each printers as printer (printer.id)}
       {@const status = printerStatus(printer.id, busy, unreachable, answered)}
       <label class="pill" title={printer.name}>
@@ -83,13 +95,13 @@
     min-height: 42px; padding: 0 var(--s4);
     border: 1.5px solid var(--field-line); border-radius: var(--r-pill); font-weight: 600; cursor: pointer;
   }
-  .pill { max-width: 100%; min-width: 0; }
+  .pill { position: relative; max-width: 100%; min-width: 0; }
   .pill b {
     min-width: 0; overflow: hidden; font-weight: inherit; text-overflow: ellipsis; white-space: nowrap;
   }
   .pill span { flex: none; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .many {
-    flex-direction: column; flex-wrap: nowrap; max-height: calc(5 * 42px + 4 * var(--s2));
+    flex-direction: column; flex-wrap: nowrap; max-height: calc(var(--s1-5) + 4.5 * 42px + 4 * var(--s2));
     overflow-y: auto; overscroll-behavior: contain; padding: var(--s1-5); scrollbar-gutter: stable;
   }
   .many .pill { flex: none; justify-content: space-between; border-radius: var(--r-control); }

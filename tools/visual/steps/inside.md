@@ -1,0 +1,1 @@
+`inside` fails unless its target's top and bottom edges sit within the `of` element's, to the rounded pixel, as `print-at-many` does to keep the focused printer in view inside the scrolling picker after six presses of ↓.
