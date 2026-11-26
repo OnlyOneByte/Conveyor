@@ -219,7 +219,16 @@ describe("GET /jobs/:id/artifact/:kind", () => {
     expect(await res.text()).toBe("G28\n");
   });
 
-  test("an artifact kind other than model or gcode is a 404", async () => {
+  test("the engine log downloads as plain text", async () => {
+    writeFileSync(join(dataDir, "printed", "engine.log"), "$ orca-slicer\n[exited 0]\n");
+    const res = await get("/jobs/printed/artifact/log");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(res.headers.get("content-disposition")).toBe('attachment; filename="engine.log"');
+    expect(await res.text()).toBe("$ orca-slicer\n[exited 0]\n");
+  });
+
+  test("an artifact kind other than model, gcode or log is a 404", async () => {
     const res = await get("/jobs/printed/artifact/config");
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "unknown artifact kind config" });

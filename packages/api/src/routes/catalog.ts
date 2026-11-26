@@ -21,6 +21,7 @@ import {
 } from "@conveyor/shared/db";
 import { checkPrinterAddress, PrinterAddressRefusedError } from "@conveyor/shared/node";
 import type { FastifyInstance } from "fastify";
+import { engineLogPath } from "../artifact-download.js";
 import { parsePrinter, parseProfile } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
@@ -64,7 +65,7 @@ export async function registerCatalogRoutes(
     if (!job || !isTerminal(job.state)) {
       return reply.code(404).send({ error: `no settled job with id ${req.params.id}` });
     }
-    return withRemovedFiles(job);
+    return withRemovedFiles(withEngineLog(job));
   });
 
   app.get("/catalog/printers", async () => dbListPrinters(openDb()));
@@ -165,6 +166,11 @@ async function refusal(address: string): Promise<string | undefined> {
     if (err instanceof PrinterAddressRefusedError) return err.message;
     throw err;
   }
+}
+
+function withEngineLog(job: Job): Job {
+  const log = engineLogPath(job.id);
+  return existsSync(log) ? { ...job, artifacts: { ...job.artifacts, log } } : job;
 }
 
 function withRemovedFiles(job: Job): Job & { filesRemovedAfterDays?: number } {

@@ -8,7 +8,7 @@ import {
   jobView,
   parseStatusEvent,
 } from "@conveyor/shared";
-import { dbTypicalStageMs, openDb } from "@conveyor/shared/db";
+import { dbLiveJobCounts, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import {
   enqueueJob,
   readJobFields,
@@ -21,10 +21,14 @@ import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
-import { submitJobInTransaction } from "./submit.js";
+import type { LiveJobCounts } from "./metrics.js";
+import { logCancel, logSubmitted, submitJobInTransaction } from "./submit.js";
 
 export const countLiveJobs: LiveJobCounter = (reference, id) =>
   countSqliteLiveJobs(openDb())(reference, id);
+
+export const liveJobCounts: LiveJobCounts = async () =>
+  Object.fromEntries(dbLiveJobCounts(openDb()).map(({ state, n }) => [state, n]));
 
 type ActiveRow = {
   id: string;
@@ -81,6 +85,7 @@ export async function registerJobRoutes(
     const result = submitJobInTransaction(db, submission, (id, request) =>
       enqueueJob(db, { id, request }),
     );
+    logSubmitted(req.log, submission, result);
     return reply.code(result.code).send(result.body);
   });
 
@@ -141,6 +146,11 @@ export async function registerJobRoutes(
   app.post<{ Params: { id: string } }>("/jobs/:id/cancel", async (req, reply) => {
     const jobId = req.params.id;
     const outcome = requestCancel(db, jobId);
+    logCancel(
+      req.log,
+      jobId,
+      outcome.kind === "unknown" ? 404 : outcome.kind === "canceling" ? 202 : 200,
+    );
     switch (outcome.kind) {
       case "settled":
         return reply.code(200).send({ ok: true, jobId, state: outcome.state });

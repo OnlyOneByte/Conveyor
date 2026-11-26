@@ -87,10 +87,19 @@ describe("the global auth guard on a booted api", () => {
     ["DELETE", "/catalog/profiles/x/content"],
     ["DELETE", "/catalog/profiles/x"],
     ["GET", "/health/deep"],
+    ["GET", "/metrics"],
+    ["GET", "/jobs/j1/artifact/log"],
   ])("refuses %s %s without a session", async (method, path) => {
     const response = await send(method, path);
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "authentication required" });
+  });
+
+  test("serves /metrics once signed in, reaching the route behind the guard", async () => {
+    const cookie = await login(base, "guard-test-password");
+    const res = await fetch(`${base}/metrics`, { headers: { cookie } });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "the job queue is unreachable" });
   });
 
   test("opens only the routes that opt in, not paths that merely look like them", async () => {

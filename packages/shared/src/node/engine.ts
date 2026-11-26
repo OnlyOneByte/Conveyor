@@ -1,12 +1,50 @@
 import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { StageError } from "../context.js";
 import type { Stage, StageCtx } from "../index.js";
 
 const STDERR_TAIL_CHARS = 500;
 
+export const ENGINE_LOG = "engine.log";
+export const ENGINE_LOG_MAX_BYTES = 4 * 1024 * 1024;
+
 export interface EngineRun {
   stderr: string;
+}
+
+interface EngineLog {
+  write(text: string): void;
+  close(): Promise<void>;
+}
+
+function openEngineLog(workDir: string, cmd: string, args: string[]): EngineLog {
+  const out = createWriteStream(join(workDir, ENGINE_LOG), { flags: "a" });
+  out.on("error", () => {});
+  let room = ENGINE_LOG_MAX_BYTES;
+  const write = (text: string) => {
+    if (room <= 0 || out.destroyed) return;
+    const bytes = Buffer.from(text);
+    if (bytes.length <= room) {
+      out.write(bytes);
+      room -= bytes.length;
+      return;
+    }
+    out.write(bytes.subarray(0, room));
+    out.write(`\n[engine log cut off at ${ENGINE_LOG_MAX_BYTES} bytes]\n`);
+    room = 0;
+  };
+  write(`$ ${[cmd, ...args].join(" ")}\n`);
+  let closed: Promise<void> | undefined;
+  const close = () => {
+    closed ??= new Promise<void>((resolve) => {
+      if (out.destroyed) return resolve();
+      out.end(resolve);
+    });
+    return closed;
+  };
+  return { write, close };
 }
 
 export function runEngine(
@@ -16,17 +54,33 @@ export function runEngine(
   ctx: StageCtx,
 ): Promise<EngineRun> {
   return new Promise((resolve, reject) => {
+    const log = openEngineLog(ctx.workDir, cmd, args);
     const child = spawn(cmd, args, { signal: ctx.signal });
     let stderr = "";
-    child.stderr.on("data", (b) => (stderr += b.toString()));
-    child.on("error", (e) => reject(new StageError(stage, e.message, { cause: e })));
-    child.on("close", (code) =>
-      code === 0
-        ? resolve({ stderr })
-        : reject(
-            new StageError(stage, `${cmd} exited ${code}: ${stderr.slice(-STDERR_TAIL_CHARS)}`),
-          ),
-    );
+    let failed = false;
+    child.stdout.on("data", (b) => log.write(b.toString()));
+    child.stderr.on("data", (b) => {
+      stderr += b.toString();
+      log.write(b.toString());
+    });
+    child.on("error", (e) => {
+      failed = true;
+      log.write(`[${e.message}]\n`);
+      void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));
+    });
+    child.on("close", (code) => {
+      if (failed) return;
+      log.write(`[exited ${code}]\n`);
+      void log
+        .close()
+        .then(() =>
+          code === 0
+            ? resolve({ stderr })
+            : reject(
+                new StageError(stage, `${cmd} exited ${code}: ${stderr.slice(-STDERR_TAIL_CHARS)}`),
+              ),
+        );
+    });
   });
 }
 

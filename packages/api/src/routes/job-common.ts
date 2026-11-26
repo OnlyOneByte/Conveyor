@@ -9,8 +9,8 @@ import {
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
+  ARTIFACT_KINDS,
   ArtifactError,
-  type ArtifactKind,
   openArtifactStream,
   resolveJobArtifact,
 } from "../artifact-download.js";
@@ -56,12 +56,12 @@ export function registerArtifactRoute(app: FastifyInstance): void {
   app.get<{ Params: { id: string; kind: string } }>(
     "/jobs/:id/artifact/:kind",
     async (req, reply) => {
-      const kind = req.params.kind;
-      if (kind !== "model" && kind !== "gcode") {
-        return reply.code(404).send({ error: `unknown artifact kind ${kind}` });
+      const kind = ARTIFACT_KINDS.find((known) => known === req.params.kind);
+      if (!kind) {
+        return reply.code(404).send({ error: `unknown artifact kind ${req.params.kind}` });
       }
       try {
-        const art = await resolveJobArtifact(req.params.id, kind as ArtifactKind);
+        const art = await resolveJobArtifact(req.params.id, kind);
         reply
           .header("content-type", art.contentType)
           .header("content-length", art.size)

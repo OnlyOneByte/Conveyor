@@ -7,6 +7,7 @@ import { DEFAULT_PRINTERS, DEFAULT_PROFILES } from "./seed.js";
 import { enableWal } from "./wal.js";
 
 export * from "./jobs.js";
+export * from "./metrics.js";
 export { dbGetPrinterSecrets, SecretsKeyError } from "./printer-secrets.js";
 export * from "./printers.js";
 export * from "./profiles.js";

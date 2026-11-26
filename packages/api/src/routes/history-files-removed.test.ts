@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
@@ -84,4 +84,14 @@ test("the note uses the configured number of days", async () => {
   } finally {
     delete process.env.CONVEYOR_RETENTION_DAYS;
   }
+});
+
+test("a job whose folder holds an engine.log lists it as an artifact, and others don't", async () => {
+  const logged = job(1, true);
+  writeFileSync(join(dir, logged, "engine.log"), "$ prusa-slicer\n");
+  expect(await entry(logged)).toMatchObject({
+    artifacts: { log: join(dir, logged, "engine.log") },
+  });
+  const quiet = job(1, true);
+  expect(await entry(quiet)).not.toHaveProperty("artifacts.log");
 });

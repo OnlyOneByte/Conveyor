@@ -2,14 +2,21 @@ import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
-import { isWithin } from "@conveyor/shared/node";
+import { ENGINE_LOG, isWithin } from "@conveyor/shared/node";
 
-export type ArtifactKind = "model" | "gcode";
+export const ARTIFACT_KINDS = ["model", "gcode", "log"] as const;
+
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 const KIND_META: Record<ArtifactKind, { filename: string; contentType: string }> = {
   model: { filename: "model.stl", contentType: "model/stl" },
   gcode: { filename: "model.gcode", contentType: "text/x.gcode" },
+  log: { filename: "engine.log", contentType: "text/plain; charset=utf-8" },
 };
+
+export function engineLogPath(jobId: string): string {
+  return join(resolve(process.env.DATA_DIR ?? "/data"), jobId, ENGINE_LOG);
+}
 
 export class ArtifactError extends Error {
   constructor(
@@ -34,7 +41,7 @@ export async function resolveJobArtifact(
   const job = dbGetJob(openDb(), jobId);
   if (!job) throw new ArtifactError(`no settled job with id ${jobId}`);
 
-  const stored = job.artifacts?.[kind];
+  const stored = kind === "log" ? engineLogPath(jobId) : job.artifacts?.[kind];
   if (!stored) throw new ArtifactError(`job ${jobId} has no ${kind} artifact recorded`);
 
   const jobRoot = join(resolve(process.env.DATA_DIR ?? "/data"), jobId);

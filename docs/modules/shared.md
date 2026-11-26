@@ -286,7 +286,10 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
   error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
   that streams logs there would need a rolling buffer. A zero exit resolves `{ stderr }` with all of it, so
-  a caller can explain an exit that produced nothing.
+  a caller can explain an exit that produced nothing. Each run also appends to `<workDir>/engine.log`
+  (`ENGINE_LOG`): the command line, stdout and stderr as they arrive, and `[exited <code>]` or the spawn
+  error. The file stops at `ENGINE_LOG_MAX_BYTES` (4 MiB) with a `[engine log cut off …]` line, and a log
+  that can't be written never fails the run.
 - `requireOutput(stage, path, missing, stderr)` throws a `StageError` for `stage` when `path` is not a file or
   is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the last 500
   characters of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any

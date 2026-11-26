@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import type { JobRequest } from "@conveyor/shared";
 import { dbClaimRetry, dbRetriedBy } from "@conveyor/shared/db";
+import type { FastifyBaseLogger } from "fastify";
 
 type Submission = { request: JobRequest; retryOf?: string };
 type Submitted =
@@ -39,4 +40,20 @@ export function submitJobInTransaction(
       return { code: 202, body: { jobId } };
     })
     .immediate();
+}
+
+export function logSubmitted(log: FastifyBaseLogger, submission: Submission, result: Submitted) {
+  const { generator, printerId } = submission.request;
+  const retryOf = submission.retryOf;
+  if (result.code === 202)
+    log.info(
+      { jobId: result.body.jobId, generatorId: generator.id, printerId, retryOf },
+      "job queued",
+    );
+  else
+    log.info({ retryOf, retriedBy: result.body.retriedBy }, "job retry refused: already retried");
+}
+
+export function logCancel(log: FastifyBaseLogger, jobId: string, code: number) {
+  log.info({ jobId, code }, "job cancel requested");
 }

@@ -9,7 +9,7 @@ export const MIN_TYPICAL_SAMPLES = 3;
 export type StageDurations = Partial<Record<Stage, number>>;
 
 const stageSchema = z.enum(["generator", "slicer", "transport"]);
-const timingsSchema = z.array(
+export const stageTimingsSchema = z.array(
   z.object({ stage: stageSchema, durationMs: z.number().nonnegative() }),
 );
 
@@ -35,7 +35,7 @@ export function dbTypicalStageMs(
   const seen = new Map<Stage, number[]>();
   for (const row of rows) {
     const read = readJson(row.timings_json);
-    const timings = timingsSchema.safeParse(read.ok ? read.value : null);
+    const timings = stageTimingsSchema.safeParse(read.ok ? read.value : null);
     for (const { stage, durationMs } of timings.data ?? [])
       seen.set(stage, [...(seen.get(stage) ?? []), durationMs]);
   }

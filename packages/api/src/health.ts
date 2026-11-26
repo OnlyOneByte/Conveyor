@@ -91,10 +91,14 @@ function workerSays(ageMs: number, future: boolean, fresh: boolean): string {
     : `Last checked in ${ago(ageMs)} ago, so it has probably stopped.`;
 }
 
+export function workerFresh(beat: WorkerBeat, now: number): boolean {
+  return beat.at <= now + HEARTBEAT_SKEW_MS && Math.max(0, now - beat.at) <= WORKER_STALE_MS;
+}
+
 function workerCheck(beat: WorkerBeat, now: number): WorkerCheck {
   const future = beat.at > now + HEARTBEAT_SKEW_MS;
   const ageMs = Math.max(0, now - beat.at);
-  const fresh = !future && ageMs <= WORKER_STALE_MS;
+  const fresh = workerFresh(beat, now);
   return {
     id: beat.id,
     state: fresh ? "ok" : "down",
