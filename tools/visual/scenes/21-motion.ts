@@ -94,8 +94,12 @@ export const scenes: Scene[] = [
     steps: [
       { click: "button.exp" },
       { waitFor: ".sheet" },
-      { click: "button.exp" },
-      { absent: ".sheet" },
+      {
+        computed: ".sheet",
+        property: "transition-duration",
+        matches: "^(0s|1e-06s)(, (0s|1e-06s))*$",
+      },
+      { computed: ".sheet", property: "opacity", matches: "^1$" },
     ],
   },
 ];

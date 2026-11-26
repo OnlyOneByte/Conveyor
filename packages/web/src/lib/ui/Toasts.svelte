@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { leave, toasts } from "./behaviour";
+  import { toasts } from "./behaviour";
 
   let back: HTMLElement | null = null;
   const inside = (e: FocusEvent) =>
@@ -12,7 +12,6 @@
   {#each $toasts as toast (toast.id)}
     <div
       class="toast"
-      out:leave
       role="group"
       aria-label={toast.text}
       on:focusin={(e) => { if (!inside(e)) back = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null; toasts.hold(toast.id, "focus"); }}

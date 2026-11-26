@@ -10,16 +10,8 @@ import {
   TABBABLE,
   TOAST_MS,
   tabIfScrolls,
-  tokenMs,
   wrapTab,
 } from "./behaviour";
-
-describe("motion tokens", () => {
-  test("reads a duration token as milliseconds, and an unset or reduced one as none", () => {
-    const read = ["150ms", " 0.4s", "0ms", ""].map(tokenMs);
-    expect(read).toEqual([150, 400, 0, 0]);
-  });
-});
 
 describe("focus return", () => {
   test("focuses the element that was active when the surface opened", () => {

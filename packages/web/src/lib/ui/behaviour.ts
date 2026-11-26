@@ -115,20 +115,6 @@ export function tabIfScrolls(node: HTMLElement) {
   return { destroy: () => seen.disconnect() };
 }
 
-export const tokenMs = (raw: string) => {
-  const n = Number.parseFloat(raw);
-  if (!Number.isFinite(n)) return 0;
-  return raw.trim().endsWith("ms") ? n : n * 1000;
-};
-
-export function leave(node: Element) {
-  return {
-    duration: tokenMs(getComputedStyle(node).getPropertyValue("--t-fast")),
-    css: (t: number) =>
-      `opacity: ${t}; translate: 0 calc(${1 - t} * var(--s2)); pointer-events: none`,
-  };
-}
-
 export function measured(node: HTMLElement, name: string) {
   const root = document.documentElement.style;
   const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;

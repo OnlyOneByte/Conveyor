@@ -12,7 +12,7 @@
     today,
     value,
   } from "#lib/track.js";
-  import { leave, uid } from "#lib/ui/behaviour.js";
+  import { uid } from "#lib/ui/behaviour.js";
   import { afterNavigate } from "$app/navigation";
   import NeedsYou from "./NeedsYou.svelte";
 
@@ -49,7 +49,7 @@
     <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={() => (open = !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
   </div>
   {#if open}
-    <div class="sheet" id={sheet} out:leave>
+    <div class="sheet" id={sheet}>
       {#each moving as { job } (job.id)}
         <a class="row" href="/jobs/{job.id}"><span class="t">{shortName(job.name)}</span><span class="v">{value(job)}</span><span class="st">{status(job)}</span></a>
       {:else}
