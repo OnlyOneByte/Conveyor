@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45997",
+  "url": "http://127.0.0.1:45973",
   "warnings": [],
   "results": [
     {
@@ -25,6 +25,24 @@
       "width": 1440,
       "warnings": [],
       "png": "printer-answering-1440.png"
+    },
+    {
+      "scene": "make-upload-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "make-upload-empty-1440.png"
+    },
+    {
+      "scene": "make-upload-not-stl",
+      "width": 1440,
+      "warnings": [],
+      "png": "make-upload-not-stl-1440.png"
+    },
+    {
+      "scene": "make-upload-fault",
+      "width": 1440,
+      "warnings": [],
+      "png": "make-upload-fault-1440.png"
     },
     {
       "scene": "home",
@@ -55,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 622742,
+      "gifBytes": 591208,
       "gif": "new-job-1440.gif"
     },
     {
@@ -63,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 360886,
+      "gifBytes": 367920,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -95,7 +113,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 501200,
+      "gifBytes": 470980,
       "gif": "make-print-1440.gif"
     },
     {
@@ -146,7 +164,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 723704,
+      "gifBytes": 745586,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -313,6 +331,12 @@
       "png": "profile-editor-long-error-open-1440.png"
     },
     {
+      "scene": "profile-details-scrolls",
+      "width": 1440,
+      "warnings": [],
+      "png": "profile-details-scrolls-1440.png"
+    },
+    {
       "scene": "profile-editor",
       "width": 1440,
       "warnings": [],
@@ -359,7 +383,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 816411,
+      "gifBytes": 804515,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -467,7 +491,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 531470,
+      "gifBytes": 512351,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -475,7 +499,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1621337,
+      "gifBytes": 1138175,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -483,7 +507,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1460456,
+      "gifBytes": 1357416,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -515,7 +539,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 309514,
+      "gifBytes": 299633,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -553,7 +577,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 415801,
+      "gifBytes": 417267,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -567,7 +591,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 965114,
+      "gifBytes": 945386,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -581,7 +605,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 787535,
+      "gifBytes": 768661,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -625,7 +649,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 780406,
+      "gifBytes": 730198,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -665,6 +689,20 @@
       "png": "printers-clear-secrets-fails-1440.png"
     },
     {
+      "scene": "auth-timeout",
+      "width": 1440,
+      "warnings": [
+        "not on the base: \"h1 >> text=Can't reach Conveyor\" didn't appear within 5 s, so auth-timeout is new on this PR"
+      ]
+    },
+    {
+      "scene": "receipt-resume-note",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "receipt-resume-note-1440.png"
+    },
+    {
       "scene": "make-upload-too-big",
       "width": 390,
       "warnings": [],
@@ -693,6 +731,30 @@
       "width": 390,
       "warnings": [],
       "png": "printer-answering-390.png"
+    },
+    {
+      "scene": "make-upload-empty",
+      "width": 390,
+      "warnings": [],
+      "png": "make-upload-empty-390.png"
+    },
+    {
+      "scene": "make-upload-not-stl",
+      "width": 390,
+      "warnings": [],
+      "png": "make-upload-not-stl-390.png"
+    },
+    {
+      "scene": "make-upload-fault",
+      "width": 390,
+      "warnings": [],
+      "png": "make-upload-fault-390.png"
+    },
+    {
+      "scene": "make-upload-details-390",
+      "width": 390,
+      "warnings": [],
+      "png": "make-upload-details-390-390.png"
     },
     {
       "scene": "home",
@@ -729,7 +791,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 626601,
+      "gifBytes": 656338,
       "gif": "new-job-390.gif"
     },
     {
@@ -737,7 +799,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376407,
+      "gifBytes": 356412,
       "gif": "job-progress-390.gif"
     },
     {
@@ -812,7 +874,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1098820,
+      "gifBytes": 1118587,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -955,6 +1017,12 @@
       "png": "profile-editor-long-error-open-390.png"
     },
     {
+      "scene": "profile-details-scrolls",
+      "width": 390,
+      "warnings": [],
+      "png": "profile-details-scrolls-390.png"
+    },
+    {
       "scene": "profile-editor",
       "width": 390,
       "warnings": [],
@@ -1001,7 +1069,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 975329,
+      "gifBytes": 973359,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1114,7 +1182,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 505548,
+      "gifBytes": 524597,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1152,7 +1220,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 625696,
+      "gifBytes": 619479,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1166,7 +1234,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1331761,
+      "gifBytes": 1333138,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1212,7 +1280,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1117694,
+      "gifBytes": 1114749,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1280,6 +1348,13 @@
       "width": 390,
       "warnings": [],
       "png": "touch-track-390.png"
+    },
+    {
+      "scene": "receipt-resume-note",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "receipt-resume-note-390.png"
     }
   ]
 }
