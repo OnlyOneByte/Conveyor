@@ -33,8 +33,7 @@
 
   let tab = "";
   let handoff: RerunPayload | null = null;
-  let printerId = "";
-  let profileId = "";
+  let [printerId, profileId] = ["", ""];
   let params: Record<string, unknown> = {};
 
   onMount(showMake);
@@ -153,7 +152,7 @@
             hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
           />
         {:else}
-          <FirstPrinter />
+          <FirstPrinter none={!data.printers.length} />
         {/if}
       </section>
     </div>
@@ -166,7 +165,8 @@
     display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     gap: 28px; align-items: start;
   }
-  .order { min-width: 0; } .fields { display: flex; flex-direction: column; gap: var(--s5); }
+  .order { min-width: 0; }
+  .fields { display: flex; flex-direction: column; gap: var(--s5); }
   .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }

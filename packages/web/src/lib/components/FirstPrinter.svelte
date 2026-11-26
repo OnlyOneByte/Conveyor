@@ -1,16 +1,17 @@
 <script lang="ts">
-  export let add: (() => void) | null = null;
+  export let none: boolean;
+  export let onPrinters = false;
 </script>
 
-<div class="first">
-  <svelte:element this={add ? "h2" : "h3"} class="t">Add your first printer</svelte:element>
-  <p>Conveyor sends each job to a printer you add. It needs a name and the printer's address.</p>
-  {#if add}
-    <button class="btn primary" type="button" on:click={add}>Add a printer</button>
-  {:else}
-    <a class="btn primary" href="/printers?add">Add a printer</a>
-  {/if}
-</div>
+{#if none}
+  <div class="first">
+    <svelte:element this={onPrinters ? "h2" : "h3"} class="t">Add your first printer</svelte:element>
+    <p>Conveyor sends each job to a printer you add. It needs a name and the printer's address.</p>
+    {#if !onPrinters}<a class="btn primary" href="/printers?add">Add a printer</a>{/if}
+  </div>
+{:else}
+  <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
+{/if}
 
 <style>
   .first {
@@ -19,6 +20,7 @@
   }
   .t { margin: 0; color: var(--ink); font: 700 var(--fs-section) var(--display); }
   p { margin: 0; }
+  .note { color: var(--muted); }
   .btn {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none;
   }
