@@ -173,7 +173,8 @@ dropped. Two guards apply to every upload:
   <last error> (<n> in a row)`. A good poll resets the count. Both settings must be whole numbers above 0.
 - Both transports upload the g-code to the printer as `conveyor-<jobId>.gcode` (`printerFileName` in
   `@conveyor/shared`) and start that name, so two jobs sent to one printer never overwrite each other's file.
-  The handle's `ref` is that name. Conveyor never deletes files from the printer.
+  The handle's `ref` is that name. Conveyor never deletes files from the printer, so one file per job stays
+  there until someone deletes it ([#596](https://github.com/OnlyOneByte/Conveyor/issues/596)).
 - Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
   `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in

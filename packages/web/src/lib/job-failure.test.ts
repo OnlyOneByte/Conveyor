@@ -58,3 +58,12 @@ describe("failureText", () => {
     }
   });
 });
+
+test("a print start the printer never answered says it may have started, before any retry", () => {
+  const reason = "moonraker gave no answer to print start within 30000 ms";
+  expect(failureText("transport", reason)).toEqual({
+    title: "Sending to the printer didn't finish",
+    detail:
+      "The printer didn't answer the print start, so it may have started. Check the printer before you retry.",
+  });
+});

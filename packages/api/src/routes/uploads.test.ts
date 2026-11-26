@@ -87,6 +87,23 @@ describe("POST /uploads", () => {
     expect((await uploadOk("edge.stl", binaryStl(3))).bytes).toBe(maxBytes);
   });
 
+  test("accepts a binary STL far bigger than the 4 KiB kept for the check", async () => {
+    const big = Fastify();
+    await big.register(multipart, { limits: { fileSize: 84 + 50 * 200 } });
+    await registerUploadRoutes(big, { dir, maxBytes: 84 + 50 * 200 });
+    const at = await big.listen({ host: "127.0.0.1", port: 0 });
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([binaryStl(200)]), "big.stl");
+      const res = await fetch(`${at}/uploads`, { method: "POST", body: form });
+      expect(res.status).toBe(201);
+      expect(uploaded.parse(await res.json()).bytes).toBe(84 + 50 * 200);
+    } finally {
+      big.server.closeAllConnections();
+      await big.close();
+    }
+  });
+
   test("accepts a binary STL whose size matches its triangle count", async () => {
     expect((await uploadOk("one.stl", binaryStl(1))).bytes).toBe(134);
   });
