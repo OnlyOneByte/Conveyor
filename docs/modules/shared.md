@@ -504,7 +504,7 @@ Every takeover bumps `lease_token`, so the old owner's later writes are refused.
 
 | Row | Outcome |
 |---|---|
-| No submit intent, cancel requested | `canceled`, with an event, so the job is not left in `queued` where no claim takes it. With an intent, a cancel request changes nothing: the rows below apply |
+| No submit intent, cancel requested | `canceled`, with an event, so the job is not left in `queued` where no claim takes it. No worker settles it, so its folder stays until retention removes it. With an intent, a cancel request changes nothing: the rows below apply |
 | No submit intent, attempts left | `queued`, after 5 s, then 10 s, of backoff |
 | No submit intent, attempts used up | `failed`: the worker lost the job before it reached the printer |
 | Submit intent but no marker | `failed`: check the printer. In the same transaction it holds the printer (`printers.hold_job_id`, `hold_reason`, `hold_at`) with `UNKNOWN_REASON`, unless the printer is already held |

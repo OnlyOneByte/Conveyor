@@ -79,7 +79,7 @@ export interface Reaped {
   parts: string[];
 }
 
-function inside(root: string, name: string): string | undefined {
+export function inside(root: string, name: string): string | undefined {
   const base = resolve(root);
   const path = resolve(base, name);
   return path.startsWith(base + sep) && !path.slice(base.length + 1).includes(sep)

@@ -1,12 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import { requestCancel } from "@conveyor/shared/queue";
 import { memoryLocks } from "../test/helpers/memory-locks";
-import { cleanup, db, queued, row } from "../test/helpers/queue-deps-harness";
+import { cleanup, db, events, queued, row } from "../test/helpers/queue-deps-harness";
 import { pause, printerLock } from "./printer-lock";
+import { SLOT_WAIT_MESSAGE } from "./queue-deps";
 import { JobCanceledError } from "./run";
 
 const LONG_MS = 60_000;
 const PROMPT_MS = 100;
+
+async function atTheSlot(): Promise<void> {
+  const deadline = Date.now() + 3000;
+  while (!events().some((e) => e.message === SLOT_WAIT_MESSAGE)) {
+    if (Date.now() > deadline) throw new Error("the job never reached the printer slot wait");
+    await Bun.sleep(2);
+  }
+}
 
 const elapsed = async (work: Promise<unknown>): Promise<number> => {
   const start = performance.now();
@@ -44,10 +53,6 @@ describe("a cancel during a wait lands at once, not after a full interval", () =
   });
 
   test("the SQLite printer-slot wait", async () => {
-    let waitingAtSlot: () => void = () => {};
-    const atSlot = new Promise<void>((resolve) => {
-      waitingAtSlot = resolve;
-    });
     const h = queued(
       {
         generate: async () => {
@@ -55,16 +60,13 @@ describe("a cancel during a wait lands at once, not after a full interval", () =
             "INSERT INTO jobs (id, generator_id, printer_id, profile_id, state, created_at, updated_at) VALUES ('other', 'gen', 'p1', 'prof', 'printing', 0, 0)",
           ).run();
         },
-        slice: async () => {
-          setTimeout(waitingAtSlot, 20);
-        },
       },
       {},
       LONG_MS,
     );
     try {
       const run = h.run();
-      await atSlot;
+      await atTheSlot();
       requestCancel(db, "job-1");
       h.controller.abort();
       expect(await elapsed(run)).toBeLessThan(PROMPT_MS);
