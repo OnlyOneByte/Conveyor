@@ -60,12 +60,12 @@ Tags: `:X.Y.Z`, `:X.Y`, `:latest`, and `:sha-<short>`. How a release is cut and 
 A deploy `compose.yml` can then swap the `build:` blocks for `image:` pins — e.g.
 `image: ghcr.io/onlyonebyte/conveyor-worker:latest` — to pull instead of build.
 
-> **Status.** M0 (contracts + skeleton) is **verified**: typechecks clean and the full
-> queue → worker → status-WS pipeline runs end-to-end in stub mode (gridfinity → slicer →
-> moonraker/elegoo, live progress events). M1 (real worker image) is **verified green** on
-> aarch64: OpenSCAD generates real STLs and **both** slicers — PrusaSlicer and
-> OrcaSlicer (v2.4.1 aarch64 AppImage) — slice headless; full generate→slice E2E proven in
-> the worker image. See `docs/archive/M1-WORKER-ENGINES.md`.
+## Status
+
+Milestones M0, M1 and M3 to M6 are done: the worker image generates and slices headless with OpenSCAD,
+PrusaSlicer and OrcaSlicer, and the web app covers Make, Jobs, Printers and Settings, behind a shared-password
+sign-in. M2, the Moonraker and ElegooLink transports, is written and tested against stubs, and still awaits
+real printers. [SPEC.md §10](SPEC.md#10-milestones) has each milestone.
 
 ## License
 
