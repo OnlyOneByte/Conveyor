@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { PrintMayHaveStartedError, PrintNotStartedError, type PrintStatus } from "@conveyor/shared";
+import {
+  filesToPrune,
+  PrintMayHaveStartedError,
+  PrintNotStartedError,
+  type PrintStatus,
+} from "@conveyor/shared";
 import { memoryLocks } from "../test/helpers/memory-locks";
 import { harness } from "../test/helpers/pipeline-harness";
 import { type PrinterLock, printerLock, printerLockKey } from "./printer-lock";
@@ -119,4 +124,84 @@ test("a job whose lock is lost mid-upload refuses at START, after another job to
   await second;
   expect(started).toEqual(["b"]);
   expect(a.cancels).toEqual([]);
+});
+
+function printerFiles() {
+  const files = new Set(["conveyor-old.gcode"]);
+  const pruned: string[] = [];
+  const pruneFiles = async (_target: unknown, keep: ReadonlySet<string>) => {
+    const doomed = filesToPrune([...files], keep, undefined);
+    for (const name of doomed) files.delete(name);
+    pruned.push(...doomed);
+    return doomed;
+  };
+  return { files, pruned, pruneFiles };
+}
+
+test("a job whose lock is lost mid-upload never removes the file the next job uploaded", async () => {
+  const store = memoryLocks();
+  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const printer = printerFiles();
+  const startedWith: boolean[] = [];
+  let bUploaded = false;
+  let aSettled = () => {};
+  const aHasSettled = new Promise<void>((resolve) => {
+    aSettled = resolve;
+  });
+  const b = harness({
+    submit: async (ctx) => {
+      printer.files.add("conveyor-b.gcode");
+      bUploaded = true;
+      await aHasSettled;
+      await ctx.confirmStart?.();
+      startedWith.push(printer.files.has("conveyor-b.gcode"));
+    },
+    pruneFiles: printer.pruneFiles,
+    deps: () => ({ printerLock: lock, printerFilesToKeep: () => ["conveyor-b.gcode"] }),
+  });
+  let second: Promise<unknown> = Promise.resolve();
+  const a = harness({
+    submit: async (ctx) => {
+      printer.files.add("conveyor-a.gcode");
+      store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+      second = b.run();
+      for (let tries = 0; tries < 400 && !bUploaded; tries++) await Bun.sleep(5);
+      store.failRenewalsOf = undefined;
+      await ctx.confirmStart?.();
+    },
+    pruneFiles: printer.pruneFiles,
+    deps: () => ({ printerLock: lock, printerFilesToKeep: () => ["conveyor-a.gcode"] }),
+  });
+  await expect(a.run()).rejects.toBeInstanceOf(PrintNotStartedError);
+  aSettled();
+  expect(await second).toBe("done");
+  expect(bUploaded).toBe(true);
+  expect(startedWith).toEqual([true]);
+  expect(printer.files.has("conveyor-b.gcode")).toBe(true);
+});
+
+test("a job whose lock is lost mid-print leaves the printer's files alone", async () => {
+  const store = memoryLocks();
+  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const printer = printerFiles();
+  const logs: string[] = [];
+  const h = harness({
+    status: async function* () {
+      yield { state: "printing", progress: 0.5 };
+      store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+      await Bun.sleep(80);
+      yield { state: "done" };
+    },
+    pruneFiles: printer.pruneFiles,
+    deps: () => ({
+      printerLock: lock,
+      printerFilesToKeep: () => [],
+      log: (line: string) => logs.push(line),
+    }),
+  });
+  expect(await h.run()).toBe("done");
+  expect(printer.pruned).toEqual([]);
+  expect(logs).toContain(
+    "job job-1: the printer lock was lost, so old files on the printer were left alone",
+  );
 });

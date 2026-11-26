@@ -70,6 +70,6 @@ test("deletes nothing when the printer state can't be read", async () => {
 test("a refused delete is reported", async () => {
   printer({ state: "standby" }, 403);
   await expect(prune(["conveyor-b2.gcode", "conveyor-c3.gcode"])).rejects.toThrow(
-    "moonraker could not delete conveyor-a1.gcode: 403",
+    "moonraker could not delete conveyor-a1.gcode: 403; removed none",
   );
 });

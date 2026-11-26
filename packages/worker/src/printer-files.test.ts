@@ -2,7 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type PrinterTarget, PrintMayHaveStartedError, type PrintStatus } from "@conveyor/shared";
+import {
+  type PrinterTarget,
+  PrintMayHaveStartedError,
+  PrintNotStartedError,
+  type PrintStatus,
+  type Stage,
+} from "@conveyor/shared";
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import { harness, never, waitForAbort } from "../test/helpers/pipeline-harness";
 import { DEFAULT_KEEP_FILES, filesToKeep, printerKeepFiles } from "./printer-files";
@@ -58,6 +64,16 @@ describe("old files on the printer", () => {
     expect(p.calls).toEqual([]);
   });
 
+  test("are left alone when the print was refused before it started", async () => {
+    const p = pruning();
+    const submit = async () => {
+      throw new PrintNotStartedError("printer is busy: moonraker reports it printing");
+    };
+    const h = harness({ pruneFiles: p.pruneFiles, deps: p.deps, submit });
+    await expect(h.run()).rejects.toThrow("printer is busy");
+    expect(p.calls).toEqual([]);
+  });
+
   test("are left alone when the job is canceled", async () => {
     const p = pruning();
     const h = harness({
@@ -77,9 +93,7 @@ describe("old files on the printer", () => {
     const p = pruning(new Error("printer unreachable"));
     const h = harness({ pruneFiles: p.pruneFiles, deps: p.deps });
     expect(await h.run()).toBe("done");
-    expect(p.logs).toContain(
-      "job job-1: old files on the printer were not removed: printer unreachable",
-    );
+    expect(p.logs).toContain("job job-1: printer file cleanup did not finish: printer unreachable");
   });
 
   test("are pruned while the printer lock is still held", async () => {
@@ -107,12 +121,19 @@ describe("filesToKeep", () => {
     for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
-  function dbWith(jobs: { id: string; printerId: string; at: number }[]) {
+  interface Row {
+    id: string;
+    printerId: string;
+    at: number;
+    stage?: Stage;
+  }
+
+  function dbWith(jobs: Row[]) {
     const dir = mkdtempSync(join(tmpdir(), "conveyor-printer-files-"));
     dirs.push(dir);
     const db = openDb(join(dir, "conveyor.db"));
-    for (const { id, printerId } of jobs)
-      dbRecordJob(db, { id, generatorId: "g", printerId, profileId: "x", state: "done" });
+    for (const { id, printerId, stage = "transport" } of jobs)
+      dbRecordJob(db, { id, generatorId: "g", printerId, profileId: "x", state: "done", stage });
     for (const { id, at } of jobs) db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
     return db;
   }
@@ -132,7 +153,19 @@ describe("filesToKeep", () => {
     expect(filesToKeep(db, 1, "p1", "now")).toEqual(["conveyor-now.gcode"]);
   });
 
-  test("keeps nothing at 0, so the job's own file goes too", () => {
+  test("counts only jobs that reached the printer toward N", () => {
+    const db = dbWith([
+      { id: "printed", printerId: "p1", at: 1 },
+      { id: "sliced-badly", printerId: "p1", at: 2, stage: "slicer" },
+      { id: "never-made", printerId: "p1", at: 3, stage: "generator" },
+    ]);
+    expect(filesToKeep(db, 2, "p1", "now")).toEqual([
+      "conveyor-now.gcode",
+      "conveyor-printed.gcode",
+    ]);
+  });
+
+  test("keeps no earlier job's file at 0, nor names this job's own", () => {
     expect(filesToKeep(dbWith([{ id: "a", printerId: "p1", at: 1 }]), 0, "p1", "now")).toEqual([]);
   });
 

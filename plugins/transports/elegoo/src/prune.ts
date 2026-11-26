@@ -10,7 +10,7 @@ const FileListReply = z.object({
   FileList: z.array(z.object({ name: z.string(), type: z.number().optional() })),
 });
 
-const DeleteReply = z.object({ ErrData: z.array(z.string()).optional() }).optional();
+const DeleteReply = z.object({ ErrData: z.array(z.string()).optional() });
 
 async function printingFile(
   address: string,
@@ -34,12 +34,12 @@ export async function pruneLocalFiles(
   signal: AbortSignal,
 ): Promise<string[]> {
   const printing = await printingFile(address, mainboardId, signal);
-  const reply = await sendCommand(
+  const listing = await sendCommand(
     address,
     { mainboardId, cmd: SDCP_CMD.FILE_LIST, data: { Url: "/local" } },
     true,
   );
-  const listed = FileListReply.safeParse(reply);
+  const listed = FileListReply.safeParse(listing);
   if (!listed.success)
     throw new StageError(
       "transport",
@@ -53,8 +53,17 @@ export async function pruneLocalFiles(
     { mainboardId, cmd: SDCP_CMD.DELETE_FILES, data: { FileList: doomed, FolderList: [] } },
     true,
   );
-  const failed = DeleteReply.safeParse(deleted).data?.ErrData ?? [];
-  if (failed.length > 0)
-    throw new StageError("transport", `elegoo could not delete ${failed.join(", ")}`);
-  return doomed;
+  const reply = DeleteReply.safeParse(deleted);
+  if (!reply.success)
+    throw new StageError(
+      "transport",
+      `elegoo gave no usable reply to deleting ${doomed.join(", ")}, so it is unknown which went`,
+    );
+  const failed = new Set(reply.data.ErrData ?? []);
+  if (failed.size === 0) return doomed;
+  const removed = doomed.filter((name) => !failed.has(name));
+  throw new StageError(
+    "transport",
+    `elegoo could not delete ${[...failed].join(", ")}; removed ${removed.join(", ") || "none"}`,
+  );
 }

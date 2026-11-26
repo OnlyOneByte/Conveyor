@@ -193,7 +193,7 @@ dropped. Two guards apply to every upload:
   busy printer that names no file, deletes nothing. Moonraker reads `print_stats.state` and `filename`, lists
   `GET /server/files/list?root=gcodes` and sends `DELETE /server/files/gcodes/<name>` per file. Elegoo reads the
   status push's `PrintInfo.Filename`, lists `Cmd 258` with `Url: "/local"` (skipping folders, `type` 0) and
-  deletes with one `Cmd 259`; a path in its `ErrData` fails the call. Neither has run on hardware yet.
+  deletes with one `Cmd 259`; a path in its `ErrData`, or a reply with no data, fails the call, and the error names the files that did go. Neither has run on hardware yet.
 - Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
   `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in

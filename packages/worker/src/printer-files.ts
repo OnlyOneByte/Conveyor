@@ -22,7 +22,7 @@ export function filesToKeep(
   jobId: string,
 ): string[] {
   if (keep <= 0) return [];
-  const earlier = dbListJobs(db, { limit: keep, printerId })
+  const earlier = dbListJobs(db, { limit: keep, printerId, stage: "transport" })
     .map(({ id }) => id)
     .filter((id) => id !== jobId)
     .slice(0, keep - 1);
@@ -33,8 +33,16 @@ export async function prunePrinter(run: Run): Promise<void> {
   const attempt = run.print;
   const keep = run.deps.printerFilesToKeep;
   if (!attempt?.transport.pruneFiles || !keep) return;
-  if (attempt.mayHaveStarted || run.signal.aborted) return;
+  if (attempt.mayHaveStarted || attempt.notStarted || run.signal.aborted) return;
   const { jobId } = run.opts;
+  try {
+    await run.ctx.confirmStart?.();
+  } catch {
+    run.ctx.log(
+      `job ${jobId}: the printer lock was lost, so old files on the printer were left alone`,
+    );
+    return;
+  }
   try {
     const names = new Set(keep(attempt.printer.id, jobId));
     const signal = AbortSignal.timeout(PRUNE_TIMEOUT_MS);
@@ -42,6 +50,6 @@ export async function prunePrinter(run: Run): Promise<void> {
     if (removed.length > 0)
       run.ctx.log(`job ${jobId}: removed old files from the printer: ${removed.join(", ")}`);
   } catch (err) {
-    run.ctx.log(`job ${jobId}: old files on the printer were not removed: ${messageOf(err)}`);
+    run.ctx.log(`job ${jobId}: printer file cleanup did not finish: ${messageOf(err)}`);
   }
 }

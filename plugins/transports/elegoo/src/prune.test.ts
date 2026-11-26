@@ -20,9 +20,10 @@ interface Printer {
   print: number;
   filename?: string;
   errData?: string[];
+  silentDelete?: boolean;
 }
 
-function printerSays({ status, print, filename, errData }: Printer) {
+function printerSays({ status, print, filename, errData, silentDelete }: Printer) {
   const deletes: unknown[] = [];
   class Socket {
     onopen: (() => void) | null = null;
@@ -57,6 +58,12 @@ function printerSays({ status, print, filename, errData }: Printer) {
       if (Cmd === SDCP_CMD.FILE_LIST) return reply({ FileList: LISTED });
       if (Cmd === SDCP_CMD.DELETE_FILES) {
         deletes.push(Data);
+        if (silentDelete)
+          return queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify({ Topic: "sdcp/response/mb", Data: { Cmd, RequestID } }),
+            }),
+          );
         return reply(errData ? { ErrData: errData } : {});
       }
     }
@@ -93,9 +100,24 @@ test("deletes nothing when the printer state is unknown", async () => {
   expect(deletes).toEqual([]);
 });
 
-test("a file the printer couldn't delete is reported", async () => {
+test("spares the file a finished print left loaded", async () => {
+  const deletes = printerSays({ status: [0], print: 9, filename: "conveyor-a1.gcode" });
+  await prune([]);
+  expect(deletes).toEqual([
+    { FileList: ["/local/conveyor-b2.gcode", "/local/conveyor-c3.gcode"], FolderList: [] },
+  ]);
+});
+
+test("a file the printer couldn't delete is reported, with the ones it did", async () => {
   printerSays({ status: [0], print: 9, errData: ["/local/conveyor-a1.gcode"] });
+  await expect(prune(["conveyor-c3.gcode"])).rejects.toThrow(
+    "elegoo could not delete /local/conveyor-a1.gcode; removed /local/conveyor-b2.gcode",
+  );
+});
+
+test("a delete the printer answers with no data counts as unknown, not done", async () => {
+  printerSays({ status: [0], print: 9, silentDelete: true });
   await expect(prune(["conveyor-b2.gcode", "conveyor-c3.gcode"])).rejects.toThrow(
-    "elegoo could not delete /local/conveyor-a1.gcode",
+    "elegoo gave no usable reply to deleting /local/conveyor-a1.gcode, so it is unknown which went",
   );
 });

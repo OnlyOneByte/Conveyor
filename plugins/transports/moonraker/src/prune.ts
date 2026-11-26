@@ -62,6 +62,7 @@ export async function pruneGcodes(
     );
   const top = listed.data.result.map(({ path }) => path).filter((path) => !path.includes("/"));
   const doomed = filesToPrune(top, keep, printing);
+  const removed: string[] = [];
   for (const name of doomed) {
     const res = await fetch(`${base}/server/files/gcodes/${encodeURIComponent(name)}`, {
       method: "DELETE",
@@ -71,7 +72,11 @@ export async function pruneGcodes(
     });
     refuseRedirect(res, "moonraker file delete");
     if (!res.ok)
-      throw new StageError("transport", `moonraker could not delete ${name}: ${res.status}`);
+      throw new StageError(
+        "transport",
+        `moonraker could not delete ${name}: ${res.status}; removed ${removed.join(", ") || "none"}`,
+      );
+    removed.push(name);
   }
-  return doomed;
+  return removed;
 }

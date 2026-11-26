@@ -15,7 +15,14 @@ for (const [id, at] of [
   ["older", 1],
   ["newer", 2],
 ] as const) {
-  dbRecordJob(db, { id, generatorId: "g", printerId: "p1", profileId: "x", state: "done" });
+  dbRecordJob(db, {
+    id,
+    generatorId: "g",
+    printerId: "p1",
+    profileId: "x",
+    state: "done",
+    stage: "transport",
+  });
   db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
 }
 

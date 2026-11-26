@@ -74,10 +74,16 @@ mode, with that error as the reason, until someone releases it.
 After every print `printStage` starts settles (done or failed), and while the printer lock or the SQLite slot is
 still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
 from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
-earlier jobs from `dbListJobs`, up to that many; at 0 it keeps none, so the job's own file goes too. A canceled
-run, or one whose submit threw `PrintMayHaveStartedError`, is skipped. A prune that throws or passes its 60 s
-timeout is logged in the worker log and never fails the job. `printerKeepFiles` parses the variable when the
-worker starts and stops it, naming the variable, on anything but a whole number 0 or more.
+earlier jobs that reached the transport stage (`dbListJobs` with `stage: "transport"`), up to that many. Jobs
+that failed while generating or slicing never put a file on the printer, so they don't use up a place. At 0 it
+names none, but the transport still spares whatever file the printer has loaded, and Klipper keeps a finished
+print's file loaded, so on Moonraker that file goes at a later cleanup rather than at settle. The prune is
+skipped for a canceled run, a submit that threw `PrintNotStartedError` (refused, or its lock lost before START)
+or `PrintMayHaveStartedError`. Just before pruning it calls `ctx.confirmStart()`, the Redis lock's token check,
+and leaves the files alone if the lock was lost, so a job that lost the printer never deletes the file the
+job now holding it uploaded. A prune that throws or passes its 60 s timeout is logged in the worker log, naming
+any files it did remove, and never fails the job. `printerKeepFiles` parses the variable when the worker starts
+and stops it, naming the variable, on anything but a whole number 0 or more.
 
 ## sqlite.ts
 
