@@ -84,7 +84,7 @@ jobs:
           image="$REGISTRY_IMAGE@$DIGEST"
           docker pull --quiet "$image"
           docker logout ghcr.io
-          scripts/scan-image.sh "$image" "conveyor-$SERVICE ($ARCH)"
+          scripts/checks/scan-image.sh "$image" "conveyor-$SERVICE ($ARCH)"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

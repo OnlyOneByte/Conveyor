@@ -291,7 +291,7 @@ jobs:
         env:
           IMAGE: conveyor-scan-${{ matrix.service }}
           TRIVY_CACHE: ${{ runner.temp }}/trivy
-        run: scripts/scan-image.sh "$IMAGE"
+        run: scripts/checks/scan-image.sh "$IMAGE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -352,7 +352,7 @@ jobs:
       - name: No fixed high or critical vulnerability in the worker with OrcaSlicer outside the allowlist
         env:
           TRIVY_CACHE: ${{ runner.temp }}/trivy
-        run: scripts/scan-image.sh conveyor-worker "conveyor-worker with OrcaSlicer"
+        run: scripts/checks/scan-image.sh conveyor-worker "conveyor-worker with OrcaSlicer"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

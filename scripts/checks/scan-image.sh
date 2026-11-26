@@ -4,8 +4,10 @@ set -euo pipefail
 image=${1:?usage: scan-image.sh <image> [title]}
 title=${2:-$image}
 TRIVY=aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
-allowlist="$(cd "$(dirname "$0")/.." && pwd)/.github/image-scan-allowlist.yaml"
+allowlist="$(cd "$(dirname "$0")/../.." && pwd)/.github/image-scan-allowlist.yaml"
+[ -f "$allowlist" ] || { echo "scan-image.sh: no allowlist at $allowlist" >&2; exit 1; }
 cache=${TRIVY_CACHE:-$HOME/.cache/trivy}
+case "$cache" in /*) ;; *) cache="$PWD/$cache" ;; esac
 mkdir -p "$cache"
 
 trivy() {

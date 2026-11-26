@@ -27,9 +27,14 @@ describe("the image-scan allowlist", () => {
     [
       "no expiry",
       `id: CVE-2026-85091\nstatement: ${REASON}`,
-      "expired_at must be a YYYY-MM-DD date",
+      "expired_at must be a real YYYY-MM-DD date",
     ],
     ["a bad expiry", `id: CVE-2026-85091\nstatement: ${REASON}\nexpired_at: soon`, "YYYY-MM-DD"],
+    [
+      "a date that doesn't exist",
+      `id: CVE-2026-85091\nstatement: ${REASON}\nexpired_at: 2027-02-30`,
+      "expired_at must be a real YYYY-MM-DD date",
+    ],
     [
       "an expiry too far away",
       `id: CVE-2026-85091\nstatement: ${REASON}\nexpired_at: 2027-12-31`,
@@ -41,6 +46,30 @@ describe("the image-scan allowlist", () => {
     const errors = allowlistErrors(entry(fields), TODAY);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain(message);
+  });
+
+  test.each([
+    ["id", `id: CVE-2026-85091\nid: CVE-2026-124851\nstatement: ${REASON}\nexpired_at: 2027-01-31`],
+    [
+      "expired_at",
+      `id: CVE-2026-85091\nstatement: ${REASON}\nexpired_at: 2099-01-01\nexpired_at: 2027-01-31`,
+    ],
+  ])(
+    "refuses a duplicate %s in one entry, which YAML would read as its last value",
+    (key, fields) => {
+      expect(allowlistErrors(entry(fields), TODAY)).toEqual([
+        `${ALLOWLIST} line ${key === "id" ? 3 : 5}: ${key} appears twice in one mapping`,
+      ]);
+    },
+  );
+
+  test("refuses a duplicate top-level key, and accepts two entries with the same fields", () => {
+    expect(allowlistErrors("vulnerabilities: []\nvulnerabilities: []\n", TODAY)).toEqual([
+      `${ALLOWLIST} line 2: vulnerabilities appears twice in one mapping`,
+    ]);
+    const one = `id: CVE-2026-85091\nstatement: ${REASON}\nexpired_at: 2027-01-31`;
+    const two = `  - id: CVE-2026-124851\n    statement: ${REASON}\n    expired_at: 2027-01-31\n`;
+    expect(allowlistErrors(entry(one) + two, TODAY)).toEqual([]);
   });
 
   test("refuses other kinds of suppression and a missing list", () => {
