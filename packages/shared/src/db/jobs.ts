@@ -97,7 +97,7 @@ function historyWhere(filter: Partial<HistoryPage>): { sql: string; params: SqlP
     params.push(...values);
   };
   if (filter.state) add("state = ?", filter.state);
-  if (filter.reachedPrinter) add("(stage IS NULL OR stage NOT IN ('generator', 'slicer'))");
+  if (filter.reachedPrinter) add("(state = 'done' OR stage = 'transport')");
   if (filter.printerId !== undefined) add("printer_id = ?", filter.printerId);
   if (filter.since !== undefined) add("updated_at >= ?", filter.since);
   if (filter.until !== undefined) add("updated_at < ?", filter.until);
