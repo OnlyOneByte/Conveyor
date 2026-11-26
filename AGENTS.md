@@ -21,9 +21,10 @@ severity for that case. Rules move from [review] to [CI] as the guard grows; tre
 packages/shared/        domain types, zod schemas, SQLite access (bun:sqlite)
 packages/api/           Fastify REST + WebSocket front door, enqueues jobs
 packages/worker/        job worker (BullMQ, or SQLite via CONVEYOR_QUEUE + CONVEYOR_QUEUE_UNSTABLE), drives generate → slice → transport
-packages/web/           SvelteKit PWA (rewrite pending, see Stack (TBD))
+packages/web/           SvelteKit PWA (Belt UI rewrite in progress, see Stack)
 plugins/<kind>/<name>/  generators | slicers | transports
-scripts/checks/         house-rule checkers (no-comments, plus the coverage and file-size ratchets)
+plugins/registry/builtin/  buildRegistry(): the built-in plugin set the worker loads
+scripts/checks/         house-rule checkers (comments, casts, file size, coverage, bundle budget, layout bundle, raw colours, Redis pins, test leaks and their temp-prefix scan, image scan)
 tools/visual/           screenshot and GIF capture for UI PRs
 docs/                   all prose; index in docs/README.md
 ```
@@ -66,7 +67,7 @@ exemption is a guardrail change (§12) and lists it in `EXEMPTIONS`.
 
 ## 3. Naming
 
-- Files `kebab-case.ts`. Tests `<file>.test.ts`, next to the file they test. Component naming: Stack (TBD). [review]
+- Files `kebab-case.ts`. Tests `<file>.test.ts`, next to the file they test. Component naming: see Stack. [review]
 - Functions start with a verb (`claimNextJob`). Booleans start with `is`, `has`, `can`, `should`. Types are
   `PascalCase` nouns: no `I` prefix, no `Type` suffix. [review]
 - No abbreviations except `id`, `url`, `api`, `ui`, `db`, `mm`, `stl`, `gcode`. Units in names (`heightMm`,
@@ -164,9 +165,9 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 
 | Check | Local command |
 |---|---|
-| `lint` | `bun run lint && bun run check:casts` |
+| `lint` | `bun run lint && bun scripts/checks/redis-pins.ts && bun run check:casts` |
 | `format` | `bun run format:check` (fix with `bun run format`) |
-| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in anything every page loads: the layout node and the app and start entries, with their imports) |
+| `typecheck` | `bun run typecheck`, then in `packages/web`: `bunx svelte-kit sync && bunx svelte-check`, then `bunx tsc -p src/service-worker/tsconfig.json --noEmit`, then `bunx vite build` and `bun scripts/checks/layout-bundle.ts` (no Zod in anything every page loads: the layout node and the app and start entries, with their imports) |
 | `test` | `bun run test:coverage && bun run check:coverage`, then the suite once more in a seeded random order over an `LC_ALL=C`-sorted file list (the log prints the seed, the commit, how to check it out and the rerun command, not the file list itself); after raising coverage 0.5 or more, run `bun run check:coverage:update` and commit the `scripts/checks/coverage/baseline/<package>.json` files it rewrites |
 | `no-comments` | `bun run check:comments` |
 | `file-size` | `bun run check:lines` |
@@ -174,6 +175,9 @@ Job names in `.github/workflows/ci.yml` are the check names. Run the same comman
 | `compose` | CI only: builds the stack, runs `docker compose up -d`, waits for `https://localhost/api/health` through Caddy, checks that only Caddy publishes and only on `127.0.0.1`, that failed logins are counted per real client, and that api, worker and web each run as uid/gid `10001` with no effective capabilities, a bounding set of only `CHOWN SETUID SETGID DAC_READ_SEARCH` (none for web), no extra groups, `NoNewPrivs` and a read-only root, with `secrets.key` at `10001:10001 0600`, then `docker compose down -v` |
 | `pr-meta` | CI only, from the PR's own metadata, no code checked out: the title pattern, length and single line, the labels, and the issue lines (§8). Its errors never echo PR text across lines. It re-runs when the title, body or labels change, so fix them in place. It reads them from the API as they are now, not from the event that started the run, so re-running a run that failed before the fix passes; Dependabot PRs are skipped |
 | `conveyor/adversarial-review` | set by the reviewer, never by the author |
+
+CI also runs `audit` (no high or critical `bun audit` advisory outside `.github/audit-baseline.json`),
+`bundle` (`bunx vite build` in `packages/web`, then `bun run check:bundle`) and `orca slice` (CI only).
 
 Review may start before CI is green. Merge needs both: every required check and the review status green on
 the same head sha.
@@ -226,16 +230,20 @@ independent pass. Keep guardrail changes in their own PR.
   matching page in the same PR. [review]
 - Docs are audited on a cadence: [docs/audit.md](docs/audit.md).
 
-## Stack (TBD)
+## Stack
 
-The UI rewrite's framework (Svelte 5 or Solid) is not decided. Until its ADR merges, this section holds only
-placeholders, and today's `packages/web` (SvelteKit on Svelte 5, still written in Svelte 4 component syntax) follows the language-level rules above.
-The ADR's PR fills in:
+[ADR 0005](docs/adr/0005-belt-ui-track-rail.md) keeps SvelteKit 3 on Svelte 5 for the UI. `packages/web` is
+still written in Svelte 4 component syntax and follows the language-level rules above. Decided:
 
+- Styling: design tokens in one place (`packages/web/src/lib/styles/tokens.css`), no raw colour literals
+  outside them. [CI: `test`, through `scripts/checks/colours.test.ts`]
+- Primitives are native elements (`<dialog>`, popover) rather than a component library.
+
+Still open, for a later PR:
+
+- Accessible primitives for dialogs, menus, selects and popovers, built on those native elements.
 - Component file naming and the 150-line component limit's exact scope.
-- Reactivity rules (runes or signals only; no legacy APIs) and how logic moves out of components into
+- Reactivity rules (runes only; no legacy APIs) and how logic moves out of components into
   testable `*.ts` modules.
 - The typed API client components must use (no raw `fetch` in components).
-- Styling: design tokens in one place, no raw colour literals outside them.
-- Accessible primitives for dialogs, menus, selects and popovers.
-- E2E and visual-capture tooling.
+- E2E tooling.

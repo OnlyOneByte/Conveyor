@@ -9,8 +9,9 @@ Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from o
 
 ## Boot order (`index.ts`)
 
-`index.ts` registers `GET /health`, the auth guard, the login routes, `GET /health/deep` (`health.ts`, which
-needs a session), then the generator, upload, catalog and job routes, and the printer-hold route. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
+`index.ts` registers `GET /health`, the auth guard, the login routes, `GET /health/deep` (`routes/health.ts`,
+which needs a session), then the generator, upload and catalog routes, the printer-hold route, the job routes
+and `GET /metrics`. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
 registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
@@ -100,7 +101,7 @@ parametric `/jobs/:id` regardless of registration order, so a literal `/jobs/<wo
 ordering, and `/jobs/:id` answers `404` for any id that is not a UUID.
 
 `GET /jobs/:id` returns the job's current snapshot. The PWA reads it when it opens a job's status, next to
-the WebSocket. The client does not reconnect a closed socket yet (#193).
+the WebSocket, and again before it reopens a closed one.
 
 Both routes add what the job is to each snapshot: `printerId`, `profileId`, `generator` (`id` and `params`;
 an upload's `params` carry its `filename`) and `createdAt`, in epoch milliseconds. They come from the BullMQ
@@ -161,9 +162,9 @@ closed with code `1013`. There is no per-session cap, because every session shar
 stays open until its job finishes or a side closes it, so a long print keeps its live status; it stops
 polling the moment it closes, and counts back against the cap exactly once.
 
-The current web client does not reconnect. The UI rewrite must reconnect after a `1013` (with a backoff) and
-after any other close of an unfinished job's stream; each new socket starts from a fresh snapshot, so nothing
-is missed. `GET /jobs/active` skips, and logs, a row that does not parse, so one bad
+The job page (`followJob` in `packages/web/src/lib/job-live.ts`) reconnects after a `1013`, and after any
+other close but `1000` or `4404`, backing off from 0.5 s to 30 s (`RETRY_MS`); each new socket starts from a
+fresh snapshot, so nothing is missed. `GET /jobs/active` skips, and logs, a row that does not parse, so one bad
 row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests pass their own.
 
 ## Auth (`auth.ts`, `routes/auth.ts`)
@@ -259,7 +260,8 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 - `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
   for the filter pills. Both modes share these routes, since both keep finished jobs in the SQLite `jobs` table.
   The static `counts` path wins over `/jobs-history/:id`; job ids are UUIDs, so none is called `counts`.
-- `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, otherwise 200 with the probe result.
+- `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, 400 when `checkPrinterAddress`
+  refuses its address (as `PUT /catalog/printers` does), otherwise 200 with the probe result.
   `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
   `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
   printer that was seen and then failed a probe shows how long it has been offline. Probing stays on demand:
@@ -362,9 +364,8 @@ the api's log into the worker's.
 - `GET /generators` serves each generator's `paramSchema`, UI hints and preview module so the web app can
   render its form.
 - `validateJobRequest` runs the shared capability check against this view.
-- `validatePrinterTransport` rejects an unknown `transportId` when a printer is written. `printerSchema` only
-  checks for a non-empty string, so without it a typo would persist and fail much later, at job submit, as an
-  unrelated-looking compatibility error.
+- `printerSchema` (`catalog-validation.ts`) rejects an unknown `transportId` when a printer is written, so a
+  typo cannot persist and fail much later, at job submit, as an unrelated-looking compatibility error.
 
 ## Printer probe (`printer-probe.ts`)
 
@@ -380,8 +381,10 @@ the api's log into the worker's.
 
 ## Printer holds (`routes/printer-holds.ts`)
 
-`POST /catalog/printers/:id/release` clears a printer hold. The queue sets a hold when it cannot know whether a
-printer received a job: a worker that stopped between the submit intent and the submit marker. No job is
+`POST /catalog/printers/:id/release` clears a printer hold. A hold is set whenever the printer may still have a
+job Conveyor lost track of: a submit that may have started, a stop the printer didn't confirm, a resume that
+failed, a job settled during upload, or a worker that stopped between the submit intent and the submit marker
+(see [shared.md](shared.md#queueholdts)). No job is
 prepared for a held printer until someone checks the printer and releases it.
 
 - It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
@@ -425,8 +428,8 @@ A `POST /jobs` whose `add` failed or ran out of time may still reach Redis later
 command once it resumes. So the route answers 503 and, once the queue is up, removes the job and sets its
 `job:<id>:cancel` flag on the same connection. The removal usually lands right after the `add`. The flag
 covers a worker that took the job in between: the worker checks it before every stage and settles the job
-`canceled` without making or printing anything. A retry's claim on the failed job is released, as on any
-enqueue error. `routes/redis-down-boot.test.ts` boots the api with Redis refused, and
+`canceled` without making or printing anything. A retry's claim on the failed job is kept, and the worker's
+reaper releases it if the retry never lands (see the table above). `routes/redis-down-boot.test.ts` boots the api with Redis refused, and
 `routes/jobs-paused-redis.test.ts` pauses a real Redis across a submit (`CLIENT PAUSE WRITE`) and across
 the job reads (`CLIENT PAUSE ALL`, which `commandTimeout` answers). `routes/jobs-queue-deadline.test.ts` gives
 the routes a BullMQ queue that never answers and checks `GET /jobs/active`, `GET /jobs/:id`, cancel and
@@ -451,9 +454,9 @@ is loopback, and the image publishes no port: caddy's publish, on `CONVEYOR_BIND
 
 ## Metrics (`routes/metrics.ts`, `metrics.ts`)
 
-`GET /metrics` renders Prometheus text (`text/plain; version=0.0.4`, `cache-control: no-store`). It is
-registered after the auth guard, so it needs a session like every other route but `/health` and the login
-routes. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
+`GET /metrics` renders Prometheus text (`text/plain; version=0.0.4; charset=utf-8`, `cache-control: no-store`).
+It does not opt in with `PUBLIC_ROUTE`, so it needs a session like every other route but `/health`,
+`/auth/status`, `/auth/login` and `/auth/logout`. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
 live counts (`liveJobCounts` from `routes/jobs.ts`, BullMQ `getJobCounts`, or from `routes/jobs-sqlite.ts`,
 `dbLiveJobCounts`), the fresh heartbeats (`workerFresh`, the same rule `/health/deep` uses) and
 `dbRecentStageDurations` (the timings of the last 500 done jobs). Those are a moving window, so they are

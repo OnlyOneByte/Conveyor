@@ -53,7 +53,7 @@ Check the ones that apply and name them in the body:
 - No `any`, explicit or implied (`JSON.parse` result used untyped, untyped catch variable used as an object). S1.
 - No `as` casts other than `as const`, no non-null `!`, no `@ts-ignore` or `@ts-expect-error`. S1.
 - No `enum`; string literal unions with a `const` array.
-- Every `switch` or `if` chain over a union is exhaustive and ends in `absurd(value)`. A union member that falls through silently is S1.
+- Every `switch` or `if` chain over a union is exhaustive and ends in `exhaustive(value)` (`packages/shared/src/exhaustive.ts`). A union member that falls through silently is S1.
 - External input (HTTP, env, files, plugin output, printer replies) is parsed with zod once, at the edge. Unparsed input reaching domain code is S1; reaching a shell, path or SQL is S0.
 - IDs are branded types, not bare `string`.
 - `tsc` and `svelte-check` report 0 errors and 0 warnings.

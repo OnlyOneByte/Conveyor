@@ -23,7 +23,7 @@ export type ModelArtifact = Artifact;    // generator output / slicer input
 export type GcodeArtifact = Artifact;    // slicer output / transport input
 ```
 
-Every stage also gets a `StageCtx` (`workDir`, `report`, `reportUpload`, `signal`) and fails by throwing a
+Every stage also gets a `StageCtx` (`jobId`, `workDir`, `report`, `reportUpload`, `confirmStart`, `signal`, `log`) and fails by throwing a
 `StageError`; both are described in [modules/shared.md](modules/shared.md#contextts).
 
 ## Common manifest
@@ -159,7 +159,7 @@ export interface TransportPlugin extends PluginManifest {
 
 The worker passes the job's printer, secrets included, as `target` to `status()` and `cancel()`, so a transport can authenticate every request the way `submit()` did. The handle is stored with the job, so keep secrets off it.
 
-`submit()` must check `ctx.signal` between the upload and the start command, and throw `PrintNotStartedError` (from `@conveyor/shared`) when it is cancelled before the start command was sent. The worker sends no stop for that error. Any other error from `submit()` after a cancel is treated as "the print may have started", and the worker sends a stop.
+`submit()` must check `ctx.signal` between the upload and the start command, and throw `PrintNotStartedError` (from `@conveyor/shared`) when it is cancelled before the start command was sent. The worker sends no stop for that error. Any other error from `submit()` after a cancel is treated as "the print may have started", and the worker sends a stop. Right before the start command, `submit()` calls `await ctx.confirmStart?.()`, which throws `PrintNotStartedError` when the worker no longer holds the printer. When the start command gets no answer, `submit()` throws `PrintMayHaveStartedError`; the worker then holds the printer until someone releases it.
 
 ```ts
 export interface PrinterTarget {

@@ -30,8 +30,9 @@ mini-rail works unchanged as the 40 px collapsed belt and the mobile summary.
 ## Tokens
 
 All tokens are CSS custom properties on `:root`, switched by `data-theme="light|dark"` on `<html>`. No raw colours,
-sizes or durations appear outside the token file; the check for raw colours lands in its own PR, right after the
-tokens.
+sizes or durations appear outside the token file (`lib/styles/tokens.css`). `scripts/checks/colours.ts` finds raw
+colours (`bun run check:colours`), and `colours.test.ts` runs it in the suite; only three 3D files may keep `0x`
+colours.
 
 The theme is the saved choice, else `prefers-color-scheme`. It is applied before first paint by a few lines of
 inline script at the top of `app.html`'s `<head>`, carrying `nonce="%sveltekit.nonce%"`. SvelteKit's CSP (`mode:
@@ -208,12 +209,12 @@ needs that backend change and is hidden until it lands.
 
 | State | Where | Ring | Value | Focus card adds |
 |---|---|---|---|---|
-| Queued | Queue box list | dashed, empty | `next` | Printer (#342), place in line (browser, needs #342), rough start (#337) |
-| Modelling | Rail, Model | indeterminate quarter | `…` | Typical duration (#337) |
+| Queued | Queue box list | dashed, empty | `next` | Printer (now, `printerId`), place in line (browser), rough start (now, `estimate.startsAt`) |
+| Modelling | Rail, Model | indeterminate quarter | `…` | Typical duration (now, `estimate.typicalMs`) |
 | Slicing | Rail, Slice | fills with % | `35%` (now) | Time left (browser, from the progress rate) |
-| Sending | Rail, Send | fills with % | `72%` (now) | Bytes sent of total (#336) |
-| Printing | Rail, Print | fills with % | `64%` (now) | Layer, minutes left, finish time (#335) |
-| Done | Finished bin | full, `--ok` | `✓` | Took (now, from `timings`), filament (#338) |
+| Sending | Rail, Send | fills with % | `72%` (now) | Bytes sent of total (now, `bytesSent`, `bytesTotal`) |
+| Printing | Rail, Print | fills with % | `64%` (now) | Layer, minutes left, finish time (now, `print`) |
+| Done | Finished bin | full, `--ok` | `✓` | Took (now, from `timings`), filament (now, `filament`) |
 | Failed | Needs-you tray | full, `--err` | `!` | Stage (now), reason in plain words (browser, from `error.reason`), Retry, Pick printer |
 | Canceled | Toast only | full, `--off`, name struck through | `×` | Print again |
 
@@ -265,7 +266,7 @@ opens a member list in the card; ←/→ walk the members and Enter opens one.
 ### The collapsed rail (40 px)
 
 Shown after 80 px of scroll on Make, and always on every other page. One dark bar holds "Belt", the waiting count, a
-mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (#335; hidden until then), the Finished and Needs-you counts, and
+mini-rail with a dot per moving job and the stage ticks, "next done in 41 min" (not built yet; the data is `print.secondsLeft`), the Finished and Needs-you counts, and
 an expand button (`aria-expanded`, `aria-controls`) that opens the full Track in place. The bar is a `region` named
 "On the belt", like the Track and the mobile summary, and its Needs-you count is a button that opens the tray.
 
@@ -279,7 +280,7 @@ back." when the next poll succeeds.
 
 The full Track does not fit, so the belt becomes a **summary chip**: "6 on the belt · Ender 64%, 41 min", the waiting
 and Needs-you counts, and the mini-rail. Its expand button opens a sheet of full-width chips that show their status
-in words ("printing", plus "· 41 min left" once #335 lands), plus the two bins. It is sticky on every page, Make included, so it never scrolls away; one copy in the DOM, not a
+in words ("printing", plus "· 41 min left", not built yet), plus the two bins. It is sticky on every page, Make included, so it never scrolls away; one copy in the DOM, not a
 second sticky one. In the sheet the Needs-you tray opens in the flow below the bins, so the sheet's own scroll never
 clips it.
 
@@ -320,7 +321,7 @@ visually hidden text after it. No `aria-label` replaces visible words.
 
 | Element | Visible text | Accessible name |
 |---|---|---|
-| Chip | `Bin 2×3 · 6u 64%` | "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing" (plus ", 41 min left" once #335 lands) |
+| Chip | `Bin 2×3 · 6u 64%` | "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing" (plus ", 41 min left", not built yet) |
 | Group chip | `3 jobs 35% · … · 12%` | "3 jobs 35% · … · 12%: Bin 1×1 · 3u, slicing; …" |
 | Queue box | `Waiting 3` | "Waiting 3" |
 | Bins | `Finished 1 today`, `Needs you 1` | the same |
@@ -353,8 +354,11 @@ nothing lifts on hover, and leaving the rail is an instant swap into the bin. Th
 
 ## Data
 
-Today a job's events (`JobStatusEvent` in `packages/shared/src/events.ts`) carry `state`, `stage`, `progress`,
-`message`, `error` and `timings`; `GET /jobs-history` takes only `limit` (at most 200). Every field the design shows
+A job's events (`JobStatusEvent` in `packages/shared/src/events.ts`) carry `state`, `stage`, `progress`,
+`message`, `error`, `timings`, `print` (layer, layers, seconds left), `bytesSent` and `bytesTotal`. `GET /jobs/active`
+and `GET /jobs/:id` add the job's `printerId`, `profileId`, `generator` and `createdAt`, and `/jobs/active` adds an
+`estimate` (`typicalMs`, `startsAt`). `GET /jobs-history` takes `limit` (at most 200), `printerId`, `since`, `until`,
+`state` and a `before` cursor, and `GET /jobs-history/counts` takes `printerId`, `since` and `until`. Every field the design shows
 is one of three kinds:
 
 - **Now:** in today's API.
@@ -364,22 +368,22 @@ is one of three kinds:
 
 | Field | Shown in | Source | Until then |
 |---|---|---|---|
-| Live jobs, their stage and percent | rail, Jobs, Job detail, Monitor | now: one shared `GET /jobs/active` poll in the shell (`lib/active-jobs.ts`), every 2 s while visible, or every 10 s while a socket covers every job on the belt; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
-| A running job's name (chip label), printer, profile, generator, creation time | chips, Jobs rows, focus cards | backend: [#342](https://github.com/OnlyOneByte/Conveyor/issues/342). Today both endpoints return status snapshots only | the stage as the name ("Slicing job"), no printer |
+| Live jobs, their stage and percent | rail, Jobs, Job detail | now: one shared `GET /jobs/active` poll in the shell (`lib/active-jobs.ts`), every 2 s while visible, or every 10 s while a socket covers every job on the belt; `WS /jobs/:id/ws` per chip (at most 10, the rest poll) | |
+| A running job's name (chip label), printer, profile, generator, creation time | chips, Jobs rows, focus cards | now: `printerId`, `profileId`, `generator` and `createdAt` on `GET /jobs/active` and `GET /jobs/:id` ([#342](https://github.com/OnlyOneByte/Conveyor/issues/342)); the name is built from `generator` in the browser | |
 | Cancel; Retry and Print again | focus card, Jobs, Job detail | now: `POST /jobs/:id/cancel`; `POST /jobs` with the original request (`lib/rerun.ts`) | |
 | Stage times, took | Done card, receipt | now: `timings` | |
 | Failure stage and reason | Needs you, Job detail | now: `error`; the plain-language wording is mapped in the browser | |
-| Place in line | Queued card | browser: `GET /jobs/active` ordered by `createdAt` per printer, both from [#342](https://github.com/OnlyOneByte/Conveyor/issues/342) | hidden |
+| Place in line | Queued card | browser: `GET /jobs/active` ordered by `createdAt` per printer | |
 | Slicing time left | Slicing card | browser: from the rate of `progress` over the last updates; shown after two updates | |
 | Finished today | Finished bin | browser: settled jobs from `GET /jobs-history` with today's `updatedAt` | |
-| Printer ready, busy or not reachable | Make picker, Printers | reachable: now (`GET /catalog/printers/:id/reachable`); busy: browser, from `/jobs/active` with each job's printer from [#342](https://github.com/OnlyOneByte/Conveyor/issues/342) | Ready or Not reachable; Busy hidden |
-| Layer, time left, finish time, "next done in" | Printing card, collapsed rail, mobile sheet, Job detail | backend: [#335](https://github.com/OnlyOneByte/Conveyor/issues/335) | percentage only; those rows hidden |
-| Bytes sent of total | Sending card | backend: [#336](https://github.com/OnlyOneByte/Conveyor/issues/336) | percentage only |
-| Typical duration, rough start | Modelling and Queued cards | backend: [#337](https://github.com/OnlyOneByte/Conveyor/issues/337) | hidden; place in line still shows |
-| Filament | Done card, receipt | backend: [#338](https://github.com/OnlyOneByte/Conveyor/issues/338) | hidden |
-| Busy time left, offline since | Make picker, Printers | backend: [#339](https://github.com/OnlyOneByte/Conveyor/issues/339) | Ready, Busy or Not reachable, no times |
-| History paging, filters, counts | Jobs | backend: [#340](https://github.com/OnlyOneByte/Conveyor/issues/340) | newest 200, filtered in the browser, counts "in the last 200" |
-| Dismissed failures | Needs you | backend: [#341](https://github.com/OnlyOneByte/Conveyor/issues/341) | failures from the last 24 h, no Dismiss |
+| Printer ready, busy or not reachable | Make picker, Printers | reachable: now (`GET /catalog/printers/:id/reachable`); busy: browser, from `/jobs/active` with each job's `printerId` | |
+| Layer, time left, finish time, "next done in" | Printing card, collapsed rail, mobile sheet, Job detail | now: `print` on the job's events ([#335](https://github.com/OnlyOneByte/Conveyor/issues/335)) | |
+| Bytes sent of total | Sending card | now: `bytesSent`, `bytesTotal` ([#336](https://github.com/OnlyOneByte/Conveyor/issues/336)) | |
+| Typical duration, rough start | Modelling and Queued cards | now: `estimate` on `GET /jobs/active` ([#337](https://github.com/OnlyOneByte/Conveyor/issues/337)) | |
+| Filament | Done card, receipt | now: `filament` on the settled job ([#338](https://github.com/OnlyOneByte/Conveyor/issues/338)) | |
+| Busy time left, offline since | Make picker, Printers | now: `lastSeenAt` and `lastCheckedAt` on `GET /catalog/printers`; busy time left is browser, from the printer's job's `print.secondsLeft` ([#339](https://github.com/OnlyOneByte/Conveyor/issues/339)) | |
+| History paging, filters, counts | Jobs | now: `GET /jobs-history` filters and `before` cursor, `GET /jobs-history/counts` ([#340](https://github.com/OnlyOneByte/Conveyor/issues/340)) | |
+| Dismissed failures | Needs you | now: `GET /jobs/needs-you`, `POST /jobs/:id/dismiss` ([#341](https://github.com/OnlyOneByte/Conveyor/issues/341)) | |
 
 Dismiss is stored on the server rather than in the browser, because a browser-only store would bring back the
 per-browser job state the audit removes (#46). A single server-sent stream of all job events would replace the

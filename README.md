@@ -37,12 +37,21 @@ bun install
 bun run typecheck      # tsc --noEmit across the workspace
 ```
 
-For a no-engines local run (stub mode — no OpenSCAD/Orca needed):
+For a no-engines local run (stub mode — no OpenSCAD/Orca needed), start a Redis on `127.0.0.1:6379`, then
+from the repo root:
 
 ```bash
-CONVEYOR_ENGINE_STUB=1 bun run dev:worker   # in one shell
-CONVEYOR_ENGINE_STUB=1 bun run dev:api      # in another (needs a local redis)
+mkdir -p data
+export DATA_DIR="$PWD/data" DB_PATH="$PWD/data/conveyor.db" CONVEYOR_PROFILES_ROOT="$PWD/profiles"
+export REDIS_URL=redis://127.0.0.1:6379 CONVEYOR_ENGINE_STUB=1
+bun run dev:worker                          # in one shell
+CONVEYOR_AUTH=disabled bun run dev:api      # in another, after the same two exports
 ```
+
+The paths must be absolute: each dev script runs in its own package folder, so `./data` would give the api and
+the worker separate databases. The api listens on `127.0.0.1:3000` (`PORT` changes it). To keep the login on,
+set `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET` instead of `CONVEYOR_AUTH=disabled`
+([local development](docs/self-hosting.md#local-development-without-docker)).
 
 ## Container images
 

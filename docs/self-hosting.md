@@ -153,8 +153,8 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_DOMAIN` | `localhost` | Name Caddy serves and gets a certificate for ([The name Caddy serves](#the-name-caddy-serves)). Unset or empty means `localhost`. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
-| `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. |
-| `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. |
+| `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
+| `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
 | `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
@@ -164,6 +164,7 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `MOONRAKER_STATUS_TIMEOUT_MS` | `30000` | Longest the worker waits for one Moonraker status reply. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
 | `CONVEYOR_RETENTION_DAYS` | `30` | Days the worker keeps a finished job's folder (its STL and g-code downloads) and an upload no queued or running job uses ([Disk and Redis retention](#disk-and-redis-retention)). `0` keeps everything. Compose passes it to the api and the worker. Unset or empty uses the default; any other value must be a whole number, or the api and worker stop at startup naming the variable. |
 | `MOONRAKER_STATUS_FAILURES` | `5` | Status polls in a row that may fail (a timeout, a refused connection or an error reply) before the worker gives up on a running print. A successful poll resets the count. Same rules as above. |
+| `MOONRAKER_POLL_MS` | `2000` | Time between Moonraker status polls during a print. Same rules as above. Read only outside Compose: `docker-compose.yml` doesn't pass it to the worker. |
 
 ## Printer addresses
 
@@ -197,11 +198,11 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 
 **Busy printers are refused.** Just before uploading, the worker asks the printer once whether it is free. If it is printing, paused, in error, or doesn't answer, the job fails with a plain note and nothing is uploaded. The check runs once, so it is not a lock. With the SQLite queue that's enough, because Conveyor itself never sends two jobs to one printer at once. In Redis mode each worker first takes a lock on the printer in Redis (`printer:<id>:lock`), holds it through the check, the upload and the whole print, and releases it when the print settles; a second job for that printer waits for it. The lock lasts 60 seconds and the worker renews it every 20, so a worker that dies frees the printer within a minute.
 
-**Conveyor removes its old files from the printer.** Each job uploads its g-code as `conveyor-<jobId>.gcode`, so two jobs never share a file. Once a print settles (done or failed), and while the worker still holds the printer, it lists the printer's files and deletes its own older ones, keeping the last `CONVEYOR_PRINTER_KEEP_FILES` (1 by default). Only jobs that got as far as the printer count; one that failed while slicing never put a file there.
+**Conveyor removes its old files from the printer.** Each job uploads its g-code as `conveyor-<jobId>.gcode`, so two jobs never share a file. Once a print settles (done, failed, or canceled on the printer itself), and while the worker still holds the printer, it lists the printer's files and deletes its own older ones, keeping the last `CONVEYOR_PRINTER_KEEP_FILES` (1 by default). Only jobs that got as far as the printer count; one that failed while slicing never put a file there.
 
 - **Only Conveyor's files:** a file is deleted only if its whole name is `conveyor-` followed by letters, digits, `-` or `_`, then `.gcode`, in the printer's top folder (Moonraker's `gcodes` root, Elegoo's `/local`). Your own files and folders are never touched. Anything with that name counts as Conveyor's, though: a `conveyor-*.gcode` you copied there by hand or queued in Moonraker's own job queue, or one a second Conveyor install sent to the same printer, can be deleted.
 - **Never the one printing:** the worker asks the printer what it has loaded first, and spares that file. If it can't tell, because the printer doesn't answer or says it's printing without naming a file, it deletes nothing.
-- **Left for later:** a canceled job, a job refused before it started, one whose start the printer never answered (which puts the printer on hold), and one that lost its Redis lock on the printer delete nothing. The next job's cleanup catches their files.
+- **Left for later:** a job canceled in Conveyor, a job refused before it started, one whose start the printer never answered (which puts the printer on hold), and one that lost its Redis lock on the printer delete nothing. The next job's cleanup catches their files.
 - **Failures don't fail the job:** a cleanup that can't finish is logged in the worker log, and the next job tries again.
 
 **Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. Ages are measured against a reaper clock kept in the same table. It never moves back, never passes the system clock, and moves only as fast as the running worker has itself measured with a monotonic timer, so a wrong system clock, a crash loop or a second worker can't bring deletion forward; after an outage it resumes from where it stopped, which only delays deletion. If the stored reaper clock is ahead of the system clock (an edited database, a clock that was set years ahead), that run removes nothing, logs it, and resets the reaper clock and the first-run time to now, so the 30-day count starts again. A stored reaper clock that is missing or unreadable is treated the same way, as a first run.
@@ -485,12 +486,15 @@ Conveyor holds a printer when it can't tell whether a job started on it:
 
 - **Any queue:** the printer didn't answer the print start (`MOONRAKER_START_TIMEOUT_MS`). The job fails with "The
   printer didn't answer the print start, so it may have started", and the printer is held.
-- **SQLite queue only:** a worker stopped while it was sending a job to the printer. The job fails with "check the
-  printer before releasing it", and the printer is held.
+- **SQLite queue only:** a worker stopped while it was sending a job to the printer, a worker restarted
+  mid-print and couldn't reconnect, the printer never confirmed a cancel, or the job settled during upload
+  before the printer confirmed it. The printer is held with a reason ending "check the printer before releasing
+  it", and the job fails with the same reason, except that a settle during upload which already carried its own
+  error keeps that error.
 
-While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then release the
-hold. Until the UI has a button for it, release it from a shell. With authentication on (the default), log
-in first; the session cookie goes in a private temporary file:
+While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then choose **Release hold**
+on its card on the Printers page. To release it from a shell instead, log in first if authentication is on
+(the default); the session cookie goes in a private temporary file:
 
 ```sh
 jar=$(mktemp)
@@ -509,7 +513,13 @@ certificate, add `-k` or trust its root ([HTTPS on the LAN](#https-on-the-lan-tr
 
 ## Local development without Docker
 
-`bun run dev:api` reads the same variables from your shell. Export `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET`, or `CONVEYOR_AUTH=disabled`, before you start it. Over plain HTTP, also set `CONVEYOR_COOKIE_INSECURE=1` so the browser keeps the session cookie.
+`bun run dev:api` reads the same variables from your shell. Export `CONVEYOR_PASSWORD` and `CONVEYOR_AUTH_SECRET`, or `CONVEYOR_AUTH=disabled`, before you start it. Over plain HTTP, also set `CONVEYOR_COOKIE_INSECURE=1` so the browser keeps the session cookie. Outside Compose, set these for both the api and the worker, with absolute paths, because `dev:api` and `dev:worker` each run in their own package folder and a relative path would give them separate databases and secrets keys:
+
+- `DATA_DIR` and `DB_PATH` default to `/data` and `/data/conveyor.db`, and the folder isn't created for you: `mkdir -p data`, then `DATA_DIR="$PWD/data" DB_PATH="$PWD/data/conveyor.db"` from the repo root.
+- `REDIS_URL` defaults to `redis://redis:6379`, the Compose service name; point it at your Redis, for example `redis://127.0.0.1:6379`.
+- `CONVEYOR_PROFILES_ROOT` defaults to `/profiles`; set it to `"$PWD/profiles"` so the worker finds the bundled profiles.
+
+The [README](../README.md#toolchain) has the full stub-mode commands.
 
 ## Printers on the LAN
 
@@ -554,7 +564,7 @@ Pin only upstream releases or release candidates that publish a signed `openscad
 2. In `scripts/fetch-openscad-source.sh`, set `VERSION`, `SHA256`, and `COMMIT` to the full commit the release tag points at (`gh api repos/openscad/openscad/git/ref/tags/openscad-<version>`). Its first eight characters must match the tarball's `COMMIT.txt`.
 3. If the build needs new libraries, add the `-dev` packages to the `openscad` stage and their runtime packages to the final stage. Find them with `ldd /opt/openscad/bin/openscad` in the builder.
 4. If upstream rotates its signing key, replace `scripts/openscad-release-key.asc` with the new key from `https://files.openscad.org/OpenSCAD_public_key.asc`, and `FINGERPRINT` in `scripts/verify-openscad-signature.sh` with the fingerprint openscad.org/downloads lists. Check that the two agree before committing.
-5. Open the PR. CI's `orca slice` job builds OpenSCAD on x86_64, renders a cube and slices it. Run `bun scripts/gridfinity-smoke.ts` in the image to render and slice a real gridfinity bin. Nothing in CI builds on aarch64, so check it on an arm64 host.
+5. Open the PR. CI's `orca slice` job builds OpenSCAD on x86_64, renders a cube and a real gridfinity bin, and slices both as uid 10001. Nothing in CI builds on aarch64, so check it on an arm64 host with `bun scripts/gridfinity-smoke.ts` in the image.
 
 ### Bumping the OrcaSlicer pin
 
