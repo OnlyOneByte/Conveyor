@@ -40,7 +40,8 @@
     const row = [...(list?.querySelectorAll<HTMLElement>("[data-id]") ?? [])].find(
       (li) => li.dataset.id === id,
     );
-    (row?.querySelector<HTMLElement>(":scope > :last-child") ?? add).focus();
+    const controls = row?.querySelectorAll<HTMLElement>(":scope > :is(a, button)") ?? [];
+    ([...controls].at(-1) ?? add).focus();
   }
 
   $: if (gone && !profiles.some((p) => p.id === gone)) void land(next);
@@ -61,7 +62,7 @@
       {#each profiles as profile (profile.id)}
         {@const href = slicerFormat(profile.slicerId) ? editPath(profile.id) : undefined}
         <li data-id={profile.id}>
-          <svelte:element this={href ? "a" : "div"} class="row" {href} aria-label={href && `Edit ${profile.name}`}>
+          <svelte:element this={href ? "a" : "div"} class="row" {href}>
             <span class="n">
               <span class="t">
                 <b>{profile.name}</b>
@@ -121,7 +122,7 @@
     border: 1.5px solid var(--field-line); border-radius: var(--r-pill); color: var(--muted);
     font-size: var(--fs-mono); font-weight: 600; white-space: nowrap;
   }
-  .tag.edited { border-color: transparent; background: var(--sunk); }
+  .tag.edited { border-color: var(--line); background: var(--sunk); }
   .big {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
     border-color: var(--field-line); text-decoration: none;

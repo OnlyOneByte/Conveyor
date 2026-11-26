@@ -10,21 +10,25 @@ const bundled = (id: string, name: string, gcodeFlavor: string, extra: object = 
   ...extra,
 });
 
+const added = (name: string) => ({
+  id: `orca/${name.toLowerCase().replace(/\W+/g, "-")}`,
+  slicerId: "orca",
+  name,
+  path: "/profiles/added",
+  gcodeFlavor: "klipper",
+  bundled: false,
+});
+
 const profiles = [
   bundled("orca/klipper-pla-0.2", "Klipper PLA 0.2mm (Orca)", "klipper", {
     hasEditableContent: true,
   }),
   bundled("prusa/klipper-pla-0.2", "Klipper PLA 0.2mm (Prusa)", "klipper"),
   bundled("prusa/marlin-pla-0.2", "Marlin PLA 0.2mm (Prusa)", "marlin"),
-  {
-    id: "orca/voron-petg-0-25mm",
-    slicerId: "orca",
-    name: "Voron PETG 0.25mm",
-    path: "/profiles/voron-petg-0-25mm",
-    gcodeFlavor: "klipper",
-    bundled: false,
-  },
+  { ...added("Voron PETG 0.25mm"), path: "/profiles/voron-petg-0-25mm" },
 ];
+
+const edit = (id: string) => `a[href='/settings/profiles/${id}']`;
 
 const dialog = "dialog[open]";
 
@@ -75,16 +79,8 @@ const longError = (
   ],
 });
 
-const added = (name: string) => ({
-  id: `orca/${name.toLowerCase().replace(/\W+/g, "-")}`,
-  slicerId: "orca",
-  name,
-  path: "/profiles/added",
-  gcodeFlavor: "klipper",
-  bundled: false,
-});
-
 const shipped = profiles.slice(0, 3);
+const plain = bundled("stub/plain-pla", "Plain PLA (no editor)", "klipper");
 
 const deleting = (
   name: string,
@@ -92,28 +88,25 @@ const deleting = (
   before: object[],
   after: object[],
   lands: string,
-) => {
-  const scene: Scene = {
-    name,
-    route: "/printers",
-    ready: "h1",
-    widths: [1440],
-    steps: [
-      { fulfill: "**/api/catalog/profiles", method: "GET", status: 200, json: after },
-      { fulfill: "**/api/catalog/profiles", method: "GET", status: 200, json: before, times: 1 },
-      { fulfill: "**/api/catalog/profiles/*", method: "DELETE", status: 200, json: { ok: true } },
-      { follow: "/settings" },
-      { waitFor: `text=${label}` },
-      { click: `role=button[name='Delete ${label}']` },
-      { waitFor: `${dialog} >> role=button[name='Delete profile']` },
-      { press: "Tab" },
-      { press: "Enter" },
-      { waitFor: `${lands}:focus`, timeout: 5000 },
-      { wait: 300 },
-    ],
-  };
-  return scene;
-};
+): Scene => ({
+  name,
+  route: "/printers",
+  ready: "h1",
+  widths: [1440],
+  steps: [
+    { fulfill: "**/api/catalog/profiles", method: "GET", status: 200, json: after },
+    { fulfill: "**/api/catalog/profiles", method: "GET", status: 200, json: before, times: 1 },
+    { fulfill: "**/api/catalog/profiles/*", method: "DELETE", status: 200, json: { ok: true } },
+    { follow: "/settings" },
+    { waitFor: `text=${label}` },
+    { click: `role=button[name='Delete ${label}']` },
+    { waitFor: `${dialog} >> role=button[name='Delete profile']` },
+    { press: "Tab" },
+    { press: "Enter" },
+    { waitFor: `${lands}:focus`, timeout: 5000 },
+    { wait: 300 },
+  ],
+});
 
 export const scenes: Scene[] = [
   page("settings"),
@@ -142,21 +135,28 @@ export const scenes: Scene[] = [
     "Added first",
     [added("Added first"), ...shipped],
     shipped,
-    "a[aria-label='Edit Klipper PLA 0.2mm (Orca)']",
+    edit("orca/klipper-pla-0.2"),
   ),
   deleting(
     "settings-delete-focus-middle",
     "Middle one",
     [shipped[0], added("Middle one"), ...shipped.slice(1)],
     shipped,
-    "a[aria-label='Edit Klipper PLA 0.2mm (Prusa)']",
+    edit("prusa/klipper-pla-0.2"),
   ),
   deleting(
     "settings-delete-focus-previous",
     "Zed last",
     [...shipped, added("Zed last")],
     shipped,
-    "a[aria-label='Edit Marlin PLA 0.2mm (Prusa)']",
+    edit("prusa/marlin-pla-0.2"),
+  ),
+  deleting(
+    "settings-delete-focus-plain",
+    "Gone soon",
+    [added("Gone soon"), plain],
+    [plain],
+    "button:has-text('Add profile')",
   ),
   deleting(
     "settings-delete-focus-empty",
