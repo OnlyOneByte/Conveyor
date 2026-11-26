@@ -56,6 +56,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "settings-delete-focus-next",
     "settings-delete-focus-middle",
     "settings-delete-focus-previous",
+    "settings-delete-focus-plain",
     "settings-delete-focus-empty",
     "belt-region",
     "printers-hold",
