@@ -21,7 +21,6 @@ for (const [id, at] of [
     printerId: "p1",
     profileId: "x",
     state: "done",
-    stage: "transport",
   });
   db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
 }

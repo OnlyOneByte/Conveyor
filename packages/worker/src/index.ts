@@ -10,7 +10,7 @@ import {
   logErrors,
   StageError,
 } from "@conveyor/shared";
-import { dbRecordJob, dbResolveJobTarget, openDb } from "@conveyor/shared/db";
+import { dbRecordJob, dbResolveJobTarget, openDb, type SettledJob } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
 import { holdPrinter, printerHoldReason } from "@conveyor/shared/queue";
 import { type Job, Queue, Worker } from "bullmq";
@@ -65,6 +65,24 @@ function requestOf(data: unknown): JobRequest {
   };
 }
 
+export function settledJob(jobId: string, req: JobRequest, extra: TerminalRecord): SettledJob {
+  return {
+    id: jobId,
+    generatorId: req.generator.id,
+    params: req.generator.params,
+    printerId: req.printerId,
+    profileId: req.profileId,
+    state: extra.state,
+    stage: extra.stage ?? null,
+    error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
+    modelPath: extra.modelPath,
+    gcodePath: extra.gcodePath,
+    timings: extra.timings,
+    filament: extra.filament,
+    notes: extra.notes,
+  };
+}
+
 type PrinterDeps = Pick<
   PipelineDeps,
   "resolveJobTarget" | "resolvePrinter" | "printerSeen" | "holdPrinter" | "printerFilesToKeep"
@@ -106,21 +124,7 @@ export function startRedisWorker(
   const publish: PipelineDeps["publish"] = (id, state, extra) => bus.publish(id, state, extra);
 
   function recordTerminal(jobId: string, req: JobRequest, extra: TerminalRecord): void {
-    dbRecordJob(db(), {
-      id: jobId,
-      generatorId: req.generator.id,
-      params: req.generator.params,
-      printerId: req.printerId,
-      profileId: req.profileId,
-      state: extra.state,
-      stage: extra.stage ?? null,
-      error: extra.stage && extra.reason ? { stage: extra.stage, reason: extra.reason } : undefined,
-      modelPath: extra.modelPath,
-      gcodePath: extra.gcodePath,
-      timings: extra.timings,
-      filament: extra.filament,
-      notes: extra.notes,
-    });
+    dbRecordJob(db(), settledJob(jobId, req, extra));
   }
 
   async function failEarly(jobId: string, req: JobRequest, err: unknown): Promise<void> {

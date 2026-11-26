@@ -22,7 +22,7 @@ export function filesToKeep(
   jobId: string,
 ): string[] {
   if (keep <= 0) return [];
-  const earlier = dbListJobs(db, { limit: keep, printerId, stage: "transport" })
+  const earlier = dbListJobs(db, { limit: keep, printerId, reachedPrinter: true })
     .map(({ id }) => id)
     .filter((id) => id !== jobId)
     .slice(0, keep - 1);

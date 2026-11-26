@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,10 +9,18 @@ import {
   PrintNotStartedError,
   type PrintStatus,
   type Stage,
+  StageError,
 } from "@conveyor/shared";
-import { dbRecordJob, openDb } from "@conveyor/shared/db";
-import { harness, never, waitForAbort } from "../test/helpers/pipeline-harness";
+import { dbGetJob, dbRecordJob, openDb } from "@conveyor/shared/db";
+import {
+  type HarnessOptions,
+  harness,
+  never,
+  waitForAbort,
+} from "../test/helpers/pipeline-harness";
+import { settledJob } from "./index";
 import { DEFAULT_KEEP_FILES, filesToKeep, printerKeepFiles } from "./printer-files";
+import type { PipelineDeps } from "./run";
 
 interface Pruned {
   printerId: string;
@@ -132,7 +141,7 @@ describe("filesToKeep", () => {
     const dir = mkdtempSync(join(tmpdir(), "conveyor-printer-files-"));
     dirs.push(dir);
     const db = openDb(join(dir, "conveyor.db"));
-    for (const { id, printerId, stage = "transport" } of jobs)
+    for (const { id, printerId, stage } of jobs)
       dbRecordJob(db, { id, generatorId: "g", printerId, profileId: "x", state: "done", stage });
     for (const { id, at } of jobs) db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
     return db;
@@ -153,15 +162,36 @@ describe("filesToKeep", () => {
     expect(filesToKeep(db, 1, "p1", "now")).toEqual(["conveyor-now.gcode"]);
   });
 
-  test("counts only jobs that reached the printer toward N", () => {
-    const db = dbWith([
-      { id: "printed", printerId: "p1", at: 1 },
-      { id: "sliced-badly", printerId: "p1", at: 2, stage: "slicer" },
-      { id: "never-made", printerId: "p1", at: 3, stage: "generator" },
+  async function settle(db: Database, id: string, at: number, opts: HarnessOptions = {}) {
+    const record: PipelineDeps["record"] = (_id, req, extra) =>
+      dbRecordJob(db, settledJob(id, req, extra));
+    await harness({ ...opts, deps: () => ({ record }) })
+      .run()
+      .catch(() => undefined);
+    db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
+  }
+
+  const failsAt = (stage: "generator" | "slicer") => async () => {
+    throw new StageError(stage, `${stage} broke`);
+  };
+
+  test("counts only jobs that reached the printer toward N, as the worker records them", async () => {
+    const db = dbWith([]);
+    await settle(db, "printed", 1);
+    await settle(db, "failed-printing", 2, { status: failsMidPrint });
+    await settle(db, "sliced-badly", 3, { slice: failsAt("slicer") });
+    await settle(db, "never-made", 4, { generate: failsAt("generator") });
+    expect(dbGetJob(db, "printed")?.state).toBe("done");
+    expect(db.query("SELECT stage FROM jobs WHERE id = 'printed'").get()).toEqual({ stage: null });
+    expect(dbGetJob(db, "never-made")?.state).toBe("failed");
+    expect(filesToKeep(db, 3, "p1", "now")).toEqual([
+      "conveyor-now.gcode",
+      "conveyor-failed-printing.gcode",
+      "conveyor-printed.gcode",
     ]);
     expect(filesToKeep(db, 2, "p1", "now")).toEqual([
       "conveyor-now.gcode",
-      "conveyor-printed.gcode",
+      "conveyor-failed-printing.gcode",
     ]);
   });
 
