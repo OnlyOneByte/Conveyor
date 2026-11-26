@@ -53,6 +53,6 @@ export const scenes: Scene[] = [
   refused(
     "receipt-printer-start",
     "moonraker gave no answer to print start within 30000 ms",
-    "Conveyor has put the printer on hold",
+    "Conveyor has put it on hold",
   ),
 ];
