@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:39667",
+  "url": "http://127.0.0.1:46183",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 601293,
+      "gifBytes": 594415,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 337989,
+      "gifBytes": 337261,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -113,7 +113,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 500742,
+      "gifBytes": 500937,
       "gif": "make-print-1440.gif"
     },
     {
@@ -164,7 +164,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 741275,
+      "gifBytes": 716632,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -232,6 +232,13 @@
       "width": 1440,
       "warnings": [],
       "png": "receipt-outside-bed-1440.png"
+    },
+    {
+      "scene": "receipt-engine-log",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "receipt-engine-log-1440.png"
     },
     {
       "scene": "receipt-canceled",
@@ -412,7 +419,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 813605,
+      "gifBytes": 813273,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -522,7 +529,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 518391,
+      "gifBytes": 499926,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -530,7 +537,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1161630,
+      "gifBytes": 1192621,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -538,7 +545,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1343839,
+      "gifBytes": 1343851,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -570,7 +577,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 298938,
+      "gifBytes": 312659,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -608,7 +615,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 412935,
+      "gifBytes": 428176,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -640,7 +647,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 914470,
+      "gifBytes": 969246,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -654,7 +661,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 790473,
+      "gifBytes": 812873,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -810,6 +817,13 @@
       "png": "loading-job-failed-1440.png"
     },
     {
+      "scene": "loading-job-to-failed-job",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitForURL: Timeout 30000ms exceeded.",
+      "png": "loading-job-to-failed-job-1440.png"
+    },
+    {
       "scene": "loading-printers-add",
       "width": 1440,
       "warnings": [],
@@ -905,7 +919,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 657201,
+      "gifBytes": 630197,
       "gif": "new-job-390.gif"
     },
     {
@@ -913,7 +927,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 410548,
+      "gifBytes": 410543,
       "gif": "job-progress-390.gif"
     },
     {
@@ -987,7 +1001,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1050896,
+      "gifBytes": 1049032,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1055,6 +1069,13 @@
       "width": 390,
       "warnings": [],
       "png": "receipt-outside-bed-390.png"
+    },
+    {
+      "scene": "receipt-engine-log",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.",
+      "png": "receipt-engine-log-390.png"
     },
     {
       "scene": "receipt-canceled",
@@ -1333,7 +1354,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 531164,
+      "gifBytes": 512857,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1377,7 +1398,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 621622,
+      "gifBytes": 623717,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1409,7 +1430,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1330573,
+      "gifBytes": 1337016,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1423,7 +1444,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1081793,
+      "gifBytes": 1084809,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1455,7 +1476,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 992942,
+      "gifBytes": 1119818,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1601,6 +1622,13 @@
       "warnings": [],
       "error": "waitForURL: Timeout 30000ms exceeded.",
       "png": "loading-job-failed-390.png"
+    },
+    {
+      "scene": "loading-job-to-failed-job",
+      "width": 390,
+      "warnings": [],
+      "error": "waitForURL: Timeout 30000ms exceeded.",
+      "png": "loading-job-to-failed-job-390.png"
     },
     {
       "scene": "loading-printers-add",
