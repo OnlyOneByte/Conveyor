@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubAuth } from "./auth.ts";
-import { needsServiceWorker, noteNetwork, watchCss } from "./css-net.ts";
+import { logsDir, shotContextOptions, watchShot, workerProblem } from "./css-net.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
@@ -73,7 +73,7 @@ const dirs = pageDirs(resolve(values.root));
 const BASE_READY_MS = 5000;
 const readyMs = values.base ? BASE_READY_MS : 30000;
 const absent = new Set<string>();
-let caddyLogs: (() => string) | undefined;
+let caddyLogs: ((sinceMs: number) => string) | undefined;
 const notOnBase = (scene: Scene) =>
   `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
 
@@ -124,22 +124,18 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
 }
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
-  const [startedAt, logName] = [Date.now(), `${scene.name}-${width}.caddy.log`];
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
   if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
-  const context = await browser.newContext({
-    viewport: { width, height: scene.height ?? HEIGHTS[width] ?? 900 },
-    deviceScaleFactor: 1,
-    colorScheme,
-    reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",
-    ...(scene.touch ? { hasTouch: true, isMobile: true } : {}),
-    serviceWorkers: needsServiceWorker(scene) ? "allow" : "block",
-  });
+  const height = scene.height ?? HEIGHTS[width] ?? 900;
+  const context = await browser.newContext(
+    shotContextOptions(scene, { width, height }, colorScheme),
+  );
   await pinHistoryRoute(context);
   await context.clock.setSystemTime(CAPTURE_NOW);
   await stubAuth(context, scene);
   const page = await context.newPage();
-  const cssProblems = watchCss(page);
+  const logPath = join(logsDir(outDir), `${scene.name}-${width}.caddy.log`);
+  const net = watchShot(page, caddyLogs && { read: caddyLogs, path: logPath });
   const landed = new Set<string>();
   page.on("framenavigated", (frame) => {
     const url = new URL(frame.url());
@@ -184,8 +180,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   }
   await sampler?.stop();
   if (!result.error) await assertStyles(page).catch((err) => (result.error = messageOf(err)));
-  const caddy = caddyLogs && { logs: caddyLogs, since: startedAt, path: join(outDir, logName) };
-  if (result.error) result.error = await noteNetwork(result.error, cssProblems(), caddy);
+  if (!result.error) result.error = (await workerProblem(page, scene)) ?? undefined;
+  if (result.error) result.error = await net.note(result.error);
   await writePng(page, result, scene.fullPage ?? true);
   await context.close();
   if (sampler && !result.error) await writeGif(result, sampler.frames);

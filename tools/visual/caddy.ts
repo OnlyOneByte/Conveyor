@@ -149,8 +149,8 @@ export function assertLoopbackCaddy(run: Run, file: string, ports: CaddyPorts): 
   if (problem) throw new Error(problem);
 }
 
-export const dockerLogs = (run: Run, id: string) => () => {
-  const logs = run(["docker", "logs", id]);
+export const dockerLogs = (run: Run, id: string) => (sinceMs: number) => {
+  const logs = run(["docker", "logs", "--since", (sinceMs / 1000).toFixed(3), id]);
   return `${logs.stdout.toString()}${logs.stderr.toString()}`;
 };
 

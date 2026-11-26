@@ -17,7 +17,7 @@ import {
 export interface Stack {
   url: string;
   stop: () => Promise<void>;
-  caddyLogs?: () => string;
+  caddyLogs?: (sinceMs: number) => string;
 }
 
 type Log = (line: string) => void;
