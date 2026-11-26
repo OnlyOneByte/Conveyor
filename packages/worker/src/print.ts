@@ -9,6 +9,7 @@ import {
   note,
   noteText,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
   StageError,
@@ -48,6 +49,25 @@ export async function printStage(
     await checkpoint(run);
     if ((await queue.takeSlot(run.signal)) === "canceled") throw new JobCanceledError();
   }
+  const lock = queue ? undefined : run.deps.printerLock;
+  if (!lock) return sendAndWatch(run, target, gcode);
+  await checkpoint(run);
+  const held = await lock.acquire(target.printerId, run.signal);
+  run.ctx.confirmStart = () => held.confirm();
+  try {
+    return await sendAndWatch(run, target, gcode);
+  } finally {
+    run.ctx.confirmStart = undefined;
+    await held.release();
+  }
+}
+
+async function sendAndWatch(
+  run: Run,
+  target: JobTarget,
+  gcode: GcodeArtifact,
+): Promise<PrintOutcome> {
+  const queue = run.deps.queue;
   await enterStage(run, "transport", "transferring");
   const transport = run.deps.registry.transports.get(target.transportId);
   if (!transport) throw new StageError("transport", `unknown transport ${target.transportId}`);
@@ -56,6 +76,8 @@ export async function printStage(
   run.print = attempt;
   attempt.handle = await transport.submit(gcode, printer, run.ctx).catch((err) => {
     if (err instanceof PrintNotStartedError) attempt.notStarted = true;
+    if (err instanceof PrintMayHaveStartedError)
+      run.deps.holdPrinter?.(run.opts.jobId, target.printerId, err.reason);
     throw err;
   });
   await queue?.markSubmitted(attempt.handle);

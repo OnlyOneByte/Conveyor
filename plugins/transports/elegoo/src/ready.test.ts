@@ -93,6 +93,9 @@ test("a cancel during the check refuses as not started and closes the socket", a
   cancel.abort();
   await expect(check).rejects.toBeInstanceOf(PrintNotStartedError);
   await expect(check).rejects.toThrow("canceled before upload");
+  await expect(elegooReadiness("192.0.2.8", "mb", 5000, cancel.signal)).rejects.toThrow(
+    "canceled before upload",
+  );
 });
 
 test("an SDCP error push reads as an error", async () => {

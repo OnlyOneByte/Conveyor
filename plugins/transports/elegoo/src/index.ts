@@ -46,6 +46,7 @@ export const elegoo: TransportPlugin = {
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
+    await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
     await sendCommand(target.address, {

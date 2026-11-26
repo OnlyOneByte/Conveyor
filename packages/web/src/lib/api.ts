@@ -106,8 +106,9 @@ export interface CatalogPrinter {
   allowedGenerators?: string[];
   lastSeenAt?: number;
   lastCheckedAt?: number;
+  hold?: { jobId: string; reason: string; at: number };
 }
-type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt"> & {
+type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt" | "hold"> & {
   secrets?: Record<string, string> | null;
 };
 export interface CatalogProfile {
@@ -217,4 +218,13 @@ export async function fetchJobHistoryEntry(
 }
 
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
+export async function releasePrinterHold(id: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const path = `${API}/catalog/printers/${encodeURIComponent(id)}/release`;
+  const r = await fetchFn(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ confirm: true }),
+  });
+  if (!r.ok) throw await failure(r, `POST ${path}`);
+}
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);
