@@ -8,6 +8,17 @@ export const scenes: Scene[] = [
     steps: [{ wait: 600 }],
   })),
   {
+    name: "track-empty-label",
+    route: "/",
+    ready: "text=How big?",
+    widths: [1440],
+    steps: [
+      { waitFor: ".lane .idle >> text=Nothing on the belt" },
+      { bottoms: ".lane .idle", with: ".lane .rail" },
+      { above: ".lane .stage", of: ".lane .idle" },
+    ],
+  },
+  {
     name: "track-stage-words",
     route: "/primitives/track?jobs=states",
     ready: "h1",

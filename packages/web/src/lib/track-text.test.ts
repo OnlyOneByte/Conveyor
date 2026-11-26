@@ -161,9 +161,9 @@ describe("the mobile belt's summary line", () => {
     expect([
       beltSummary([job("a", "queued")]),
       beltSummary([job("a", "failed"), job("b", "done")]),
-    ]).toEqual(["1 on the belt", "Nothing on the rail"]);
+    ]).toEqual(["1 on the belt", "Nothing on the belt"]);
     expect([IDLE, BINS, today(3)]).toEqual([
-      "Nothing on the rail",
+      "Nothing on the belt",
       { finished: "Finished", needs: "Needs you", waiting: "waiting" },
       "3 today",
     ]);

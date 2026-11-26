@@ -245,7 +245,7 @@ opens a member list in the card; ←/→ walk the members and Enter opens one.
 
 | Jobs | What shows |
 |---|---|
-| 0 | Empty Queue box, still rail with "Nothing on the rail · Voron and Ender ready", Finished bin with today's count |
+| 0 | Empty Queue box, still rail with "Nothing on the belt · Voron and Ender ready", on the strip itself, Finished bin with today's count |
 | 1 | One chip, at its stage |
 | 3 | Typically one printing, one slicing, one queued; no merges |
 | 8 | Modelling and slicing chips merge into a group, one printing chip, 3 queued, Finished 1, Needs you 1 |
@@ -270,7 +270,8 @@ an expand button (`aria-expanded`, `aria-controls`) that opens the full Track in
 "On the belt", like the Track and the mobile summary, and its Needs-you count is a button that opens the tray.
 
 All three views take their words from one table in `lib/track.ts`: "Finished N today", "Needs you N", "N waiting"
-and "Nothing on the rail". When two polls in a row fail, every view says "Can't reach Conveyor" instead of a count
+and "Nothing on the belt". Copy, aria labels and screen-reader text say "belt", never "rail":
+"rail" is only this document's name for the drawn strip, and `belt-word.test.ts` pins it. When two polls in a row fail, every view says "Can't reach Conveyor" instead of a count
 or an empty state, and keeps the last jobs it saw, dimmed. The shell's polite region says so once, and "Conveyor is
 back." when the next poll succeeds.
 
@@ -325,7 +326,7 @@ visually hidden text after it. No `aria-label` replaces visible words.
 | Bins | `Finished 1 today`, `Needs you 1` | the same |
 | Command button | `Search` and `⌘K` | "Search jobs, printers and actions ⌘K"; on mobile the word is visually hidden, not removed |
 
-- The belt is a `region` named "On the belt". The rail is a `group` named "Rail, N moving".
+- The belt is a `region` named "On the belt". The rail is a `group` named "Belt, N moving".
 - A chip is a link; a group chip is a button with `aria-expanded` that controls its member list.
 - Jobs is a plain list of links with a roving `tabindex`: one Tab stop, and `J`/`K` move real focus. There is no
   `listbox` role and no `aria-activedescendant`.
