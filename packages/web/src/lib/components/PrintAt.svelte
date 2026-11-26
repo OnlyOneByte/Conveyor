@@ -14,6 +14,8 @@
   export let printerId: string;
   export let profileId: string;
 
+  const MANY = 6;
+
   let busy: Set<string> | null = null;
   let unreachable = new Set<string>();
   let answered = new Set<string>();
@@ -37,12 +39,12 @@
 
 <fieldset>
   <legend class="label">Printer</legend>
-  <div class="pills">
+  <div class="pills" class:many={printers.length > MANY}>
     {#each printers as printer (printer.id)}
       {@const status = printerStatus(printer.id, busy, unreachable, answered)}
-      <label class="pill">
+      <label class="pill" title={printer.name}>
         <input type="radio" name="printer" value={printer.id} bind:group={printerId} />
-        {printer.name}{#if status}<span><span class="sr">, </span>{status}</span>{/if}
+        <b>{printer.name}</b>{#if status}<span><span class="sr">, </span>{status}</span>{/if}
       </label>
     {/each}
   </div>
@@ -69,7 +71,10 @@
 </fieldset>
 
 <style>
-  fieldset { display: grid; gap: var(--s2); margin: 0; padding: 0; border: 0; }
+  fieldset {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); min-width: 0; margin: 0;
+    padding: 0; border: 0;
+  }
   fieldset + fieldset { margin-top: var(--s4); }
   .label { padding: 0; }
   .pills { display: flex; flex-wrap: wrap; gap: var(--s2); }
@@ -78,7 +83,16 @@
     min-height: 42px; padding: 0 var(--s4);
     border: 1.5px solid var(--field-line); border-radius: var(--r-pill); font-weight: 600; cursor: pointer;
   }
-  .pill span { font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
+  .pill { max-width: 100%; min-width: 0; }
+  .pill b {
+    min-width: 0; overflow: hidden; font-weight: inherit; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pill span { flex: none; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
+  .many {
+    flex-direction: column; flex-wrap: nowrap; max-height: calc(5 * 42px + 4 * var(--s2));
+    overflow-y: auto; overscroll-behavior: contain; padding: var(--s1-5); scrollbar-gutter: stable;
+  }
+  .many .pill { flex: none; justify-content: space-between; border-radius: var(--r-control); }
   .pill:has(:checked) { background: var(--ink); border-color: var(--ink); color: var(--bg); }
   .pill:has(:checked) span { color: var(--bg); opacity: 0.85; }
   .pill:has(:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }

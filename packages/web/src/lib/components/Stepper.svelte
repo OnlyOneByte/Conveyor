@@ -33,7 +33,7 @@
     disabled={current <= lo(prop)}
     on:click={() => onSet(clamp(current - 1, prop))}>−</button
   >
-  <span class="sval">
+  <label class="sval">
     <input
       type="number"
       inputmode="numeric"
@@ -49,7 +49,7 @@
       }}
     />
     {#if unitMm !== undefined}<em>u · {current * unitMm} mm</em>{/if}
-  </span>
+  </label>
   <button
     type="button"
     aria-label={`Increase ${label}`}
@@ -69,11 +69,20 @@
   button:disabled { opacity: 0.35; cursor: not-allowed; }
   button:focus-visible { outline-offset: -3px; }
   .sval { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center;
-    gap: var(--s0); }
+    gap: var(--s0); cursor: text; }
   .sval input { width: 3ch; min-height: 0; padding: 0; border: 0; background: transparent;
     text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;
     color: var(--ink); -moz-appearance: textfield; appearance: textfield; }
   .sval input::-webkit-outer-spin-button,
   .sval input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .sval em { font-style: normal; color: var(--muted); font-size: var(--fs-mono); white-space: nowrap; }
+  @media (pointer: coarse) {
+    button { width: var(--tap); min-height: var(--tap); }
+    .sval { position: relative; align-self: stretch; align-items: center; padding-bottom: var(--s3); }
+    .sval input { text-align: center; }
+    .sval em {
+      position: absolute; inset: auto 0 var(--s1); line-height: 1; text-align: center;
+      pointer-events: none;
+    }
+  }
 </style>

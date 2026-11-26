@@ -40,5 +40,8 @@
   .words { display: grid; flex: 1; gap: var(--s0); min-width: 0; color: var(--muted); }
   .head { display: grid; gap: var(--s0); }
   .act { flex: none; }
-  b { color: var(--ink); font-size: var(--fs-body); font-weight: 650; line-height: 1.3; }
+  b {
+    color: var(--ink); font-size: var(--fs-body); font-weight: 650; line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
 </style>
