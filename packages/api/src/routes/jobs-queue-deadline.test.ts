@@ -7,6 +7,7 @@ import { jobSnapshotKey } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
 import { registerErrorReplies } from "../error-replies.js";
 import { connection, jobQueue, QUEUE_DEADLINE_MS, redis } from "../queue.js";
 import { registerCatalogRoutes } from "./catalog.js";
@@ -42,12 +43,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app.close();
-  mock.restore();
-  openDb().close();
-  if (previous === undefined) delete process.env.DB_PATH;
-  else process.env.DB_PATH = previous;
-  rmSync(dir, { recursive: true, force: true });
+  try {
+    await app.close();
+    mock.restore();
+    openDb().close();
+    if (previous === undefined) delete process.env.DB_PATH;
+    else process.env.DB_PATH = previous;
+    rmSync(dir, { recursive: true, force: true });
+  } finally {
+    await closeQueue(process.env.REDIS_URL);
+  }
 });
 
 async function timed(method: "GET" | "POST" | "DELETE", url: string) {

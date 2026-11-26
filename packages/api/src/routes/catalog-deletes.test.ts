@@ -6,7 +6,8 @@ import { dbUpsertPrinter, dbUpsertProfile, openDb } from "@conveyor/shared/db";
 import { enqueueJob } from "@conveyor/shared/queue";
 import { Job } from "bullmq";
 import Fastify from "fastify";
-import { connection, jobQueue, redis } from "../queue.js";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
+import { jobQueue } from "../queue.js";
 import { registerCatalogRoutes } from "./catalog";
 import { countLiveJobs } from "./jobs.js";
 import { countLiveJobs as countSqliteLiveJobs } from "./jobs-sqlite.js";
@@ -46,17 +47,12 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app.close();
   try {
-    if (process.env.REDIS_URL) {
-      if (connection.status === "end") await connection.connect();
-      await jobQueue.obliterate({ force: true });
-    }
-  } finally {
-    connection.disconnect();
-    redis.disconnect();
+    await app.close();
     process.env.DB_PATH = previousDbPath;
     rmSync(dir, { recursive: true, force: true });
+  } finally {
+    await closeQueue(process.env.REDIS_URL);
   }
 });
 

@@ -46,21 +46,38 @@ fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
 A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
-removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. Every temp name made
+removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. CI's `test` job points
+`TMPDIR` at a fresh empty directory for its test steps, and `bun run check:test-leaks` runs after both test runs:
+it fails on any entry left in `$TMPDIR`, whatever its name and however it was made (`mkdtemp`, `mkdirSync`,
+`Bun.write`), and on any key left in Redis. That check is what catches a leak. The prefix scan below is a second
+line of defence that names the file and line before a leak happens, and a shadowed name or a computed
+`fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
+`TMPDIR`. Every temp name made
 directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
-any other, and `test-leaks.test.ts` fails if a file in the repository makes one under a prefix the list lacks, so
-a new prefix goes into the list. A test file that writes
+any other. `test-leaks.test.ts` reads every `mkdtemp`-family call in the repository's `.ts`, `.mts`,
+`.cts`, `.js`, `.mjs` and `.cjs` files with TypeScript's parser (`scripts/checks/temp-prefix-scan.ts`), under any
+name it is imported as or through `fs.`, and it fails closed. A call passes only when its first argument is
+`join(tmpdir(), "<listed prefix>")` written out in place, with `join` or `resolve` and `tmpdir` under any import
+name or as `path.` and `os.`, or `join(<dir>, "<literal>")` inside a dir the same file made that way. Anything
+else fails, naming the file and line: a template that starts with `${...}`, a prefix in a variable or built
+with `+`, `tmpdir()` or the joined path held in a const, `process.env.TMPDIR`, a literal `/tmp` path, or
+`os["tmpdir"]()`. A prefix or a name inside a made dir that contains `/`, `\` or `..` fails, since it could put
+the dir outside `TMPDIR`. Any use of a `mkdtemp`, `mkdtempSync`, `mkdtempDisposable` or `mkdtempDisposableSync`
+name other than a direct call fails too: an alias, `.call`, `promisify(...)`, a `require` destructure or a
+re-export. Two reviewed calls are the exceptions, listed with their reason in `REVIEWED`: `tempDirs`' own
+call, and the coverage sweep's probe, which has to sit inside the repository. A test file that writes
 to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
 deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
 whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A
 key written while the file's modules load, before its first hook (BullMQ writes `bull:<queue>:meta` when a queue
-is created), is already in that first snapshot, so the file removes it itself, as `catalog-deletes.test.ts` does
-with `jobQueue.obliterate`. CI's `test` job runs `bun run check:test-leaks` after both test runs; it fails if
-`$TMPDIR` holds an entry under any prefix in `TEMP_PREFIXES` or Redis holds any key. It sees only what is left at the end: two files
-(`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`, which also hides any
-key an earlier file left. To find those, run each file alone against an empty Redis. To run the check locally,
-point `TMPDIR` at an empty directory and `REDIS_URL` at a Redis of its own, since it reports every watched
-entry and every key it finds.
+is created), is already in that first snapshot, so the file removes it itself. Every api test file that loads
+`queue.js` at import calls `closeQueue(process.env.REDIS_URL)` (`packages/api/test/helpers/close-queue.ts`) in
+its `afterAll`: with a URL it reconnects the shared connection if an earlier file closed it, waits for it, and
+obliterates the job queue, and it always disconnects both clients. `check:test-leaks` sees only what is left at
+the end: two files (`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`,
+which also hides any key an earlier file left. To find those, run each file alone against an empty Redis. The
+check refuses to run without `TMPDIR`. To run it locally, `export TMPDIR="$(mktemp -d)"` before the tests and point
+`REDIS_URL` at a Redis of its own, since it reports every entry and every key it finds.
 
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
 tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
