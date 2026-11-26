@@ -51,6 +51,6 @@ To pick up a new slicer release, change the pinned commit, run `bun run slicer-k
 
 ## Profile paths
 
-A profile's `path` must be `/profiles/<bundle>`: one directory name made of letters, digits, `.`, `_` and `-`, starting with a letter or digit and containing no `..`. `isBundledProfilePath` enforces this in `PUT /catalog/profiles` (`packages/api/src/profile-validation.ts`) and in the worker before slicing. The API also rejects a profile whose `slicerId` is not a registered slicer.
+A profile's `path` must be `/profiles/<bundle>`: one directory name made of letters, digits, `.`, `_` and `-`, starting with a letter or digit and containing no `..`. `isBundledProfilePath` enforces this in `PUT /catalog/profiles` (`packages/api/src/catalog-validation.ts`) and in the worker before slicing. The API also rejects a profile whose `slicerId` is not a registered slicer.
 
 The worker also resolves the bundle with `realpath` under `CONVEYOR_PROFILES_ROOT` (default `/profiles`) and refuses a directory that resolves outside that root, for example through a symlink. `/profiles` is mounted read-only today, so this is defence in depth. The slicer gets the resolved path.
