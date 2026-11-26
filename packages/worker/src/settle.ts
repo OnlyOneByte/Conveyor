@@ -173,10 +173,7 @@ async function settleFailed(run: Run, se: StageError): Promise<never> {
 
 export async function settleError(run: Run, err: unknown): Promise<TerminalState> {
   const lost = err instanceof LeaseLostError ? err : run.signal.reason;
-  if (lost instanceof LeaseLostError) {
-    await cleanup(run);
-    throw lost;
-  }
+  if (lost instanceof LeaseLostError) throw lost;
   if (err instanceof ResumeFailedError && run.deps.queue) {
     return settleResumeFailed(run, run.deps.queue, err.note);
   }

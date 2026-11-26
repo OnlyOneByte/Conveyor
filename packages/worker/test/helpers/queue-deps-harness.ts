@@ -24,7 +24,11 @@ export function cleanup() {
   rmSync(dir, { recursive: true, force: true });
 }
 
-export function queued(opts: HarnessOptions = {}, overrides: Partial<PipelineDeps> = {}) {
+export function queued(
+  opts: HarnessOptions = {},
+  overrides: Partial<PipelineDeps> = {},
+  slotRetryMs = 5,
+) {
   dir = mkdtempSync(join(tmpdir(), "conveyor-worker-queue-"));
   db = openDb(join(dir, "conveyor.db"));
   dbUpsertPrinter(db, { id: "p1", transportId: "tr", name: "P1", address: "10.0.0.9" });
@@ -39,7 +43,7 @@ export function queued(opts: HarnessOptions = {}, overrides: Partial<PipelineDep
         controller: h.controller,
         log: () => {},
         progressFlushMs: 50,
-        slotRetryMs: 5,
+        slotRetryMs,
       }).deps,
       ...overrides,
     }),
