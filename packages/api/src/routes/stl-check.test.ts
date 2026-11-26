@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { looksLikeStl, readFailure } from "./stl-check.js";
+import { HEAD_BYTES, looksLikeStl, readFailure } from "./stl-check.js";
 
 test("an ASCII STL needs solid and a facet; leading whitespace is fine", () => {
   expect(looksLikeStl(Buffer.from("  solid a\n facet normal 0 0 1\n"))).toBe(true);
@@ -54,4 +54,12 @@ test("only the exact UTF-8 byte-order mark is skipped, not any leading bytes", (
     [0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf],
   ])
     expect(looksLikeStl(Buffer.concat([Buffer.from(lead), ascii]))).toBe(false);
+});
+
+test("a binary STL bigger than the kept head is judged by the streamed size", () => {
+  const head = Buffer.alloc(HEAD_BYTES);
+  head.writeUInt32LE(100, 80);
+  expect(looksLikeStl(head, 84 + 50 * 100)).toBe(true);
+  expect(looksLikeStl(head, 84 + 50 * 100 + 1)).toBe(false);
+  expect(looksLikeStl(head)).toBe(false);
 });

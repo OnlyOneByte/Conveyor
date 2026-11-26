@@ -1,20 +1,24 @@
 const HEADER = 84;
 const FACET = 50;
+const ASCII_WINDOW = 4096;
 
 const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 
-const triangles = (buf: Buffer) => (buf.byteLength >= HEADER ? buf.readUInt32LE(80) : 0);
+export const HEAD_BYTES = BOM.byteLength + ASCII_WINDOW;
 
-const binary = (buf: Buffer) =>
-  triangles(buf) > 0 && buf.byteLength === HEADER + FACET * triangles(buf);
+const triangles = (head: Buffer) => (head.byteLength >= HEADER ? head.readUInt32LE(80) : 0);
 
-const ascii = (buf: Buffer) => {
-  const body = buf.subarray(0, BOM.byteLength).equals(BOM) ? buf.subarray(BOM.byteLength) : buf;
-  const text = body.subarray(0, 4096).toString("latin1").trimStart();
+const binary = (head: Buffer, size: number) =>
+  triangles(head) > 0 && size === HEADER + FACET * triangles(head);
+
+const ascii = (head: Buffer) => {
+  const body = head.subarray(0, BOM.byteLength).equals(BOM) ? head.subarray(BOM.byteLength) : head;
+  const text = body.subarray(0, ASCII_WINDOW).toString("latin1").trimStart();
   return text.startsWith("solid") && /\bfacet\b/.test(text);
 };
 
-export const looksLikeStl = (buf: Buffer) => binary(buf) || ascii(buf);
+export const looksLikeStl = (head: Buffer, size: number = head.byteLength) =>
+  binary(head, size) || ascii(head);
 
 export function readFailure(error: unknown): 400 | 413 | null {
   if (error instanceof Error && "code" in error && error.code === "FST_REQ_FILE_TOO_LARGE")

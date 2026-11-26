@@ -1,10 +1,10 @@
-import { basename } from "node:path";
 import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
   PrintNotStartedError,
   type PrintStatus,
+  printerFileName,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -23,6 +23,7 @@ const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = 2000;
 const CANCEL_TIMEOUT_MS = 15000;
 const STATUS_TIMEOUT_MS = 30000;
+const START_TIMEOUT_MS = 30000;
 const STATUS_FAILURES = 5;
 
 export const moonraker: TransportPlugin = {
@@ -33,7 +34,7 @@ export const moonraker: TransportPlugin = {
   acceptsFlavors: ["klipper", "marlin"],
 
   async submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle> {
-    const filename = basename(gcode.path);
+    const filename = printerFileName(ctx.jobId);
     if (STUB) {
       ctx.log(`[stub] upload ${filename} → ${target.address} and start`);
       return {
@@ -68,15 +69,25 @@ export const moonraker: TransportPlugin = {
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
 
+    const startMs = positiveSetting("MOONRAKER_START_TIMEOUT_MS", START_TIMEOUT_MS);
     const start = await fetch(
       `${base}/printer/print/start?filename=${encodeURIComponent(filename)}`,
       {
         method: "POST",
         headers,
         redirect: "manual",
-        signal: ctx.signal,
+        signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(startMs)]),
       },
-    );
+    ).catch((e) => {
+      if (ctx.signal.aborted) throw e;
+      const timedOut = e instanceof Error && e.name === "TimeoutError";
+      throw new StageError(
+        "transport",
+        timedOut
+          ? `moonraker gave no answer to print start within ${startMs} ms`
+          : `moonraker start failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
     refuseRedirect(start, "moonraker start");
     if (!start.ok) throw new StageError("transport", `moonraker start failed: ${start.status}`);
 

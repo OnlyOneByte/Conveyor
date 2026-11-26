@@ -171,6 +171,11 @@ dropped. Two guards apply to every upload:
   A failed poll (a timeout, a refused connection or an error reply) is retried after the usual wait; once
   `MOONRAKER_STATUS_FAILURES` (default 5) fail in a row, the stage fails with `moonraker status query failed:
   <last error> (<n> in a row)`. A good poll resets the count. Both settings must be whole numbers above 0.
+- Both transports upload the g-code to the printer as `conveyor-<jobId>.gcode` (`printerFileName` in
+  `@conveyor/shared`) and start that name, so two jobs sent to one printer never overwrite each other's file.
+  The handle's `ref` is that name. Conveyor never deletes files from the printer.
+- Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
+  `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in
   [docs/self-hosting.md](../self-hosting.md#printer-addresses), resolving names each time. Elegoo checks before
   its upload, before `START_PRINT`, before opening the status socket and before `STOP_PRINT`.

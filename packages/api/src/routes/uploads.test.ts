@@ -6,7 +6,7 @@ import multipart from "@fastify/multipart";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerErrorReplies } from "../error-replies.js";
-import { registerUploadRoutes, store } from "./uploads.js";
+import { registerUploadRoutes, store, type Write } from "./uploads.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-"));
 const maxBytes = 84 + 50 * 3;
@@ -29,6 +29,10 @@ afterAll(async () => {
 });
 
 const ASCII = "solid bin\nfacet normal 0 0 1\nendfacet\nendsolid bin\n";
+
+async function* chunks(text: string) {
+  yield Buffer.from(text);
+}
 
 function binaryStl(facets: number): Uint8Array {
   const bytes = new Uint8Array(84 + 50 * facets);
@@ -173,9 +177,12 @@ describe("POST /uploads when the write fails partway", () => {
     app = Fastify();
     registerErrorReplies(app);
     await app.register(multipart, { limits: { fileSize: maxBytes } });
-    const diskFull = async (path: string, data: Buffer) => {
+    const diskFull: Write = async (path, source) => {
       written.push(path);
-      writeFileSync(path, data.subarray(0, 10));
+      for await (const chunk of source) {
+        writeFileSync(path, chunk.subarray(0, 10));
+        break;
+      }
       throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
     };
     await registerUploadRoutes(app, { dir: full, maxBytes }, diskFull);
@@ -200,13 +207,13 @@ describe("POST /uploads when the write fails partway", () => {
 
   test("a failed clean-up keeps the write's own error as the cause", async () => {
     const enospc = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
-    const path = join(full, "stuck.stl");
-    const blocked = async (part: string) => {
-      mkdirSync(join(part, "child"), { recursive: true });
+    const part = join(full, "stuck.stl.part");
+    const blocked: Write = async (path) => {
+      mkdirSync(join(path, "child"), { recursive: true });
       throw enospc;
     };
-    const failure = await store(path, Buffer.from(ASCII), blocked).catch((e: unknown) => e);
+    const failure = await store(part, chunks(ASCII), blocked).catch((e: unknown) => e);
     expect(failure instanceof Error && failure.cause).toBe(enospc);
-    rmSync(`${path}.part`, { recursive: true, force: true });
+    rmSync(part, { recursive: true, force: true });
   });
 });
