@@ -138,7 +138,7 @@
     overflow: hidden; border-radius: var(--r-panel); background: var(--mat);
   }
   .tag {
-    padding: 4px 10px; border-radius: var(--r-pill); background: var(--paper); font: 500 var(--fs-mono) var(--mono);
+    padding: var(--s1) var(--s2-5); border-radius: var(--r-pill); background: var(--paper); font: 500 var(--fs-mono) var(--mono);
   }
   .nf { max-width: 520px; display: flex; flex-direction: column; gap: var(--s4); padding: 10vh 0; }
   @media (max-width: 759px) {

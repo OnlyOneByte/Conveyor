@@ -67,22 +67,22 @@
 </div>
 
 <style>
-  .ghead { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.45rem; }
+  .ghead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2-5); margin-bottom: var(--s2); }
   .ghead b { font-size: var(--fs-label); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
   .sum { font-size: var(--fs-label); color: var(--muted); font-variant-numeric: tabular-nums; }
   .spacer { flex: 1; }
 
-  .fields { display: flex; flex-direction: column; gap: 0.5rem; }
-  .fields.pair { flex-direction: row; align-items: center; gap: 0.5rem; }
+  .fields { display: flex; flex-direction: column; gap: var(--s2); }
+  .fields.pair { flex-direction: row; align-items: center; gap: var(--s2); }
   .fields.pair > :global(.stepper) { flex: 1; min-width: 0; }
   .times { color: var(--muted); }
 
-  .fields.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; }
-  .cb { display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-chip); cursor: pointer; min-height: 32px; }
+  .fields.cbgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1-5) var(--s3); }
+  .cb { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-chip); cursor: pointer; min-height: 32px; }
   .cb input { margin: 0; }
-  .stack1 { display: flex; flex-direction: column; gap: 0.3rem; width: 100%; }
+  .stack1 { display: flex; flex-direction: column; gap: var(--s1); width: 100%; }
   .stack1 label { font-size: var(--fs-chip); color: var(--muted); }
-  .slider { display: flex; align-items: center; gap: 0.6rem; }
+  .slider { display: flex; align-items: center; gap: var(--s2-5); }
   .slider input[type="range"] { flex: 1; }
   .val { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--live); font-weight: 600; }
 </style>

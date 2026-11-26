@@ -120,7 +120,7 @@
     border-radius: var(--r-card); background: var(--paper); border: 1px solid var(--line);
     box-shadow: var(--lift);
   }
-  .t, .pref { display: flex; flex-direction: column; gap: 2px; }
+  .t, .pref { display: flex; flex-direction: column; gap: var(--s0); }
   dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s1) var(--s4); margin: 0; }
   dd { margin: 0; font-weight: 600; }
   code { font: 500 var(--fs-chip) var(--mono); }

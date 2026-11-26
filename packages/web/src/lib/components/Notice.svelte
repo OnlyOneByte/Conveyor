@@ -34,11 +34,11 @@
   }
   .err { --tone: var(--err); }
   .icon {
-    flex: none; width: 20px; height: 20px; margin-top: 1px;
+    flex: none; width: 20px; height: 20px; margin-top: calc(var(--s0) / 2);
     fill: none; stroke: var(--tone); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round;
   }
-  .words { display: grid; flex: 1; gap: 2px; min-width: 0; color: var(--muted); }
-  .head { display: grid; gap: 2px; }
+  .words { display: grid; flex: 1; gap: var(--s0); min-width: 0; color: var(--muted); }
+  .head { display: grid; gap: var(--s0); }
   .act { flex: none; }
   b { color: var(--ink); font-size: var(--fs-body); font-weight: 650; line-height: 1.3; }
 </style>

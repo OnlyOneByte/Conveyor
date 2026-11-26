@@ -62,7 +62,7 @@
 </dialog>
 
 <style>
-  dialog { width: min(600px, calc(100vw - 24px)); margin: 110px auto auto; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
+  dialog { width: min(600px, calc(100vw - 24px)); margin: calc(var(--s4) * 7) auto auto; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
   dialog::backdrop { background: color-mix(in oklch, var(--belt) 35%, transparent); }
   input { width: 100%; height: 56px; padding: 0 var(--s4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; font-size: var(--fs-section); }
   input:focus-visible { outline: none; box-shadow: inset 0 -3px 0 var(--focus); }
@@ -72,11 +72,11 @@
   [role="option"][aria-selected="true"] { background: var(--sunk); box-shadow: inset 3px 0 0 var(--focus); }
   .hint { margin-left: auto; font: 500 var(--fs-mono) var(--mono); color: var(--muted); }
   .none { margin: 0; padding: var(--s4); color: var(--muted); }
-  .keys { display: flex; gap: var(--s2); margin: 0; padding: 10px var(--s4); border-top: 1px solid var(--line); font-size: var(--fs-mono); color: var(--muted); }
+  .keys { display: flex; gap: var(--s2); margin: 0; padding: var(--s2-5) var(--s4); border-top: 1px solid var(--line); font-size: var(--fs-mono); color: var(--muted); }
   @media (max-width: 759px) {
     dialog { margin-top: var(--s4); }
     .keys { display: none; }
-    .stack { flex-wrap: wrap; row-gap: 2px; padding: 6px var(--s4); }
+    .stack { flex-wrap: wrap; row-gap: var(--s0); padding: var(--s1-5) var(--s4); }
     .stack .hint { flex-basis: 100%; margin-left: 0; }
   }
 </style>

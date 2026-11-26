@@ -95,7 +95,7 @@
   h2 { margin: 0; font-size: var(--fs-section); font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
   p, h3 { margin: 0; }
   .how { font: 500 var(--fs-chip) var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-chip); white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: var(--s1-5); min-height: 28px; padding: 0 var(--s2-5); border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-chip); white-space: nowrap; }
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .pill.ready { color: var(--ok); }
   .pill.busy {
@@ -110,13 +110,13 @@
   }
   .pill.checking { color: var(--muted); }
   .pill.checking::before { box-sizing: border-box; background: none; border: 1.5px solid currentColor; }
-  .now { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
+  .now { display: flex; flex-direction: column; gap: var(--s0); color: var(--muted); }
   .now a { color: var(--ink); font-weight: 700; }
   .bar { height: 8px; border: 1px solid var(--field-line); border-radius: var(--r-pill); background: var(--sunk); overflow: hidden; }
   .bar i { display: block; height: 100%; background: var(--live); }
   .wait { display: flex; flex-direction: column; gap: var(--s1); padding-top: var(--s3); border-top: 1.5px dashed var(--line-2); }
   .stuck h3 { color: var(--err); }
-  ol { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  ol { display: flex; flex-direction: column; gap: var(--s0); margin: 0; padding: 0; list-style: none; }
   ol a { display: inline-flex; align-items: center; min-height: 24px; }
   .now a { align-self: flex-start; display: inline-flex; align-items: center; min-height: 24px; }
   @media (pointer: coarse) { ol a, .now a { min-height: var(--tap); } }

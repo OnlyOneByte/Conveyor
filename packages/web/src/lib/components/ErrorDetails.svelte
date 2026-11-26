@@ -13,7 +13,7 @@
 
 <style>
   .why { margin: var(--s2) 0 0; color: var(--ink); font-weight: 400; }
-  summary { padding: 6px 0; font-weight: 600; color: var(--muted); cursor: pointer; }
+  summary { padding: var(--s1-5) 0; font-weight: 600; color: var(--muted); cursor: pointer; }
   @media (pointer: coarse) { summary { min-height: var(--tap); padding-block: var(--s3); } }
   pre {
     margin: var(--s2) 0 0; padding: var(--s3); border-radius: var(--r-inner); background: var(--sunk);

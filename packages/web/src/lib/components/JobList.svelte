@@ -21,7 +21,7 @@
 
 <style>
   .list { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--paper); overflow: hidden; }
-  h2 { margin: 0; padding: 12px 16px 6px; border-top: 1px solid var(--line); background: var(--bg); color: var(--muted); font: 700 var(--fs-label) / 1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+  h2 { margin: 0; padding: var(--s3) var(--s4) var(--s1-5); border-top: 1px solid var(--line); background: var(--bg); color: var(--muted); font: 700 var(--fs-label) / 1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
   h2:first-child { border-top: 0; }
   ul { margin: 0; padding: 0; list-style: none; }
 </style>

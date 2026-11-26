@@ -51,7 +51,7 @@
 
 <style>
   .wrap { position: relative; }
-  .needs { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 38px; padding: 0 10px; border: 1.5px solid var(--err); border-radius: var(--r-inner); background: var(--paper); color: var(--err); font: inherit; font-size: var(--fs-chip); font-weight: 700; cursor: pointer; }
+  .needs { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: 38px; padding: 0 var(--s2-5); border: 1.5px solid var(--err); border-radius: var(--r-inner); background: var(--paper); color: var(--err); font: inherit; font-size: var(--fs-chip); font-weight: 700; cursor: pointer; }
   @media (hover: hover) {
     .needs:hover { border-color: var(--err); background: var(--err); color: var(--paper); }
   }

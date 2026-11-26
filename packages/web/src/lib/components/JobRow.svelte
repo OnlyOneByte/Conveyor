@@ -21,10 +21,10 @@
 
 <style>
   .row {
-    position: relative; display: grid; gap: 0 14px; align-content: center; align-items: center;
+    position: relative; display: grid; gap: 0 var(--s3-5); align-content: center; align-items: center;
     grid-template-areas: "g b pr st tm" ". why . . ." ". note . . .";
     grid-template-columns: 28px minmax(0, 1fr) 150px 170px 130px;
-    min-height: 56px; padding: 8px 16px; border-top: 1px solid var(--line);
+    min-height: 56px; padding: var(--s2) var(--s4); border-top: 1px solid var(--line);
     color: var(--ink); text-decoration: none;
   }
   li:first-child .row { border-top: 0; }
@@ -38,11 +38,11 @@
     text-overflow: ellipsis; white-space: nowrap;
   }
   .why {
-    grid-area: why; margin-top: 1px; color: var(--ink); font-size: var(--fs-chip);
+    grid-area: why; margin-top: calc(var(--s0) / 2); color: var(--ink); font-size: var(--fs-chip);
     line-height: 1.4;
   }
   .note {
-    grid-area: note; display: -webkit-box; overflow: hidden; margin-top: 1px;
+    grid-area: note; display: -webkit-box; overflow: hidden; margin-top: calc(var(--s0) / 2);
     color: var(--muted);
     font-size: var(--fs-mono); line-height: 1.4; -webkit-box-orient: vertical;
     -webkit-line-clamp: 2; line-clamp: 2;
@@ -67,7 +67,7 @@
     .row {
       grid-template-areas: "g b st" ". why why" ". note note";
       grid-template-columns: 24px minmax(0, 1fr) auto;
-      gap: 0 10px; padding: 10px 12px;
+      gap: 0 var(--s2-5); padding: var(--s2-5) var(--s3);
     }
     .pr, .tm { display: none; }
     .st { text-align: right; }

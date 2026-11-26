@@ -28,7 +28,7 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
   background: var(--sunk);
   color: var(--ink);
   border-radius: var(--r-control);
-  padding: 0.5rem 0.9rem;
+  padding: var(--s2) var(--s3-5);
   min-height: var(--tap);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
@@ -51,7 +51,7 @@ input, select, textarea {
   color: var(--ink);
   border: 1.5px solid var(--field-line);
   border-radius: var(--r-control);
-  padding: 0.4rem 0.6rem;
+  padding: var(--s1-5) var(--s2-5);
   min-height: var(--tap);
 }
 ::placeholder { color: var(--faint); opacity: 1; }
@@ -67,10 +67,10 @@ input[type="checkbox"] { width: 1.1rem; height: 1.1rem; min-height: 0; accent-co
 }
 
 .muted { color: var(--muted); }
-kbd { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: var(--r-tiny); background: var(--paper); color: var(--muted); font: 500 var(--fs-label) var(--mono); }
+kbd { padding: var(--s0) var(--s1-5); border: 1px solid var(--line-2); border-radius: var(--r-tiny); background: var(--paper); color: var(--muted); font: 500 var(--fs-label) var(--mono); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .label { font: 500 var(--fs-label) var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
-.row { display: flex; gap: 0.75rem; align-items: center; }
+.row { display: flex; gap: var(--s3); align-items: center; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s1);

@@ -61,7 +61,7 @@
     position: sticky; bottom: 0; z-index: 4; padding: var(--s3) 0 var(--s4); background: var(--bg);
   }
   .bar {
-    display: flex; align-items: center; gap: var(--s4); padding: 14px 14px 14px 22px;
+    display: flex; align-items: center; gap: var(--s4); padding: var(--s3-5) var(--s3-5) var(--s3-5) var(--s5);
     border-radius: var(--r-panel); background: var(--ink); color: var(--bg); --focus: var(--bg);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
@@ -84,7 +84,7 @@
     }
   }
   .print {
-    min-height: 54px; padding: 0 26px; border: 0; border-radius: var(--r-chip);
+    min-height: 54px; padding: 0 var(--s5); border: 0; border-radius: var(--r-chip);
     background: var(--accent); color: var(--accent-ink); font-size: var(--fs-section); font-weight: 800;
   }
   @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--bg); } }
@@ -94,12 +94,12 @@
   }
   @media (max-width: 759px) {
     .dock {
-      position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: 18px 10px 8px;
+      position: fixed; left: 0; right: 0; bottom: var(--tabbar, 0px); padding: var(--s4) var(--s2-5) var(--s2);
     }
-    .bar { padding: 10px 10px 10px 16px; }
+    .bar { padding: var(--s2-5) var(--s2-5) var(--s2-5) var(--s4); }
     b { font-size: var(--fs-body); }
     .line { flex-wrap: wrap; }
     .detail { white-space: normal; }
-    .print { min-height: 50px; padding: 0 20px; }
+    .print { min-height: 50px; padding: 0 var(--s5); }
   }
 </style>

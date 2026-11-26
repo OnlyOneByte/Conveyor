@@ -91,8 +91,14 @@ never the only signal: every state also has an icon or a word.
 
 ### Space, radius, elevation
 
-- Spacing: `--s1` 4, `--s2` 8, `--s3` 12, `--s4` 16, `--s5` 24, `--s6` 32 px. Page gutter is `--s6` on desktop and
-  16 px under 760 px.
+- Spacing: `--s0` 2, `--s1` 4, `--s1-5` 6, `--s2` 8, `--s2-5` 10, `--s3` 12, `--s3-5` 14, `--s4` 16, `--s5` 24,
+  `--s6` 32 px. Every `gap`, `padding` and `margin` in px, rem, em or pt uses one, or a `calc()` of them (a negative
+  margin is `calc(-1 * var(--s2))`); viewport and `ch` units are layout, not spacing, and stay as they are. Page
+  gutter is `--s6` on desktop and 16 px under 760 px.
+- Raw values: `raw-styles.test.ts` fails on a raw font size, radius, duration or spacing value in any `<style>`
+  block, inline `style="…"` or `style='…'`, `style:` directive or `app.css`, in any letter case. A duration in a
+  local custom property (`--lift: 250ms`) or a literal `duration` or `delay` in a Svelte `transition:`, `in:`,
+  `out:` or `animate:` parameter counts too.
 - Radius: `--r-tiny` 4, `--r-inner` 11 (a control nested in a padded one), `--r-control` 13, `--r-chip` 16,
   `--r-card` 18, `--r-panel` 26 px, and `--r-pill` for anything fully rounded.
 - Elevation: `--lift` for resting cards and chips, `--lift-hi` for hovered, focused or moving ones. Nothing else

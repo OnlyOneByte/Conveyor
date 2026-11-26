@@ -129,8 +129,8 @@
 <style>
   .shell { max-width: 90rem; margin: 0 auto; padding: 0 var(--s6) var(--s6); }
   .top { display: flex; align-items: center; gap: var(--s5); min-height: 60px; }
-  .word { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: var(--fs-brand); letter-spacing: -0.03em; text-transform: lowercase; text-decoration: none; color: var(--ink); }
-  .bars { display: flex; gap: 3px; }
+  .word { display: flex; align-items: center; gap: var(--s2-5); font-weight: 800; font-size: var(--fs-brand); letter-spacing: -0.03em; text-transform: lowercase; text-decoration: none; color: var(--ink); }
+  .bars { display: flex; gap: var(--s1); }
   .bars b { width: 7px; height: 18px; border-radius: var(--r-tiny); background: var(--accent); transform: skewX(-14deg); }
   .bars b:nth-child(2) { opacity: 0.6; }
   .bars b:nth-child(3) { opacity: 0.3; }
