@@ -14,6 +14,7 @@ import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack, type Stack } from "./stack.ts";
 import { runStep } from "./step.ts";
 import { assertStyles } from "./styles.ts";
+import { fetchStylesheets } from "./stylesheets.ts";
 
 export interface ShotResult {
   scene: string;
@@ -131,6 +132,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     shotContextOptions(scene, { width, height }, colorScheme),
   );
   await pinHistoryRoute(context);
+  await fetchStylesheets(context);
   await context.clock.setSystemTime(CAPTURE_NOW);
   await stubAuth(context, scene);
   const page = await context.newPage();
