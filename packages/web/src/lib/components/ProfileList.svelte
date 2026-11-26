@@ -15,6 +15,7 @@
   let doomed: CatalogProfile | null = null;
 
   const plus = "M12 5v14M5 12h14";
+  const chevron = "m9 6 6 6-6 6";
   const editPath = (id: string) =>
     `/settings/profiles/${id.split("/").map(encodeURIComponent).join("/")}`;
 
@@ -39,7 +40,7 @@
     const row = [...(list?.querySelectorAll<HTMLElement>("[data-id]") ?? [])].find(
       (li) => li.dataset.id === id,
     );
-    (row?.querySelector<HTMLElement>(".acts > :last-child") ?? add).focus();
+    (row?.querySelector<HTMLElement>(":scope > :last-child") ?? add).focus();
   }
 
   $: if (gone && !profiles.some((p) => p.id === gone)) void land(next);
@@ -58,29 +59,23 @@
   {#if profiles.length}
     <ul class="list" bind:this={list}>
       {#each profiles as profile (profile.id)}
+        {@const href = slicerFormat(profile.slicerId) ? editPath(profile.id) : undefined}
         <li data-id={profile.id}>
-          <div class="n">
-            <b>{profile.name}</b>
-            <span class="facts">{profileFacts(profile, slicers)}</span>
-          </div>
-          <span class="tag" class:edited={profile.hasEditableContent}>{profileTag(profile)}</span>
-          <div class="acts">
-            {#if slicerFormat(profile.slicerId)}
-              <a class="btn big" href={editPath(profile.id)} aria-label="Edit {profile.name}">
-                Edit
-              </a>
+          <svelte:element this={href ? "a" : "div"} class="row" {href} aria-label={href && `Edit ${profile.name}`}>
+            <span class="n">
+              <span class="t">
+                <b>{profile.name}</b>
+                <span class="tag" class:edited={profile.hasEditableContent}>{profileTag(profile)}</span>
+              </span>
+              <span class="facts">{profileFacts(profile, slicers)}</span>
+            </span>
+            {#if href}
+              <span class="btn big go"><span class="word">Edit</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={chevron} /></svg></span>
             {/if}
-            {#if !profile.bundled}
-              <button
-                class="btn big danger"
-                type="button"
-                aria-label="Delete {profile.name}"
-                on:click={() => remove(profile)}
-              >
-                Delete
-              </button>
-            {/if}
-          </div>
+          </svelte:element>
+          {#if !profile.bundled}
+            <button class="btn big danger" type="button" aria-label="Delete {profile.name}" on:click={() => remove(profile)}>Delete</button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -108,20 +103,25 @@
   .sub, .note { color: var(--muted); }
   .note { font-size: var(--fs-chip); }
   .list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-  li {
-    display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0;
-    border-top: 1px solid var(--line);
-  }
+  li { display: flex; align-items: center; gap: var(--s2); border-top: 1px solid var(--line); }
   li:first-child { border-top: 0; }
+  .row {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--s3);
+    padding: var(--s3) var(--s2); margin: 0 calc(-1 * var(--s2)); border-radius: var(--r-inner);
+    color: inherit; text-decoration: none;
+  }
   .n { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s0); }
+  .t { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s2); }
   .facts { font: 500 var(--fs-chip) var(--mono); color: var(--muted); }
+  .go { display: inline-flex; align-items: center; gap: var(--s1); }
+  .go svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+  @media (hover: hover) { a.row:hover .go { background: var(--sunk); } }
   .tag {
     display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--s2-5);
     border: 1.5px solid var(--field-line); border-radius: var(--r-pill); color: var(--muted);
     font-size: var(--fs-mono); font-weight: 600; white-space: nowrap;
   }
-  .tag.edited { border-color: var(--live); color: var(--live); }
-  .acts { display: flex; gap: var(--s2); }
+  .tag.edited { border-color: transparent; background: var(--sunk); }
   .big {
     min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
     border-color: var(--field-line); text-decoration: none;
@@ -133,8 +133,11 @@
   }
   @media (max-width: 759px) {
     .panel { padding: var(--s4); }
-    li { flex-wrap: wrap; }
-    .n { flex-basis: calc(100% - 9rem); }
-    .acts { margin-left: auto; }
+    .row { gap: var(--s2); padding-block: var(--s2); min-height: var(--tap); }
+    .go { min-width: 0; width: 20px; padding: 0; border-color: transparent; }
+    .go .word { display: none; }
+    .t { column-gap: var(--s1-5); }
+    .tag { min-height: 20px; padding: 0 var(--s2); }
+    .big.danger { padding: 0 var(--s3); }
   }
 </style>
