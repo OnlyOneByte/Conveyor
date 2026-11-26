@@ -25,6 +25,14 @@ describe("job folders", () => {
     expect(existsSync(join(dirs.dataDir, id))).toBe(false);
   });
 
+  test("removes a finished job's folder that holds only the engine log a failure kept", async () => {
+    const dirs = layout();
+    const id = jobDir(dirs.dataDir);
+    writeFileSync(join(dirs.dataDir, id, "engine.log"), "$ orca-slicer\n[exited 1]\n");
+    expect(await reapOnce(deps(dirs, [id]))).toEqual({ dirs: [id], uploads: [], parts: [] });
+    expect(existsSync(join(dirs.dataDir, id))).toBe(false);
+  });
+
   test("keeps folders of jobs that aren't finished and old, or that are live", async () => {
     const dirs = layout();
     const running = jobDir(dirs.dataDir);

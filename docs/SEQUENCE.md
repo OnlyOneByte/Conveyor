@@ -92,7 +92,7 @@ sequenceDiagram
     Note over W,X: Any stage throws
     W->>X: generate / slice / submit
     X-->>W: throw StageError(stage, reason)
-    W->>W: remove /data/{jobId}, then record the failed job in SQLite
+    W->>W: remove /data/{jobId} except engine.log, then record the failed job in SQLite
     W->>R: publish state=failed {stage,reason}
     R-->>API-->>PWA: failed ❌ (which stage + why)
     end

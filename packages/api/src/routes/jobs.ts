@@ -129,7 +129,11 @@ export async function registerJobRoutes(
       if (!evt || isTerminal(evt.state)) stale.push(ids[i]);
       else active.push(evt);
     }
-    if (stale.length) await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch(() => {});
+    if (stale.length) {
+      await redis.srem(ACTIVE_JOBS_KEY, ...stale).catch((err: unknown) => {
+        app.log.warn({ err, jobIds: stale }, "settled jobs not pruned from the active set");
+      });
+    }
     active.sort((a, b) => b.at - a.at);
     const queued = new Map(
       await Promise.all(

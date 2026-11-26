@@ -214,7 +214,7 @@ jobs (history pages, and counts over a time window; `dbListJobs`, and `dbCountJo
 |---|---|---|---|
 | submit | enqueue (no snapshot until the worker publishes `generating`) | — | — |
 | generating/slicing/transferring/printing | snapshot + publish each transition | — | mkdir `/data/<id>` when the worker picks the job up; write `model.stl`, `model.gcode`, `engine.log` |
-| terminal (done/failed/canceled) | final snapshot (expires in 7 days) | **insert/append `jobs` row** | failed or canceled: folder removed at settle; done: folder kept until the retention reaper removes it |
+| terminal (done/failed/canceled) | final snapshot (expires in 7 days) | **insert/append `jobs` row** | failed: everything but `engine.log` removed at settle; canceled: folder removed at settle; done and failed: what is left stays until the retention reaper removes the folder |
 | operator edits printer/profile | — | upsert | — |
 
 In SQLite mode the Redis column is empty: submit inserts the `jobs` row, every transition updates it and

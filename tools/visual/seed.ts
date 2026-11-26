@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type * as Db from "../../packages/shared/src/db/index.ts";
 import { note, notesText } from "../../packages/shared/src/job-notes.ts";
@@ -48,6 +49,14 @@ export const SEEDED_JOBS: Db.SettledJob[] = [
   },
 ];
 
+export const SEEDED_ENGINE_LOG = [
+  "$ openscad -o model.stl gridfinity.scad",
+  "[exited 0]",
+  "$ orca-slicer --slice 0 --outputdir . model.stl",
+  "[exited 0]",
+  "",
+].join("\n");
+
 export async function seedHistory(
   root: string,
   env: Record<string, string | undefined>,
@@ -64,4 +73,7 @@ export async function seedHistory(
   } finally {
     conn.close();
   }
+  const failed = join(env.DATA_DIR ?? "/data", "seed-failed");
+  mkdirSync(failed, { recursive: true });
+  writeFileSync(join(failed, "engine.log"), SEEDED_ENGINE_LOG);
 }

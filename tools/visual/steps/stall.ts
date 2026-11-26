@@ -36,7 +36,9 @@ export const step: StepRunner = {
       if (route.request().method() !== "GET") return route.fallback();
       gate.held += 1;
       await wait.promise;
-      return route.fulfill({ status, json }).catch(() => {});
+      return route.fulfill({ status, json }).catch((err: unknown) => {
+        if (!page.isClosed()) throw err;
+      });
     });
   },
 };

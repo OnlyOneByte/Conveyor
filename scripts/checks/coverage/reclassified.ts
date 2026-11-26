@@ -33,11 +33,14 @@ const isEntry = (value: unknown): value is Reclassification => {
 
 export function parseReclassifications(text: string | null): Reclassification[] | string {
   if (text === null) return [];
+  const shape = `${RECLASSIFIED_PATH} must be a JSON array of { package, from, to, floor }`;
+  let value: unknown;
   try {
-    const value: unknown = JSON.parse(text);
-    if (Array.isArray(value) && value.every(isEntry)) return value;
-  } catch {}
-  return `${RECLASSIFIED_PATH} must be a JSON array of { package, from, to, floor }`;
+    value = JSON.parse(text);
+  } catch {
+    return shape;
+  }
+  return Array.isArray(value) && value.every(isEntry) ? value : shape;
 }
 
 export interface FileChange {

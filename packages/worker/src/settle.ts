@@ -1,4 +1,6 @@
-import { rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readdir, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   computeStageTimings,
@@ -9,6 +11,7 @@ import {
   noteText,
   StageError,
 } from "@conveyor/shared";
+import { ENGINE_LOG } from "@conveyor/shared/node";
 import { fallbackHandle, ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
@@ -43,8 +46,16 @@ async function stopPrinter(run: Run): Promise<Note | undefined> {
 const noted = (run: Run, first?: Note): NoteText | undefined =>
   notesText(first ? [first, ...run.notes] : run.notes);
 
-async function cleanup(run: Run): Promise<void> {
-  const failure = await rm(run.opts.workDir, { recursive: true, force: true }).then(
+const removeTree = (path: string) => rm(path, { recursive: true, force: true });
+
+async function clearWorkDir(workDir: string, keepEngineLog: boolean): Promise<void> {
+  if (!keepEngineLog || !existsSync(join(workDir, ENGINE_LOG))) return removeTree(workDir);
+  const names = await readdir(workDir);
+  await Promise.all(names.filter((n) => n !== ENGINE_LOG).map((n) => removeTree(join(workDir, n))));
+}
+
+async function cleanup(run: Run, keepEngineLog = false): Promise<void> {
+  const failure = await clearWorkDir(run.opts.workDir, keepEngineLog).then(
     () => undefined,
     (err: unknown) => note("workDirNotRemoved", messageOf(err)),
   );
@@ -104,7 +115,7 @@ async function settleQueuedCancel(
   stopError?: Note,
   message?: Note,
 ): Promise<TerminalState> {
-  await cleanup(run);
+  await cleanup(run, stopError !== undefined);
   const failure = await writeHistory(run, {
     state: stopError === undefined ? "canceled" : "failed",
     stage: stopError === undefined ? run.stage : "transport",
@@ -123,7 +134,7 @@ async function settleResumeFailed(
   queue: QueueHooks,
   reason: Note,
 ): Promise<TerminalState> {
-  await cleanup(run);
+  await cleanup(run, true);
   const failure = await writeHistory(run, { state: "failed", notes: noted(run, reason) });
   const state = await queue.failResume();
   if (failure) throw failure.error;
@@ -144,7 +155,7 @@ export async function settleCanceled(run: Run, message?: Note): Promise<Terminal
 }
 
 async function settleFailed(run: Run, se: StageError): Promise<never> {
-  await cleanup(run);
+  await cleanup(run, true);
   const timings = computeStageTimings(run.enters, Date.now());
   const failure = await recordThenPublish(
     run,

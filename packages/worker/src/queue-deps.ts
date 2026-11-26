@@ -1,5 +1,4 @@
 import type { Database } from "bun:sqlite";
-import { setTimeout as delay } from "node:timers/promises";
 import { isTerminal, StageError } from "@conveyor/shared";
 import {
   DEFAULT_TIMING,
@@ -18,6 +17,7 @@ import {
   takePrinterSlot,
   writeStatus,
 } from "@conveyor/shared/queue";
+import { pause } from "./printer-lock.js";
 import { LeaseLostError, type PipelineDeps, type TerminalState } from "./run.js";
 
 const PROGRESS_FLUSH_MS = 1000;
@@ -127,7 +127,7 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
               dispose();
               write({ state: "slicing", stage: "slicer", progress: 1, message: SLOT_WAIT_MESSAGE });
             }
-            await delay(o.slotRetryMs ?? SLOT_RETRY_MS, undefined, { signal }).catch(() => {});
+            await pause(o.slotRetryMs ?? SLOT_RETRY_MS, signal);
             if (signal.aborted) return "canceled";
           }
         },

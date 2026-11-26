@@ -31,7 +31,7 @@ test("a failed job's settled line carries the failing stage and its reason", asy
       throw new StageError("slicer", "orca exited 1: All objects are outside of the print volume.");
     },
   });
-  await h.run().catch(() => {});
+  await expect(h.run()).rejects.toThrow("orca exited 1");
   expect(events.at(-1)).toMatchObject({
     event: "settled",
     outcome: "failed",
