@@ -3,6 +3,7 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
+  import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
@@ -13,8 +14,7 @@
   import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import { printJob } from "#lib/print-job.js";
-  import type { RerunPayload } from "#lib/rerun.js";
-  import { linkedRetry, takeRerun } from "#lib/rerun.js";
+  import { linkedRetry, type RerunPayload, takeRerun } from "#lib/rerun.js";
   import { failed } from "#lib/said.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -99,7 +99,8 @@
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
   $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
-  $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
+  $: setup = data.printers.length ? "" : "Add a printer to print";
+  $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name ?? setup);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
   async function print() {
@@ -152,7 +153,7 @@
             hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
           />
         {:else}
-          <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
+          <FirstPrinter />
         {/if}
       </section>
     </div>
@@ -165,8 +166,7 @@
     display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     gap: 28px; align-items: start;
   }
-  .order { min-width: 0; }
-  .fields { display: flex; flex-direction: column; gap: var(--s5); }
+  .order { min-width: 0; } .fields { display: flex; flex-direction: column; gap: var(--s5); }
   .where { outline: none; scroll-margin-top: var(--belt-h, 0px); }
   h1 { margin: 0; font-size: var(--fs-title); line-height: 1; letter-spacing: -0.04em; }
   h2 { margin: 0 0 10px; font-size: var(--fs-section); }

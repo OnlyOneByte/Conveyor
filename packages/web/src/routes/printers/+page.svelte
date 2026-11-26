@@ -13,11 +13,13 @@
     type PrinterReachable,
   } from "#lib/api.js";
   import { POLL_MS } from "#lib/belt.js";
+  import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import PrinterCard from "#lib/components/PrinterCard.svelte";
   import PrinterDialog from "#lib/components/PrinterDialog.svelte";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
   import Menu from "#lib/ui/Menu.svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
 
   let printers: CatalogPrinter[] = [];
   let transports: CatalogTransport[] = [];
@@ -85,7 +87,9 @@
   }
 
   onMount(() => {
-    void refresh();
+    void refresh().then(() => {
+      if (page.url.searchParams.has("add")) edit();
+    });
     const timers = [setInterval(poll, POLL_MS), setInterval(probe, REACH_MS)];
     return () => timers.forEach(clearInterval);
   });
@@ -115,10 +119,7 @@
     <div><button class="btn big" type="button" on:click={refresh}>Try again</button></div>
   </div>
 {:else if !printers.length}
-  <div class="empty">
-    <h2>No printers yet</h2>
-    <p class="sub">Add one and Make can send it jobs.</p>
-  </div>
+  <FirstPrinter add={() => edit()} />
 {:else}
   <ul class="grid" aria-label="Printers">
     {#each cards as { printer, card } (printer.id)}
