@@ -30,7 +30,32 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
   border-radius: var(--r-control);
   padding: var(--s2) var(--s3-5);
   min-height: var(--tap);
-  transition: border-color var(--t-fast), background var(--t-fast);
+  transition: border-color var(--t-fast), background var(--t-fast), filter var(--t-fast);
+}
+:where(button, .btn):active:not(:disabled) { filter: brightness(0.94); }
+
+dialog,
+[popover] {
+  transition:
+    opacity var(--t-fast) ease-out,
+    translate var(--t-fast) var(--ease-move),
+    overlay var(--t-fast) allow-discrete,
+    display var(--t-fast) allow-discrete;
+}
+dialog:not([open]),
+[popover]:not(:popover-open) { opacity: 0; translate: 0 var(--s2); pointer-events: none; }
+dialog::backdrop {
+  opacity: 0;
+  transition:
+    opacity var(--t-fast) ease-out,
+    overlay var(--t-fast) allow-discrete,
+    display var(--t-fast) allow-discrete;
+}
+dialog[open]::backdrop { opacity: 1; }
+@starting-style {
+  dialog[open],
+  [popover]:popover-open { opacity: 0; translate: 0 var(--s2); }
+  dialog[open]::backdrop { opacity: 0; }
 }
 @media (hover: hover) {
   button:hover:not(:disabled) { border-color: var(--live); }

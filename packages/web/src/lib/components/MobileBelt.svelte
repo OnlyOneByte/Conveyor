@@ -78,6 +78,8 @@
   .chip :focus-visible { outline-color: var(--belt-ink); }
   .exp svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .sheet { display: grid; gap: var(--s1-5); max-height: 60vh; margin: var(--s2) calc(-1 * var(--s1-5)) 0; padding: var(--s1-5); overflow-y: auto; }
+  .sheet { transition: opacity var(--t-move) var(--ease-move), translate var(--t-move) var(--ease-move); }
+  @starting-style { .sheet { opacity: 0; translate: 0 calc(-1 * var(--s2)); } }
   .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s0) var(--s2); min-height: 48px; padding: var(--s1-5) var(--s3-5); border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
   .t { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .v { font: 500 var(--fs-mono) var(--mono); color: var(--live); }

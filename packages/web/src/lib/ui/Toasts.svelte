@@ -35,4 +35,6 @@
     }
   }
   .toast { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-radius: var(--r-chip); background: var(--ink); color: var(--bg); --focus: var(--bg); box-shadow: var(--lift-hi); font-weight: 650; pointer-events: auto; }
+  .toast { transition: opacity var(--t-fast) ease-out, translate var(--t-fast) var(--ease-move); }
+  @starting-style { .toast { opacity: 0; translate: 0 var(--s2); } }
 </style>

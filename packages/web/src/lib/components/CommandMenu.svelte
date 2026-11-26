@@ -62,7 +62,7 @@
 </dialog>
 
 <style>
-  dialog { width: min(600px, calc(100vw - 24px)); margin: calc(var(--s4) * 7) auto auto; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--paper); color: var(--ink); box-shadow: var(--lift-hi); }
+  dialog { width: min(600px, calc(100vw - 24px)); margin: calc(var(--s4) * 7) auto auto; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--raised); color: var(--ink); box-shadow: var(--lift-hi); }
   dialog::backdrop { background: color-mix(in oklch, var(--belt) 35%, transparent); }
   input { width: 100%; height: 56px; padding: 0 var(--s4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; font-size: var(--fs-section); }
   input:focus-visible { outline: none; box-shadow: inset 0 -3px 0 var(--focus); }
