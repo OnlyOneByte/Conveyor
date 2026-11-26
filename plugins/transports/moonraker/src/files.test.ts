@@ -1,7 +1,7 @@
 import { afterAll, expect, spyOn, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { StageCtx } from "@conveyor/shared";
+import { PrintNotStartedError, type StageCtx } from "@conveyor/shared";
 import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { moonraker } from "./index";
 
@@ -44,4 +44,33 @@ test("two jobs to one printer upload and start their own files", async () => {
     "http://10.0.0.9:7125/printer/print/start?filename=conveyor-a1.gcode",
     "http://10.0.0.9:7125/printer/print/start?filename=conveyor-b2.gcode",
   ]);
+});
+
+test("a start the worker can no longer confirm uploads but never starts the print", async () => {
+  const dir = await tempDir();
+  const path = join(dir, "model.gcode");
+  await writeFile(path, "G28\n");
+  const urls: string[] = [];
+  const answer = async (url: string | URL | Request) => {
+    if (String(url).endsWith("/printer/objects/query?print_stats"))
+      return Response.json({ result: { status: { print_stats: { state: "standby" } } } });
+    urls.push(String(url));
+    return new Response("{}", { status: 201 });
+  };
+  fetchSpy.mockImplementation(Object.assign(answer, { preconnect }));
+  const ctx: StageCtx = {
+    jobId: "j",
+    workDir: dir,
+    signal: new AbortController().signal,
+    report: () => {},
+    log: () => {},
+    confirmStart: async () => {
+      throw new PrintNotStartedError("the printer lock was lost");
+    },
+  };
+  const target = { id: "p", transportId: "moonraker", address: "10.0.0.9:7125", secrets: {} };
+  await expect(moonraker.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
+    PrintNotStartedError,
+  );
+  expect(urls).toEqual(["http://10.0.0.9:7125/server/files/upload"]);
 });

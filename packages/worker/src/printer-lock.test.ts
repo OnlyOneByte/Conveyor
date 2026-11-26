@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { StageError } from "@conveyor/shared";
+import { PrintNotStartedError, StageError } from "@conveyor/shared";
 import { memoryLocks } from "../test/helpers/memory-locks";
 import { printerLock, printerLockKey } from "./printer-lock";
 import { JobCanceledError } from "./run";
@@ -78,4 +78,38 @@ test("release only drops the job's own lock, never one another job has since tak
   await store.claim(printerLockKey("p1"), "next-job", 1_000_000);
   await held.release();
   expect(store.held.get(printerLockKey("p1"))).toBe("next-job");
+});
+
+test("the start is confirmed while the lock is held, and refused once a renewal fails", async () => {
+  const store = memoryLocks();
+  const lock = printerLock(store, { ...quiet, ttlMs: 30 });
+  const held = await lock.acquire("p1", new AbortController().signal);
+  await held.confirm();
+  store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+  await Bun.sleep(25);
+  store.failRenewalsOf = undefined;
+  await expect(held.confirm()).rejects.toBeInstanceOf(PrintNotStartedError);
+  await held.release();
+});
+
+test("a lock that went a whole TTL without a renewal is lost, even if the key still reads as ours", async () => {
+  let clock = 0;
+  const store = memoryLocks(() => 0);
+  const lock = printerLock(store, { ...quiet, ttlMs: 60_000, now: () => clock });
+  const held = await lock.acquire("p1", new AbortController().signal);
+  clock = 60_000;
+  await expect(held.confirm()).rejects.toThrow(
+    "the printer lock was lost before the print started",
+  );
+  await held.release();
+});
+
+test("the start is refused when another job holds the key, even before any renewal ran", async () => {
+  const store = memoryLocks();
+  const lock = printerLock(store, { ...quiet, ttlMs: 60_000 });
+  const held = await lock.acquire("p1", new AbortController().signal);
+  store.held.set(printerLockKey("p1"), "another-job");
+  await expect(held.confirm()).rejects.toBeInstanceOf(PrintNotStartedError);
+  await held.release();
+  expect(store.held.get(printerLockKey("p1"))).toBe("another-job");
 });

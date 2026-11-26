@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
-import { PrintMayHaveStartedError, type PrintStatus } from "@conveyor/shared";
+import { PrintMayHaveStartedError, PrintNotStartedError, type PrintStatus } from "@conveyor/shared";
 import { memoryLocks } from "../test/helpers/memory-locks";
 import { harness } from "../test/helpers/pipeline-harness";
-import { type PrinterLock, printerLock } from "./printer-lock";
+import { type PrinterLock, printerLock, printerLockKey } from "./printer-lock";
 
 function twoWorkersOnOnePrinter(lock: PrinterLock | undefined) {
-  const printer = { active: 0, most: 0, started: [] as string[] };
+  const started: string[] = [];
+  const printer = { active: 0, most: 0, started };
   let finishFirst = () => {};
   const firstMayFinish = new Promise<void>((resolve) => {
     finishFirst = resolve;
@@ -89,4 +90,33 @@ test("a start that may have happened puts the printer on hold, and the next job 
   expect(next.records[0]?.reason).toBe(
     "printer is on hold: moonraker gave no answer to print start within 30000 ms",
   );
+});
+
+test("a job whose lock is lost mid-upload refuses at START, after another job took the printer", async () => {
+  const store = memoryLocks();
+  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const started: string[] = [];
+  const b = harness({
+    submit: async (ctx) => {
+      await ctx.confirmStart?.();
+      started.push("b");
+    },
+    deps: () => ({ printerLock: lock }),
+  });
+  let second: Promise<unknown> = Promise.resolve();
+  const a = harness({
+    submit: async (ctx) => {
+      store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+      second = b.run();
+      for (let tries = 0; tries < 400 && started.length === 0; tries++) await Bun.sleep(5);
+      store.failRenewalsOf = undefined;
+      await ctx.confirmStart?.();
+      started.push("a");
+    },
+    deps: () => ({ printerLock: lock }),
+  });
+  await expect(a.run()).rejects.toBeInstanceOf(PrintNotStartedError);
+  await second;
+  expect(started).toEqual(["b"]);
+  expect(a.cancels).toEqual([]);
 });

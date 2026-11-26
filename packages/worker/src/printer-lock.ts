@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { StageError } from "@conveyor/shared";
+import { PrintNotStartedError, StageError } from "@conveyor/shared";
 import { JobCanceledError } from "./run.js";
 
 export const PRINTER_LOCK_TTL_MS = 60_000;
@@ -30,8 +30,12 @@ export function redisLockStore(redis: RedisCommands): LockStore {
 }
 
 export interface HeldPrinter {
+  confirm(): Promise<void>;
   release(): Promise<void>;
 }
+
+export const LOCK_LOST =
+  "the printer lock was lost before the print started, so nothing was started";
 
 export interface PrinterLock {
   acquire(printerId: string, signal: AbortSignal): Promise<HeldPrinter>;
@@ -42,6 +46,7 @@ export interface PrinterLockOptions {
   log: (message: string) => void;
   ttlMs?: number;
   pollMs?: number;
+  now?: () => number;
 }
 
 export const printerLockKey = (printerId: string) => `printer:${printerId}:lock`;
@@ -60,6 +65,7 @@ const pause = (ms: number, signal: AbortSignal) =>
 export function printerLock(store: LockStore, options: PrinterLockOptions): PrinterLock {
   const ttlMs = options.ttlMs ?? PRINTER_LOCK_TTL_MS;
   const pollMs = options.pollMs ?? PRINTER_LOCK_POLL_MS;
+  const now = options.now ?? Date.now;
   return {
     async acquire(printerId, signal) {
       const key = printerLockKey(printerId);
@@ -72,19 +78,28 @@ export function printerLock(store: LockStore, options: PrinterLockOptions): Prin
         if (!waiting) options.log(`printer ${printerId} is busy with another job; waiting for it`);
         await pause(pollMs, signal);
       }
-      const renew = setInterval(() => {
-        void store
-          .renew(key, token, ttlMs)
-          .then((kept) => {
-            if (!kept) options.log(`printer ${printerId} lock was lost before the print settled`);
-          })
-          .catch((err: unknown) =>
-            options.log(
-              `printer ${printerId} lock not renewed: ${err instanceof Error ? err.message : String(err)}`,
-            ),
-          );
-      }, ttlMs / 3);
+      let lost = false;
+      let renewedAt = now();
+      const lose = (why: string) => {
+        if (!lost) options.log(`printer ${printerId} lock lost: ${why}`);
+        lost = true;
+      };
+      const renewNow = async () => {
+        const startedAt = now();
+        const kept = await store.renew(key, token, ttlMs).catch((err: unknown) => {
+          lose(`not renewed: ${err instanceof Error ? err.message : String(err)}`);
+          return false;
+        });
+        if (!kept) return lose("another job holds it now, or it expired");
+        renewedAt = startedAt;
+      };
+      const renew = setInterval(() => void renewNow(), ttlMs / 3);
       return {
+        async confirm() {
+          if (!lost && now() - renewedAt >= ttlMs) lose(`no renewal for ${ttlMs} ms`);
+          if (!lost) await renewNow();
+          if (lost) throw new PrintNotStartedError(LOCK_LOST);
+        },
         async release() {
           clearInterval(renew);
           await store

@@ -64,7 +64,7 @@ test("a print start the printer never answered says it may have started, before 
   expect(failureText("transport", reason)).toEqual({
     title: "Sending to the printer didn't finish",
     detail:
-      "The printer didn't answer the print start, so it may have started. Conveyor has put the printer on hold: check it, then release the hold before you retry.",
+      "The printer didn't answer the print start, so it may have started. Conveyor has put it on hold: check it, then choose Release hold on the Printers page before you retry.",
   });
 });
 
@@ -99,6 +99,6 @@ test.each([
 
 test("a printer on hold says to check it and release the hold", () => {
   expect(failureText("transport", "printer is on hold: moonraker gave no answer").detail).toBe(
-    "The printer is on hold until someone checks it. Check the printer, then release the hold and retry.",
+    "The printer is on hold until someone checks it. Check the printer, then choose Release hold on the Printers page and retry.",
   );
 });

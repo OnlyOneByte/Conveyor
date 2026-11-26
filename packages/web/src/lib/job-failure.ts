@@ -16,7 +16,7 @@ const KNOWN: [RegExp, string][] = [
   ],
   [
     /printer is on hold/i,
-    "The printer is on hold until someone checks it. Check the printer, then release the hold and retry.",
+    "The printer is on hold until someone checks it. Check the printer, then choose Release hold on the Printers page and retry.",
   ],
   [
     /printer is busy/i,
@@ -32,7 +32,7 @@ const KNOWN: [RegExp, string][] = [
   ],
   [
     /no answer to print start/i,
-    "The printer didn't answer the print start, so it may have started. Conveyor has put the printer on hold: check it, then release the hold before you retry.",
+    "The printer didn't answer the print start, so it may have started. Conveyor has put it on hold: check it, then choose Release hold on the Printers page before you retry.",
   ],
   [
     /Unable to connect|timed out|WS error to/i,

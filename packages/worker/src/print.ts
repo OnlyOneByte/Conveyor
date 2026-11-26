@@ -53,9 +53,11 @@ export async function printStage(
   if (!lock) return sendAndWatch(run, target, gcode);
   await checkpoint(run);
   const held = await lock.acquire(target.printerId, run.signal);
+  run.ctx.confirmStart = () => held.confirm();
   try {
     return await sendAndWatch(run, target, gcode);
   } finally {
+    run.ctx.confirmStart = undefined;
     await held.release();
   }
 }

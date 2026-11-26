@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, spyOn, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { StageCtx } from "@conveyor/shared";
+import { PrintNotStartedError, type StageCtx } from "@conveyor/shared";
 import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
 
@@ -62,4 +62,30 @@ test("two jobs to one printer upload and start their own files", async () => {
   expect([first.ref, second.ref]).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
   expect(uploaded).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
   expect(started).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
+});
+
+test("a start the worker can no longer confirm uploads but never sends START_PRINT", async () => {
+  Reflect.set(globalThis, "WebSocket", AckingSocket);
+  started.length = 0;
+  const dir = await tempDir();
+  const path = join(dir, "model.gcode");
+  await writeFile(path, "G28\n");
+  fetchSpy.mockImplementation(
+    Object.assign(async () => new Response("{}", { status: 200 }), { preconnect }),
+  );
+  const ctx: StageCtx = {
+    jobId: "j",
+    workDir: dir,
+    signal: new AbortController().signal,
+    report: () => {},
+    log: () => {},
+    confirmStart: async () => {
+      throw new PrintNotStartedError("the printer lock was lost");
+    },
+  };
+  const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
+  await expect(elegoo.submit({ path, format: "gcode" }, target, ctx)).rejects.toBeInstanceOf(
+    PrintNotStartedError,
+  );
+  expect(started).toEqual([]);
 });

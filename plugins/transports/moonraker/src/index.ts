@@ -73,6 +73,7 @@ export const moonraker: TransportPlugin = {
     refuseRedirect(up, "moonraker upload");
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
+    await ctx.confirmStart?.();
 
     const startMs = positiveSetting("MOONRAKER_START_TIMEOUT_MS", START_TIMEOUT_MS);
     const start = await fetch(
