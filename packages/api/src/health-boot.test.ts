@@ -37,8 +37,9 @@ test("signed in, the deep report shows the database up and no worker yet", async
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({
     status: "degraded",
-    db: "ok",
-    worker: { state: "missing" },
-    engines: {},
+    says: "No worker has checked in, so jobs won't run.",
+    db: { state: "ok", says: "The job database answers." },
+    uploads: { state: "ok", says: "The uploads folder takes new files." },
+    workers: [],
   });
 });

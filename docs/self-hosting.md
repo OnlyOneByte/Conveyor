@@ -203,15 +203,18 @@ Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds fr
 
 `GET /health` only says the api is running. For the whole stack, sign in and open `https://<your Conveyor address>/api/health/deep`. Without a session it answers `401`. It reports:
 
+Every check has a `state` and a `says` line in plain words, such as "The uploads folder takes new files." or "Worker printer-room last checked in 3 min ago, so it has probably stopped.". The top-level `says` names the first problem, or reads "Conveyor is ready to print.".
+
 | Field | Values | Means |
 | --- | --- | --- |
-| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer; `degraded` (HTTP `200`) when no worker has checked in within 45 seconds, or when the worker has no OpenSCAD or no slicer |
+| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer. `degraded` (HTTP `200`) when no worker has checked in, no running worker has OpenSCAD and a slicer, any worker has stopped checking in, or the uploads folder can't take a file |
 | `db` | `ok`, `down` | the api ran `SELECT 1` on the database |
 | `redis` | `ok`, `down` | Redis answered `PING` within 2 seconds; absent with `CONVEYOR_QUEUE=sqlite` |
-| `worker` | `state`: `ok`, `stale`, `missing`; `lastSeenSecondsAgo` | the worker writes a heartbeat to the database every 15 seconds. `missing` means none was ever written, and `stale` means the last is over 45 seconds old |
-| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether the worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) when it started. `stub` with `CONVEYOR_ENGINE_STUB=1` |
+| `uploads` | `ok`, `down` | the api wrote and removed a small `.health-<id>` file in the uploads folder just now |
+| `workers` | one entry per worker: `id`, `state` (`ok`, `down`), `lastSeenSecondsAgo`, `engines` | each worker writes its own heartbeat to the database every 15 seconds, under `CONVEYOR_WORKER_ID` or else its host name (the container ID in Compose). A worker is `down` once its last heartbeat is over 45 seconds old. A worker that stops cleanly, as on `docker compose up` after an upgrade, removes itself from the list; one that died drops off after a day without a heartbeat |
+| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether that worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) at its last heartbeat. `stub` with `CONVEYOR_ENGINE_STUB=1` |
 
-The report carries only these states, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
+The report carries only these states and lines, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
 
 The worker logs one JSON line each time a job enters a stage, and one when the job ends:
 
