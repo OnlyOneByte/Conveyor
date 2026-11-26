@@ -16,7 +16,7 @@
   let host: HTMLDivElement;
   let editor: EditorHandle | null = null;
   let shown = file;
-  let [failed, busy] = [false, false];
+  let [failed, busy, misses] = [false, false, 0];
 
   async function load() {
     if (busy) return;
@@ -24,7 +24,7 @@
     const module = await import("#lib/code-editor.js").catch(() => null);
     busy = false;
     if (!module) {
-      failed = true;
+      [failed, misses] = [true, misses + 1];
       return;
     }
     failed = false;
@@ -46,7 +46,7 @@
 </script>
 
 {#if failed}
-  <Notice tone="warn" title="You're offline" role="alert">
+  <Notice tone="warn" title="You're offline" role="alert" stamp={misses}>
     <span>This profile opens once Conveyor is reachable again.</span>
     <button slot="action" class="btn" type="button" aria-disabled={busy} on:click={load}>{busy ? "Trying…" : "Try again"}</button>
   </Notice>

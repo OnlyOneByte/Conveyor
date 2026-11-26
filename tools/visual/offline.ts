@@ -30,8 +30,15 @@ export async function blockEditor(page: Page, root: string): Promise<void> {
     await page.route(`**/${chunk}`, (route) => route.abort("internetdisconnected"));
 }
 
-export async function unblockEditor(page: Page, root: string): Promise<void> {
-  for (const chunk of editorChunks(root)) await page.unroute(`**/${chunk}`);
+export async function unblockEditor(page: Page, root: string, delayMs = 0): Promise<void> {
+  for (const chunk of editorChunks(root)) {
+    await page.unroute(`**/${chunk}`);
+    if (delayMs)
+      await page.route(`**/${chunk}`, async (route) => {
+        await Bun.sleep(delayMs);
+        await route.continue();
+      });
+  }
 }
 
 export function sentSince(page: Page): string[] {
