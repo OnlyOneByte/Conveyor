@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENGINE_LOG, requireOutput } from "@conveyor/shared/node";
 import {
@@ -9,7 +9,17 @@ import {
   releaseLease,
   takePrinterSlot,
 } from "@conveyor/shared/queue";
-import { cleanup, db, dir, enqueue, row, setup, start, until } from "../test/helpers/loop-harness";
+import {
+  cleanup,
+  db,
+  dir,
+  enqueue,
+  logs,
+  row,
+  setup,
+  start,
+  until,
+} from "../test/helpers/loop-harness";
 
 const STALE_LOG = "$ orca-slicer (the run before)\n[exited 0]\n";
 
@@ -33,9 +43,11 @@ const timing = { timing: { ...DEFAULT_TIMING, backoffBaseMs: 0 } };
 
 test("a requeued job whose slicer writes nothing fails instead of printing the old g-code", async () => {
   const workDir = requeueWithLeftovers("a");
+  let leftAtSlice: string[] = [];
   const { h } = start(
     {
       slice: async (ctx) => {
+        leftAtSlice = readdirSync(ctx.workDir);
         await requireOutput(
           "slicer",
           join(ctx.workDir, "plate_1.gcode"),
@@ -53,9 +65,31 @@ test("a requeued job whose slicer writes nothing fails instead of printing the o
     reason: expect.stringContaining("wrote no G-code"),
   });
   expect(h.submits).toBe(0);
+  expect(leftAtSlice).not.toContain("model.stl");
+  expect(leftAtSlice).not.toContain("model.gcode");
+  expect(leftAtSlice).not.toContain("plate_1.gcode");
   expect(existsSync(join(workDir, "model.gcode"))).toBe(false);
   expect(existsSync(join(workDir, "plate_1.gcode"))).toBe(false);
 });
+
+for (const [name, id] of [
+  ["..", ".."],
+  ["an empty id", ""],
+] as const) {
+  test(`a job id of ${name} clears nothing and runs nothing`, async () => {
+    const dataDir = join(dir, "data");
+    mkdirSync(dataDir);
+    writeFileSync(join(dataDir, "keep.txt"), "data dir\n");
+    writeFileSync(join(dir, "keep.txt"), "above the data dir\n");
+    enqueue(id);
+    const { h } = start({}, { dataDir });
+    await until(() => logs.some((line) => line.includes("names no folder in the data dir")));
+    expect(readFileSync(join(dataDir, "keep.txt"), "utf8")).toBe("data dir\n");
+    expect(readFileSync(join(dir, "keep.txt"), "utf8")).toBe("above the data dir\n");
+    expect(existsSync(join(dir, "conveyor.db"))).toBe(true);
+    expect(h.generated).toBe(0);
+  });
+}
 
 test("a requeued job starts its engine log afresh", async () => {
   const workDir = requeueWithLeftovers("b");
