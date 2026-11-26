@@ -8,5 +8,5 @@ export const TEMP_PREFIXES: readonly string[] = [
   "visual-",
 ];
 
-export const watchedPrefix = (name: string): boolean =>
+export const listedPrefix = (name: string): boolean =>
   TEMP_PREFIXES.some((prefix) => name.startsWith(prefix));

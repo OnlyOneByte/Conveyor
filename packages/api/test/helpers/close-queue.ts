@@ -15,9 +15,9 @@ export interface QueueParts {
 }
 
 export async function closeQueue(
+  url: string | undefined,
   parts: QueueParts = { connection, redis, jobQueue },
   withinMs = QUEUE_TEARDOWN_MS,
-  url = process.env.REDIS_URL,
 ): Promise<void> {
   try {
     if (url) {

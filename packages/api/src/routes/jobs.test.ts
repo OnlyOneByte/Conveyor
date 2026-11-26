@@ -87,7 +87,7 @@ afterAll(async () => {
     else process.env.DATA_DIR = previous.data;
     rmSync(dir, { recursive: true, force: true });
   } finally {
-    await closeQueue();
+    await closeQueue(process.env.REDIS_URL);
   }
 });
 

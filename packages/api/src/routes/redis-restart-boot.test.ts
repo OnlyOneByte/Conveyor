@@ -165,6 +165,6 @@ describe.skipIf(!url)("the api on the Redis queue across Redis restarts", () => 
   );
 });
 
-afterAll(() => closeQueue());
+afterAll(() => closeQueue(process.env.REDIS_URL));
 
 dropsItsRedisKeys();

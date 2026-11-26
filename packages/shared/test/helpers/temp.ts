@@ -2,12 +2,12 @@ import { afterAll } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TEMP_PREFIXES, watchedPrefix } from "./temp-prefixes.ts";
+import { listedPrefix, TEMP_PREFIXES } from "./temp-prefixes.ts";
 
 export function tempDirs(prefix: string): () => Promise<string> {
-  if (!watchedPrefix(prefix))
+  if (!listedPrefix(prefix))
     throw new Error(
-      `tempDirs: ${prefix} doesn't start with a prefix check:test-leaks watches (${TEMP_PREFIXES.join(", ")})`,
+      `tempDirs: ${prefix} doesn't start with a prefix in TEMP_PREFIXES (${TEMP_PREFIXES.join(", ")})`,
     );
   const made: string[] = [];
   afterAll(async () => {

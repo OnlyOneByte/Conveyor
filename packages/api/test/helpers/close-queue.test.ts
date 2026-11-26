@@ -39,7 +39,7 @@ const parts = (connection: FakeConnection) => {
 test("a Redis that refuses the reconnect rejects, and both clients still disconnect", async () => {
   const down = new FakeConnection("end", () => Promise.reject(new Error("connect ECONNREFUSED")));
   const queue = parts(down);
-  await expect(closeQueue(queue.parts, 50, URL)).rejects.toThrow("connect ECONNREFUSED");
+  await expect(closeQueue(URL, queue.parts, 50)).rejects.toThrow("connect ECONNREFUSED");
   expect([down.disconnects, queue.redis.disconnects, queue.obliterated]).toEqual([1, 1, []]);
 });
 
@@ -47,7 +47,7 @@ test("a connection that never turns ready rejects within the bound, and both cli
   const stuck = new FakeConnection("connecting", () => new Promise(() => {}));
   const queue = parts(stuck);
   const started = Date.now();
-  await expect(closeQueue(queue.parts, 50, URL)).rejects.toThrow("queue not back within 50 ms");
+  await expect(closeQueue(URL, queue.parts, 50)).rejects.toThrow("queue not back within 50 ms");
   expect(Date.now() - started).toBeLessThan(2_000);
   expect([stuck.disconnects, queue.redis.disconnects, queue.obliterated]).toEqual([1, 1, []]);
 });
@@ -55,13 +55,13 @@ test("a connection that never turns ready rejects within the bound, and both cli
 test("a ready connection obliterates the queue with force, then disconnects", async () => {
   const ready = new FakeConnection("ready", () => Promise.resolve());
   const queue = parts(ready);
-  await closeQueue(queue.parts, 50, URL);
+  await closeQueue(URL, queue.parts, 50);
   expect([ready.disconnects, queue.redis.disconnects, queue.obliterated]).toEqual([1, 1, [true]]);
 });
 
 test("with no REDIS_URL it only disconnects", async () => {
   const ready = new FakeConnection("end", () => Promise.reject(new Error("must not connect")));
   const queue = parts(ready);
-  await closeQueue(queue.parts, 50, undefined);
+  await closeQueue(undefined, queue.parts, 50);
   expect([ready.disconnects, queue.redis.disconnects, queue.obliterated]).toEqual([1, 1, []]);
 });

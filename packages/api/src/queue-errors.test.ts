@@ -18,4 +18,4 @@ test("finished and failed BullMQ jobs are removed after a week, with no count ca
   expect(JOB_REMOVAL).not.toHaveProperty("count");
 });
 
-afterAll(() => closeQueue());
+afterAll(() => closeQueue(process.env.REDIS_URL));
