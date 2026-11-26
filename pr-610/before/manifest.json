@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:44785",
+  "url": "http://127.0.0.1:37441",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 661804,
+      "gifBytes": 599672,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 334442,
+      "gifBytes": 329429,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -113,7 +113,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 566014,
+      "gifBytes": 502548,
       "gif": "make-print-1440.gif"
     },
     {
@@ -163,7 +163,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 664551,
+      "gifBytes": 738253,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -183,6 +183,18 @@
       "width": 1440,
       "warnings": [],
       "png": "receipt-printer-unchecked-1440.png"
+    },
+    {
+      "scene": "receipt-printer-held",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-printer-held-1440.png"
+    },
+    {
+      "scene": "receipt-printer-start",
+      "width": 1440,
+      "warnings": [],
+      "png": "receipt-printer-start-1440.png"
     },
     {
       "scene": "job-detail",
@@ -400,7 +412,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 773666,
+      "gifBytes": 821974,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -443,7 +455,7 @@
       "scene": "track-stage-words",
       "width": 1440,
       "warnings": [],
-      "error": ".chip .v:has-text('…') is on the page (3), and should not be",
+      "error": ".chip .v:has-text('…') is on the page (2), and should not be",
       "png": "track-stage-words-1440.png"
     },
     {
@@ -511,7 +523,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 470622,
+      "gifBytes": 506099,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -519,7 +531,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1234221,
+      "gifBytes": 1202130,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -527,7 +539,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1420454,
+      "gifBytes": 1356641,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -559,7 +571,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 278492,
+      "gifBytes": 311213,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -597,14 +609,25 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 386630,
+      "gifBytes": 429028,
       "gif": "primitives-keys-1440.gif"
+    },
+    {
+      "scene": "printers-hold",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-hold-1440.png"
+    },
+    {
+      "scene": "printers-hold-confirm",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-hold-confirm-1440.png"
     },
     {
       "scene": "printers",
       "width": 1440,
       "warnings": [],
-      "error": ".card.busy .pill is drawn in --live or near it: oklch(0.52 0.18 42) is within 0/255 of oklch(0.52 0.18 42)",
       "png": "printers-1440.png"
     },
     {
@@ -612,7 +635,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 869017,
+      "gifBytes": 962570,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -626,7 +649,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 690844,
+      "gifBytes": 795802,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -670,7 +693,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 722767,
+      "gifBytes": 783167,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -818,7 +841,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 654732,
+      "gifBytes": 654098,
       "gif": "new-job-390.gif"
     },
     {
@@ -826,7 +849,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376407,
+      "gifBytes": 356412,
       "gif": "job-progress-390.gif"
     },
     {
@@ -900,7 +923,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1028668,
+      "gifBytes": 1048946,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -920,6 +943,18 @@
       "width": 390,
       "warnings": [],
       "png": "receipt-printer-unchecked-390.png"
+    },
+    {
+      "scene": "receipt-printer-held",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-printer-held-390.png"
+    },
+    {
+      "scene": "receipt-printer-start",
+      "width": 390,
+      "warnings": [],
+      "png": "receipt-printer-start-390.png"
     },
     {
       "scene": "job-detail",
@@ -1113,7 +1148,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1011619,
+      "gifBytes": 988329,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1156,8 +1191,15 @@
       "scene": "track-stage-words",
       "width": 390,
       "warnings": [],
-      "error": ".chip .v:has-text('…') is on the page (3), and should not be",
+      "error": ".chip .v:has-text('…') is on the page (2), and should not be",
       "png": "track-stage-words-390.png"
+    },
+    {
+      "scene": "track-rail-narrow",
+      "width": 390,
+      "warnings": [],
+      "error": ".chip .v:has-text('…') is on the page (3), and should not be",
+      "png": "track-rail-narrow-390.png"
     },
     {
       "scene": "sign-in",
@@ -1230,8 +1272,14 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 506564,
+      "gifBytes": 502551,
       "gif": "track-keys-390.gif"
+    },
+    {
+      "scene": "track-keys-narrow",
+      "width": 390,
+      "warnings": [],
+      "png": "track-keys-narrow-390.png"
     },
     {
       "scene": "track-card",
@@ -1268,14 +1316,25 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 597013,
+      "gifBytes": 620958,
       "gif": "primitives-keys-390.gif"
+    },
+    {
+      "scene": "printers-hold",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-hold-390.png"
+    },
+    {
+      "scene": "printers-hold-confirm",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-hold-confirm-390.png"
     },
     {
       "scene": "printers",
       "width": 390,
       "warnings": [],
-      "error": ".card.busy .pill is drawn in --live or near it: oklch(0.52 0.18 42) is within 0/255 of oklch(0.52 0.18 42)",
       "png": "printers-390.png"
     },
     {
@@ -1283,7 +1342,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1313255,
+      "gifBytes": 1336103,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1297,7 +1356,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1094770,
+      "gifBytes": 1096799,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1329,7 +1388,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1119904,
+      "gifBytes": 1123510,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
