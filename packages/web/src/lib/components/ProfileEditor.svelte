@@ -89,14 +89,7 @@
 
 <svelte:window on:keydown={keys} />
 
-{#if tabbed}
-  <FileTabs
-    files={content.files}
-    bind:current={file}
-    panel={panelId}
-    flagged={problem?.file ?? null}
-  />
-{/if}
+{#if tabbed}<FileTabs files={content.files} bind:current={file} panel={panelId} flagged={problem?.file ?? null} />{/if}
 <p id={errorId} class="problem" class:shown={problem} aria-live="polite">
   {#if problem}
     {describe(problem)}
@@ -122,16 +115,18 @@
   />
 </div>
 
-<EditorBar
-  name={profile.name}
-  status={barStatus}
-  busy={!can.reset}
-  {edited}
-  canSave={can.save}
-  tidy={content.lang === "json" ? can.tidy ? tidy : null : undefined}
-  {save}
-  {reset}
-/>
+{#if ready}
+  <EditorBar
+    name={profile.name}
+    status={barStatus}
+    busy={!can.reset}
+    {edited}
+    canSave={can.save}
+    tidy={content.lang === "json" ? can.tidy ? tidy : null : undefined}
+    {save}
+    {reset}
+  />
+{/if}
 
 <Confirm
   bind:open={discarding}

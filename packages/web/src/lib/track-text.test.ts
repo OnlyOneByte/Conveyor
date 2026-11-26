@@ -7,7 +7,9 @@ import {
   COLLAPSE_AT,
   chipName,
   collapsedBelt,
+  face,
   groupName,
+  groupValues,
   groupVisible,
   IDLE,
   REOPEN_AT,
@@ -43,7 +45,8 @@ describe("chip text", () => {
       job("printing", 0.64),
     ];
     states.push(job("done"), job("failed"), job("canceled"));
-    expect(states.map(value)).toEqual(["next", "…", "35%", "72%", "64%", "✓", "!", "×"]);
+    expect(states.map(value)).toEqual(["next", "modelling", "35%", "72%", "64%", "✓", "!", "×"]);
+    expect(states.map(value)).not.toContain("…");
   });
 
   test("names start with the visible text, then the full name, printer and status", () => {
@@ -51,8 +54,10 @@ describe("chip text", () => {
       "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing",
     );
     expect(chipName({ id: "u", name: "tray.stl", state: "generating" })).toBe(
-      "tray.stl …, tray.stl, modelling",
+      "tray.stl making, tray.stl, modelling",
     );
+    expect(face({ id: "u", name: "tray.stl", state: "generating" })).toBe("making");
+    expect(face(job("printing", 0.64))).toBe("64%");
   });
 
   test("the focus card says what's happening and offers each state's one action", () => {
@@ -88,10 +93,17 @@ describe("chip text", () => {
       { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" },
       job("slicing", 0.12),
     ];
-    expect(groupVisible(members)).toBe("3 jobs 35% · … · 12%");
+    expect(groupVisible(members)).toBe("3 jobs 35% · 12%");
     expect(groupName(members)).toBe(
-      "3 jobs 35% · … · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing",
+      "3 jobs 35% · 12%: Bin 2×3 · 6u, slicing; Bin 1×1 · 3u, modelling; Bin 2×3 · 6u, slicing",
     );
+  });
+
+  test("a group with nothing measured yet shows only its count", () => {
+    const waiting = [job("queued"), { ...job("generating"), name: "Gridfinity bin 1×1 · 3u" }];
+    expect(groupValues(waiting)).toBe("");
+    expect(groupVisible(waiting)).toBe("2 jobs");
+    expect(groupName(waiting)).toBe("2 jobs: Bin 2×3 · 6u, queued; Bin 1×1 · 3u, modelling");
   });
 });
 
