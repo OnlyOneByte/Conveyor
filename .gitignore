@@ -16,3 +16,4 @@ profiles/**/secrets*
 
 # Agent cold-start handoff — local only, never publish
 HANDOFF.md
+image-scan.txt

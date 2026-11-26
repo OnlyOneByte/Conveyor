@@ -23,6 +23,7 @@ LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" 
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 WORKDIR /app/packages/web
 COPY --from=build /app/packages/web/build ./build
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV PORT=3000
 USER 10001:10001
 EXPOSE 3000
