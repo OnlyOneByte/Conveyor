@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:36499",
+  "url": "http://127.0.0.1:39915",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 693353,
+      "gifBytes": 684796,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 392033,
+      "gifBytes": 356730,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -113,7 +113,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 526855,
+      "gifBytes": 527883,
       "gif": "make-print-1440.gif"
     },
     {
@@ -163,7 +163,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 761141,
+      "gifBytes": 747173,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -545,7 +545,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 519141,
+      "gifBytes": 519869,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -553,7 +553,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1191826,
+      "gifBytes": 1193641,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -593,7 +593,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 312539,
+      "gifBytes": 311348,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -663,7 +663,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1052125,
+      "gifBytes": 1052681,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -677,7 +677,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 790283,
+      "gifBytes": 810966,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -721,7 +721,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 802221,
+      "gifBytes": 813996,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -1004,7 +1004,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 660096,
+      "gifBytes": 649333,
       "gif": "new-job-390.gif"
     },
     {
@@ -1012,7 +1012,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357086,
+      "gifBytes": 374821,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1086,7 +1086,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1055661,
+      "gifBytes": 1055720,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1322,7 +1322,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1012252,
+      "gifBytes": 1002109,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1444,7 +1444,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 513597,
+      "gifBytes": 513956,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1488,7 +1488,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 624388,
+      "gifBytes": 624429,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1520,7 +1520,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1314723,
+      "gifBytes": 1339957,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1534,7 +1534,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1109713,
+      "gifBytes": 1115713,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1566,7 +1566,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1079441,
+      "gifBytes": 1103205,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
