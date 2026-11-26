@@ -19,11 +19,14 @@
   $: fileName = file?.name ?? "";
   $: size = file?.size ?? 0;
   let over = false;
+  let picks = 0;
   let input: HTMLInputElement;
 
   function take(file: File | null | undefined) {
     over = false;
-    if (file) dispatch("file", file);
+    if (!file) return;
+    picks += 1;
+    dispatch("file", file);
   }
 </script>
 
@@ -49,7 +52,7 @@
 </label>
 {#if error}
   <div class="fail">
-    <Notice tone="err" title="The file didn't upload" role="alert" stamp={error}>
+    <Notice tone="err" title="The file didn't upload" role="alert" stamp={picks}>
       <span id="upload-error" slot="message">{error}</span>
       <ErrorDetails detail={why} />
     </Notice>

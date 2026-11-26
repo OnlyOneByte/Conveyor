@@ -125,5 +125,5 @@
   .n { font: 500 var(--fs-mono) var(--mono); }
   .older { justify-self: start; min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none; }
   .keys, .today { margin: 0; color: var(--muted); font-size: var(--fs-chip); }
-  @media (max-width: 759px) { .pills { flex-wrap: nowrap; overflow-x: auto; } .keys { display: none; } }
+  @media (max-width: 759px) { .keys { display: none; } }
 </style>
