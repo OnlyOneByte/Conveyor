@@ -153,6 +153,33 @@ describe("POST /uploads against a slow client", () => {
   });
 });
 
+async function dropAfter(port: number, body: Buffer, cut: number) {
+  const socket = connect(port, "127.0.0.1");
+  socket.on("error", () => undefined);
+  await new Promise<void>((resolve) => socket.once("connect", () => resolve()));
+  socket.write(
+    `POST /uploads HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: multipart/form-data; boundary=B\r\nContent-Length: ${body.byteLength}\r\n\r\n`,
+  );
+  socket.write(body.subarray(0, cut));
+  await sleep(cut % 7);
+  socket.destroy();
+}
+
+async function settles(dir: string): Promise<string[]> {
+  for (let i = 0; i < 40 && readdirSync(dir).length > 0; i++) await sleep(50);
+  return readdirSync(dir);
+}
+
+describe("POST /uploads against clients that drop mid-upload", () => {
+  test("uploads cut off at varied points, all at once on a cold server, leave the folder empty", async () => {
+    const { dir, port } = await serve(30_000, 600_000);
+    const body = Buffer.concat([HEAD, binaryStl(200), TAIL]);
+    const cuts = Array.from({ length: 60 }, (_, i) => HEAD.byteLength + i * 97);
+    await Promise.all(cuts.map((cut) => dropAfter(port, body, cut)));
+    expect(await settles(dir)).toEqual([]);
+  });
+});
+
 describe("POST /uploads timers", () => {
   test("every timer an upload sets is cancelled once it succeeds", async () => {
     const live = new Set<number>();
