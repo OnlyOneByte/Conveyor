@@ -1,4 +1,5 @@
-import { type Coverage, exactHits, hitCount, type LineHits, zeroed } from "./lcov";
+import { type Body, withoutUnrunBodies } from "./bodies";
+import { type Coverage, hitCount, type LineHits, zeroed } from "./lcov";
 
 export const SWEEP_ENV = "CONVEYOR_COVERAGE_SWEEP";
 
@@ -19,6 +20,7 @@ const DECLARATION = /\.d\.ts$/;
 export const TEST_NAME = /\.(test|spec)\.(ts|tsx|mts|cts|js|mjs)$/;
 
 export const TEST_HELPER_DIRS = [
+  "packages/api/test/helpers/",
   "packages/shared/test/helpers/",
   "packages/worker/test/helpers/",
   "packages/web/test/helpers/",
@@ -57,6 +59,7 @@ export interface MergeInput {
   sweep: Coverage;
   fallback: (path: string) => LineHits;
   typeLines: (path: string) => ReadonlySet<number>;
+  bodies: (path: string) => Body[];
 }
 
 const withoutLines = (lines: LineHits, drop: ReadonlySet<number>): LineHits =>
@@ -74,6 +77,7 @@ export function mergeCoverage({
   sweep,
   fallback,
   typeLines,
+  bodies,
 }: MergeInput): Merged {
   const coverage: Coverage = new Map();
   const unloaded: string[] = [];
@@ -81,10 +85,10 @@ export function mergeCoverage({
   for (const path of [...sources].sort()) {
     const mapped = sweep.get(path);
     if (!mapped) estimated.push(path);
-    const lines = withoutLines(mapped ?? fallback(path), typeLines(path));
     const loaded = measured.get(path);
     if (!loaded) unloaded.push(path);
-    coverage.set(path, loaded ? exactHits(lines, loaded) : zeroed(lines));
+    const lines = withoutLines(loaded ?? mapped ?? fallback(path), typeLines(path));
+    coverage.set(path, loaded ? withoutUnrunBodies(lines, bodies(path)) : zeroed(lines));
   }
   return { coverage, unloaded, estimated };
 }
@@ -101,6 +105,20 @@ export function sweepErrors({ completed, failed, estimated }: SweepOutcome): str
     ...failed.map((path) => `coverage sweep: ${path} threw while importing`),
     ...estimated.map((path) => `coverage sweep: ${path} has no line map`),
   ];
+}
+
+const annotation = (message: string) =>
+  `::error::${message.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`;
+
+export function printErrors(
+  errors: string[],
+  env: Record<string, string | undefined>,
+  print: (text: string) => void,
+): void {
+  for (const error of errors) {
+    print(error);
+    if (env.GITHUB_ACTIONS === "true") print(annotation(error));
+  }
 }
 
 export interface SweepRun {

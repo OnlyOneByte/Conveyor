@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BootedApi, bootApi } from "../../test/booted-api.ts";
+import { type BootedApi, bootApi } from "../../test/helpers/booted-api.ts";
 
 const password = "limit-test-password";
 const stops: (() => Promise<void>)[] = [];

@@ -44,7 +44,7 @@ used for jobs in that mode. Both services must get the same value. The rollout i
 | `@conveyor/shared` | zod | Stage contracts, job and event types, registry, profiles, SQLite access (`bun:sqlite`) |
 | `@conveyor/api` | shared, plugin registry | HTTP routes in `src/routes/` (`jobs` with its `job-stream`, or `jobs-sqlite`, by queue mode, sharing `job-common`; `generators`, `uploads`, `auth`, `catalog`, `printer-holds`) |
 | `@conveyor/worker` | shared, plugin registry | Job loop, status bus, profile resolution |
-| `@conveyor/web` | shared | Routes `/`, `/jobs`, `/jobs/:id`, `/printers`, `/settings` |
+| `@conveyor/web` | shared | Routes `/`, `/jobs`, `/jobs/:id`, `/printers`, `/settings`, `/settings/profiles/:id`; `/history` and `/monitor` redirect to `/jobs` and `/history/:jobId` to `/jobs/:id` (308); `/primitives` and `/primitives/track` are component sheets that answer 404 unless built with `VITE_CONVEYOR_PRIMITIVES=1` |
 | `plugins/generators/*` | shared | `gridfinity` (OpenSCAD over the `scad/` submodule), `passthrough` (uploaded STL) |
 | `plugins/slicers/*` | shared | `orca`, `prusa` (headless CLIs) |
 | `plugins/registry/builtin` | every plugin | `buildRegistry`, the one list of bundled plugins the api and worker share |

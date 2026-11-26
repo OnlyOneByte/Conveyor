@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BootedApi, bootApi, login } from "../../test/booted-api.ts";
-import { rawGet } from "../../test/raw-http.ts";
+import { type BootedApi, bootApi, login } from "../../test/helpers/booted-api.ts";
+import { rawGet } from "../../test/helpers/raw-http.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-sessions-"));
 const PASSWORD = "sessions-test-password";

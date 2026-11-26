@@ -8,7 +8,8 @@ import websocket from "@fastify/websocket";
 import { Queue } from "bullmq";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
-import { type BootedApi, bootApi, job } from "../../test/booted-api.ts";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
+import { type BootedApi, bootApi, job } from "../../test/helpers/booted-api.ts";
 import { createStatusHub } from "../status-hub.js";
 import { registerJobStream } from "./job-stream.js";
 
@@ -192,3 +193,5 @@ describe.skipIf(!url)("the Redis job routes' stream wiring", () => {
     expect((await fetch(`${api?.base}/jobs/${jobId}`)).status).toBe(200);
   });
 });
+
+dropsItsRedisKeys();

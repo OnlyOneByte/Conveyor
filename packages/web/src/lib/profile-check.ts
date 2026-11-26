@@ -84,9 +84,8 @@ export function orcaProblem(documents: OrcaProfileDocuments): Problem | null {
     return null;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const file = ORCA_PROFILE_DOCUMENT_NAMES.find((name) => message.startsWith(`${name}.json`));
-    if (!file)
-      return { file: "machine", line: 1, text: "the three files are over 768 KiB together." };
+    const file =
+      ORCA_PROFILE_DOCUMENT_NAMES.find((name) => message.startsWith(`${name}.json`)) ?? "machine";
     return { file, line: orcaLine(documents[file], message), text: orcaText(message) };
   }
 }

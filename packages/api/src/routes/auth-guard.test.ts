@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { authStatusSchema } from "@conveyor/shared/auth-status";
-import { job, jobRows, login } from "../../test/booted-api.ts";
+import { job, jobRows, login } from "../../test/helpers/booted-api.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-guard-"));
 const api = Bun.spawn([process.execPath, join(import.meta.dir, "..", "index.ts")], {
@@ -84,6 +84,7 @@ describe("the global auth guard on a booted api", () => {
     ["PUT", "/catalog/profiles/x/content"],
     ["DELETE", "/catalog/profiles/x/content"],
     ["DELETE", "/catalog/profiles/x"],
+    ["GET", "/health/deep"],
   ])("refuses %s %s without a session", async (method, path) => {
     const response = await send(method, path);
     expect(response.status).toBe(401);

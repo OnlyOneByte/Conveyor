@@ -1,26 +1,29 @@
 import type { Database } from "bun:sqlite";
-import { dbWriteWorkerHeartbeat, type EngineState } from "@conveyor/shared/db";
+import { hostname } from "node:os";
+import {
+  dbForgetWorkerHeartbeat,
+  dbWriteWorkerHeartbeat,
+  ENGINE_BINARIES,
+  type EngineState,
+} from "@conveyor/shared/db";
 
 export const HEARTBEAT_EVERY_MS = 15_000;
 
 type Env = Record<string, string | undefined>;
 type Which = (bin: string) => string | null;
 
-const ENGINES: [name: string, envVar: string, fallback: string][] = [
-  ["openscad", "OPENSCAD_BIN", "openscad"],
-  ["orca", "ORCA_BIN", "orca-slicer"],
-  ["prusa", "PRUSA_BIN", "prusa-slicer"],
-];
-
 export function engineStates(env: Env, which: Which = Bun.which): Record<string, EngineState> {
   const stub = env.CONVEYOR_ENGINE_STUB === "1";
   return Object.fromEntries(
-    ENGINES.map(([name, envVar, fallback]) => {
+    ENGINE_BINARIES.map(({ name, envVar, fallback }) => {
       if (stub) return [name, "stub"];
       return [name, which(env[envVar] ?? fallback) ? "ok" : "missing"];
     }),
   );
 }
+
+export const workerId = (env: Env, host: () => string = hostname) =>
+  env.CONVEYOR_WORKER_ID?.trim() || host();
 
 export function startHeartbeat(
   db: Database,
@@ -28,11 +31,12 @@ export function startHeartbeat(
   log: (message: string) => void,
   everyMs = HEARTBEAT_EVERY_MS,
   now: () => number = Date.now,
+  which: Which = Bun.which,
 ): () => void {
-  const engines = engineStates(env);
+  const id = workerId(env);
   const beat = () => {
     try {
-      dbWriteWorkerHeartbeat(db, { at: now(), engines });
+      dbWriteWorkerHeartbeat(db, id, { at: now(), engines: engineStates(env, which) });
     } catch (err) {
       log(`heartbeat not written: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -40,5 +44,12 @@ export function startHeartbeat(
   beat();
   const timer = setInterval(beat, everyMs);
   timer.unref?.();
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    try {
+      dbForgetWorkerHeartbeat(db, id);
+    } catch (err) {
+      log(`heartbeat not cleared: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
 }

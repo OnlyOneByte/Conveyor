@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import { z } from "zod";
-import { type BootedApi, bootApi } from "../../test/booted-api.ts";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
+import { type BootedApi, bootApi } from "../../test/helpers/booted-api.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -101,3 +102,5 @@ for (const mode of modes) {
     },
   );
 }
+
+dropsItsRedisKeys();

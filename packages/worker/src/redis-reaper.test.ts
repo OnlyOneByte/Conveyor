@@ -8,6 +8,7 @@ import {
   dbRecordJob,
   dbRetriedBy,
 } from "@conveyor/shared/db";
+import { dropsItsRedisKeys } from "../../shared/test/helpers/index.ts";
 import { reaperUrl, request, useReaperHarness } from "../test/helpers/reaper-harness.js";
 import { ORPHAN_REASON, startRedisReaper } from "./redis-reaper.js";
 
@@ -156,3 +157,5 @@ describe.skipIf(!reaperUrl)("the Redis reaper", () => {
     }
   });
 });
+
+dropsItsRedisKeys();

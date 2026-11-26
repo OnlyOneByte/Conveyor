@@ -2,7 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bootApi } from "../test/booted-api.ts";
+import { bootApi } from "../test/helpers/booted-api.ts";
 
 const root = mkdtempSync(join(tmpdir(), "conveyor-data-modes-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));

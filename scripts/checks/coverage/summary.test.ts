@@ -8,7 +8,6 @@ import {
   nonBlankLines,
   packageOf,
   percents,
-  printSweepLog,
   SWEEP_TIMEOUT_ENV,
   summarize,
   sweepErrors,
@@ -29,29 +28,6 @@ describe("sweepErrors", () => {
       "coverage sweep: b.ts threw while importing",
     ]);
     expect(sweepErrors({ completed: false, failed: [], estimated: [] })).toHaveLength(1);
-  });
-});
-
-describe("printSweepLog", () => {
-  const printed = (run: Parameters<typeof printSweepLog>[0]) => {
-    const lines: string[] = [];
-    printSweepLog(run, (text) => lines.push(text));
-    return lines;
-  };
-  const reason = "sweep could not load packages/api/src/x.ts: Error: boom on import\n";
-
-  test("prints why a file failed to import", () => {
-    expect(printed({ completed: true, failed: ["packages/api/src/x.ts"], output: reason })).toEqual(
-      [reason],
-    );
-  });
-
-  test("prints the sweep's own output when it did not finish", () => {
-    expect(printed({ completed: false, failed: [], output: "timed out" })).toEqual(["timed out"]);
-  });
-
-  test("prints nothing for a clean sweep, whatever it wrote", () => {
-    expect(printed({ completed: true, failed: [], output: "1 pass\n" })).toEqual([]);
   });
 });
 
@@ -100,11 +76,13 @@ describe("isSource", () => {
 
   test("the declared test helper folders are excluded whatever they contain", () => {
     expect(TEST_HELPER_DIRS).toEqual([
+      "packages/api/test/helpers/",
       "packages/shared/test/helpers/",
       "packages/worker/test/helpers/",
       "packages/web/test/helpers/",
     ]);
     expect(isSource("packages/web/test/helpers/dom.ts")).toBe(false);
+    expect(isSource("packages/api/test/helpers/booted-api.ts")).toBe(false);
     expect(isSource("packages/shared/test/helpers/db.ts")).toBe(false);
     expect(isTestFile("packages/shared/test/helpers/db.ts")).toBe(true);
     expect(isSource("packages/worker/test/helpers/loop-harness.ts")).toBe(false);
@@ -155,6 +133,7 @@ describe("coverage totals", () => {
       sweep,
       fallback: () => nonBlankLines("x\n\ny\n"),
       typeLines: () => new Set(),
+      bodies: () => [],
     });
 
   test("counts unloaded files at zero using the sweep line map", () => {
@@ -167,8 +146,7 @@ describe("coverage totals", () => {
     expect(percents(summary)).toEqual({ api: 0, worker: 0, shared: 100, plugins: 100, web: 100 });
   });
 
-  test("a test that loads a file cannot move its denominator", () => {
-    const before = summarize(merge(new Map()).coverage);
+  test("a loaded file counts the lines bun's run lists, not the sweep's blanks and braces", () => {
     const run = lcov({
       [A]: [
         [1, 3],
@@ -177,37 +155,76 @@ describe("coverage totals", () => {
       ],
     });
     const merged = merge(run);
-    const after = summarize(merged.coverage);
     expect(merged.unloaded).toEqual([B, C]);
-    expect(after.api.found).toBe(before.api.found);
-    expect(after.worker.found).toBe(before.worker.found);
     expect(merged.coverage.get(A)).toEqual(
       new Map([
         [1, 3],
-        [2, 0],
         [3, 0],
-        [4, 0],
+        [9, 1],
       ]),
     );
-    expect(after.api).toEqual({ found: 6, hit: 1 });
+    expect(summarize(merged.coverage).api).toEqual({ found: 3 + 2, hit: 2 });
+  });
+
+  test("an unloaded file still counts every line the sweep maps, at zero", () => {
+    const merged = merge(lcov({ [A]: [[1, 1]] }));
+    expect(merged.coverage.get(B)).toEqual(
+      new Map([
+        [1, 0],
+        [2, 0],
+      ]),
+    );
+    expect(summarize(merged.coverage).worker).toEqual({ found: 2, hit: 0 });
+  });
+
+  test("a loaded file's function that never ran counts 0 on every line, its last included", () => {
+    const merged = mergeCoverage({
+      sources: [A],
+      measured: lcov({
+        [A]: [
+          [1, 4],
+          [2, 0],
+          [3, 2],
+        ],
+      }),
+      sweep,
+      fallback: () => new Map(),
+      typeLines: () => new Set(),
+      bodies: () => [{ header: 1, first: 2, last: 3 }],
+    });
+    expect(summarize(merged.coverage).api).toEqual({ found: 3, hit: 1 });
   });
 
   test("removing comment lines cannot lower a file's coverage", () => {
     const path = "packages/shared/src/x.ts";
-    const percentOf = (sweepLines: number[], hitLines: number[]) => {
+    const percentOf = (sweepLines: number[], run: [number, number][]) => {
       const merged = mergeCoverage({
         sources: [path],
-        measured: new Map([[path, new Map(hitLines.map((line) => [line, 1]))]]),
+        measured: new Map([[path, new Map(run)]]),
         sweep: new Map([[path, new Map(sweepLines.map((line) => [line, 0]))]]),
         fallback: () => new Map(),
         typeLines: () => new Set(),
+        bodies: () => [],
       });
       return percents(summarize(merged.coverage)).shared;
     };
-    const withComments = percentOf([1, 2, 3, 4, 5, 6], [1, 4, 6]);
-    const withoutComments = percentOf([1, 2, 3, 4], [1, 3, 4]);
-    expect(withComments).toBe(50);
-    expect(withoutComments).toBe(75);
-    expect(withoutComments).toBeGreaterThanOrEqual(withComments);
+    const withComments = percentOf(
+      [1, 2, 3, 4, 5, 6],
+      [
+        [1, 1],
+        [4, 1],
+        [6, 0],
+      ],
+    );
+    const withoutComments = percentOf(
+      [1, 2, 3, 4],
+      [
+        [1, 1],
+        [3, 1],
+        [4, 0],
+      ],
+    );
+    expect(withComments).toBe(66.67);
+    expect(withoutComments).toBe(66.67);
   });
 });

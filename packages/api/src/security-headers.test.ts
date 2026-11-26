@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { AddressInfo } from "node:net";
 import Fastify from "fastify";
-import { rawGet } from "../test/raw-http.ts";
+import { rawGet } from "../test/helpers/raw-http.ts";
 import { frameworkErrors, registerSecurityHeaders, SECURITY_HEADERS } from "./security-headers";
 
 const app = Fastify();

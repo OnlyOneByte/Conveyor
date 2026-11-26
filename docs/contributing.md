@@ -45,6 +45,23 @@ The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when 
 fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
+A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
+removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. Every temp name made
+directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
+any other, and `test-leaks.test.ts` fails if a file in the repository makes one under a prefix the list lacks, so
+a new prefix goes into the list. A test file that writes
+to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
+deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
+whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A
+key written while the file's modules load, before its first hook (BullMQ writes `bull:<queue>:meta` when a queue
+is created), is already in that first snapshot, so the file removes it itself, as `catalog-deletes.test.ts` does
+with `jobQueue.obliterate`. CI's `test` job runs `bun run check:test-leaks` after both test runs; it fails if
+`$TMPDIR` holds an entry under any prefix in `TEMP_PREFIXES` or Redis holds any key. It sees only what is left at the end: two files
+(`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`, which also hides any
+key an earlier file left. To find those, run each file alone against an empty Redis. To run the check locally,
+point `TMPDIR` at an empty directory and `REDIS_URL` at a Redis of its own, since it reports every watched
+entry and every key it finds.
+
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
 tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
 command to check that commit out, and the command that reruns the order. On a pull request the commit is
@@ -103,7 +120,33 @@ sees the slack. Entries stay in the file as history and have no effect once they
 The coverage denominator is every code file (`.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.mjs`, but not `.d.ts`)
 in `packages/api`, `worker`, `shared`, `web` and `plugins/*/*`. Only test code leaves it: a file named `*.test.*` or
 `*.spec.*` (the name decides, not what the file contains), and the declared helper folders
-`packages/shared/test/helpers/`, `packages/worker/test/helpers/` and `packages/web/test/helpers/`.
+`packages/api/test/helpers/`, `packages/shared/test/helpers/`, `packages/worker/test/helpers/` and
+`packages/web/test/helpers/`.
+
+Which lines of a file count depends on whether a test loads it. For a file a test loads, the lines are the
+ones bun's own coverage run lists for it, so blank lines, closing braces and the continuation lines of a
+multi-line string never count against it. For a file no test loads, the lines are the ones the sweep maps
+when it imports the file, all at 0 hits.
+
+Bun reports the last line of some functions that never ran as hit. The checker corrects that: in a loaded
+file, a function whose first statement has 0 hits never ran, so every line of its body counts 0
+(`scripts/checks/coverage/bodies.ts`, which finds function bodies with TypeScript's parser). A body with a
+single statement has no earlier line to read, so there the function's own header line decides: listed with 0
+hits, the statement counts 0 too. A first statement bun doesn't list at all (a `"use strict"`, an empty `;`)
+proves nothing, so that body is left as bun reported it.
+
+Two bun over-counts are left as they are:
+
+- When `if (x) return 1;` sits on one line, a later `return -1;` that never ran reads as hit. That function
+  did run, and bun's lcov has no branch records to tell which return was taken.
+- A function whose first statement, or for a single statement its header, shares a line with code outside
+  it (`items.map((x) => { return f(x); })` on one line) takes that outside code's count. It is never
+  zeroed, so the check can only under-correct here, never zero code that ran.
+
+A correction to how coverage is counted can make a package measure lower with no test lost. Floors are never
+lowered for it. Until coverage catches up, a package's floor can read up to the correction's size above what
+it measures; that stays within the half-point tolerance (`plugins` reads 97.38 against a measured 97.28 after
+#579), and the floor follows once coverage rises past it again.
 
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
@@ -134,8 +177,11 @@ helper folders and
 that maps never-imported files fails when the whole sweep takes longer than 30 s; set
 `CONVEYOR_COVERAGE_SWEEP_TIMEOUT_MS` to change that. The sweep runs as a child `bun test` without
 `GITHUB_ACTIONS`, so the coverage checker's own tests, which make it fail on purpose (a hanging import, a
-timeout of `soon`), don't post CI error annotations. Their output still shows in the log; the run's real
-failures are the annotations and the final pass/fail count.
+timeout of `soon`), don't post CI error annotations, and the child's output is printed only when a real
+check needs it: `check:coverage` shows it when the sweep didn't finish or a file failed to import. Every error
+`check:coverage` itself reports (a sweep that didn't finish, a file that threw while importing, an import of
+test code, a ratchet failure) is printed as a plain line and, when `GITHUB_ACTIONS` is `true`, also as a
+`::error::` annotation, so it shows in the run's annotation list.
 
 Lines that hold only types leave the denominator, so writing a type inline or as a named `interface` measures
 the same. The checker parses each file with TypeScript and drops a line only when every token on it sits inside

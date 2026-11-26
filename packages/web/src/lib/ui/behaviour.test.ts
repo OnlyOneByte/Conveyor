@@ -6,8 +6,10 @@ import {
   focusedIndex,
   nextIndex,
   rememberFocus,
+  syncTabStop,
   TABBABLE,
   TOAST_MS,
+  tabIfScrolls,
   wrapTab,
 } from "./behaviour";
 
@@ -155,4 +157,74 @@ test("focusedIndex finds the focused element among the stops, or -1", () => {
   expect([focusedIndex([a, b], b), focusedIndex([a, b], null), focusedIndex([a], b)]).toEqual([
     1, -1, -1,
   ]);
+});
+
+describe("a scrolling text block's Tab stop", () => {
+  const block = (scrollHeight: number, clientHeight: number) => {
+    const attrs = new Map<string, string>([["tabindex", "0"]]);
+    return {
+      attrs,
+      node: {
+        scrollHeight,
+        clientHeight,
+        setAttribute: (name: string, value: string) => void attrs.set(name, value),
+        removeAttribute: (name: string) => void attrs.delete(name),
+      },
+    };
+  };
+
+  test("text taller than its box is a Tab stop, so it can be scrolled from the keyboard", () => {
+    const { node, attrs } = block(900, 192);
+    syncTabStop(node);
+    expect(attrs.get("tabindex")).toBe("0");
+  });
+
+  test("text that fits is not a Tab stop", () => {
+    const { node, attrs } = block(40, 40);
+    syncTabStop(node);
+    expect(attrs.has("tabindex")).toBe(false);
+  });
+});
+
+describe("the Tab stop's resize watch", () => {
+  class Watch {
+    static made: Watch[] = [];
+    watched: unknown[] = [];
+    disconnected = false;
+    constructor(readonly changed: () => void) {
+      Watch.made.push(this);
+    }
+    observe(node: unknown) {
+      this.watched.push(node);
+    }
+    disconnect() {
+      this.disconnected = true;
+    }
+  }
+
+  test("re-checks on resize while mounted and stops watching on unmount", () => {
+    const real = Reflect.get(globalThis, "ResizeObserver");
+    Reflect.set(globalThis, "ResizeObserver", Watch);
+    try {
+      const attrs = new Map<string, string>();
+      const node = {
+        scrollHeight: 40,
+        clientHeight: 40,
+        setAttribute: (name: string, value: string) => void attrs.set(name, value),
+        removeAttribute: (name: string) => void attrs.delete(name),
+      };
+      const mounted = Reflect.apply(tabIfScrolls, undefined, [node]);
+      const [watch] = Watch.made;
+      expect(watch?.watched).toEqual([node]);
+      expect(attrs.has("tabindex")).toBe(false);
+      node.scrollHeight = 400;
+      watch?.changed();
+      expect(attrs.get("tabindex")).toBe("0");
+      expect(watch?.disconnected).toBe(false);
+      mounted.destroy();
+      expect(watch?.disconnected).toBe(true);
+    } finally {
+      Reflect.set(globalThis, "ResizeObserver", real);
+    }
+  });
 });

@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { tabIfScrolls } from "#lib/ui/behaviour.js";
+
   export let detail: string | null = null;
 </script>
 
 {#if detail}
   <details class="why">
     <summary>Details</summary>
-    <pre tabindex="0">{detail}</pre>
+    <pre use:tabIfScrolls>{detail}</pre>
   </details>
 {/if}
 

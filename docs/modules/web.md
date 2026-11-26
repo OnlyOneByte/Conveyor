@@ -139,15 +139,12 @@ there is none. The thrown `Error` keeps its message, so code that matches on it 
 Whenever the page shows one of those plain sentences instead of the server's own words, `detailOf(e)` returns the
 original text (`POST /jobs 502`, `Failed to fetch`, `Internal Server Error`), and `ErrorDetails.svelte` shows it
 under the message in a closed **Details** disclosure, styled like the job receipt's (#37). Its text wraps
-anywhere and scrolls past 12rem, and it can take keyboard focus so it can be scrolled from the keyboard. When the
+anywhere and scrolls past 12rem. Only when it overflows is it a Tab stop (`tabindex="0"`), so it can be scrolled
+from the keyboard; a short detail that fits is not, so Tab doesn't stop on text with nothing to scroll. When the
 server's own message is already on screen there is nothing more to say, so there is no disclosure. The profile
-page is the exception: it never leads with the server's words, so they go under **Details** too. Make's dock and upload, the
-printer, profile and delete dialogs, the profile editor and its page show it; the toast for a failed Undo does not,
-since a toast has no room for one.
-matches on it
-(a profile or printer with jobs "queued or running") is unchanged, and the method, path and status stay in the
-browser's Network panel and the api's request log. Make's dock and upload, the printer, profile and delete
-dialogs, the profile editor and its page use it.
+page is the exception: it never leads with the server's words, so they go under **Details** too. Make's dock and
+upload, the printer, profile and delete dialogs, the profile editor and its page show it; the toast for a failed
+Undo does not, since a toast has no room for one.
 
 ## lib/components/Viewport.svelte (the lazy 3D preview)
 

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JOB_STREAM_CLOSE } from "@conveyor/shared";
 import { z } from "zod";
-import { type BootedApi, bootApi, job } from "../test/booted-api.ts";
+import { type BootedApi, bootApi, job } from "../test/helpers/booted-api.ts";
 
 const STOPS_WITHIN_MS = 2_000;
 

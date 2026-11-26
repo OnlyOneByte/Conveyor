@@ -249,8 +249,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
     200, as before.
   - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
-    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
-    page.
+    ordered before it by `(updatedAt, id)`, so a job that finishes while someone pages back normally goes to the
+    front. Two cases can still land in a later page: a job that finishes in the same millisecond as the cursor's
+    `updatedAt` with a smaller id, and a job stamped after the host's clock stepped backwards.
   - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
     (`since` inclusive, `until` exclusive).
 - `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
@@ -312,8 +313,21 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 - `POST /uploads` stores STL bytes at `${UPLOAD_DIR}/<uploadId>.stl` (default `${DATA_DIR}/uploads`) on the
   shared volume, where the worker's passthrough generator reads them. The client submits the returned
   `uploadId` as the passthrough generator's `params.uploadId`.
-- The bytes are never treated as code; they go to the slicer as-is. Only the size cap (`MAX_UPLOAD_BYTES`,
-  default 100 MiB, 413 when exceeded) and the `.stl` extension (415 otherwise) are enforced.
+- The bytes are never treated as code; they go to the slicer as-is. Before anything is written the route checks:
+  - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
+  - **Extension:** the file must end in `.stl`, otherwise 415.
+  - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
+  - **Not empty:** an empty file is a 400: "the file is empty."
+  - **Looks like an STL** (`routes/stl-check.ts`): either binary, with at least one triangle and exactly
+    `84 + 50 × triangles` bytes, or ASCII, starting with `solid` (after an optional UTF-8 byte-order mark) and
+    naming a `facet` in its first 4 KiB. Anything else is a 400: "the file
+    isn't an STL model."
+  - **Server faults:** a failed write, or any read error that isn't the client's, goes to the error handler
+    as a 500.
+- The bytes are written to `<uploadId>.stl.part` in the same folder, then renamed to `<uploadId>.stl`. A
+  write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
+  under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
+  A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
 - `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,
   the worker and passthrough. `MAX_UPLOAD_BYTES` must be a positive integer: the api and worker exit 1 at
   boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`

@@ -1,4 +1,4 @@
-import type { StatusSubscriber } from "../src/status-hub.ts";
+import type { StatusSubscriber } from "../../src/status-hub.ts";
 
 export class FakeSubscriber implements StatusSubscriber {
   readonly calls: string[] = [];

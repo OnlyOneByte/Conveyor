@@ -98,6 +98,23 @@ export function createToasts(
 
 export const toasts = createToasts(realTimer, announce);
 
+type Scrollable = Pick<
+  HTMLElement,
+  "scrollHeight" | "clientHeight" | "setAttribute" | "removeAttribute"
+>;
+
+export function syncTabStop(node: Scrollable): void {
+  if (node.scrollHeight > node.clientHeight) node.setAttribute("tabindex", "0");
+  else node.removeAttribute("tabindex");
+}
+
+export function tabIfScrolls(node: HTMLElement) {
+  syncTabStop(node);
+  const seen = new ResizeObserver(() => syncTabStop(node));
+  seen.observe(node);
+  return { destroy: () => seen.disconnect() };
+}
+
 export function measured(node: HTMLElement, name: string) {
   const root = document.documentElement.style;
   const height = () => `${Math.ceil(node.getBoundingClientRect().height)}px`;

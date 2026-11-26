@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import Fastify from "fastify";
 import { z } from "zod";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -100,3 +101,5 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
     expect(await queue.jobQueue.getWaitingCount()).toBe(before + 2);
   });
 });
+
+dropsItsRedisKeys();

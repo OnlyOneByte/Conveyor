@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { JOB_QUEUE } from "@conveyor/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
-import { type BootedApi, bootApi, job } from "../../test/booted-api.ts";
+import { type BootedApi, bootApi, job } from "../../test/helpers/booted-api.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
