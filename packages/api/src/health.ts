@@ -1,6 +1,7 @@
 import { ENGINE_BINARIES, type EngineState, type WorkerBeat } from "@conveyor/shared/db";
 
 export const WORKER_STALE_MS = 45_000;
+export const HEARTBEAT_SKEW_MS = 5_000;
 
 type Up = "ok" | "down";
 
@@ -17,6 +18,7 @@ export interface EngineCheck {
 export interface WorkerCheck {
   id: string;
   state: Up;
+  future?: true;
   lastSeenSecondsAgo: number;
   says: string;
   engines: Record<string, EngineCheck>;
@@ -81,16 +83,24 @@ function engineCheck(name: string, state: EngineState): EngineCheck {
   return { state, says };
 }
 
+function workerSays(ageMs: number, future: boolean, fresh: boolean): string {
+  if (future)
+    return "Its last check-in is dated in the future, so the clock may have been changed. A running worker reads right again at its next check-in.";
+  return fresh
+    ? `Checked in ${ago(ageMs)} ago.`
+    : `Last checked in ${ago(ageMs)} ago, so it has probably stopped.`;
+}
+
 function workerCheck(beat: WorkerBeat, now: number): WorkerCheck {
+  const future = beat.at > now + HEARTBEAT_SKEW_MS;
   const ageMs = Math.max(0, now - beat.at);
-  const fresh = ageMs <= WORKER_STALE_MS;
+  const fresh = !future && ageMs <= WORKER_STALE_MS;
   return {
     id: beat.id,
     state: fresh ? "ok" : "down",
     lastSeenSecondsAgo: Math.round(ageMs / 1000),
-    says: fresh
-      ? `Checked in ${ago(ageMs)} ago.`
-      : `Last checked in ${ago(ageMs)} ago, so it has probably stopped.`,
+    says: workerSays(ageMs, future, fresh),
+    ...(future ? { future: true } : {}),
     engines: Object.fromEntries(
       Object.entries(beat.engines).map(([name, state]) => [name, engineCheck(name, state)]),
     ),
@@ -110,6 +120,11 @@ function headline(report: Omit<HealthReport, "status" | "says">): [HealthReport[
   if (!report.workers.some(canWork))
     return ["degraded", "No running worker has a generator and a slicer, so jobs won't run."];
   const stopped = report.workers.find((worker) => worker.state === "down");
+  if (stopped?.future)
+    return [
+      "degraded",
+      `Worker ${stopped.id}'s last check-in is dated in the future, so the clock may have been changed.`,
+    ];
   if (stopped)
     return [
       "degraded",
