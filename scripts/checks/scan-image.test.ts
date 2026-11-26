@@ -14,12 +14,15 @@ import { tempDirs } from "../../packages/shared/test/helpers/temp.ts";
 const ROOT = realpathSync(join(import.meta.dir, "..", ".."));
 const SCRIPT = join(import.meta.dir, "scan-image.sh");
 const PINNED = /(^| )aquasec\/trivy@sha256:[0-9a-f]{64} /;
+const TRIVY =
+  "aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c";
+const IMAGE = "example.test/image-under-scan:1";
 const dirs = tempDirs("conveyor-scan-image-");
 
 type Fails = "nothing" | "scan" | "db";
 
 const FAKE_DOCKER = `#!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$FAKE_CALLS"
+{ printf '%s\\037' "$@"; printf '\\n'; } >> "$FAKE_CALLS"
 case "$FAKE_FAILS:$*" in
   db:*--download-db-only*) exit 1 ;;
   scan:*--exit-code*) exit 1 ;;
@@ -45,7 +48,7 @@ async function runWithFakeDocker({
   writeFileSync(join(bin, "sleep"), "#!/usr/bin/env bash\n");
   chmodSync(join(bin, "docker"), 0o755);
   chmodSync(join(bin, "sleep"), 0o755);
-  const run = Bun.spawnSync(["bash", script, "conveyor-api"], {
+  const run = Bun.spawnSync(["bash", script, IMAGE], {
     cwd: dir,
     env: {
       ...process.env,
@@ -57,23 +60,51 @@ async function runWithFakeDocker({
       FAKE_FAILS: fails,
     },
   });
-  const made = existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n") : [];
-  return { dir, code: run.exitCode, calls: made, stderr: run.stderr.toString() };
+  const lines = existsSync(calls) ? readFileSync(calls, "utf8").split("\n").filter(Boolean) : [];
+  const argv = lines.map((line) => line.split("\x1f").slice(0, -1));
+  const made = argv.map((args) => args.join(" "));
+  return { dir, code: run.exitCode, argv, calls: made, stderr: run.stderr.toString() };
 }
 
 describe("scan-image.sh passes only a clean scan", () => {
-  test("a clean scan exits 0, mounting the repo's allowlist and gating on fixed HIGH and CRITICAL", async () => {
-    const { dir, code, calls } = await runWithFakeDocker({});
+  test("a clean scan exits 0 after exactly these three docker runs, argument for argument", async () => {
+    const { dir, code, argv } = await runWithFakeDocker({});
+    const run = [
+      "run",
+      "--rm",
+      "-v",
+      "/var/run/docker.sock:/var/run/docker.sock",
+      "-v",
+      `${dir}/cache/trivy:/root/.cache/trivy`,
+      "-v",
+      `${ROOT}/.github/image-scan-allowlist.yaml:/allowlist.yaml:ro`,
+      TRIVY,
+      "image",
+      "--quiet",
+    ];
     expect(code).toBe(0);
-    expect(calls).toHaveLength(3);
-    for (const call of calls) {
-      expect(call).toContain(`-v ${dir}/cache/trivy:/root/.cache/trivy`);
-      expect(call).toContain(`-v ${ROOT}/.github/image-scan-allowlist.yaml:/allowlist.yaml:ro`);
-    }
-    expect(calls[2]).toContain("--ignorefile /allowlist.yaml");
-    expect(calls[2]).toContain("--severity CRITICAL,HIGH");
-    expect(calls[2]).toContain("--ignore-unfixed");
-    expect(calls[2]).toContain("--exit-code 1");
+    expect(argv).toEqual([
+      [...run, "--download-db-only"],
+      [...run, "--download-java-db-only"],
+      [
+        ...run,
+        "--skip-db-update",
+        "--skip-java-db-update",
+        "--scanners",
+        "vuln",
+        "--ignore-unfixed",
+        "--severity",
+        "CRITICAL,HIGH",
+        "--ignorefile",
+        "/allowlist.yaml",
+        "--show-suppressed",
+        "--exit-code",
+        "1",
+        "--format",
+        "table",
+        IMAGE,
+      ],
+    ]);
   });
 
   test("every Trivy run uses an image pinned by digest, never a tag", async () => {
