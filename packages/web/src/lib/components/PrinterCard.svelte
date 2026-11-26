@@ -41,7 +41,7 @@
 <li class="card {card.tone}" aria-labelledby="printer-{printer.id}">
   <header>
     <div class="t">
-      <h2 id="printer-{printer.id}">{printer.name}</h2>
+      <h2 id="printer-{printer.id}" title={printer.name}>{printer.name}</h2>
       <p class="how">{how}</p>
     </div>
     <span class="pill {card.tone}">{card.status}</span>
@@ -92,7 +92,11 @@
   .card.offline { border: 1.5px solid var(--err); }
   header { display: flex; align-items: flex-start; gap: var(--s3); }
   .t { flex: 1; min-width: 0; }
-  h2 { margin: 0; font-size: var(--fs-section); font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  h2 {
+    display: -webkit-box; overflow: hidden; margin: 0; font-size: var(--fs-section); font-weight: 800;
+    letter-spacing: -0.02em; overflow-wrap: anywhere;
+    -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  }
   p, h3 { margin: 0; }
   .how { font: 500 var(--fs-chip) var(--mono); color: var(--muted); overflow-wrap: anywhere; }
   .pill { display: inline-flex; align-items: center; gap: var(--s1-5); min-height: 28px; padding: 0 var(--s2-5); border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-chip); white-space: nowrap; }

@@ -13,7 +13,7 @@
       {#if row.why}<span class="why"><span class="sr">, </span>{row.why}</span>{/if}
       {#if row.note}<span class="note"><span class="sr">, </span>Note: {row.note}</span>{/if}
     </span>
-    {#if row.printer}<span class="pr"><span class="sr">, on </span>{row.printer}</span>{/if}
+    {#if row.printer}<span class="pr" title={row.printer}><span class="sr">, on </span>{row.printer}</span>{/if}
     <span class="st"><span class="sr">, </span>{row.status}</span>
     <span class="tm"><span class="sr">, </span>{row.time}</span>
   </a>
@@ -47,7 +47,7 @@
     font-size: var(--fs-mono); line-height: 1.4; -webkit-box-orient: vertical;
     -webkit-line-clamp: 2; line-clamp: 2;
   }
-  .pr { grid-area: pr; }
+  .pr { grid-area: pr; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .st { grid-area: st; }
   .tm { grid-area: tm; }
   .pr, .st, .tm { font: 500 var(--fs-mono) var(--mono); color: var(--muted); }

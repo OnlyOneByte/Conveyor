@@ -45,7 +45,7 @@
   {/if}
   <div class="bar">
     <p class="sum">
-      <b>{summary}</b>
+      <b title={summary}>{summary}</b>
       <span class="line">
         <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
       </span>
@@ -65,7 +65,10 @@
     border-radius: var(--r-panel); background: var(--ink); color: var(--bg); --focus: var(--bg);
   }
   .sum { flex: 1; min-width: 0; margin: 0; }
-  b { display: block; font-size: var(--fs-section); }
+  b {
+    display: -webkit-box; overflow: hidden; font-size: var(--fs-section); overflow-wrap: anywhere;
+    -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  }
   .line {
     display: flex; gap: 0.6ch; min-width: 0; font: 500 var(--fs-mono) var(--mono);
     color: color-mix(in oklch, var(--bg) 85%, var(--ink));

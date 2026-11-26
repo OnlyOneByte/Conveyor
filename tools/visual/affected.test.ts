@@ -86,6 +86,9 @@ test("one page's change captures only the scenes that reach it", () => {
     "loading-settings",
     "loading-job-failed",
     "loading-printers-add",
+    "long-printer-dock",
+    "long-printer-dock-word",
+    "long-printer-card",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");
