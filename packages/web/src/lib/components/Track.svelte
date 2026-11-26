@@ -83,7 +83,7 @@
     <span class="label">Queue</span>
     <span class="slot q">{offline ? "Not known" : waiting ? "Waiting" : "Empty"}{#if waiting && !offline}<span class="n">{waiting}</span>{/if}</span>
   </div>
-  <div class="lane" class:stale={offline} role="group" aria-label="Rail, {moving.length} moving">
+  <div class="lane" class:stale={offline} role="group" aria-label="Belt, {moving.length} moving">
     {#each stages as stage (stage.state)}
       <i class="tick" style="left: {stage.start * 100}%"></i>
       <span class="stage label" class:on={stage.on} style="left: calc({stage.start * 100}% + 8px)">{STAGE_LABELS[stage.state]}</span>
@@ -136,8 +136,12 @@
   .paused .treads, .paused .gone { animation-play-state: paused; }
   :global([data-theme="dark"]) .rail { box-shadow: 0 0 0 1px var(--faint); }
   .chips { position: absolute; inset: 2px 0 auto; height: 52px; }
-  .idle { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); white-space: nowrap; }
-  .off { top: 4px; z-index: 6; padding: var(--s1) var(--s2); border-radius: var(--r-control); background: var(--paper); color: var(--ink); box-shadow: var(--lift); }
+  .idle {
+    position: absolute; bottom: 8px; left: 50%; z-index: 1; transform: translateX(-50%);
+    display: flex; align-items: center; height: 22px; padding: 0 var(--s2);
+    background: var(--belt); color: var(--belt-ink); white-space: nowrap;
+  }
+  .off { top: 4px; bottom: auto; height: auto; z-index: 6; padding: var(--s1) var(--s2); border-radius: var(--r-control); background: var(--paper); color: var(--ink); box-shadow: var(--lift); }
   .stale .rail, .stale .chips :global(.ring) { opacity: 0.45; }
   .stale .chips :global(.v) { color: var(--muted); }
   .measure { position: absolute; visibility: hidden; pointer-events: none; }

@@ -174,7 +174,7 @@ export function beltSummary(jobs: TrackJob[]): string {
   return on ? `${on} on the belt${lead}` : IDLE;
 }
 
-export const IDLE = "Nothing on the rail";
+export const IDLE = "Nothing on the belt";
 export const OFFLINE = "Can't reach Conveyor";
 export const BINS = { finished: "Finished", needs: "Needs you", waiting: "waiting" } as const;
 export const today = (n: number) => `${n} today`;
