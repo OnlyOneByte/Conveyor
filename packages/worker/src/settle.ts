@@ -1,6 +1,14 @@
 import { rm } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { computeStageTimings, type Note, note, noteText, StageError } from "@conveyor/shared";
+import {
+  computeStageTimings,
+  type Note,
+  type NoteText,
+  note,
+  notesText,
+  noteText,
+  StageError,
+} from "@conveyor/shared";
 import { fallbackHandle, ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
@@ -32,10 +40,8 @@ async function stopPrinter(run: Run): Promise<Note | undefined> {
   }
 }
 
-function noted(run: Run, first?: Note): string | undefined {
-  const parts = first ? [first, ...run.notes] : run.notes;
-  return parts.length ? parts.map(noteText).join("; ") : undefined;
-}
+const noted = (run: Run, first?: Note): NoteText | undefined =>
+  notesText(first ? [first, ...run.notes] : run.notes);
 
 async function cleanup(run: Run): Promise<void> {
   const failure = await rm(run.opts.workDir, { recursive: true, force: true }).then(

@@ -26,5 +26,19 @@ export interface Note {
 export const note = (kind: NoteKind, detail?: string): Note =>
   detail === undefined ? { kind } : { kind, detail };
 
-export const noteText = ({ kind, detail }: Note): string =>
-  detail === undefined ? NOTE[kind] : `${NOTE[kind]}${JOIN[kind] ?? ": "}${detail}`;
+declare const built: unique symbol;
+
+export type NoteText = string & { readonly [built]: true };
+
+const stamped = (text: string): text is NoteText => typeof text === "string";
+
+const stamp = (text: string): NoteText => {
+  if (stamped(text)) return text;
+  throw new TypeError("a note is always text");
+};
+
+export const noteText = ({ kind, detail }: Note): NoteText =>
+  stamp(detail === undefined ? NOTE[kind] : `${NOTE[kind]}${JOIN[kind] ?? ": "}${detail}`);
+
+export const notesText = (notes: Note[]): NoteText | undefined =>
+  notes.length ? stamp(notes.map(noteText).join("; ")) : undefined;

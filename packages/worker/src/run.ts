@@ -6,6 +6,7 @@ import {
   type JobStatusEvent,
   type JobTarget,
   type Note,
+  type NoteText,
   type PrinterTarget,
   type PrintHandle,
   type Registry,
@@ -28,7 +29,7 @@ export interface TerminalRecord {
   filament?: FilamentUse;
   stage?: Stage;
   reason?: string;
-  notes?: string;
+  notes?: NoteText;
   timings?: StageTiming[];
 }
 

@@ -1,27 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { type NoteText, note, notesText, noteText } from "@conveyor/shared";
+import type { TerminalRecord } from "./run.js";
 
-const SRC = import.meta.dir;
-const sources = readdirSync(SRC)
-  .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
-  .map((name) => [name, readFileSync(join(SRC, name), "utf8")] as const);
+type Takes<Field, Value> = [Value] extends [Field] ? true : false;
 
-describe("every job note the worker writes comes from the shared builder", () => {
-  test("a stored notes field is only ever noted(run) or a pass-through", () => {
-    const fields = sources.flatMap(([name, text]) =>
-      [...text.matchAll(/\bnotes: (.+)$/gm)].map((m) => `${name}: ${m[1]?.trim()}`),
-    );
-    const allowed = /: (noted\(run[,)]|extra\.notes,|outcome\.notes \?\? null,|\[\],|Note\[\];)/;
-    expect(fields.filter((field) => !allowed.test(field))).toEqual([]);
-    expect(fields.length).toBeGreaterThan(5);
+const stringIsRefused: Takes<TerminalRecord["notes"], string> = false;
+const builtIsTaken: Takes<TerminalRecord["notes"], NoteText> = true;
+
+describe("a stored job note is only ever built text", () => {
+  test("the record's notes field refuses a plain string and takes built text", () => {
+    expect([stringIsRefused, builtIsTaken]).toEqual([false, true]);
   });
 
-  test("nothing pushes a hand-written string onto run.notes", () => {
-    const pushes = sources.flatMap(([name, text]) =>
-      [...text.matchAll(/notes\.push\(([^)]*\)?)/g)].map((m) => `${name}: ${m[1]}`),
+  test("built text joins notes in order and leaves an empty list unset", () => {
+    const record: TerminalRecord = {
+      state: "failed",
+      notes: notesText([note("resumeNoHandle"), note("workDirNotRemoved", "EBUSY")]),
+    };
+    expect(String(record.notes)).toBe(
+      "resume failed: no stored print handle; work dir not removed: EBUSY",
     );
-    expect(pushes.filter((push) => /: [`"']/.test(push))).toEqual([]);
-    expect(pushes.length).toBeGreaterThan(3);
+    expect(notesText([])).toBeUndefined();
+    expect(String(noteText(note("canceledOnPrinter")))).toBe("canceled on printer");
   });
 });
