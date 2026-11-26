@@ -14,7 +14,8 @@ const refused = (
     ...first,
     { click: "role=tab[name='Upload STL']" },
     { upload: "input[type=file]", name: file, text },
-    { waitFor: `[role=alert] >> text=${says}` },
+    { waitFor: `.up .notice.err [role=alert] >> text=${says}` },
+    { waitFor: ".mat .empty >> text=Your model shows here once you choose a file." },
     { wait: 500 },
   ],
 });
