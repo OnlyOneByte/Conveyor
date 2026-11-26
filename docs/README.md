@@ -54,7 +54,7 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 | [design/sqlite-queue.md](design/sqlite-queue.md) | Accepted, in progress: a job queue in SQLite behind `CONVEYOR_QUEUE=sqlite`; Redis is still the default (#5) |
 | [design/track-ui.md](design/track-ui.md) | Accepted, built: the UI rewrite's tokens, IA and Track rail, with [a mockup](design/track-mockup.html); the belt and rail ship in `packages/web` (#49) |
 | [design/sign-in-mockup.html](design/sign-in-mockup.html) | Built: the sign-in screen and error pages (#371) |
-| [design/job-detail-mockup.html](design/job-detail-mockup.html) | Built: the job detail page (#389) |
+| [design/job-detail-mockup.html](design/job-detail-mockup.html) | Built: the job detail page (#388; mockup #377) |
 | [design/printers-mockup.html](design/printers-mockup.html) | Built: the Printers page (#461) |
 | [design/settings-mockup.html](design/settings-mockup.html) | Built: Settings and the profile editor (#474) |
 
