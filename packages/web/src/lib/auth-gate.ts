@@ -28,14 +28,19 @@ export async function fetchAuthStatus(
 ): Promise<AuthStatus> {
   const schema = import("@conveyor/shared/auth-status");
   schema.catch(() => undefined);
+  const late = (e: unknown) => {
+    if (timedOut(e)) return new Unreachable(`GET /auth/status timed out after ${timeoutMs} ms`);
+  };
   const r = await fetchFn(`${API}/auth/status`, { signal: AbortSignal.timeout(timeoutMs) }).catch(
     (e: unknown) => {
-      if (timedOut(e)) throw new Unreachable(`GET /auth/status timed out after ${timeoutMs} ms`);
-      throw e;
+      throw late(e) ?? e;
     },
   );
   if (!r.ok) throw statusError(r, "GET /auth/status");
-  const body: unknown = await r.json().catch(() => undefined);
+  const body: unknown = await r.json().catch((e: unknown) => {
+    const timeout = late(e);
+    if (timeout) throw timeout;
+  });
   const parsed = (await schema).authStatusSchema.safeParse(body);
   if (!parsed.success) throw new Error("GET /auth/status answered in an unexpected shape");
   return parsed.data;

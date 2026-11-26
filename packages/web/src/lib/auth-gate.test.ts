@@ -72,6 +72,25 @@ describe("checkAuth", () => {
     });
   });
 
+  test("a body that stalls past the timeout says timed out, not a bad shape", async () => {
+    const stall = async (_: unknown, init?: RequestInit) => {
+      const body = new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener("abort", () => controller.error(init.signal?.reason));
+        },
+      });
+      return new Response(body, { status: 200 });
+    };
+    const gate = await checkAuth(
+      Object.assign(stall, { preconnect: globalThis.fetch.preconnect }),
+      20,
+    );
+    expect(gate.down).toEqual({
+      hint: "Check that it's running, then try again.",
+      detail: "GET /auth/status timed out after 20 ms",
+    });
+  });
+
   test("the sign-in check waits 8 s before giving up", () => {
     expect(AUTH_TIMEOUT_MS).toBe(8000);
   });
