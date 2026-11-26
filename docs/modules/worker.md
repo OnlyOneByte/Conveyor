@@ -185,6 +185,10 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
   rejects with an `AggregateError` carrying both its stage error and the history error.
 - A materialized profile that cannot be removed after slicing does not fail the job; it is added to the
   job's notes, which appear in the terminal status message.
+- A failed job, in either queue mode, removes everything in its work directory but `engine.log`, so the job
+  page keeps its **Engine log** download; a failure before any engine ran removes the whole directory. A
+  canceled job removes it all. The retention reaper removes what a failed job kept, like any finished job's
+  folder.
 
 ## loop.ts
 
