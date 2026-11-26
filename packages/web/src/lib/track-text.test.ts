@@ -7,6 +7,7 @@ import {
   COLLAPSE_AT,
   chipName,
   collapsedBelt,
+  face,
   groupName,
   groupValues,
   groupVisible,
@@ -53,8 +54,10 @@ describe("chip text", () => {
       "Bin 2×3 · 6u 64%, Gridfinity bin 2×3 · 6u on Ender 3 V3, printing",
     );
     expect(chipName({ id: "u", name: "tray.stl", state: "generating" })).toBe(
-      "tray.stl modelling, tray.stl, modelling",
+      "tray.stl making, tray.stl, modelling",
     );
+    expect(face({ id: "u", name: "tray.stl", state: "generating" })).toBe("making");
+    expect(face(job("printing", 0.64))).toBe("64%");
   });
 
   test("the focus card says what's happening and offers each state's one action", () => {

@@ -9,12 +9,24 @@ export const scenes: Scene[] = [
   })),
   {
     name: "track-stage-words",
-    route: "/primitives/track?jobs=8",
+    route: "/primitives/track?jobs=states",
     ready: "h1",
     steps: [
       { wait: 600 },
       { absent: ".chip .v:has-text('…')" },
-      { waitFor: ".chip:has-text('modelling') >> visible=true" },
+      { waitFor: "a.chip.s-generating .v >> text=making", timeout: 5000 },
+    ],
+  },
+  {
+    name: "track-rail-narrow",
+    route: "/primitives/track?jobs=8",
+    ready: "h1",
+    widths: [390],
+    steps: [
+      { wait: 600 },
+      { absent: ".chip .v:has-text('…')" },
+      { waitFor: "a.chip.s-printing >> visible=true", timeout: 5000 },
+      { absent: "button.grp:has(.ring ~ .ring ~ .ring)" },
     ],
   },
 ];

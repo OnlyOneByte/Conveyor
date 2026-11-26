@@ -3,6 +3,7 @@
   import {
     ACTIONS,
     chipName,
+    face,
     groupName,
     groupValues,
     groupVisible,
@@ -66,7 +67,7 @@
   {:else if job}
     <a class="chip s-{job.state}" href="/jobs/{job.id}" aria-describedby={open ? `${card}-n ${card}-w` : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
       <span class="ring" class:ind={job.state === "generating"} style="--p: {fill(job)}" aria-hidden="true"></span>
-      <span class="t">{shortName(job.name)}</span> <span class="v">{value(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
+      <span class="t">{shortName(job.name)}</span> <span class="v">{face(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
     </a>
   {/if}
   {#if open && job}
