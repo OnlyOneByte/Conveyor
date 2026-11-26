@@ -12,12 +12,13 @@ export async function stubSignedOut(context: BrowserContext): Promise<void> {
 
 export async function stubAuthDown(
   context: BrowserContext,
-  { status, times }: { status: number; times?: number },
+  { status, times, hang }: { status: number; times?: number; hang?: boolean },
 ): Promise<void> {
   let left = times ?? Number.POSITIVE_INFINITY;
   await context.route("**/auth/status", (route) => {
     if (left <= 0) return route.fallback();
     left -= 1;
+    if (hang) return new Promise<void>(() => {});
     return route.fulfill({ status, json: {} });
   });
 }

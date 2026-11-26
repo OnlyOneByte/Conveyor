@@ -1,4 +1,4 @@
-import { type AuthStatus, authStatusSchema } from "@conveyor/shared/auth-status";
+import type { AuthStatus } from "@conveyor/shared/auth-status";
 import { API } from "./api.js";
 import { statusError, Unreachable, unreachable } from "./http-error.js";
 
@@ -26,6 +26,8 @@ export async function fetchAuthStatus(
   fetchFn: typeof fetch = fetch,
   timeoutMs = AUTH_TIMEOUT_MS,
 ): Promise<AuthStatus> {
+  const schema = import("@conveyor/shared/auth-status");
+  schema.catch(() => undefined);
   const r = await fetchFn(`${API}/auth/status`, { signal: AbortSignal.timeout(timeoutMs) }).catch(
     (e: unknown) => {
       if (timedOut(e)) throw new Unreachable(`GET /auth/status timed out after ${timeoutMs} ms`);
@@ -33,7 +35,8 @@ export async function fetchAuthStatus(
     },
   );
   if (!r.ok) throw statusError(r, "GET /auth/status");
-  const parsed = authStatusSchema.safeParse(await r.json().catch(() => undefined));
+  const body: unknown = await r.json().catch(() => undefined);
+  const parsed = (await schema).authStatusSchema.safeParse(body);
   if (!parsed.success) throw new Error("GET /auth/status answered in an unexpected shape");
   return parsed.data;
 }
