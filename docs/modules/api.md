@@ -308,7 +308,8 @@ the api's log into the worker's.
   on each request; both default to `/data` and are overridden together with `DATA_DIR`.
 - The artifact path comes from the job's own durable record, never from the request: the request supplies only
   the job id and the fixed `model | gcode | log` kind. `log` is the job's `engine.log`, at the fixed name
-  `${DATA_DIR}/<jobId>/engine.log` (`engineLogPath`), and is served as `text/plain`. `GET /jobs-history/:id`
+  `${DATA_DIR}/<jobId>/engine.log` (`engineLogPath`), and is served as `text/plain` only once the job has
+  settled; a running job's log answers 404. `GET /jobs-history/:id`
   adds `artifacts.log` when that file exists, which is how the job page knows to offer it.
 - After `realpath` (of the root too, so a symlinked `DATA_DIR` compares correctly), the file must sit under
   the job's own directory and still exist. A recorded file that is gone, or a reaped work directory, is 410;
@@ -455,6 +456,7 @@ registered after the auth guard, so it needs a session like every other route bu
 routes. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
 live counts (`liveJobCounts` from `routes/jobs.ts`, BullMQ `getJobCounts`, or from `routes/jobs-sqlite.ts`,
 `dbLiveJobCounts`), the fresh heartbeats (`workerFresh`, the same rule `/health/deep` uses) and
-`dbRecentStageDurations` (the timings of the last 500 done jobs), bucketed at 1, 5, 15, 30, 60, 120, 300,
-600, 1800 and 3600 s. A label value that isn't a plain lowercase state or stage name renders as `unknown`, so
+`dbRecentStageDurations` (the timings of the last 500 done jobs). Those are a moving window, so they are
+rendered as gauges, not a histogram: `conveyor_recent_stage_duration_seconds` at `percentile` 50 and 95
+(nearest rank, `quantile`) and `conveyor_recent_stage_samples`. A label value that isn't a plain lowercase state or stage name renders as `unknown`, so
 nothing read from a row can break the format. A failing live count answers 503.

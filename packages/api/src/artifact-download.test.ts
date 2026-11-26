@@ -113,8 +113,25 @@ describe("the engine log", () => {
     expect((await logRefusal("no-log"))[0]).toBe(410);
   });
 
+  test("is refused while the job is still running", async () => {
+    mkdirSync(join(dataDir, "running"));
+    writeFileSync(join(dataDir, "running", "engine.log"), "$ orca-slicer\n");
+    dbRecordJob(db, {
+      id: "running",
+      generatorId: "gridfinity",
+      printerId: "klipper-garage",
+      profileId: "orca/klipper-pla-0.2",
+      state: "slicing",
+    });
+    expect(await logRefusal("running")).toEqual([
+      404,
+      "job running hasn't settled yet, so its engine log isn't ready",
+    ]);
+  });
+
   test("a symlinked engine.log that leaves the job's folder is refused", async () => {
     mkdirSync(join(dataDir, "log-link"));
+    writeFileSync(join(dataDir, "secret.txt"), "x");
     symlinkSync(join(dataDir, "secret.txt"), join(dataDir, "log-link", "engine.log"));
     job("log-link");
     expect(await logRefusal("log-link")).toEqual([

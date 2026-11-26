@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,11 @@ import { METRICS_CONTENT_TYPE, registerMetricsRoutes } from "./metrics.js";
 const dir = mkdtempSync(join(tmpdir(), "conveyor-metrics-"));
 const db = openDb(join(dir, "conveyor.db"));
 const NOW = 1_800_000_000_000;
-let live: () => Promise<Record<string, number>> = async () => ({ waiting: 2, active: 1 });
+const LIVE = async () => ({ waiting: 2, active: 1 });
+let live: () => Promise<Record<string, number>> = LIVE;
+afterEach(() => {
+  live = LIVE;
+});
 const app = Fastify();
 let base = "";
 
@@ -66,8 +70,10 @@ test("GET /metrics serves counts, live jobs, fresh workers and stage timings", a
   expect(lines).toContain('conveyor_jobs_live{state="waiting"} 2');
   expect(lines).toContain('conveyor_jobs_live{state="active"} 1');
   expect(lines).toContain("conveyor_workers_up 1");
-  expect(lines).toContain('conveyor_stage_duration_seconds_count{stage="slicer"} 1');
-  expect(lines).toContain('conveyor_stage_duration_seconds_sum{stage="slicer"} 40');
+  expect(lines).toContain('conveyor_recent_stage_samples{stage="slicer"} 1');
+  expect(lines).toContain(
+    'conveyor_recent_stage_duration_seconds{stage="slicer",percentile="50"} 40',
+  );
 });
 
 test("GET /metrics carries no job content: ids, params, printers, paths or reasons", async () => {
@@ -93,5 +99,4 @@ test("GET /metrics answers 503 when the job queue can't be counted", async () =>
   const res = await fetch(`${base}/metrics`);
   expect(res.status).toBe(503);
   expect(await res.json()).toEqual({ error: "the job queue is unreachable" });
-  live = async () => ({});
 });

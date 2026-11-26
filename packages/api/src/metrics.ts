@@ -1,6 +1,6 @@
-import type { StageDuration } from "@conveyor/shared/db";
+import { METRICS_TIMING_SAMPLE, type StageDuration } from "@conveyor/shared/db";
 
-export const STAGE_BUCKETS_SECONDS = [1, 5, 15, 30, 60, 120, 300, 600, 1800, 3600] as const;
+export const RECENT_QUANTILES = [0.5, 0.95] as const;
 
 const STAGES = ["generator", "slicer", "transport"] as const;
 
@@ -16,30 +16,36 @@ const NAME = /^[a-z][a-z-]*$/;
 
 const label = (value: string | null) => (value && NAME.test(value) ? value : "unknown");
 
-function block(
-  name: string,
-  type: "counter" | "gauge" | "histogram",
-  help: string,
-  lines: string[],
-) {
+function block(name: string, type: "counter" | "gauge", help: string, lines: string[]) {
   return [`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`, ...lines];
 }
 
-function durationLines(durations: StageDuration[]): string[] {
+const seconds = (durations: StageDuration[], stage: string) =>
+  durations
+    .filter((d) => d.stage === stage)
+    .map((d) => d.durationMs / 1000)
+    .sort((a, b) => a - b);
+
+export function quantile(sorted: number[], q: number): number {
+  return sorted[Math.max(0, Math.ceil(q * sorted.length) - 1)] ?? 0;
+}
+
+function quantileLines(durations: StageDuration[]): string[] {
   return STAGES.flatMap((stage) => {
-    const seconds = durations.filter((d) => d.stage === stage).map((d) => d.durationMs / 1000);
-    const buckets = STAGE_BUCKETS_SECONDS.map(
-      (le) =>
-        `conveyor_stage_duration_seconds_bucket{stage="${stage}",le="${le}"} ${seconds.filter((s) => s <= le).length}`,
+    const sorted = seconds(durations, stage);
+    if (sorted.length === 0) return [];
+    return RECENT_QUANTILES.map(
+      (q) =>
+        `conveyor_recent_stage_duration_seconds{stage="${stage}",percentile="${q * 100}"} ${Number(quantile(sorted, q).toFixed(3))}`,
     );
-    const sum = seconds.reduce((total, s) => total + s, 0);
-    return [
-      ...buckets,
-      `conveyor_stage_duration_seconds_bucket{stage="${stage}",le="+Inf"} ${seconds.length}`,
-      `conveyor_stage_duration_seconds_sum{stage="${stage}"} ${Number(sum.toFixed(3))}`,
-      `conveyor_stage_duration_seconds_count{stage="${stage}"} ${seconds.length}`,
-    ];
   });
+}
+
+function sampleLines(durations: StageDuration[]): string[] {
+  return STAGES.map(
+    (stage) =>
+      `conveyor_recent_stage_samples{stage="${stage}"} ${seconds(durations, stage).length}`,
+  );
 }
 
 export function renderMetrics(input: MetricsInput): string {
@@ -74,10 +80,16 @@ export function renderMetrics(input: MetricsInput): string {
       `conveyor_workers_up ${input.workersUp}`,
     ]),
     ...block(
-      "conveyor_stage_duration_seconds",
-      "histogram",
-      "How long each stage took, over the most recent finished jobs.",
-      durationLines(input.durations),
+      "conveyor_recent_stage_duration_seconds",
+      "gauge",
+      `Median and 95th percentile of each stage's time over the last ${METRICS_TIMING_SAMPLE} done jobs. A moving window, not a counter: graph it as is, never rate() it.`,
+      quantileLines(input.durations),
+    ),
+    ...block(
+      "conveyor_recent_stage_samples",
+      "gauge",
+      "How many of those recent done jobs timed each stage.",
+      sampleLines(input.durations),
     ),
   ].join("\n")}\n`;
 }

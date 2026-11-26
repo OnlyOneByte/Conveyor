@@ -55,13 +55,34 @@ test("engine.log stops at its size cap and says it was cut off", async () => {
   }
 });
 
-test("a work directory that can't hold the log never fails the engine run", async () => {
+test("the cap covers the job's whole engine.log, across every run", async () => {
+  const ctx = testCtx();
+  try {
+    const big = `head -c ${3 * 1024 * 1024} /dev/zero | tr '\\0' x`;
+    await runEngine("generator", "sh", ["-c", big], ctx);
+    await runEngine("slicer", "sh", ["-c", big], ctx);
+    await runEngine("slicer", "sh", ["-c", "echo after the cap"], ctx);
+    const path = join(ctx.workDir, ENGINE_LOG);
+    const note = `\n[engine log cut off at ${ENGINE_LOG_MAX_BYTES} bytes]\n`;
+    expect((await stat(path)).size).toBe(ENGINE_LOG_MAX_BYTES + note.length);
+    const log = await readFile(path, "utf8");
+    expect(log).toEndWith(note);
+    expect(log).not.toContain("after the cap");
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test("a work directory that can't hold the log never fails the run, and says so once", async () => {
   const ctx = testCtx();
   try {
     const gone = { ...ctx, workDir: join(ctx.workDir, "missing") };
-    await expect(runEngine("slicer", "sh", ["-c", "echo ok"], gone)).resolves.toEqual({
+    await expect(runEngine("slicer", "sh", ["-c", "echo ok; echo more"], gone)).resolves.toEqual({
       stderr: "",
     });
+    expect(ctx.logs).toHaveLength(1);
+    expect(ctx.logs[0]).toStartWith("engine log not written, the job still runs: ");
+    expect(ctx.logs[0]).toContain("ENOENT");
   } finally {
     ctx.cleanup();
   }

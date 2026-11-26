@@ -1,4 +1,5 @@
-import { afterAll, expect, test } from "bun:test";
+import type { Database } from "bun:sqlite";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,9 +7,13 @@ import { enqueueJob } from "../queue/index.ts";
 import { dbRecordJob, openDb } from "./index";
 import { dbFailuresByStage, dbLiveJobCounts, dbRecentStageDurations } from "./metrics";
 
-const dir = mkdtempSync(join(tmpdir(), "conveyor-db-metrics-"));
-const db = openDb(join(dir, "conveyor.db"));
-afterAll(() => {
+let dir = "";
+let db: Database;
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), "conveyor-db-metrics-"));
+  db = openDb(join(dir, "conveyor.db"));
+});
+afterEach(() => {
   db.close();
   rmSync(dir, { recursive: true, force: true });
 });

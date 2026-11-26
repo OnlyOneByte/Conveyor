@@ -235,7 +235,7 @@ The worker logs one JSON line each time a job enters a stage, and one when the j
 
 `outcome` is `done`, `canceled`, `failed` or `lease lost`, and `level` is `error` for the last two. `reason` is the failure reason the job page shows; for an engine that exits with an error, it ends with the last 500 characters of what the engine wrote to stderr. Every other worker line is JSON too, with the same `time` and `level` fields, `"service":"worker"`, and the `jobId` of the job it is about. To follow one job: `docker compose logs worker | grep '"jobId":"<id>"'`. The api logs `job queued` and `job cancel requested` with the same `jobId`, so `docker compose logs api worker | grep '"jobId":"<id>"'` follows a job through both.
 
-**Engine log.** Each job's OpenSCAD and slicer runs write everything they print, stdout and stderr, to `./data/<jobId>/engine.log`, up to 4 MB. Each run starts with the command line and ends with its exit code. The job page offers it under **Files** as **Engine log**, and `GET /api/jobs/<id>/artifact/log` downloads it once the job has settled. It goes with the job's folder after `CONVEYOR_RETENTION_DAYS`.
+**Engine log.** Each job's OpenSCAD and slicer runs write everything they print, stdout and stderr, to `./data/<jobId>/engine.log`. The whole file, every run of the job together, stops at 4 MiB with a line saying it was cut off. Each run starts with the command line and ends with its exit code. If the file can't be written, the job still runs and the worker logs one warning. Once the job has settled, the job page offers it under **Files** as **Engine log** and `GET /api/jobs/<id>/artifact/log` downloads it; while the job runs, that route answers `404`. It goes with the job's folder after `CONVEYOR_RETENTION_DAYS`.
 
 **Metrics.** `GET /api/metrics` answers in the Prometheus text format. It is behind the same sign-in as the rest of the api, so a scraper needs a session cookie, or the stack needs `CONVEYOR_AUTH=disabled` on a network only you can reach. It carries only counts and timings, never a job id, file, printer, profile or error message:
 
@@ -245,7 +245,8 @@ The worker logs one JSON line each time a job enters a stage, and one when the j
 | `conveyor_job_failures_total{stage}` | counter | failed jobs by the stage they failed in, or `unknown` |
 | `conveyor_jobs_live{state}` | gauge | jobs queued or running now: BullMQ's states (`waiting`, `active`, …) on Redis, Conveyor's (`queued`, `slicing`, …) on SQLite |
 | `conveyor_workers_up` | gauge | workers whose heartbeat is fresh, as `/api/health/deep` judges it |
-| `conveyor_stage_duration_seconds{stage}` | histogram | how long each stage took, over the 500 most recent finished jobs |
+| `conveyor_recent_stage_duration_seconds{stage,percentile}` | gauge | the median (`50`) and 95th percentile (`95`) of each stage's time over the last 500 done jobs. It is a moving window, so graph it as it is and never `rate()` it |
+| `conveyor_recent_stage_samples{stage}` | gauge | how many of those jobs timed that stage |
 
 It answers `503` when the job queue can't be counted.
 

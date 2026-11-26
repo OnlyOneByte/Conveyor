@@ -170,7 +170,8 @@ async function refusal(address: string): Promise<string | undefined> {
 
 function withEngineLog(job: Job): Job {
   const log = engineLogPath(job.id);
-  return existsSync(log) ? { ...job, artifacts: { ...job.artifacts, log } } : job;
+  if (!isTerminal(job.state) || !existsSync(log)) return job;
+  return { ...job, artifacts: { ...job.artifacts, log } };
 }
 
 function withRemovedFiles(job: Job): Job & { filesRemovedAfterDays?: number } {

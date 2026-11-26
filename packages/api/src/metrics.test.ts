@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { renderMetrics } from "./metrics";
+import { quantile, renderMetrics } from "./metrics";
 
 const empty = {
   finished: { done: 0, failed: 0, canceled: 0 },
@@ -19,9 +19,9 @@ test("renders Prometheus text with counts, live jobs, workers and stage histogra
     live: { queued: 2, printing: 1 },
     workersUp: 1,
     durations: [
+      { stage: "slicer", durationMs: 90_000 },
       { stage: "slicer", durationMs: 4000 },
       { stage: "slicer", durationMs: 5000 },
-      { stage: "slicer", durationMs: 90_000 },
       { stage: "transport", durationMs: 7_200_000 },
     ],
   });
@@ -32,17 +32,20 @@ test("renders Prometheus text with counts, live jobs, workers and stage histogra
   expect(lines).toContain('conveyor_job_failures_total{stage="slicer"} 1');
   expect(lines).toContain('conveyor_jobs_live{state="queued"} 2');
   expect(lines).toContain("conveyor_workers_up 1");
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="slicer",le="1"} 0');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="slicer",le="5"} 2');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="slicer",le="60"} 2');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="slicer",le="120"} 3');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="slicer",le="+Inf"} 3');
-  expect(lines).toContain('conveyor_stage_duration_seconds_sum{stage="slicer"} 99');
-  expect(lines).toContain('conveyor_stage_duration_seconds_count{stage="slicer"} 3');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="transport",le="3600"} 0');
-  expect(lines).toContain('conveyor_stage_duration_seconds_bucket{stage="transport",le="+Inf"} 1');
-  expect(lines).toContain('conveyor_stage_duration_seconds_count{stage="generator"} 0');
-  expect(lines).toContain("# TYPE conveyor_stage_duration_seconds histogram");
+  expect(lines).toContain(
+    'conveyor_recent_stage_duration_seconds{stage="slicer",percentile="50"} 5',
+  );
+  expect(lines).toContain(
+    'conveyor_recent_stage_duration_seconds{stage="slicer",percentile="95"} 90',
+  );
+  expect(lines).toContain(
+    'conveyor_recent_stage_duration_seconds{stage="transport",percentile="50"} 7200',
+  );
+  expect(lines).toContain('conveyor_recent_stage_samples{stage="slicer"} 3');
+  expect(lines).toContain('conveyor_recent_stage_samples{stage="generator"} 0');
+  expect(text).not.toContain('stage="generator",percentile');
+  expect(lines).toContain("# TYPE conveyor_recent_stage_duration_seconds gauge");
+  expect(text).not.toContain("histogram");
 });
 
 test("a label value that isn't a plain state or stage name becomes unknown", () => {
@@ -57,4 +60,16 @@ test("a label value that isn't a plain state or stage name becomes unknown", () 
   expect(text).toContain('conveyor_job_failures_total{stage="unknown"} 3');
   expect(text).toContain('conveyor_jobs_live{state="unknown"} 4');
   expect(text).not.toContain("conveyor_evil");
+});
+
+test("quantiles use the nearest rank of the sorted durations", () => {
+  expect(quantile([1, 2, 3, 4], 0.5)).toBe(2);
+  expect(quantile([1, 2, 3, 4], 0.95)).toBe(4);
+  expect(quantile([7], 0.5)).toBe(7);
+  expect(
+    quantile(
+      Array.from({ length: 100 }, (_, i) => i + 1),
+      0.95,
+    ),
+  ).toBe(95);
 });

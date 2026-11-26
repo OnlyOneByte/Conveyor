@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { isTerminal } from "@conveyor/shared";
 import { dbGetJob, openDb } from "@conveyor/shared/db";
 import { ENGINE_LOG, isWithin } from "@conveyor/shared/node";
 
@@ -41,6 +42,8 @@ export async function resolveJobArtifact(
   const job = dbGetJob(openDb(), jobId);
   if (!job) throw new ArtifactError(`no settled job with id ${jobId}`);
 
+  if (kind === "log" && !isTerminal(job.state))
+    throw new ArtifactError(`job ${jobId} hasn't settled yet, so its engine log isn't ready`);
   const stored = kind === "log" ? engineLogPath(jobId) : job.artifacts?.[kind];
   if (!stored) throw new ArtifactError(`job ${jobId} has no ${kind} artifact recorded`);
 

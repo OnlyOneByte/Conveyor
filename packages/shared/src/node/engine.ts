@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { StageError } from "../context.js";
@@ -19,10 +19,22 @@ interface EngineLog {
   close(): Promise<void>;
 }
 
-function openEngineLog(workDir: string, cmd: string, args: string[]): EngineLog {
-  const out = createWriteStream(join(workDir, ENGINE_LOG), { flags: "a" });
-  out.on("error", () => {});
-  let room = ENGINE_LOG_MAX_BYTES;
+function sizeOf(path: string): number {
+  try {
+    return statSync(path).size;
+  } catch {
+    return 0;
+  }
+}
+
+function openEngineLog(ctx: StageCtx, cmd: string, args: string[]): EngineLog {
+  const path = join(ctx.workDir, ENGINE_LOG);
+  let room = ENGINE_LOG_MAX_BYTES - sizeOf(path);
+  const out = createWriteStream(path, { flags: "a" });
+  out.on("error", (err) => {
+    room = 0;
+    ctx.log(`engine log not written, the job still runs: ${err.message}`);
+  });
   const write = (text: string) => {
     if (room <= 0 || out.destroyed) return;
     const bytes = Buffer.from(text);
@@ -54,7 +66,7 @@ export function runEngine(
   ctx: StageCtx,
 ): Promise<EngineRun> {
   return new Promise((resolve, reject) => {
-    const log = openEngineLog(ctx.workDir, cmd, args);
+    const log = openEngineLog(ctx, cmd, args);
     const child = spawn(cmd, args, { signal: ctx.signal });
     let stderr = "";
     let failed = false;

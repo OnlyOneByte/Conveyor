@@ -199,18 +199,23 @@ describe("GET /jobs/:id", () => {
 });
 
 describe("GET /jobs/:id/artifact/:kind", () => {
+  const settled = (id: string, gcodePath?: string) => {
+    const { printerId, profileId } = request;
+    dbRecordJob(openDb(), {
+      id,
+      generatorId: "gridfinity",
+      printerId,
+      profileId,
+      state: "done",
+      gcodePath,
+    });
+  };
+
   test("streams a settled job's gcode as a named attachment", async () => {
     const workDir = join(dataDir, "printed");
     mkdirSync(workDir);
     writeFileSync(join(workDir, "model.gcode"), "G28\n");
-    dbRecordJob(openDb(), {
-      id: "printed",
-      generatorId: "gridfinity",
-      printerId: request.printerId,
-      profileId: request.profileId,
-      state: "done",
-      gcodePath: join(workDir, "model.gcode"),
-    });
+    settled("printed", join(workDir, "model.gcode"));
     const res = await get("/jobs/printed/artifact/gcode");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/x.gcode");
@@ -220,8 +225,11 @@ describe("GET /jobs/:id/artifact/:kind", () => {
   });
 
   test("the engine log downloads as plain text", async () => {
-    writeFileSync(join(dataDir, "printed", "engine.log"), "$ orca-slicer\n[exited 0]\n");
-    const res = await get("/jobs/printed/artifact/log");
+    const workDir = join(dataDir, "logged");
+    mkdirSync(workDir, { recursive: true });
+    writeFileSync(join(workDir, "engine.log"), "$ orca-slicer\n[exited 0]\n");
+    settled("logged");
+    const res = await get("/jobs/logged/artifact/log");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(res.headers.get("content-disposition")).toBe('attachment; filename="engine.log"');
