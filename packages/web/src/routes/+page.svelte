@@ -23,7 +23,8 @@
   export let data: PageData;
 
   let cat: Awaited<PageData["catalog"]> | null = null;
-  $: void data.catalog.then((loaded) => (cat = loaded));
+  const take = (p: PageData["catalog"]) => p.then((c) => (cat = p === data.catalog ? c : cat));
+  $: void take(data.catalog);
   $: ({ generators, printers, profiles, transports } = cat ?? EMPTY_CATALOG);
 
   const UPLOAD = "upload";

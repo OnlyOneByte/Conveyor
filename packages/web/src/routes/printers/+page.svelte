@@ -88,11 +88,12 @@
 
   async function add() {
     await loading;
-    edit();
+    if (!failed) edit();
   }
 
   onMount(() => {
-    loading = refresh();
+    loading = load();
+    void loading.then(() => Promise.all([poll(), probe()]));
     const timers = [setInterval(poll, POLL_MS), setInterval(probe, REACH_MS)];
     return () => timers.forEach(clearInterval);
   });

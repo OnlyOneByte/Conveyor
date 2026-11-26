@@ -6,19 +6,27 @@
   export let summary: string;
   export let ready: boolean;
   export let failed: boolean;
-  export let add: () => void;
+  export let add: () => Promise<void>;
   export let check: () => void;
 
   let button: HTMLButtonElement | null = null;
   let linked = false;
+  let opening = false;
+
+  async function take() {
+    if (opening) return;
+    opening = true;
+    await add();
+    opening = false;
+  }
 
   $: if (ready && !linked && page.url.searchParams.has("add")) void fromLink();
 
   async function fromLink() {
     linked = true;
-    await goto("/printers", { replaceState: true, keepFocus: true, noScroll: true });
+    await goto("/printers", { replace: true, reset: false });
     button?.focus();
-    add();
+    void add();
   }
 </script>
 
@@ -29,9 +37,11 @@
   </div>
   <div class="acts">
     <button
-      class="btn primary big" type="button" bind:this={button} on:click={add} disabled={failed}
+      class="btn primary big" type="button" bind:this={button} on:click={take} disabled={failed}
+      aria-busy={opening}
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add printer
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      {opening ? "Opening…" : "Add printer"}
     </button>
     <Menu
       label="More"
