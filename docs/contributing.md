@@ -54,8 +54,10 @@ to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that ex
 deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
 whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A
 key written while the file's modules load, before its first hook (BullMQ writes `bull:<queue>:meta` when a queue
-is created), is already in that first snapshot, so the file removes it itself, as `catalog-deletes.test.ts` does
-with `jobQueue.obliterate`. CI's `test` job runs `bun run check:test-leaks` after both test runs; it fails if
+is created), is already in that first snapshot, so the file removes it itself. Every api test file that loads
+`queue.js` at import calls `closeQueue()` (`packages/api/test/helpers/close-queue.ts`) in its `afterAll`: with
+`REDIS_URL` set it reconnects the shared connection if an earlier file closed it, waits for it, and obliterates
+the job queue, and it always disconnects both clients. CI's `test` job runs `bun run check:test-leaks` after both test runs; it fails if
 `$TMPDIR` holds an entry under any prefix in `TEMP_PREFIXES` or Redis holds any key. It sees only what is left at the end: two files
 (`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`, which also hides any
 key an earlier file left. To find those, run each file alone against an empty Redis. To run the check locally,
