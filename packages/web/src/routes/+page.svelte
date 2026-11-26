@@ -3,6 +3,7 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
+  import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
   import PrintAt from "#lib/components/PrintAt.svelte";
   import PrintDock from "#lib/components/PrintDock.svelte";
@@ -13,8 +14,7 @@
   import { dockLine, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
   import { printJob } from "#lib/print-job.js";
-  import type { RerunPayload } from "#lib/rerun.js";
-  import { linkedRetry, takeRerun } from "#lib/rerun.js";
+  import { linkedRetry, type RerunPayload, takeRerun } from "#lib/rerun.js";
   import { failed } from "#lib/said.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -33,8 +33,7 @@
 
   let tab = "";
   let handoff: RerunPayload | null = null;
-  let printerId = "";
-  let profileId = "";
+  let [printerId, profileId] = ["", ""];
   let params: Record<string, unknown> = {};
 
   onMount(showMake);
@@ -99,7 +98,8 @@
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
   $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
-  $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name);
+  $: setup = data.printers.length ? "" : "Add a printer to print";
+  $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name ?? setup);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
   async function print() {
@@ -152,7 +152,7 @@
             hidden={data.printers.length - eligible.length} bind:printerId bind:profileId
           />
         {:else}
-          <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
+          <FirstPrinter none={!data.printers.length} />
         {/if}
       </section>
     </div>

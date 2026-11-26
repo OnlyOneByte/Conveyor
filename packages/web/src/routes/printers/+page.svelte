@@ -13,22 +13,21 @@
     type PrinterReachable,
   } from "#lib/api.js";
   import { POLL_MS } from "#lib/belt.js";
+  import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import PrinterCard from "#lib/components/PrinterCard.svelte";
   import PrinterDialog from "#lib/components/PrinterDialog.svelte";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
   import Menu from "#lib/ui/Menu.svelte";
-  import { goto } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
 
   let printers: CatalogPrinter[] = [];
   let transports: CatalogTransport[] = [];
   let generators: GeneratorSummary[] = [];
   let active: JobView[] = [];
   let reach: Record<string, PrinterReachable> = {};
-  let loaded = false;
-  let failed = false;
-  let now = Date.now();
-  let open = false;
-  let editing: CatalogPrinter | null = null;
+  let [loaded, failed, now, open] = [false, false, Date.now(), false];
+  let [editing, addButton]: [CatalogPrinter | null, HTMLButtonElement | null] = [null, null];
 
   $: catalog = { printers, generators };
   $: cards = printers.map((printer) => ({
@@ -84,8 +83,13 @@
     open = true;
   }
 
+  function fromLink() {
+    addButton?.focus();
+    edit();
+    replaceState("/printers", {});
+  }
   onMount(() => {
-    void refresh();
+    void refresh().then(() => page.url.searchParams.has("add") && fromLink());
     const timers = [setInterval(poll, POLL_MS), setInterval(probe, REACH_MS)];
     return () => timers.forEach(clearInterval);
   });
@@ -99,7 +103,7 @@
     {#if loaded && !failed && printers.length}<p class="sub">{printersSummary(printers, active)}</p>{/if}
   </div>
   <div class="acts">
-    <button class="btn primary big" type="button" on:click={() => edit()} disabled={!loaded || failed}>
+    <button class="btn primary big" type="button" bind:this={addButton} on:click={() => edit()} disabled={!loaded || failed}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add printer
     </button>
     <Menu label="More" items={[{ label: "Check printers again", run: () => void probe() }, { label: "Settings", run: () => goto("/settings") }]} />
@@ -115,10 +119,7 @@
     <div><button class="btn big" type="button" on:click={refresh}>Try again</button></div>
   </div>
 {:else if !printers.length}
-  <div class="empty">
-    <h2>No printers yet</h2>
-    <p class="sub">Add one and Make can send it jobs.</p>
-  </div>
+  <FirstPrinter none onPrinters />
 {:else}
   <ul class="grid" aria-label="Printers">
     {#each cards as { printer, card } (printer.id)}
