@@ -60,7 +60,7 @@ Contracts are in [PLUGINS.md](PLUGINS.md).
    BullMQ and answers `202 { jobId }`. The PWA opens `/api/jobs/:id/ws`, which Caddy hands to the api as `/jobs/:id/ws`.
 3. The worker claims the job and publishes `generating`, `slicing`, `transferring`, then printer progress.
    Artifacts land in `/data/<jobId>/` and pass between stages as path handles.
-4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until something deletes it.
+4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot and `job:<id>:seq` counter expire 7 days after the job settles (`JOB_KEY_TTL_SECONDS`).
 5. `POST /api/jobs/:id/cancel` cancels; `GET /api/jobs/:id/artifact/:kind` downloads the STL, the g-code or the engine log; `GET /api/metrics` serves Prometheus counts.
 
 Full sequence with failure paths: [SEQUENCE.md](SEQUENCE.md).
@@ -71,7 +71,7 @@ Full sequence with failure paths: [SEQUENCE.md](SEQUENCE.md).
 |---|---|
 | Redis | In-flight jobs: queue, live snapshot, status fan-out |
 | SQLite (`DB_PATH`) | Printers, profile edits, finished job history |
-| `/data/<jobId>/` | `model.stl`, `model.gcode` |
+| `/data/<jobId>/` | `model.stl`, `model.gcode`, `engine.log` |
 | `/profiles` (read-only) | Bundled slicer profile defaults, the reset target for edits |
 
 Schema and rationale: [DATA-MODEL.md](DATA-MODEL.md).

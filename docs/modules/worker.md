@@ -38,9 +38,12 @@ Engine verification details: [archive/M1-WORKER-ENGINES.md](../archive/M1-WORKER
 `CONVEYOR_QUEUE` (`redis`, the default, or `sqlite`), logs it, and starts `startRedisWorker` (`index.ts`, BullMQ) or `startSqliteWorker`. That work is `startWorker(env)`, which tests call in process; only the image's run of the file exits on an error and installs the signal handlers. Anything else exits with
 code 1. In `sqlite` mode it also parses `WORKER_CONCURRENCY` once, as a positive integer (default 2), and exits
 with code 1 on anything else, because `NaN` would remove the engine cap and `0` would run nothing. `SIGTERM` or
-`SIGINT` calls `stop()` and exits 0 once every running job has been released. The handler is installed with
-`process.once`, so a second signal during the grace period kills the process at once; a job caught between
-intent and marker is then failed by the reaper with its printer held, as for any crash in that window.
+`SIGINT` calls `stop()` and exits 0 once it returns. In `sqlite` mode that is once every running job has been
+released ([loop.ts](#loopts)); in `redis` mode `stop()` waits for BullMQ's running jobs to finish. The handler is
+installed with `process.once`, so a second signal during the grace period kills the process at once. In `sqlite`
+mode a job caught between intent and marker is then failed by the reaper with its printer held, as for any crash
+in that window. In `redis` mode a killed job stalls, BullMQ fails it and the Redis reaper records it with
+`ORPHAN_REASON`, with no hold ([redis-reaper.ts](#redis-reaperts)).
 `sqlite` also exits with code 1 unless `CONVEYOR_QUEUE_UNSTABLE=1` is set, while the SQLite queue is still
 experimental. The api reads the flag through the same `queueMode`, so the two cannot parse it differently.
 Compose passes one `${CONVEYOR_QUEUE:-redis}` and one `${CONVEYOR_QUEUE_UNSTABLE:-}` to both the api and the
@@ -71,10 +74,10 @@ mode, with that error as the reason, until someone releases it.
 
 ## printer-files.ts
 
-After every print `printStage` starts settles (done or failed), and while the printer lock or the SQLite slot is
+After every print `printStage` starts settles (done, failed, or canceled on the printer), and while the printer lock or the SQLite slot is
 still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
 from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
-earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`: a `done` row, which is recorded with no stage, or any row whose stage is `transport`; a job canceled while queued or reaped before any stage, recorded with no stage, does not count), up to that many. Jobs
+earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`: a `done` row, which on Redis is recorded with no stage, or any row whose stage is `transport`; a job canceled while queued or reaped before any stage, recorded with no stage, does not count), up to that many. Jobs
 that failed while generating or slicing never put a file on the printer, so they don't use up a place. At 0 it
 names none, but the transport still spares whatever file the printer has loaded, and Klipper keeps a finished
 print's file loaded, so on Moonraker that file goes at a later cleanup rather than at settle. The prune is

@@ -26,15 +26,17 @@ Work from a fresh `origin/main`. Every item is checked or written down as a find
    packages and their imports, routes in `packages/api/src/routes/`, job states in `packages/shared/src/job.ts`.
 5. **Env and config.** Every environment variable the code reads is documented, and every documented
    variable is still read. The grep catches `process.env.X`, `Bun.env.X`, an injected `env.X` and `env["X"]`:
-   `git grep -ohE '\benv(\.|\[")[A-Z_]+' -- packages plugins scripts tools | sort -u`.
+   `git grep -ohE '\benv(\.|\[")[A-Z_]+' -- packages plugins scripts tools | sort -u`. It misses a name passed in
+   as a string, such as `positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", …)`, so also run
+   `git grep -ohE '"(CONVEYOR|MOONRAKER|ELEGOO|PRINTER|ORCA|PRUSA|OPENSCAD)_[A-Z_]+"' -- packages plugins | sort -u`.
 6. **Rules vs CI.** The check table in `AGENTS.md` matches the job names in `.github/workflows/ci.yml`, and
    each `[CI]` tag points at a check that really enforces it. A `[review]` rule that is now enforced becomes
    `[CI]`.
 7. **Rules vs rubric.** `AGENTS.md` limits and conventions agree with [review-rubric.md](review-rubric.md), and that page is still a verbatim copy of the reviewer kit's `RUBRIC.md`.
 8. **ADRs.** Every merged decision with alternatives since the last audit (new dependency, pattern or major
    upgrade) has an ADR, and superseded ADRs say so in their status line.
-9. **Modules.** Every package has a `docs/modules/<package>.md` once that section exists, and prose moved out
-   of code comments landed there.
+9. **Modules.** Every package under `packages/` has a `docs/modules/<package>.md`, `plugins/` has
+   `docs/modules/plugins.md`, and prose moved out of code comments landed there.
 10. **Length.** `AGENTS.md` stays under about 300 lines; anything longer moves to a linked page.
 
 ## Output

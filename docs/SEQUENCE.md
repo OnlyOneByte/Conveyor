@@ -53,8 +53,8 @@ sequenceDiagram
 
     W->>R: publish state=slicing
     R-->>API-->>PWA: slicing
-    W->>S: slice(model, profileId)
-    S->>S: xvfb-run orca-slicer --slice … --output gcode
+    W->>S: slice(model, profileRef)
+    S->>S: xvfb-run -a orca-slicer --slice 0 --outputdir … (plate_1.gcode → model.gcode)
     S-->>W: GcodeArtifact (/data/{jobId}/model.gcode)
     Note over PWA: optional: swap EXACT stl into viewport
 
@@ -92,22 +92,23 @@ sequenceDiagram
     Note over W,X: Any stage throws
     W->>X: generate / slice / submit
     X-->>W: throw StageError(stage, reason)
+    W->>W: remove /data/{jobId}, then record the failed job in SQLite
     W->>R: publish state=failed {stage,reason}
     R-->>API-->>PWA: failed ❌ (which stage + why)
-    W->>W: cleanup partial /data artifacts
     end
 
     rect rgb(225,235,245)
     Note over PWA,W: User cancels
     PWA->>API: POST /api/jobs/{id}/cancel
-    API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
     alt already done / failed / canceled
         API-->>PWA: 200 {state} (no-op, terminal states are final)
-    else job waiting / delayed / prioritized
+    else job waiting / delayed / prioritized / waiting-children
+        API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
         API->>R: remove from queue
         API->>R: publish state=canceled
         API-->>PWA: 200 {state: canceled}
     else job active
+        API->>R: SET job:{id}:cancel (durable) + PUBLISH job:{id}:control
         API-->>PWA: 202 {state: canceling}
         R->>W: control message, or the flag at the next checkpoint
         W->>X: abort signal (kills engines, aborts upload and status polling)
@@ -132,7 +133,7 @@ sequenceDiagram
 
 ## Notes
 
-- **State is the contract.** Every transition (`queued → generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /api/jobs/{id}` on reconnect).
+- **State is the contract.** Every transition from `generating` on (`generating → slicing → transferring → printing → done|failed|canceled`) is one Redis pub/sub message the API forwards verbatim to the WS. A queued job has no snapshot until the worker publishes `generating`. The PWA is a pure projection of job state — refresh-safe and reconnect-safe (it re-fetches `GET /api/jobs/{id}` on reconnect).
 - **Artifacts live on the shared `/data` volume.** Stages pass `Artifact{path,format}` handles, not bytes, so nothing large crosses a process boundary.
 - **Secrets never reach the client.** Printer API keys live in `PrinterTarget.secrets`, resolved server-side from the printer row; the PWA only ever knows a `printerId`, and reads of the catalog strip secrets to a `hasSecrets` flag.
 - **Capability check is pre-flight.** `validateJob()` runs in the API before enqueue, so an incompatible generator/slicer/transport combo fails fast with a 4xx instead of dying mid-pipeline.

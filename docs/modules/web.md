@@ -8,7 +8,8 @@ behind it live here, one section per file, as the comments come out.
 "Print again" on a receipt and "Pick printer" in the Needs-you tray hand a job's request to Make. They don't
 submit it themselves.
 
-- **The stash.** `stashRerun` writes the request to `sessionStorage` and navigates to `/?rerun=1`. Make reads it
+- **The stash.** `stashRerun` writes the request to `sessionStorage`, and its caller navigates to `/?rerun=1`
+  (`rerunOnMake` for Pick printer, `goto` on the receipt). Make reads it
   once on mount with `takeRerun`, which also clears it, so a refresh doesn't apply it again.
   - **Why not the URL:** generator params are arbitrary JSON, which is fragile and size-limited in a query string.
   - **Why `sessionStorage`:** it is scoped to the tab, so a stale prefill never leaks into a later visit.
@@ -38,14 +39,16 @@ submit it themselves.
   - **Keys:** the rows share one Tab stop. `J`/`K` move real focus, Enter opens, `C` cancels a job on the belt after
     a confirm dialog, `R` retries a failure, and `/` focuses the filter.
   - **When it can't load:** "Can't reach Conveyor" with Try again, never the empty state. `/history` and `/monitor` redirect here.
-- **The belt's feed** (`lib/belt.ts`, `lib/active-jobs.ts`). The shell runs the only `GET /jobs/active` poll:
+- **The belt's feed** (`lib/belt.ts`, `lib/active-jobs.ts`). The shell runs the belt's `GET /jobs/active` poll
+  (the Jobs and Printers pages poll it separately):
   - **Sharing:** each answer goes into the `activeJobs` store, which the queued job card reads instead of
     polling itself.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
     on the belt is moving and has an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
-    so once. When `GET /jobs-history/counts` or Needs you fails, the end counts keep their last values and the belt
-    shows its offline state too ("Can't reach Conveyor", with the last jobs), until a refresh answers again:
+    so once. When `GET /jobs-history/counts` or Needs you fails, the end counts keep their last values. When that
+    failure is Conveyor being unreachable (a network error, or a `502`, `503` or `504`), the belt also shows its
+    offline state ("Can't reach Conveyor", with the last jobs), until a refresh answers again:
     `createEnds` reports each refresh through `down()`, and the layout passes `offline || endsDown`. So a failed
     poll never reads as an empty belt (#530).
 - **Who may run again** (`rerunRequest`). A job runs again with its own request only when it is done or canceled,
@@ -66,11 +69,18 @@ card:
 | Busy | a job on `/jobs/active` names this printer and isn't `queued` | that job, its stage and percent, the time left when the printer reports `print.secondsLeft`, and a bar while printing |
 | Ready | the last probe connected | "Connected" and its latency |
 | Offline | the last probe failed | why in plain words (`unreachableText` maps `timeout`, `ECONNREFUSED` and the rest), and `lastSeenAt` as "Last answered 3h ago" |
-| Checking | no probe has answered yet | nothing else |
+| Checking | no probe has answered | "Checking whether it answers…" |
 
 Busy wins over a failed probe, because a printer that is printing is reachable to the worker. Every card lists
 its waiting jobs (queued ones naming it, oldest first) with links; on an offline printer the list turns red
 and says they can't start until it's back.
+
+A printer with a hold (`printer.hold` from `GET /catalog/printers`) shows an **On hold** block on its card:
+Conveyor stopped sending it jobs because it couldn't tell whether a print started, and the hold's reason sits
+under a closed **Details** disclosure. **Release hold** asks first in a `Confirm` dialog (check the printer,
+then release; **Keep the hold** backs out), then sends `POST /catalog/printers/:id/release` with
+`{ "confirm": true }` (`releasePrinterHold` in `api.ts`) and reloads the printers. A refusal stays on the card
+as "The hold wasn't released: <message>".
 
 Add and Edit open `PrinterDialog.svelte`, a `Dialog` with `Field`s and a real `Select` for the transport.
 `printer-form.ts` holds the rules: `draftErrors` checks the fields on save and then on every change, and focus
@@ -232,7 +242,7 @@ Make's Configure card is generated from the generator's JSON Schema (`paramJsonS
 
 - **`PreviewScene`** rebuilds the procedural bin (`previews/gridfinity.ts`) whenever the params change. That takes well under a millisecond, with no network or server round trip, and Threlte's `is` mounts the prebuilt `THREE.Group` directly. `buildGeometry` centres the bin on the origin, so its underside sits at −h/2. The ground grid, there for scale, is placed at that height; at −radius (the bounding sphere) it used to float tens of millimetres below the model.
 - **`MeshScene`** renders the user's real uploaded STL (the passthrough source), as opposed to the procedural preview. It re-parses whenever the file changes: `STLLoader.parse()` is a synchronous local decode of an `ArrayBuffer`. It recentres the geometry on the origin so the orbit controls frame it.
-- **Auto-spin** is opt-in (Settings → Preferences) and off by default in both scenes. Users who asked the OS for reduced motion never get it.
+- **Auto-spin** is opt-in (Settings → This browser, "Spin the 3D preview") and off by default in both scenes. Users who asked the OS for reduced motion never get it.
 
 ## lib/preferences.ts (per-browser preferences)
 

@@ -177,8 +177,8 @@ dropped. Two guards apply to every upload:
     `complete` and `cancelled` are idle; `printing` and `paused` are busy; `error` is an error; anything else is
     unknown.
   - **Elegoo:** one SDCP `STATUS` request over the socket, bounded by 15 s. `CurrentStatus` all `0` with
-    `PrintInfo.Status` `0`, `8`, `9` or absent is idle; `PrintInfo.Status` `5` or `6` is paused; anything else is
-    busy; an `sdcp/error` push is an error.
+    `PrintInfo.Status` `0`, `8` or `9` is idle; `PrintInfo.Status` `5` or `6` is paused; a missing
+    `CurrentStatus` or `PrintInfo.Status` is unknown; anything else is busy; an `sdcp/error` push is an error.
   - **Anything but idle refuses the upload,** and so does a check that fails or times out: it fails closed. The
     job fails at the transport stage with `PrintNotStartedError`, so a later cancel never sends a stop to the
     other print. The job page says "The printer is busy with another print.", "The printer reports an error.",
@@ -193,7 +193,7 @@ dropped. Two guards apply to every upload:
   busy printer that names no file, deletes nothing. Moonraker reads `print_stats.state` and `filename`, lists
   `GET /server/files/list?root=gcodes` and sends `DELETE /server/files/gcodes/<name>` per file. Elegoo reads the
   status push's `PrintInfo.Filename`, lists `Cmd 258` with `Url: "/local"` (skipping folders, `type` 0) and
-  deletes with one `Cmd 259`; a path in its `ErrData`, or a reply with no data, fails the call, and the error names the files that did go. Neither has run on hardware yet.
+  deletes with one `Cmd 259`; a path in its `ErrData` fails the call, and the error names the files that did go; a reply with no usable data fails it too, saying it is unknown which went. Neither has run on hardware yet.
 - Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
   `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in
@@ -207,7 +207,7 @@ Verify on hardware:
 1. Set the `klipper-garage` printer's address to your Moonraker host, for example `192.168.1.50:7125` or a
    full `http://…` URL.
 2. Auth: either add the worker host to `[authorization] trusted_clients` in `moonraker.conf`, or set the
-   printer's `apiKey` secret in Settings. Upload, status and cancel all send it.
+   printer's `apiKey` secret on the Printers page. Upload, status and cancel all send it.
 3. Unset `CONVEYOR_ENGINE_STUB`, restart the worker and submit a job to Garage Klipper. Confirm that progress
    advances and the job ends `done`.
 4. Mid-print, cancel the job from Monitor (or `POST /api/jobs/:id/cancel`). Confirm that the printer stops and

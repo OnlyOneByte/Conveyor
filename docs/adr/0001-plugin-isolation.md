@@ -68,7 +68,8 @@ additive — existing in-process plugins and the core are untouched.
 
 ## Implementation notes
 
-- Adapters live in `plugins/<stage>/<id>/` and self-register into the worker's `Registry` at startup.
+- Adapters live in `plugins/<stage>/<id>/` and `buildRegistry()` in `plugins/registry/builtin` adds them
+  to the worker's `Registry` at startup.
 - Every adapter wraps engine invocation with: timeout, `SIGKILL` on timeout, stderr capture,
   and translation of non-zero exit / non-2xx into a typed `StageError{stage, reason}`.
 - Long outputs (STL, gcode) are written to the shared `/data` volume; adapters pass

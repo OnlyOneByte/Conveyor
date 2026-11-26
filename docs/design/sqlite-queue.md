@@ -355,8 +355,9 @@ authenticated route like the rest of the api, and it needs a confirmation flag (
 stray request cannot release a hold. A hold is never released automatically: probing the printer cannot tell
 "idle" from "about to start the job we sent".
 
-Until the UI rewrite adds a button, `docs/self-hosting.md` carries this runbook. When `CONVEYOR_AUTH` is on, it
-logs in first and keeps the session cookie in a private temporary file:
+A held printer's card on the Printers page shows the reason and a **Release hold** button, which posts the same
+confirmed request. To release from a script instead: when `CONVEYOR_AUTH` is on, log in first and keep the
+session cookie in a private temporary file:
 
 ```sh
 jar=$(mktemp)
@@ -368,7 +369,7 @@ curl -fsS -b "$jar" -H 'content-type: application/json' -d '{"confirm":true}' \
 rm -f "$jar"; unset CONVEYOR_PW
 ```
 
-`read -rs` keeps the password out of the shell history and the process list. The runbook notes that a
+`read -rs` keeps the password out of the shell history and the process list. A
 password containing `"` or `\` must be JSON-escaped. With auth off, only the second `curl` is needed, without
 `-b`.
 
@@ -630,7 +631,6 @@ it is.
 | A resumable orphan is claimed whatever the engine count | An orphan is claimed only while an engine slot is free, because `claimJob` cannot ask for orphans alone |
 | `PrintNotStartedError` clears the intent and sets no hold ([Submitting](#submitting)) | Every failed `submit()`, `PrintNotStartedError` included, settles `failed` inside the upload window and holds the printer |
 | PR 7 removes the `CONVEYOR_QUEUE_UNSTABLE` guard | The guard stays until PR 9 ([Switching between the two stacks](#switching-between-the-two-stacks)) |
-| While a printer is held, `GET /catalog/printers` and the printer's status show the hold and its reason ([Printer holds](#printer-holds)) | No route returns the hold: `GET /catalog/printers` returns `dbListPrinters(openDb())`, which reads no `hold_*` column, and nothing outside the queue module reads `hold_*` |
 
 ## Risks
 
@@ -650,8 +650,8 @@ it is.
   but resuming after a restart has not been exercised against real hardware. The fallback is a `failed` job
   and a held printer, never a resubmit.
 - **Holds need a person.** A crash during the upload window, or a stop the printer refuses after the intent,
-  holds the printer until someone releases it. That is deliberate, but until the UI rewrite the release is the
-  login-then-release `curl` from the runbook.
+  holds the printer until someone releases it. That is deliberate: the release is the **Release hold** button on the
+  printer's card, or the `curl` above.
 - **Cancel latency** is at most `cancelPollMs` (1 s) in every stage, against effectively immediate today.
 - **Power loss** at `synchronous = NORMAL` can drop the last progress updates. The intent and marker are
   written at `FULL`, so they cannot be lost that way.

@@ -29,14 +29,18 @@ through the `API` base in `lib/api.ts`, and every other path is a page. Two vari
 
 ## Before you push
 
-Each command matches a required CI check of the same name.
+These are the commands CI runs, grouped by the check that runs them (`lint`, `format`, `typecheck`, `bundle`,
+`test`, `no-comments`, `file-size`).
 
 ```bash
-bun run lint
+bun run lint && bun scripts/checks/redis-pins.ts && bun run check:casts
 bun run format:check
 bun run typecheck
-(cd packages/web && bunx svelte-kit sync && bunx svelte-check)
+(cd packages/web && bunx svelte-kit sync && bunx svelte-check && bunx tsc -p src/service-worker/tsconfig.json --noEmit && bunx vite build)
+bun scripts/checks/layout-bundle.ts packages/web/.svelte-kit/output/client
+bun run check:bundle
 bun run test:coverage && bun run check:coverage
+bun run check:test-leaks
 bun run check:comments
 bun run check:lines
 ```
@@ -230,7 +234,7 @@ instead, and also made every pair of PRs that shrank neighbouring entries confli
    `area/*` label.
 5. **UI changes** attach before and after screenshots (and a GIF for motion) under `## Visuals`, with the
    head sha on the `Provenance:` line.
-6. **CI** runs `lint`, `format`, `typecheck`, `test`, `no-comments`, `file-size`, the three Docker builds and `compose`, which
+6. **CI** runs `lint`, `format`, `audit`, `typecheck`, `bundle`, `test`, `no-comments`, `file-size`, the three Docker builds, `orca slice` and `compose`, which
    brings the whole stack up and checks it through Caddy. A new push cancels the older run for the same PR,
    and a new push to `main` cancels any older `main` push run, queued or running, so runner slots go to the
    newest commit. Scheduled runs, manual runs and re-runs of a `main` push run each get a group of their own:
@@ -353,7 +357,7 @@ Action majors are ignored because a new major usually changes inputs, so it gets
 `ci.yml`), so it moves in the PR that bumps CI's Bun. The root and `tools/visual` both pin it to `~1.3.14` for
 that reason. TypeScript majors are ignored as well: TypeScript 7, the native compiler, drops the JS compiler API
 that SvelteKit 3, `svelte-check` and the coverage checker's `type-lines.ts` need (#281 has the details). The
-ignore lives here rather than as a `@dependabot ignore` comment, so it covers both directories and shows in
+ignore lives here rather than as a `@dependabot ignore` comment, so it covers all three directories and shows in
 review. Node image majors are ignored too: Node moves to the next LTS line on purpose, and the odd-numbered
 releases in between are never LTS.
 

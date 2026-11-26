@@ -76,6 +76,15 @@ An `Artifact` is a file on the shared `/data` volume that one stage hands to the
 `StageError` is the typed failure a stage adapter throws. It records which stage failed and why, and its
 message reads `[stage] reason`.
 
+`printerFileName(jobId)` is the name a job's G-code gets on the printer, `conveyor-<jobId>.gcode`, and
+`filesToPrune(paths, keep, printing)` picks which of a printer's files a transport removes: only files with that
+shape, never one named in `keep`, never the one printing. The worker passes `keep` from
+`CONVEYOR_PRINTER_KEEP_FILES` (`printerKeepFiles`, default `DEFAULT_KEEP_FILES` = 1; a whole number, 0 or more,
+or the worker exits at boot): the current job's file plus the newest earlier jobs on that printer that reached
+it, that many in all, and `0` keeps none. It prunes after the print stage, on transports that implement
+`pruneFiles` (Moonraker and Elegoo), and skips it when the submit may have started, didn't start, or Conveyor
+canceled the job. A print canceled on the printer itself is still pruned.
+
 ## events.ts
 
 `JobStatusEvent` is one status update for a job. The API forwards it verbatim to the WebSocket, and the PWA is
@@ -335,7 +344,8 @@ Callers import from `@conveyor/shared/db` only; the module split is not part of 
 
 ### Printers and profiles
 
-`Printer.secrets` is parsed from `secrets_json`, is server-side only and is never serialized to clients.
+A `Printer` carries only `hasSecrets`. The secrets are sealed in `secrets_json`, read server-side only through
+`dbGetPrinterSecrets`, and never serialized to clients.
 `Printer.allowedGenerators` is returned to clients so a form can round-trip it. `undefined` means no
 restriction, which is deliberately distinct from `[]`, an empty allowlist that permits nothing; a stored
 `"[]"` must parse to `[]` and never collapse into "no restriction".
@@ -349,7 +359,7 @@ Profile reads select only the columns a `Profile` needs plus one `is_edited` fla
 
 | Column | On update | Why |
 |---|---|---|
-| `secrets_json` | `COALESCE(new, stored)` | Reads strip secrets, so a client cannot round-trip them. Assigning directly wiped the stored credential whenever someone changed only the address. Omitted keeps what is stored, `{}` clears, `{...}` replaces. |
+| `secrets_json` | `IIF(secrets given, merged, stored)` | Reads strip secrets, so a client cannot round-trip them. Assigning directly wiped the stored credential whenever someone changed only the address. Omitted or `{}` keeps every key, a string sets that key, a `null` value removes it (`mergedSecrets`), and `secrets: null` clears them all. |
 | `allowed_generators_json` | assigned directly | It is returned on read, so omitting it is a deliberate "no restriction". COALESCE would make an allowlist impossible to remove. |
 
 `Profile.hasEditableContent` is true when the profile has an edit: all three Orca documents, or the Prusa
@@ -364,7 +374,7 @@ The Prusa equivalents work on the single `prusa_ini` column, so there is no part
 reset functions return `false` when no such profile exists.
 
 `dbResolveJobTarget(printerId, profileId)` builds a `JobTarget`, deriving the transport from the printer and
-the slicer and flavour from the profile. It returns `null` when either id is unknown, so callers answer 400
+the slicer and flavour from the profile. It returns `null` when either id is unknown, so callers answer 404
 instead of enqueueing a job that cannot run.
 
 ### Jobs
@@ -389,7 +399,7 @@ stored state isn't one of them can't be given a state without making one up, so 
 once. The list queries name their states in SQL, so only `dbGetJob` can meet one.
 
 `dbGetJob(id)` exists because `dbListJobs()` is windowed (50 rows by default; the API's `/jobs-history`
-route in `packages/api/src/routes/catalog.ts` caps a requested limit at 200): a deep link to an older job
+query parser in `packages/api/src/history-query.ts` caps a requested limit at 200): a deep link to an older job
 would otherwise resolve to "not found" only because it fell off the window.
 
 `retry-claims.ts` holds the two reads the Redis worker's reaper needs ([worker.md](worker.md#redis-reaperts)):
@@ -428,15 +438,18 @@ raise `busy_timeout` around the transaction.
 3. **`profiles.orca_*_json` and `profiles.prusa_ini`.** Additive and nullable; `NULL` reads the bundled
    files.
 4. **`jobs.timings_json`.** Additive and nullable; `NULL` on rows recorded before timings existed.
-5. **`jobs.notes`.** Additive and nullable; `NULL` on rows recorded before notes were split from `error`.
-6. **The queue columns on `jobs`** (`attempts`, `run_after`, `lease_*`, `cancel_requested_at`,
+5. **`sessions.password_version`, `jobs.filament_json`, `jobs.dismissed_at`, `jobs.retried_by` and
+   `jobs.notes`.** Each is its own guarded `ADD COLUMN`. `password_version` defaults to `''`, which never
+   matches (see [api.md](api.md#auth-authts-routesauthts)); the rest are nullable, and `notes` is `NULL` on rows
+   recorded before notes were split from `error`.
+6. **The queue columns on `jobs`** (`attempts`, `max_attempts`, `run_after`, `lease_*`, `cancel_requested_at`,
    `submit_started_at`, `submitted_at`, `print_handle_json`, `progress`, `message`) and the `idx_jobs_claim`
    and `idx_jobs_lease` indexes, plus the partial index `idx_jobs_printer_live` over in-flight jobs, which
-   the claim's per-printer check reads. `printers.hold_job_id`, `hold_reason` and `hold_at` are added in
-   the same step. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
+   the claim's per-printer check reads. `printers.hold_job_id`, `hold_reason`, `hold_at`, `last_seen_at` and
+   `last_checked_at` are added in the same step. Additive, nullable or defaulted, so old rows stay inert. The indexes live in
    `migrate()`, not `SCHEMA_SQL`, because `SCHEMA_SQL` runs first and an old table has no such columns yet.
-   The partial indexes `idx_jobs_typical` and `idx_jobs_needs_you`, for the estimate and Needs-you queries,
-   are created there too.
+   The partial indexes `idx_jobs_history`, `idx_jobs_typical` and `idx_jobs_needs_you`, for the history,
+   estimate and Needs-you queries, are created there too.
 7. **Drop `stations`.** A separate guard, not an `else` of step 1: a database migrated by an earlier build
    already has `printer_id` yet may still carry the table. It runs after step 1 because the backfill reads
    it.
@@ -576,7 +589,10 @@ is set, `claimJob` prepares no new job for that printer.
   - `settleCancel`, when the printer did not confirm the stop (`STOP_UNCONFIRMED_REASON`);
   - the reaper, for a job with a submit intent but no marker (`UNKNOWN_REASON`);
   - `failResume`, when a worker restarted mid-print and could not reconnect to the printer
-    (`RESUME_FAILED_REASON`).
+    (`RESUME_FAILED_REASON`);
+  - the worker's transport stage, in both queue modes, when `submit()` throws `PrintMayHaveStartedError`
+    (with that error's reason). On Redis there is no claim; the worker's printer lock reads the hold
+    with `printerHoldReason` and fails the job at the transport stage with `printer is on hold: <reason>`.
 - `releasePrinterHold(db, printerId)` clears all three columns and returns `true` only when there was a
   hold. The API's `POST /catalog/printers/:id/release` calls it after an explicit confirmation (see
   [api.md](api.md#printer-holds-routesprinter-holdsts)).

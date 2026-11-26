@@ -6,10 +6,10 @@ What Conveyor persists, where, and why. Two stores with a clean split of duties.
 
 | Store | Holds | Why |
 |---|---|---|
-| **SQLite** (file on the `/data` volume) | Durable config + job history: `printers`, `profiles`, `jobs` | Self-hosted single-node app; a file DB needs no extra service, backs up by copying one file, and is plenty fast for this scale. |
+| **SQLite** (file on the `/data` volume) | Durable config + job history: `printers`, `profiles`, `jobs`, plus `job_events`, `sessions` and `meta` | Self-hosted single-node app; a file DB needs no extra service, backs up by copying one file, and is plenty fast for this scale. |
 | **Redis** (default queue, `CONVEYOR_QUEUE=redis`) | Live job state + status pub/sub (BullMQ queue, `job:<id>` snapshot, `job:<id>:status` channel) | Ephemeral, high-churn, fan-out to many WS clients. Already present for the queue. Not used for jobs in SQLite mode. |
-| **Filesystem** (`/data/<jobId>/`) | Artifacts: `model.stl`, `model.gcode` | Large binaries don't belong in a DB; stages pass `{path}` handles (ADR 0001). |
-| **`/profiles/*`** (read-only mount) | Bundled slicer profile **defaults** (Orca machine/filament/process JSON) | Curated by the operator, version-controlled outside the app, mounted read-only. These are the *defaults* and the reset target; a user's edits live in SQLite (below), never on this mount. |
+| **Filesystem** (`/data/<jobId>/`) | Artifacts: `model.stl`, `model.gcode`, `engine.log` | Large binaries don't belong in a DB; stages pass `{path}` handles (ADR 0001). |
+| **`/profiles/*`** (read-only mount) | Bundled slicer profile **defaults** (Orca machine/filament/process JSON, PrusaSlicer `.ini`) | Curated by the operator, version-controlled outside the app, mounted read-only. These are the *defaults* and the reset target; a user's edits live in SQLite (below), never on this mount. |
 
 **Rule of thumb, Redis mode (the default):** Redis is the *live* truth for an in-flight job; SQLite is
 the *durable* truth for config and finished jobs. On a terminal state the worker writes the final `Job`
@@ -69,7 +69,8 @@ optional per-profile edited JSON overriding the bundled files.
 > resets to bundled (validates the bundled files before clearing the override, so a reset
 > never lands on an unslice-able bundle). The bundled-file reader
 > (`packages/api/src/profile-content.ts`) canonicalizes and containment-checks the path
-> under `CONVEYOR_PROFILES_ROOT` and only reads the three allowlisted filenames — no
+> under `CONVEYOR_PROFILES_ROOT` and only reads the three allowlisted Orca filenames, or for Prusa
+> `config.ini` (else the first `.ini` in alphabetical order, at most 512 KiB) — no
 > request-supplied path ever reaches the filesystem.
 >
 > **Limits** (`packages/shared/src/profile.ts`): each document ≤ 256 KiB
@@ -97,10 +98,10 @@ A physical device addressable by a transport. **Secrets live here and never leav
 | `transport_id` | text | `"moonraker"` \| `"elegoo"` |
 | `name` | text | operator label |
 | `address` | text | host:port / mqtt topic / serial |
-| `secrets_json` | text null | API keys/tokens as an AES-256-GCM envelope, `v1:<iv>:<tag>:<ciphertext>` (base64 parts); decrypted only by the worker |
+| `secrets_json` | text null | API keys/tokens as an AES-256-GCM envelope, `v1:<iv>:<tag>:<ciphertext>` (base64 parts); decrypted by the worker before a transport call and by a printer upsert that merges secrets |
 | `allowed_generators_json` | text null | JSON array of generator ids this printer accepts. **NULL = unrestricted**, `[]` = accepts nothing |
 | `created_at` | integer | epoch ms |
-| `hold_job_id`, `hold_reason`, `hold_at` | text / text / integer, null | SQLite mode only: a [printer hold](design/sqlite-queue.md#printer-holds) after an outcome the queue cannot know |
+| `hold_job_id`, `hold_reason`, `hold_at` | text / text / integer, null | A [printer hold](design/sqlite-queue.md#printer-holds) after an outcome Conveyor cannot know, in both queue modes. Both modes: a print start with no answer (`PrintMayHaveStartedError`). SQLite mode also: a job settled inside the upload window, a reaped job whose submit outcome is unknown, a resume that cannot reconnect, and a cancel whose stop was not confirmed |
 | `last_seen_at`, `last_checked_at` | integer null | epoch ms the printer last answered, and the last time anything tried it. Returned as `lastSeenAt` and `lastCheckedAt`, absent until the first check. Written by `dbRecordPrinterCheck`, which never moves either time back |
 
 > `allowed_generators_json` is returned to clients (it is policy, not a secret), so a
@@ -124,13 +125,12 @@ A physical device addressable by a transport. **Secrets live here and never leav
 > an old worker still writing `station_id` fails the job outright (measured:
 > `no such table: stations`, surfaced as a `generator`-stage error, with the history
 > write failing too so the run leaves no durable row). Rolling one image at a time
-> breaks every job that lands on the stale one. Note also that `openDb()` is **lazy** —
-> the migration runs on first database *use*, not at boot — so a restarted service may
-> still show the old shape until it serves its first request.
+> breaks every job that lands on the stale one. The api and the worker both call
+> `openDb()` at startup, so either one migrates the file as soon as it boots.
 
 > **Invariant** (enforced pre-flight by `validateJob` at job submit): a
 > (printer, profile) pair is printable only if the slicer named by
-> `profile.slicer_id` offers `profile.id`, the generator's outputs intersect that
+> `profile.slicer_id` is registered, the generator's outputs intersect that
 > slicer's accepted inputs, and `profile.gcode_flavor ∈ transport.acceptsFlavors` for
 > the transport named by `printer.transport_id`. The PWA filters the profile picker by
 > that last rule so an unprintable pair is never offered.
@@ -153,7 +153,7 @@ row is inserted at enqueue and carries the job through its whole life.
 | `printer_id` | text null | printer used → its transport. Null/`""` when unrecoverable (see migration note) |
 | `profile_id` | text null | profile used → its slicer + g-code flavour |
 | `state` | text | a `JobState`. Redis mode writes only terminal ones: `done` \| `failed` \| `canceled`. SQLite mode also stores `queued` through `printing` |
-| `stage` | text null | stage at failure, if any |
+| `stage` | text null | the stage the job ended in. Redis mode: set for `failed` and `canceled`, null for `done`. SQLite mode: the live stage, kept when the job settles |
 | `error_json` | text null | `{ stage, reason }` on failure |
 | `model_path` | text null | `/data/<id>/model.stl` |
 | `gcode_path` | text null | `/data/<id>/model.gcode` |
@@ -212,9 +212,9 @@ jobs (history pages, and counts over a time window; `dbListJobs`, and `dbCountJo
 
 | Moment | Redis | SQLite | FS |
 |---|---|---|---|
-| submit | enqueue + initial snapshot | — | mkdir `/data/<id>` |
-| generating/slicing/transferring/printing | snapshot + publish each transition | — | write `model.stl`, `model.gcode` |
-| terminal (done/failed/canceled) | final snapshot (expires in 7 days) | **insert/append `jobs` row** | keep gcode; cleanup on failure; the retention reaper removes the folder later |
+| submit | enqueue (no snapshot until the worker publishes `generating`) | — | — |
+| generating/slicing/transferring/printing | snapshot + publish each transition | — | mkdir `/data/<id>` when the worker picks the job up; write `model.stl`, `model.gcode`, `engine.log` |
+| terminal (done/failed/canceled) | final snapshot (expires in 7 days) | **insert/append `jobs` row** | failed or canceled: folder removed at settle; done: folder kept until the retention reaper removes it |
 | operator edits printer/profile | — | upsert | — |
 
 In SQLite mode the Redis column is empty: submit inserts the `jobs` row, every transition updates it and
@@ -225,10 +225,11 @@ settled more than 7 days ago; the `jobs` row stays.
 
 - `conveyor-jobs` — BullMQ queue (BullMQ forbids `:` in a queue name)
 - `job:<id>` — latest `JobStatusEvent` snapshot (reconnect-safe `GET /jobs/:id`); expires 7 days after the job settles, so `GET /jobs/:id` answers `404` for an older job and the PWA reads `GET /jobs-history/:id`
+- `job:<id>:seq` — the job's event sequence counter; expires with the snapshot
 - `job:<id>:status` — pub/sub channel the API bridges to the WS
 - `job:<id>:control` — cancel signal, fast path (API → worker)
 - `jobs:active` — set of in-flight job ids. It is updated in the same Lua script (`PUBLISH_STATUS_SCRIPT`) as the snapshot, so the set and the snapshot always agree on whether a job is live.
-- `job:<id>:cancel` — durable cancel flag with a 7-day TTL, checked by the worker on start and between stages
+- `job:<id>:cancel` — durable cancel flag with a 7-day TTL, checked by the worker on start, between stages, right after `submit()`, after every status event and every 2 s while printing
 
 ## Secrets
 
@@ -243,8 +244,9 @@ decrypt. The `v1:` prefix names the envelope format so a later key or cipher can
 - **Migration.** On first open, one `BEGIN IMMEDIATE` transaction encrypts every plaintext row and
   stores an encrypted key check in `meta.secrets_key_check`. After that, plaintext is refused on read
   and `openDb` refuses a different key.
-- **Who decrypts.** Only the worker, in `resolvePrinterTarget`, right before a transport call. The api
-  encrypts on write and reports `hasSecrets` (the column is non-null); no API response carries secrets.
+- **Who decrypts.** The worker, in `resolvePrinterTarget`, right before a transport call; and the api's
+  printer upsert (`dbUpsertPrinter`), which opens the stored set to merge a write per key before it
+  encrypts it again. The api reports `hasSecrets` (the column is non-null); no API response carries secrets.
 
 This protects copies of `conveyor.db` and its backups. It does not protect against anyone who can read
 both the database and the key.
