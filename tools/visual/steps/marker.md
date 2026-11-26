@@ -1,0 +1,1 @@
+`marker` fails when any match of its selector would draw without a disclosure marker: its computed `display` isn't `list-item`, or its `list-style-type` is `none`. A `summary` styled `display: flex` or `block` loses its ▶/▼ marker, so `touch-receipt-failed` uses it on every Details summary after checking their touch targets.
