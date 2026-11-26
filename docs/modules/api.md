@@ -14,7 +14,9 @@ needs a session), then the generator, upload, catalog and job routes, and the pr
 registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
-that does not opt in.
+that does not opt in. A 401 for an upload body (multipart, chunked, or over 1 MiB) carries
+`Connection: close`, and the api closes the socket once it is sent, so an unauthenticated client can't keep
+trickling one (`routes/close-after.ts`). A 401 for a small JSON body keeps the connection for reuse.
 `routes/auth-guard.test.ts` boots the real `index.ts` with auth on and checks that every mutating route
 answers `401` without a session. `routes/auth-guard-sqlite.test.ts` does the same in `CONVEYOR_QUEUE=sqlite`
 mode for every job route, the WebSocket upgrade and the history routes.
@@ -325,7 +327,10 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
     so a client trickling a byte at a time can't hold a connection or a `.part` file. The overall default is
     one minute plus `MAX_UPLOAD_BYTES` at 64 KiB a second, about 27 minutes for 100 MiB. One per-request
     timer covers both the wait for the file part and the file's bytes, and is cleared when the request ends
-    (`routes/upload-timer.ts`).
+    (`routes/upload-timer.ts`). Behind Caddy, a client on plain HTTP/1.1 sees the 408 (or a 401) only
+    after about 60 s, because Caddy holds the response while the client is still sending. The api has
+    already closed its side by then. Over HTTP/2, which the shipped TLS site and browsers use, the reply
+    arrives at once.
   - **Not empty:** an empty file is a 400: "the file is empty."
   - **Looks like an STL** (`routes/stl-check.ts`): either binary, with at least one triangle and exactly
     `84 + 50 × triangles` bytes, or ASCII, starting with `solid` (after an optional UTF-8 byte-order mark) and
@@ -335,7 +340,9 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
     as a 500.
 - Once every check passes, the `.part` file is renamed to `<uploadId>.stl` in the same folder. A
   write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
-  under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
+  under an id. The default writer opens the `.part` before reading any bytes and writes through that open
+  file, so a client that drops before the open finishes can't leave an empty `.part` behind the clean-up.
+  If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
   A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
 - `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR`, `MAX_UPLOAD_BYTES`,
   `UPLOAD_IDLE_TIMEOUT_MS` and `UPLOAD_TIMEOUT_MS` for the api, the worker and passthrough. The last three

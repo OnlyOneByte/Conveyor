@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { mkdir, rename, rm } from "node:fs/promises";
+import { mkdir, open, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { closeAfterReply } from "./close-after.js";
 import { HEAD_BYTES, looksLikeStl, readFailure } from "./stl-check.js";
 import {
   realTimers,
@@ -16,7 +16,10 @@ import {
 
 export type Write = (path: string, source: AsyncIterable<Buffer>) => Promise<void>;
 
-const streamTo: Write = (path, source) => pipeline(source, createWriteStream(path));
+export const streamTo: Write = async (path, source) => {
+  const file = await open(path, "w");
+  await pipeline(source, file.createWriteStream());
+};
 
 const INCOMPLETE = "the upload didn't finish. Try again.";
 const TOO_SLOW = "the upload took too long. Try again on a faster connection.";
@@ -80,8 +83,7 @@ function cutOff(req: FastifyRequest, reply: FastifyReply) {
     req.socket.destroy();
     return reply;
   }
-  reply.raw.once("finish", () => req.socket.destroy());
-  return reply.code(408).header("connection", "close").send({ error: TOO_SLOW });
+  return closeAfterReply(req, reply).code(408).send({ error: TOO_SLOW });
 }
 
 interface Target {

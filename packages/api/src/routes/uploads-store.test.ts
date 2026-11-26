@@ -1,12 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import { z } from "zod";
 import { HEAD_BYTES } from "./stl-check.js";
-import { registerUploadRoutes, store, type Write } from "./uploads.js";
+import { registerUploadRoutes, store, streamTo, type Write } from "./uploads.js";
 
 const maxBytes = 84 + 50 * 3;
 const SLACK = { idleMs: 30_000, deadlineMs: 600_000 };
@@ -59,6 +59,26 @@ describe("storing an upload", () => {
     expect(seen.size).toBe(64 * 1024);
     expect(seen.head.byteLength).toBe(HEAD_BYTES);
   });
+
+  test.each([0, 1, 3])(
+    "a source that fails after %d chunks leaves no .part, even before the file has opened",
+    async (chunks) => {
+      const folder = join(into, `aborted-${chunks}`);
+      mkdirSync(folder);
+      async function* failing() {
+        for (let i = 0; i < chunks; i++) yield Buffer.from("solid ");
+        throw new Error("the client went away");
+      }
+      for (let i = 0; i < 100; i++) {
+        const failure = await store(join(folder, `${i}.stl.part`), failing(), streamTo).catch(
+          (error: unknown) => error,
+        );
+        expect(failure).toBeInstanceOf(Error);
+      }
+      await Bun.sleep(50);
+      expect(readdirSync(folder)).toEqual([]);
+    },
+  );
 
   test("the default writer streams the bytes to the .part file", async () => {
     const app = Fastify();
