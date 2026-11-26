@@ -45,4 +45,14 @@ export const scenes: Scene[] = [
     "elegoo idle check from 192.0.2.8: no status within 15000 ms",
     "Conveyor couldn't check that the printer is free",
   ),
+  refused(
+    "receipt-printer-held",
+    "printer is on hold: moonraker gave no answer to print start within 30000 ms",
+    "The printer is on hold until someone checks it.",
+  ),
+  refused(
+    "receipt-printer-start",
+    "moonraker gave no answer to print start within 30000 ms",
+    "Conveyor has put the printer on hold",
+  ),
 ];
