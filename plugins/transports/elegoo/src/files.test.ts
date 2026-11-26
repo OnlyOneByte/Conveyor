@@ -7,6 +7,10 @@ import { elegoo } from "./index";
 
 const tempDir = tempDirs("conveyor-elegoo-files-");
 const RealWebSocket = globalThis.WebSocket;
+const IDLE_PUSH = JSON.stringify({
+  Topic: "sdcp/status/mb",
+  Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: 0 } } },
+});
 const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
 const started: string[] = [];
@@ -20,6 +24,8 @@ class AckingSocket {
     queueMicrotask(() => this.onopen?.());
   }
   send(raw: string) {
+    if (JSON.parse(raw).Data.Cmd === 0)
+      return queueMicrotask(() => this.onmessage?.({ data: IDLE_PUSH }));
     const frame = JSON.parse(raw);
     if (frame.Data.Data?.Filename) started.push(frame.Data.Data.Filename);
     const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: 0 } } };

@@ -17,6 +17,8 @@ test("two jobs to one printer upload and start their own files", async () => {
   const uploaded: string[] = [];
   const starts: string[] = [];
   const answer = async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith("/printer/objects/query?print_stats"))
+      return Response.json({ result: { status: { print_stats: { state: "standby" } } } });
     if (String(url).endsWith("/server/files/upload")) {
       const form = await new Response(init?.body, {
         headers: new Headers(init?.headers),

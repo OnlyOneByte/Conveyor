@@ -5,6 +5,7 @@ import {
   PrintNotStartedError,
   type PrintStatus,
   printerFileName,
+  refuseUnlessIdle,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -15,6 +16,7 @@ import {
   requirePrinterAddress,
   uploadSignal,
 } from "@conveyor/shared/node";
+import { elegooReadiness } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
@@ -37,6 +39,10 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
+    refuseUnlessIdle(
+      "elegoo",
+      await elegooReadiness(target.address, mainboardId, undefined, ctx.signal),
+    );
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");

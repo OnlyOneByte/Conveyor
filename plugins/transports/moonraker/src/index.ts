@@ -5,6 +5,7 @@ import {
   PrintNotStartedError,
   type PrintStatus,
   printerFileName,
+  refuseUnlessIdle,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -18,6 +19,7 @@ import {
 } from "@conveyor/shared/node";
 import { poll, positiveSetting, unresolved } from "./poll.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
+import { moonrakerReadiness } from "./ready.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = 2000;
@@ -48,6 +50,8 @@ export const moonraker: TransportPlugin = {
     const base = baseUrl(target.address);
     await requirePrinterAddress(target.address);
     const headers = apiKeyHeaders(target);
+    const readyMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
+    refuseUnlessIdle("moonraker", await moonrakerReadiness(base, headers, readyMs, ctx.signal));
 
     const upload = multipartFileUpload(
       { field: "file", path: gcode.path, filename },

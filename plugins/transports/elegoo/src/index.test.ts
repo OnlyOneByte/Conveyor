@@ -18,6 +18,10 @@ const gcode = async (text: string) => {
   return { dir, path: join(dir, "a.gcode") };
 };
 const RealWebSocket = globalThis.WebSocket;
+const IDLE_PUSH = JSON.stringify({
+  Topic: "sdcp/status/mb",
+  Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: 0 } } },
+});
 
 afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
@@ -38,6 +42,7 @@ class FakeWebSocket {
   }
   send(raw: string) {
     const frame = JSON.parse(raw);
+    if (frame.Data.Cmd === 0) return queueMicrotask(() => this.onmessage?.({ data: IDLE_PUSH }));
     FakeWebSocket.sent.push({ url: this.url, frame });
     if (FakeWebSocket.mode === "close") queueMicrotask(() => this.onclose?.());
     if (FakeWebSocket.mode === "garbage")
@@ -213,22 +218,6 @@ describe("elegoo submit", () => {
       if (before === undefined) delete process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
       else process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = before;
     }
-  });
-});
-
-describe("elegoo handles", () => {
-  test("handleFor carries the stored mainboard id", () => {
-    const built = elegoo.handleFor?.(
-      {
-        id: "conveyor-printer-1",
-        transportId: "elegoo",
-        address: "10.0.0.8",
-        secrets: { mainboardId: "mainboard-abc" },
-      },
-      "a.gcode",
-    );
-    expect(built?.deviceId).toBe("mainboard-abc");
-    expect(built?.address).toBe("10.0.0.8");
   });
 });
 

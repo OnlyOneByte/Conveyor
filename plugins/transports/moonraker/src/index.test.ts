@@ -32,6 +32,8 @@ afterAll(() => {
 function fakeFetch(respond: (url: string, init?: RequestInit) => Promise<Response>) {
   const calls: { url: string; init?: RequestInit }[] = [];
   const impl = async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith("/printer/objects/query?print_stats"))
+      return Response.json({ result: { status: { print_stats: { state: "standby" } } } });
     calls.push({ url: String(url), init });
     return respond(String(url), init);
   };
