@@ -127,7 +127,11 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
               dispose();
               write({ state: "slicing", stage: "slicer", progress: 1, message: SLOT_WAIT_MESSAGE });
             }
-            await delay(o.slotRetryMs ?? SLOT_RETRY_MS, undefined, { signal }).catch(() => {});
+            await delay(o.slotRetryMs ?? SLOT_RETRY_MS, undefined, { signal }).catch(
+              (err: unknown) => {
+                if (!signal.aborted) throw err;
+              },
+            );
             if (signal.aborted) return "canceled";
           }
         },

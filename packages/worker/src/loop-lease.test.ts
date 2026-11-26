@@ -65,7 +65,7 @@ describe("the sqlite queue worker", () => {
       {
         generate: async (ctx) => {
           holder.exec("BEGIN IMMEDIATE");
-          await waitForAbort(ctx.signal).catch(() => {});
+          await expect(waitForAbort(ctx.signal)).rejects.toBeDefined();
           holder.exec("COMMIT");
         },
       },

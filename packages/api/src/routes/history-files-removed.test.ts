@@ -95,3 +95,27 @@ test("a job whose folder holds an engine.log lists it as an artifact, and others
   const quiet = job(1, true);
   expect(await entry(quiet)).not.toHaveProperty("artifacts.log");
 });
+
+test("a failed job lists the engine log it kept, and nothing once retention removed it", async () => {
+  const id = crypto.randomUUID();
+  dbRecordJob(openDb(), {
+    id,
+    generatorId: "gridfinity",
+    params: {},
+    printerId: "p",
+    profileId: "q",
+    state: "failed",
+    stage: "slicer",
+    error: { stage: "slicer", reason: "orca-slicer exited 1" },
+  });
+  mkdirSync(join(dir, id));
+  writeFileSync(join(dir, id, "engine.log"), "$ orca-slicer\n[exited 1]\n");
+  expect(await entry(id)).toMatchObject({
+    state: "failed",
+    artifacts: { log: join(dir, id, "engine.log") },
+  });
+  rmSync(join(dir, id), { recursive: true });
+  const gone = await entry(id);
+  expect(gone).not.toHaveProperty("artifacts.log");
+  expect(gone).not.toHaveProperty("filesRemovedAfterDays");
+});

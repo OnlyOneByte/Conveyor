@@ -133,6 +133,12 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "receipt-failed-engine-log",
+    route: "/jobs/seed-failed",
+    ready: "text=didn't finish",
+    steps: [{ waitFor: "role=link[name='Engine log']" }, { wait: 1200 }],
+  },
+  {
     name: "receipt-canceled",
     route: "/jobs/seed-canceled",
     ready: "text=Print again",
