@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "bun";
-import { assertLoopbackCaddy, caddyRun, visualCaddyfile } from "./caddy.ts";
+import { assertLoopbackCaddy, caddyRun, dockerLogs, visualCaddyfile } from "./caddy.ts";
 import { messageOf } from "./errors.ts";
 import { seedHistory } from "./seed.ts";
 import {
@@ -17,6 +17,7 @@ import {
 export interface Stack {
   url: string;
   stop: () => Promise<void>;
+  caddyLogs?: () => string;
 }
 
 type Log = (line: string) => void;
@@ -236,10 +237,10 @@ export async function bootStack(
     const source = await deps.caddyfile(root);
     await writeFile(caddyfile, visualCaddyfile(source, { port, apiPort, webPort }));
     assertLoopbackCaddy(deps.spawnSync, caddyfile, { port, apiPort, webPort });
-    startContainer(deps, handles, leftovers, "Caddy", caddyRun(caddyfile));
+    const caddy = startContainer(deps, handles, leftovers, "Caddy", caddyRun(caddyfile));
     const url = `http://127.0.0.1:${port}`;
     await waitHttp(`${url}/`, 30000, { exitCode: null });
-    return { url, stop };
+    return { url, stop, caddyLogs: dockerLogs(deps.spawnSync, caddy) };
   } catch (err) {
     await stop().catch((stopErr: unknown) => {
       throw new AggregateError([err, stopErr], `${messageOf(err)}; then ${messageOf(stopErr)}`);

@@ -4,13 +4,14 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubAuth } from "./auth.ts";
+import { needsServiceWorker, noteNetwork, watchCss } from "./css-net.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
 import { CAPTURE_NOW, pinHistoryRoute } from "./history.ts";
 import { titleMismatch } from "./hits.ts";
 import { hoverProblem } from "./hover-lint.ts";
 import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
-import { bootStack } from "./stack.ts";
+import { bootStack, type Stack } from "./stack.ts";
 import { runStep } from "./step.ts";
 import { assertStyles } from "./styles.ts";
 
@@ -72,6 +73,7 @@ const dirs = pageDirs(resolve(values.root));
 const BASE_READY_MS = 5000;
 const readyMs = values.base ? BASE_READY_MS : 30000;
 const absent = new Set<string>();
+let caddyLogs: (() => string) | undefined;
 const notOnBase = (scene: Scene) =>
   `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
 
@@ -122,6 +124,7 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
 }
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
+  const [startedAt, logName] = [Date.now(), `${scene.name}-${width}.caddy.log`];
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
   if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
   const context = await browser.newContext({
@@ -130,11 +133,13 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     colorScheme,
     reducedMotion: scene.reducedMotion ? "reduce" : "no-preference",
     ...(scene.touch ? { hasTouch: true, isMobile: true } : {}),
+    serviceWorkers: needsServiceWorker(scene) ? "allow" : "block",
   });
   await pinHistoryRoute(context);
   await context.clock.setSystemTime(CAPTURE_NOW);
   await stubAuth(context, scene);
   const page = await context.newPage();
+  const cssProblems = watchCss(page);
   const landed = new Set<string>();
   page.on("framenavigated", (frame) => {
     const url = new URL(frame.url());
@@ -179,6 +184,8 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
   }
   await sampler?.stop();
   if (!result.error) await assertStyles(page).catch((err) => (result.error = messageOf(err)));
+  const caddy = caddyLogs && { logs: caddyLogs, since: startedAt, path: join(outDir, logName) };
+  if (result.error) result.error = await noteNetwork(result.error, cssProblems(), caddy);
   await writePng(page, result, scene.fullPage ?? true);
   await context.close();
   if (sampler && !result.error) await writeGif(result, sampler.frames);
@@ -214,9 +221,10 @@ function describe(r: ShotResult): string {
 async function main(): Promise<number> {
   await mkdir(outDir, { recursive: true });
   const log = values.verbose ? (line: string) => console.error(line) : () => {};
-  const stack = values.url
+  const stack: Stack = values.url
     ? { url: values.url, stop: async () => {} }
     : await bootStack(resolve(values.root), log);
+  caddyLogs = stack.caddyLogs;
   const browser = await chromium.launch();
   const results: ShotResult[] = [];
   let warnings: string[] = [];
