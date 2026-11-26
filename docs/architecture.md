@@ -61,7 +61,7 @@ Contracts are in [PLUGINS.md](PLUGINS.md).
 3. The worker claims the job and publishes `generating`, `slicing`, `transferring`, then printer progress.
    Artifacts land in `/data/<jobId>/` and pass between stages as path handles.
 4. On a terminal state the worker writes the job row to SQLite; the Redis `job:<id>` snapshot is written with a plain `SET` and no TTL, so it stays until something deletes it.
-5. `POST /api/jobs/:id/cancel` cancels; `GET /api/jobs/:id/artifact/:kind` downloads the STL or g-code.
+5. `POST /api/jobs/:id/cancel` cancels; `GET /api/jobs/:id/artifact/:kind` downloads the STL, the g-code or the engine log; `GET /api/metrics` serves Prometheus counts.
 
 Full sequence with failure paths: [SEQUENCE.md](SEQUENCE.md).
 

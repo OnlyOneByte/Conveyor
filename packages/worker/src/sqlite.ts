@@ -5,6 +5,7 @@ import { buildRegistry } from "@conveyor/plugin-registry";
 import { dbResolveJobTarget, openDb } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
 import { holdPrinter } from "@conveyor/shared/queue";
+import { jobLog, logger } from "./logger.js";
 import { type BaseDeps, type QueueWorker, startQueueWorker } from "./loop.js";
 import { DEFAULT_KEEP_FILES, filesToKeep, printerKeepFiles } from "./printer-files.js";
 import { markPrinterSeen, resolvePrinterTarget } from "./printer-target.js";
@@ -21,7 +22,8 @@ export function sqliteBase(db: Database, keepFiles = DEFAULT_KEEP_FILES): BaseDe
     printerFilesToKeep: (printerId, jobId) => filesToKeep(db, keepFiles, printerId, jobId),
     readFilament: readFilamentUse,
     resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
-    log: (msg) => console.log(msg),
+    log: (msg) => logger.info(msg),
+    logFor: jobLog,
   };
 }
 

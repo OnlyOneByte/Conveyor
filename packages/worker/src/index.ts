@@ -17,6 +17,7 @@ import { type Job, Queue, Worker } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
+import { jobLog, logger } from "./logger.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
 import { filesToKeep, printerKeepFiles } from "./printer-files.js";
 import { printerLock, redisLockStore } from "./printer-lock.js";
@@ -119,7 +120,7 @@ export function startRedisWorker(
   const bus = new StatusBus(commands);
   const printers = printerLock(redisLockStore(commands), {
     held: (printerId) => printerHoldReason(db(), printerId),
-    log: (message) => console.log(`[printer lock] ${message}`),
+    log: (message) => logger.info({ component: "printer lock" }, message),
   });
   const publish: PipelineDeps["publish"] = (id, state, extra) => bus.publish(id, state, extra);
 
@@ -133,7 +134,7 @@ export function startRedisWorker(
     try {
       recordTerminal(jobId, req, { state: "failed", stage, reason });
     } catch (recordErr) {
-      console.error(`[${jobId}] history not recorded: ${messageOf(recordErr)}`);
+      logger.error({ jobId }, `history not recorded: ${messageOf(recordErr)}`);
     }
     await publish(jobId, "failed", { stage, error: { stage, reason } });
   }
@@ -167,7 +168,7 @@ export function startRedisWorker(
           readFilament: readFilamentUse,
           resolveProfile: (target, dir) => resolveProfileForSlice(target, dir),
           cancelRequested: async () => (await commands.exists(jobCancelKey(jobId))) === 1,
-          log: (msg) => console.log(`[${jobId}] ${msg}`),
+          log: jobLog(jobId),
         },
       );
     } finally {
@@ -183,12 +184,14 @@ export function startRedisWorker(
     }),
     "worker",
   );
-  worker.on("ready", () => console.log("conveyor worker ready"));
-  worker.on("failed", (job, err) => console.error(`job ${job?.id} failed:`, err.message));
+  worker.on("ready", () => logger.info("conveyor worker ready"));
+  worker.on("failed", (job, err) => logger.error({ jobId: job?.id }, `job failed: ${err.message}`));
 
   const lookup = logErrors(new Queue(deps.queue, { connection }), "queue lookup");
   const stopReaper = startRedisReaper({
-    ...redisReaperDeps(commands, lookup, (message) => console.log(`[reaper] ${message}`)),
+    ...redisReaperDeps(commands, lookup, (message) =>
+      logger.info({ component: "reaper" }, message),
+    ),
     db,
   });
 

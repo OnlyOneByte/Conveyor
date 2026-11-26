@@ -24,7 +24,8 @@ import { untilReady, withinDeadline } from "../queue-reach.js";
 import { createStatusHub } from "../status-hub.js";
 import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
-import { submitJob } from "./submit.js";
+import type { LiveJobCounts } from "./metrics.js";
+import { logCancel, logSubmitted, submitJob } from "./submit.js";
 
 export const DROP_WITHIN_MS = 5 * 60_000;
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
@@ -34,6 +35,8 @@ const reach = <T>(call: Promise<T>): Promise<T> => withinDeadline(call, QUEUE_DE
 export const countLiveJobs: LiveJobCounter = async (reference, id) =>
   (await reach(jobQueue.getJobs([...LIVE_STATES]))).filter((job) => job?.data?.[reference] === id)
     .length;
+
+export const liveJobCounts: LiveJobCounts = () => reach(jobQueue.getJobCounts(...LIVE_STATES));
 
 export type JobLookup = Pick<Queue<JobRequest>, "getJob">;
 
@@ -95,6 +98,7 @@ export async function registerJobRoutes(
     const result = await submitJob(openDb(), submission, (jobId, request) =>
       enqueue(app, jobId, request),
     );
+    logSubmitted(req.log, submission, result);
     return reply.code(result.code).send(result.body);
   });
 
@@ -179,6 +183,7 @@ export async function registerJobRoutes(
       },
     });
     const result = await reach(canceling);
+    logCancel(req.log, jobId, result.code);
     return reply.code(result.code).send(result.body);
   });
 

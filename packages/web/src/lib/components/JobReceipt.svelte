@@ -72,7 +72,7 @@
       <dl><dt>Used</dt><dd>{used.join(" · ")}</dd></dl>
     </section>
   {/if}
-  {#if job.artifacts?.model || job.artifacts?.gcode}
+  {#if job.artifacts?.model || job.artifacts?.gcode || job.artifacts?.log}
     <section>
       <h2>Files</h2>
       {#if job.filesRemovedAfterDays}
@@ -84,6 +84,9 @@
         {/if}
         {#if job.artifacts.gcode}
           <a class="btn" href={`${API}/jobs/${id}/artifact/gcode`} download>G-code</a>
+        {/if}
+        {#if job.artifacts.log}
+          <a class="btn" href={`${API}/jobs/${id}/artifact/log`} download>Engine log</a>
         {/if}
       </div>
       {/if}

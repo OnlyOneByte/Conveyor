@@ -298,14 +298,19 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
 `parseSubmission` and `registerArtifactRoute` are shared by the job routes of each queue. `parseSubmission`
 parses the body with `jobRequestSchema`, resolves the printer and profile pair (404 when either is unknown)
 and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute` serves
-`GET /jobs/:id/artifact/:kind`, described below.
+`GET /jobs/:id/artifact/:kind`, described below. `logSubmitted` and `logCancel` (`routes/submit.ts`) log
+`job queued` and `job cancel requested` with the `jobId`, in both queue modes, so a job can be followed from
+the api's log into the worker's.
 
 ## Artifact downloads (`artifact-download.ts`)
 
 - The worker writes each job's artifacts under `${DATA_DIR}/<jobId>/`. The API resolves the same root, read
   on each request; both default to `/data` and are overridden together with `DATA_DIR`.
 - The artifact path comes from the job's own durable record, never from the request: the request supplies only
-  the job id and the fixed `model | gcode` kind.
+  the job id and the fixed `model | gcode | log` kind. `log` is the job's `engine.log`, at the fixed name
+  `${DATA_DIR}/<jobId>/engine.log` (`engineLogPath`), and is served as `text/plain` only once the job has
+  settled; a running job's log answers 404. `GET /jobs-history/:id`
+  adds `artifacts.log` when that file exists, which is how the job page knows to offer it.
 - After `realpath` (of the root too, so a symlinked `DATA_DIR` compares correctly), the file must sit under
   the job's own directory and still exist. A recorded file that is gone, or a reaped work directory, is 410;
   an unknown job, a missing record or an escaping path is 404.
@@ -443,3 +448,15 @@ validates the whole workspace against `bun.lock`, so the deps stage copies every
 `package.json`, including ones the API never imports, or bun reports "lockfile had changes" and aborts.
 The image sets `CONVEYOR_HOST=0.0.0.0` so caddy can reach it over the compose network. The api's own default
 is loopback, and the image publishes no port: caddy's publish, on `CONVEYOR_BIND`, is the boundary.
+
+## Metrics (`routes/metrics.ts`, `metrics.ts`)
+
+`GET /metrics` renders Prometheus text (`text/plain; version=0.0.4`, `cache-control: no-store`). It is
+registered after the auth guard, so it needs a session like every other route but `/health` and the login
+routes. `renderMetrics` takes only counts and durations: `dbCountJobs`, `dbFailuresByStage`, the queue's
+live counts (`liveJobCounts` from `routes/jobs.ts`, BullMQ `getJobCounts`, or from `routes/jobs-sqlite.ts`,
+`dbLiveJobCounts`), the fresh heartbeats (`workerFresh`, the same rule `/health/deep` uses) and
+`dbRecentStageDurations` (the timings of the last 500 done jobs). Those are a moving window, so they are
+rendered as gauges, not a histogram: `conveyor_recent_stage_duration_seconds` at `percentile` 50 and 95
+(nearest rank, `quantile`) and `conveyor_recent_stage_samples`. A label value that isn't a plain lowercase state or stage name renders as `unknown`, so
+nothing read from a row can break the format. A failing live count answers 503.

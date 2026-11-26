@@ -85,6 +85,14 @@ job now holding it uploaded. A prune that throws or passes its 60 s timeout is l
 any files it did remove, and never fails the job. `printerKeepFiles` parses the variable when the worker starts
 and stops it, naming the variable, on anything but a whole number 0 or more.
 
+## logger.ts
+
+The worker logs through pino: one JSON line per message, with `level` as a name, an ISO `time` and
+`"service":"worker"`. `jobLog(jobId)` gives a job's pipeline its `log`, so every line about a job carries its
+`jobId`: the Redis worker builds one per job, and the SQLite loop asks `sqliteBase`'s `logFor`. Lines from the
+printer lock, reaper, retention and heartbeat carry a `component`. The per-stage and settled events keep
+`job-log.ts`'s `jsonLine`, which writes the same `time` and `level` fields.
+
 ## sqlite.ts
 
 `startSqliteWorker(env, concurrency)` starts `startQueueWorker` on the database `DB_PATH` names, with the

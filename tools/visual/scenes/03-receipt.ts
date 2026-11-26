@@ -101,6 +101,38 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "receipt-engine-log",
+    route: "/jobs",
+    ready: "h1",
+    steps: [
+      {
+        fulfill: "**/api/jobs-history/seed-failed",
+        status: 200,
+        json: {
+          id: "seed-failed",
+          request: {
+            generator: { id: "gridfinity", params: { gridX: 1, gridY: 1, heightUnits: 3 } },
+            printerId: "klipper-garage",
+            profileId: "prusa/klipper-pla-0.2",
+          },
+          state: "failed",
+          stage: "slicer",
+          error: {
+            stage: "slicer",
+            reason:
+              "prusa-slicer exited 0 but wrote no G-code: All objects are outside of the print volume.",
+          },
+          artifacts: { log: "/data/seed-failed/engine.log" },
+          createdAt: 1767225600000,
+          updatedAt: 1767225600000,
+        },
+      },
+      { follow: "/jobs/seed-failed" },
+      { waitFor: "role=link[name='Engine log']" },
+      { wait: 1200 },
+    ],
+  },
+  {
     name: "receipt-canceled",
     route: "/jobs/seed-canceled",
     ready: "text=Print again",

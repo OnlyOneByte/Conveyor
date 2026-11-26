@@ -31,7 +31,7 @@ export interface Job {
   progress?: number;
   message?: string;
   error?: { stage: Stage; reason: string };
-  artifacts?: { model?: string; gcode?: string };
+  artifacts?: { model?: string; gcode?: string; log?: string };
   timings?: StageTiming[];
   filament?: FilamentUse;
   notes?: string;

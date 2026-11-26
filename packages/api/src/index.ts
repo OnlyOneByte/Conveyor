@@ -10,6 +10,7 @@ import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/au
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
 import { redisPing, registerHealthRoutes } from "./routes/health.js";
+import { registerMetricsRoutes } from "./routes/metrics.js";
 import { registerPrinterHoldRoutes } from "./routes/printer-holds.js";
 import { registerUploadRoutes } from "./routes/uploads.js";
 import { frameworkErrors, registerSecurityHeaders } from "./security-headers.js";
@@ -50,12 +51,13 @@ registerHealthRoutes(app, redisPing(queue), undefined, uploads.dir);
 
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app, uploads);
-const { registerJobRoutes, countLiveJobs } = await import(
+const { registerJobRoutes, countLiveJobs, liveJobCounts } = await import(
   queue === "sqlite" ? "./routes/jobs-sqlite.js" : "./routes/jobs.js"
 );
 await registerCatalogRoutes(app, countLiveJobs);
 await registerPrinterHoldRoutes(app);
 await registerJobRoutes(app);
+registerMetricsRoutes(app, liveJobCounts);
 app.log.info(`conveyor api queue: ${queue}`);
 const onLoopback = loopbackPrinters(dbListPrinters(openDb()));
 if (onLoopback.length)

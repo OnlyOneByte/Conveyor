@@ -19,7 +19,9 @@ import { resumeJob, runJob } from "./pipeline.js";
 import { queueDeps } from "./queue-deps.js";
 import { LeaseLostError, type PipelineDeps, type QueueHooks } from "./run.js";
 
-export type BaseDeps = Omit<PipelineDeps, "publish" | "record" | "cancelRequested" | "queue">;
+export type BaseDeps = Omit<PipelineDeps, "publish" | "record" | "cancelRequested" | "queue"> & {
+  logFor?(jobId: string): (msg: string) => void;
+};
 
 export interface QueueWorkerOptions {
   db: Database;
@@ -136,7 +138,8 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
     const workDir = join(o.dataDir, jobId);
     try {
       await mkdir(workDir, { recursive: true });
-      const deps: PipelineDeps = { ...o.base, ...q.deps };
+      const log = o.base.logFor?.(jobId) ?? o.base.log;
+      const deps: PipelineDeps = { ...o.base, ...q.deps, log };
       if (deps.queue) deps.queue = track(job, deps.queue);
       const opts = { jobId, req: claimed.request, workDir, controller: job.controller };
       const state = await (claimed.resumed ? resumeJob : runJob)(opts, deps);

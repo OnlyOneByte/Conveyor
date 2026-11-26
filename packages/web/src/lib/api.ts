@@ -139,7 +139,7 @@ export interface JobHistoryEntry {
   state: JobState;
   stage?: string | null;
   error?: { stage: string; reason: string };
-  artifacts?: { model?: string; gcode?: string };
+  artifacts?: { model?: string; gcode?: string; log?: string };
   filesRemovedAfterDays?: number;
   timings?: StageTiming[];
   filament?: { grams?: number; metres?: number };
