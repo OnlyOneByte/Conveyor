@@ -7,4 +7,14 @@ export const scenes: Scene[] = [
     ready: "h1",
     steps: [{ wait: 600 }],
   })),
+  {
+    name: "track-stage-words",
+    route: "/primitives/track?jobs=8",
+    ready: "h1",
+    steps: [
+      { wait: 600 },
+      { absent: ".chip .v:has-text('…')" },
+      { waitFor: ".chip:has-text('modelling') >> visible=true" },
+    ],
+  },
 ];
