@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import type { Page } from "playwright";
 import { browserPages } from "./fixtures.ts";
-import { assertStyles, describeStyles, stylesProblem } from "./styles.ts";
+import { assertStyles, describeStyles, failureMessage, stylesProblem } from "./styles.ts";
 
 const withPage = browserPages();
+
+declare const location: { reload(): void };
 
 const applied = {
   sheets: 1,
@@ -143,5 +145,41 @@ test("a forced failure carries the diagnostics, and a setContent rewrite is name
     await expect(assertStyles(page, 200)).rejects.toThrow(
       "The page is about:blank, as page.setContent leaves a fresh page.",
     );
+  });
+}, 30000);
+
+test("the reason survives when the report can't be gathered", async () => {
+  const reason = "styles not applied: --bg isn't set on the root";
+  const lost = () =>
+    Promise.reject(new Error("page.evaluate: Execution context was destroyed\n    at probe"));
+  expect(await failureMessage(reason, lost)).toBe(
+    `${reason}. report unavailable: page.evaluate: Execution context was destroyed`,
+  );
+  expect(await failureMessage(reason, () => Promise.reject("gone"))).toBe(
+    `${reason}. report unavailable: gone`,
+  );
+  await withPage(async (page) => {
+    await serve(page, { "app.css": LAYOUT, "make.css": MAKE });
+    const gather = () => page.evaluate(() => new Promise<never>(() => location.reload()));
+    expect(await failureMessage(reason, gather)).toStartWith(`${reason}. report unavailable: `);
+  });
+}, 30000);
+
+test("an unreadable cross-origin sheet doesn't fail a page whose own sheets apply", async () => {
+  await withPage(async (page) => {
+    await page.route("http://elsewhere.test/**", (route) =>
+      route.fulfill({ contentType: "text/css", body: "p { color: rgb(1, 2, 3); }" }),
+    );
+    await page.route("http://visual.test/**", (route) => {
+      const name = new URL(route.request().url()).pathname.slice(1);
+      if (name === "")
+        return route.fulfill({
+          contentType: "text/html",
+          body: `${PAGE}<link rel="stylesheet" href="http://elsewhere.test/fonts.css">`,
+        });
+      return route.fulfill({ contentType: "text/css", body: name === "app.css" ? LAYOUT : MAKE });
+    });
+    await page.goto("http://visual.test/");
+    await assertStyles(page, 200);
   });
 }, 30000);

@@ -39,7 +39,7 @@ declare const document: {
   styleSheets: Iterable<Sheet>;
   documentElement: { getAttribute(name: string): string | null };
   body: unknown;
-  location: { href: string };
+  location: { href: string; origin: string };
   querySelector(selector: string): unknown;
   querySelectorAll(selector: string): Iterable<{ sheet: Sheet | null; href?: string }>;
 };
@@ -88,12 +88,14 @@ const probe = (frame: typeof FRAME): StyleProbe => {
   };
   const isEmpty = (sheet: Sheet) => readable(sheet) && sheet.cssRules.length === 0;
   const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+  const own = (href: string | undefined) =>
+    URL.canParse(href ?? "") && new URL(href ?? "").origin === document.location.origin;
   const marker = document.querySelector(frame.selector);
   return {
     sheets: sheets.length,
     unloaded: links.filter((link) => !link.sheet).map((link) => link.href ?? ""),
     failed: links
-      .filter((link) => link.sheet && !readable(link.sheet))
+      .filter((link) => own(link.href) && link.sheet && !readable(link.sheet))
       .map((link) => link.href ?? ""),
     empty: sheets.filter(isEmpty).map((sheet) => sheet.href ?? "an inline <style>"),
     token: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
@@ -145,6 +147,19 @@ export function describeStyles(state: StyleReport): string {
   );
 }
 
+export async function failureMessage(
+  problem: string,
+  gather: () => Promise<StyleReport>,
+): Promise<string> {
+  const detail = await gather()
+    .then(describeStyles)
+    .catch((err: unknown) => {
+      const why = err instanceof Error ? err.message : String(err);
+      return `report unavailable: ${why.split("\n")[0]}`;
+    });
+  return `${problem}. ${detail}`;
+}
+
 export async function assertStyles(page: Page, ms = STYLES_MS): Promise<void> {
   const read = async () => stylesProblem(await page.evaluate(probe, FRAME));
   let problem = await read();
@@ -152,5 +167,5 @@ export async function assertStyles(page: Page, ms = STYLES_MS): Promise<void> {
     await Bun.sleep(100);
     problem = await read();
   }
-  if (problem) throw new Error(`${problem}. ${describeStyles(await page.evaluate(report))}`);
+  if (problem) throw new Error(await failureMessage(problem, () => page.evaluate(report)));
 }
