@@ -1,0 +1,408 @@
+{
+  "url": "http://127.0.0.1:41635",
+  "warnings": [],
+  "results": [
+    {
+      "scene": "printer-answering",
+      "width": 1440,
+      "warnings": [],
+      "png": "printer-answering-1440.png"
+    },
+    {
+      "scene": "settings",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-1440.png"
+    },
+    {
+      "scene": "settings-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-add-1440.png"
+    },
+    {
+      "scene": "settings-delete",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-1440.png"
+    },
+    {
+      "scene": "settings-delete-focus-next",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-focus-next-1440.png"
+    },
+    {
+      "scene": "settings-delete-focus-middle",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-focus-middle-1440.png"
+    },
+    {
+      "scene": "settings-delete-focus-previous",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-focus-previous-1440.png"
+    },
+    {
+      "scene": "settings-delete-focus-empty",
+      "width": 1440,
+      "warnings": [],
+      "png": "settings-delete-focus-empty-1440.png"
+    },
+    {
+      "scene": "belt-region",
+      "width": 1440,
+      "warnings": [],
+      "png": "belt-region-1440.png"
+    },
+    {
+      "scene": "printers-hold",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-hold-1440.png"
+    },
+    {
+      "scene": "printers-hold-details",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-hold-details-1440.png"
+    },
+    {
+      "scene": "printers-hold-confirm",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-hold-confirm-1440.png"
+    },
+    {
+      "scene": "printers",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-1440.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-keys-1440.png",
+      "gifBytes": 846156,
+      "gif": "printers-keys-1440.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-invalid-1440.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-add-1440.png",
+      "gifBytes": 667739,
+      "gif": "printers-add-1440.gif"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-delete-1440.png"
+    },
+    {
+      "scene": "offline-nav",
+      "width": 1440,
+      "warnings": [],
+      "png": "offline-nav-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-1440.png",
+      "gifBytes": 739821,
+      "gif": "printers-clear-secrets-1440.gif"
+    },
+    {
+      "scene": "printers-clear-secrets-keep",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-keep-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets-confirm",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-confirm-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets-double",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-double-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets-keyboard",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-keyboard-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets-reset",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-reset-1440.png"
+    },
+    {
+      "scene": "printers-clear-secrets-fails",
+      "width": 1440,
+      "warnings": [],
+      "png": "printers-clear-secrets-fails-1440.png"
+    },
+    {
+      "scene": "first-run-make",
+      "width": 1440,
+      "warnings": [],
+      "png": "first-run-make-1440.png"
+    },
+    {
+      "scene": "first-run-printers",
+      "width": 1440,
+      "warnings": [],
+      "png": "first-run-printers-1440.png"
+    },
+    {
+      "scene": "first-run-limited",
+      "width": 1440,
+      "warnings": [],
+      "png": "first-run-limited-1440.png"
+    },
+    {
+      "scene": "loading-make",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-make-1440.png"
+    },
+    {
+      "scene": "loading-job",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-job-1440.png"
+    },
+    {
+      "scene": "loading-printers",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-printers-1440.png"
+    },
+    {
+      "scene": "loading-settings",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-settings-1440.png"
+    },
+    {
+      "scene": "loading-job-failed",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-job-failed-1440.png"
+    },
+    {
+      "scene": "loading-printers-add",
+      "width": 1440,
+      "warnings": [],
+      "png": "loading-printers-add-1440.png"
+    },
+    {
+      "scene": "printer-answering",
+      "width": 390,
+      "warnings": [],
+      "png": "printer-answering-390.png"
+    },
+    {
+      "scene": "settings",
+      "width": 390,
+      "warnings": [],
+      "png": "settings-390.png"
+    },
+    {
+      "scene": "settings-add",
+      "width": 390,
+      "warnings": [],
+      "png": "settings-add-390.png"
+    },
+    {
+      "scene": "settings-delete",
+      "width": 390,
+      "warnings": [],
+      "png": "settings-delete-390.png"
+    },
+    {
+      "scene": "belt-region",
+      "width": 390,
+      "warnings": [],
+      "png": "belt-region-390.png"
+    },
+    {
+      "scene": "printers-hold",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-hold-390.png"
+    },
+    {
+      "scene": "printers-hold-details",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-hold-details-390.png"
+    },
+    {
+      "scene": "printers-hold-confirm",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-hold-confirm-390.png"
+    },
+    {
+      "scene": "printers",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-390.png"
+    },
+    {
+      "scene": "printers-keys",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-keys-390.png",
+      "gifBytes": 1366240,
+      "gif": "printers-keys-390.gif"
+    },
+    {
+      "scene": "printers-add-invalid",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-invalid-390.png"
+    },
+    {
+      "scene": "printers-add",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-add-390.png",
+      "gifBytes": 1101773,
+      "gif": "printers-add-390.gif"
+    },
+    {
+      "scene": "printers-touch",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-touch-390.png"
+    },
+    {
+      "scene": "printers-delete",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-delete-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-390.png",
+      "gifBytes": 1119842,
+      "gif": "printers-clear-secrets-390.gif"
+    },
+    {
+      "scene": "printers-clear-secrets-keep",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-keep-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets-confirm",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-confirm-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets-double",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-double-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets-keyboard",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-keyboard-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets-reset",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-reset-390.png"
+    },
+    {
+      "scene": "printers-clear-secrets-fails",
+      "width": 390,
+      "warnings": [],
+      "png": "printers-clear-secrets-fails-390.png"
+    },
+    {
+      "scene": "first-run-make",
+      "width": 390,
+      "warnings": [],
+      "png": "first-run-make-390.png"
+    },
+    {
+      "scene": "first-run-add",
+      "width": 390,
+      "warnings": [],
+      "png": "first-run-add-390.png"
+    },
+    {
+      "scene": "first-run-printers",
+      "width": 390,
+      "warnings": [],
+      "png": "first-run-printers-390.png"
+    },
+    {
+      "scene": "first-run-limited",
+      "width": 390,
+      "warnings": [],
+      "png": "first-run-limited-390.png"
+    },
+    {
+      "scene": "loading-make",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-make-390.png"
+    },
+    {
+      "scene": "loading-job",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-job-390.png"
+    },
+    {
+      "scene": "loading-printers",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-printers-390.png"
+    },
+    {
+      "scene": "loading-settings",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-settings-390.png"
+    },
+    {
+      "scene": "loading-job-failed",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-job-failed-390.png"
+    },
+    {
+      "scene": "loading-printers-add",
+      "width": 390,
+      "warnings": [],
+      "png": "loading-printers-add-390.png"
+    }
+  ]
+}
