@@ -53,6 +53,7 @@ export const printerLockKey = (printerId: string) => `printer:${printerId}:lock`
 
 export const pause = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
+    if (signal.aborted) return resolve();
     const timer = setTimeout(done, ms);
     function done() {
       clearTimeout(timer);
