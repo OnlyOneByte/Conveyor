@@ -26,7 +26,7 @@ export const redisPing = (
 
 export const PROBE_LEFTOVER_MS = 60_000;
 
-const PROBE = /^\.health-[0-9a-f-]{36}$/;
+const PROBE = /^\.health-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 async function clearLeftoverProbes(dir: string, now: number): Promise<void> {
   for (const name of await readdir(dir)) {

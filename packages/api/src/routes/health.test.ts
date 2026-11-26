@@ -84,6 +84,8 @@ test("a probe a crash left behind is removed once over a minute old; nothing els
     file(`.health-${id(1)}`, PROBE_LEFTOVER_MS - 10_000),
     file(`${id(3)}.stl`, 10 * PROBE_LEFTOVER_MS),
     file(`.health-${id(4)}.keep`, 10 * PROBE_LEFTOVER_MS),
+    file(`.health-${"-".repeat(36)}`, 10 * PROBE_LEFTOVER_MS),
+    file(`.health-${id(5).replaceAll("-", "0")}`, 10 * PROBE_LEFTOVER_MS),
   ];
   mkdirSync(join(folder, `.health-${id(2)}`));
   touch(`.health-${id(2)}`, 10 * PROBE_LEFTOVER_MS);
