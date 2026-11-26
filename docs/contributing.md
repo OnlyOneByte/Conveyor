@@ -48,10 +48,15 @@ export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
 removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. Every temp name made
 directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
-any other. `test-leaks.test.ts` reads every `mkdtemp` and `mkdtempSync` under `tmpdir()` in the repository with
-TypeScript's parser (`scripts/checks/temp-prefix-scan.ts`). It fails on a prefix the list lacks, and on one it
-can't read as a literal: a template that starts with `${...}`, a prefix in a variable or built with `+`, or a path
-built from `tmpdir()` as text. So a new prefix is a literal and goes into the list. A test file that writes
+any other. `test-leaks.test.ts` reads every `mkdtemp` and `mkdtempSync` call in the repository's `.ts`, `.mts`,
+`.cts`, `.js`, `.mjs` and `.cjs` files with TypeScript's parser (`scripts/checks/temp-prefix-scan.ts`), under any
+name it is imported as or through `fs.`, and it fails closed. A call passes only when its first argument is
+`join(tmpdir(), "<listed prefix>")` written out in place, with `join` or `resolve` and `tmpdir` under any import
+name or as `path.` and `os.`, or `join(<dir>, "<literal>")` inside a dir the same file made that way. Anything
+else fails, naming the file and line: a template that starts with `${...}`, a prefix in a variable or built
+with `+`, `tmpdir()` or the joined path held in a const, `process.env.TMPDIR`, a literal `/tmp` path, or
+`os["tmpdir"]()`. Two reviewed calls are the exceptions, listed with their reason in `REVIEWED`: `tempDirs`' own
+call, and the coverage sweep's probe, which has to sit inside the repository. A test file that writes
 to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
 deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
 whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A

@@ -1,17 +1,32 @@
+import type { EventEmitter } from "node:events";
 import { connection, jobQueue, redis } from "../../src/queue.js";
 import { untilReady } from "../../src/queue-reach.js";
 
 export const QUEUE_TEARDOWN_MS = 5_000;
 
-export async function closeQueue(env: Record<string, string | undefined> = process.env) {
+export interface QueueParts {
+  connection: Pick<EventEmitter, "once" | "off"> & {
+    status: string;
+    connect(): Promise<unknown>;
+    disconnect(): void;
+  };
+  redis: { disconnect(): void };
+  jobQueue: { obliterate(opts: { force: boolean }): Promise<unknown> };
+}
+
+export async function closeQueue(
+  parts: QueueParts = { connection, redis, jobQueue },
+  withinMs = QUEUE_TEARDOWN_MS,
+  url = process.env.REDIS_URL,
+): Promise<void> {
   try {
-    if (env.REDIS_URL) {
-      if (connection.status === "end") await connection.connect();
-      await untilReady(connection, QUEUE_TEARDOWN_MS);
-      await jobQueue.obliterate({ force: true });
+    if (url) {
+      if (parts.connection.status === "end") await parts.connection.connect();
+      await untilReady(parts.connection, withinMs);
+      await parts.jobQueue.obliterate({ force: true });
     }
   } finally {
-    connection.disconnect();
-    redis.disconnect();
+    parts.connection.disconnect();
+    parts.redis.disconnect();
   }
 }

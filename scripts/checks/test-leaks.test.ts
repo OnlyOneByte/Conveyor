@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { TEMP_PREFIXES, watchedPrefix } from "../../packages/shared/test/helpers/temp-prefixes.ts";
-import { type TempDirCall, tempDirCalls } from "./temp-prefix-scan";
+import { SCANNED, type TempDirCall, tempDirCalls } from "./temp-prefix-scan";
 import { leakErrors } from "./test-leaks";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -39,15 +39,16 @@ describe("leakErrors", () => {
 });
 
 const problemOf = (file: string, call: TempDirCall): string | null => {
-  if (call.prefix === null) return `${file}:${call.line}: prefix isn't a literal`;
-  if (!watchedPrefix(call.prefix))
+  if (call.kind === "unreadable")
+    return `${file}:${call.line}: mkdtemp's first argument isn't join(tmpdir(), <literal prefix>): ${call.arg}`;
+  if (call.kind === "listed" && !watchedPrefix(call.prefix))
     return `${file}:${call.line}: ${call.prefix} isn't in TEMP_PREFIXES`;
   return null;
 };
 
 describe("the watched prefixes", () => {
-  test("cover every temp dir a file in the repository makes under tmpdir(), each with a literal prefix", () => {
-    const tracked = Bun.spawnSync(["git", "ls-files", "-z", "*.ts"], { cwd: ROOT });
+  test("cover every temp dir a file in the repository makes, each under tmpdir() with a listed literal prefix", () => {
+    const tracked = Bun.spawnSync(["git", "ls-files", "-z", ...SCANNED], { cwd: ROOT });
     const calls = tracked.stdout
       .toString()
       .split("\0")
