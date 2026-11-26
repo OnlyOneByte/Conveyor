@@ -15,6 +15,18 @@ const KNOWN: [RegExp, string][] = [
     "The model doesn't fit the printer's bed. Make it smaller, or pick a bigger printer.",
   ],
   [
+    /printer is busy/i,
+    "The printer is busy with another print. Wait for it to finish, then retry.",
+  ],
+  [
+    /printer reports an error/i,
+    "The printer reports an error. Clear it on the printer, then retry.",
+  ],
+  [
+    /idle check|printer state unknown/i,
+    "Conveyor couldn't check that the printer is free, so it didn't send the job. Check that the printer is on and connected, then retry.",
+  ],
+  [
     /no answer to print start/i,
     "The printer didn't answer the print start, so it may have started. Check the printer before you retry.",
   ],

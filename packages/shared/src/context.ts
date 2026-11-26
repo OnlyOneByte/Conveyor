@@ -29,3 +29,14 @@ export class PrintNotStartedError extends StageError {
     this.name = "PrintNotStartedError";
   }
 }
+
+export type PrinterReadiness = "idle" | "printing" | "paused" | "error" | "unknown";
+
+export function refuseUnlessIdle(transport: string, state: PrinterReadiness): void {
+  if (state === "idle") return;
+  if (state === "error")
+    throw new PrintNotStartedError(`printer reports an error: ${transport} says error`);
+  if (state === "unknown")
+    throw new PrintNotStartedError(`printer state unknown: ${transport} gave no usable state`);
+  throw new PrintNotStartedError(`printer is busy: ${transport} reports it ${state}`);
+}

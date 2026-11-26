@@ -28,6 +28,9 @@ function servers(redirectPaths: string[]) {
     async fetch(req) {
       await req.arrayBuffer();
       const path = new URL(req.url).pathname;
+      const query = new URL(req.url).search;
+      if (path.endsWith("/printer/objects/query") && query === "?print_stats")
+        return Response.json({ result: { status: { print_stats: { state: "standby" } } } });
       if (redirectPaths.some((p) => path.endsWith(p)))
         return Response.redirect(`http://127.0.0.1:${target.port}/elsewhere`, 302);
       return Response.json({ result: "ok" });
