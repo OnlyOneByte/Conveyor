@@ -68,7 +68,7 @@ const offline: Step[] = [
   down("**/api/jobs-history?*"),
   down("**/api/jobs-history/counts?*"),
   down("**/api/jobs/needs-you"),
-  { waitFor: "text=Can't reach Conveyor >> visible=true", timeout: 15000 },
+  { waitFor: "#belt >> text=Can't reach Conveyor >> visible=true", timeout: 15000 },
   { wait: 400 },
 ];
 
@@ -208,7 +208,7 @@ export const scenes: Scene[] = [
       { fulfill: "**/api/jobs-history/counts*", method: "GET", status: 502, json: {} },
       { fulfill: "**/api/jobs/needs-you", method: "GET", status: 502, json: {} },
       { follow: "/printers" },
-      { waitFor: "text=Can't reach Conveyor >> visible=true", timeout: 15000 },
+      { waitFor: "#belt >> text=Can't reach Conveyor >> visible=true", timeout: 15000 },
       { wait: 400 },
     ],
   },

@@ -174,6 +174,8 @@ describe("bootStack teardown wiring", () => {
     expect(fake.seeded).toEqual([
       { root: "/repo", dbPath: `${fake.dataDirs[0]}/conveyor.db`, spawnedBefore: 0 },
     ]);
+    stack.caddyLogs?.(5000);
+    expect(fake.dockerCalls).toContainEqual(["docker", "logs", "--since", "5.000", "cid-2"]);
     await stack.stop();
     expect(fake.children.map((c) => c.signals)).toEqual([
       ["SIGTERM"],
