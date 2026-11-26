@@ -1,10 +1,11 @@
-import { basename } from "node:path";
 import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
   PrintNotStartedError,
   type PrintStatus,
+  printerFileName,
+  refuseUnlessIdle,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -15,6 +16,7 @@ import {
   requirePrinterAddress,
   uploadSignal,
 } from "@conveyor/shared/node";
+import { elegooReadiness } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
 import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
 
@@ -29,7 +31,7 @@ export const elegoo: TransportPlugin = {
   acceptsFlavors: ["klipper", "marlin"],
 
   async submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle> {
-    const filename = basename(gcode.path);
+    const filename = printerFileName(ctx.jobId);
     if (STUB) {
       ctx.log(`[stub] elegoo upload ${gcode.path} → ${target.address}`);
       return elegooHandle(target, filename);
@@ -37,9 +39,14 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
-    await uploadGcode(target.address, gcode.path, ctx);
+    refuseUnlessIdle(
+      "elegoo",
+      await elegooReadiness(target.address, mainboardId, undefined, ctx.signal),
+    );
+    await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
+    await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
     await sendCommand(target.address, {
@@ -100,8 +107,12 @@ function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
   };
 }
 
-async function uploadGcode(address: string, path: string, ctx: StageCtx): Promise<void> {
-  const filename = basename(path);
+async function uploadGcode(
+  address: string,
+  path: string,
+  filename: string,
+  ctx: StageCtx,
+): Promise<void> {
   const upload = multipartFileUpload({ field: "File", path, filename }, (sent, total) =>
     ctx.reportUpload?.(sent, total),
   );

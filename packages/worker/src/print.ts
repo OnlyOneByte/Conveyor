@@ -4,7 +4,12 @@ import {
   exhaustive,
   type GcodeArtifact,
   type JobTarget,
+  NOTE,
+  type Note,
+  note,
+  noteText,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
   StageError,
@@ -28,8 +33,8 @@ export type PrintOutcome = "done" | "canceled";
 export const RESUMED_MESSAGE = "resumed after worker restart";
 
 export class ResumeFailedError extends Error {
-  constructor(reason: string) {
-    super(reason);
+  constructor(readonly note: Note) {
+    super(noteText(note));
     this.name = "ResumeFailedError";
   }
 }
@@ -44,6 +49,25 @@ export async function printStage(
     await checkpoint(run);
     if ((await queue.takeSlot(run.signal)) === "canceled") throw new JobCanceledError();
   }
+  const lock = queue ? undefined : run.deps.printerLock;
+  if (!lock) return sendAndWatch(run, target, gcode);
+  await checkpoint(run);
+  const held = await lock.acquire(target.printerId, run.signal);
+  run.ctx.confirmStart = () => held.confirm();
+  try {
+    return await sendAndWatch(run, target, gcode);
+  } finally {
+    run.ctx.confirmStart = undefined;
+    await held.release();
+  }
+}
+
+async function sendAndWatch(
+  run: Run,
+  target: JobTarget,
+  gcode: GcodeArtifact,
+): Promise<PrintOutcome> {
+  const queue = run.deps.queue;
   await enterStage(run, "transport", "transferring");
   const transport = run.deps.registry.transports.get(target.transportId);
   if (!transport) throw new StageError("transport", `unknown transport ${target.transportId}`);
@@ -52,6 +76,8 @@ export async function printStage(
   run.print = attempt;
   attempt.handle = await transport.submit(gcode, printer, run.ctx).catch((err) => {
     if (err instanceof PrintNotStartedError) attempt.notStarted = true;
+    if (err instanceof PrintMayHaveStartedError)
+      run.deps.holdPrinter?.(run.opts.jobId, target.printerId, err.reason);
     throw err;
   });
   await queue?.markSubmitted(attempt.handle);
@@ -62,9 +88,9 @@ export async function printStage(
 
 export async function resumePrint(run: Run, handle: PrintHandle): Promise<PrintOutcome> {
   const transport = run.deps.registry.transports.get(handle.transportId);
-  if (!transport) throw new ResumeFailedError(`unknown transport ${handle.transportId}`);
+  if (!transport) throw new ResumeFailedError(note("resumeUnknownTransport", handle.transportId));
   const printer = await run.deps.resolvePrinter(handle.printerId).catch((err: unknown) => {
-    throw new ResumeFailedError(messageOf(err));
+    throw new ResumeFailedError(note("resumeError", messageOf(err)));
   });
   const attempt: PrintAttempt = { transport, printer, ref: handle.ref, handle };
   run.print = attempt;
@@ -114,7 +140,7 @@ async function handleStatus(run: Run, status: PrintStatus): Promise<PrintOutcome
 async function closeStream(
   run: Run,
   statuses: AsyncIterator<PrintStatus>,
-): Promise<string | undefined> {
+): Promise<Note | undefined> {
   if (!statuses.return) return undefined;
   const ms = run.opts.streamCloseMs ?? DEFAULT_STREAM_CLOSE_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -128,18 +154,18 @@ async function closeStream(
     }),
   ]);
   clearTimeout(timer);
-  return failure === undefined ? undefined : `status stream did not close cleanly: ${failure}`;
+  return failure === undefined ? undefined : note("streamNotClosed", failure);
 }
 
-export const SEEN_WRITE_FAILED = "printer last-seen time not recorded";
+export const SEEN_WRITE_FAILED = NOTE.seenNotRecorded;
 
 function markPrinterSeen(run: Run, printerId: string): void {
   try {
     run.deps.printerSeen(printerId);
   } catch (err) {
     run.ctx.log(`job ${run.opts.jobId}: ${SEEN_WRITE_FAILED}: ${messageOf(err)}`);
-    if (!run.notes.some((note) => note.startsWith(SEEN_WRITE_FAILED)))
-      run.notes.push(`${SEEN_WRITE_FAILED}: ${messageOf(err)}`);
+    if (!run.notes.some(({ kind }) => kind === "seenNotRecorded"))
+      run.notes.push(note("seenNotRecorded", messageOf(err)));
   }
 }
 
@@ -157,11 +183,15 @@ async function watchPrint(
   try {
     while (true) {
       const next = await race(run, statuses.next()).catch((err: unknown) => {
-        throw unread && !run.signal.aborted ? new ResumeFailedError(messageOf(err)) : err;
+        throw unread && !run.signal.aborted
+          ? new ResumeFailedError(note("resumeError", messageOf(err)))
+          : err;
       });
       if (next.done) {
         const lost = "connection lost before completion";
-        throw unread ? new ResumeFailedError(lost) : new StageError("transport", lost);
+        throw unread
+          ? new ResumeFailedError(note("resumeConnectionLost"))
+          : new StageError("transport", lost);
       }
       unread = false;
       if (next.value.state !== "transferring") markPrinterSeen(run, handle.printerId);
@@ -175,7 +205,7 @@ async function watchPrint(
     const closeNote = await closeStream(run, statuses);
     if (closeNote) {
       run.notes.push(closeNote);
-      run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${closeNote}`);
+      run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${noteText(closeNote)}`);
     }
   }
 }

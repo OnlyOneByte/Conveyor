@@ -25,6 +25,7 @@ Every doc page is linked from here. Code carries no comments, so the why lives i
 | [modules/shared.md](modules/shared.md) | `packages/shared`: the why behind its types, validation and SQLite store |
 | [modules/api.md](modules/api.md) | `packages/api`: auth, catalog, profile files, artifacts, uploads, probe |
 | [modules/worker.md](modules/worker.md) | `packages/worker`: the worker image's engines, profile materialization and status bus |
+| [modules/web.md](modules/web.md) | `packages/web`: the SvelteKit app's Make, Jobs and Printers pages and the belt, one section per file |
 | [archive/M1-WORKER-ENGINES.md](archive/M1-WORKER-ENGINES.md) | Historical: the M1 worker-engine verification log (2026-06-30), kept for reference |
 | [archive/M2-TRANSPORTS.md](archive/M2-TRANSPORTS.md) | Historical: the M2 transport notes (2026-06-29); the runbooks now live in modules/plugins.md |
 | [archive/ui-mockup.html](archive/ui-mockup.html) | Historical: the pre-M4 UI mockup, kept for reference. It links to an Admin screen for preset uploads, which never shipped |
@@ -51,7 +52,11 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 | Design | Status |
 |---|---|
 | [design/sqlite-queue.md](design/sqlite-queue.md) | Accepted, in progress: a job queue in SQLite behind `CONVEYOR_QUEUE=sqlite`; Redis is still the default (#5) |
-| [design/track-ui.md](design/track-ui.md) | Accepted, not started: the UI rewrite's tokens, IA and Track rail, with [a mockup](design/track-mockup.html) (#49) |
+| [design/track-ui.md](design/track-ui.md) | Accepted, built: the UI rewrite's tokens, IA and Track rail, with [a mockup](design/track-mockup.html); the belt and rail ship in `packages/web` (#49) |
+| [design/sign-in-mockup.html](design/sign-in-mockup.html) | Built: the sign-in screen and error pages (#371) |
+| [design/job-detail-mockup.html](design/job-detail-mockup.html) | Built: the job detail page (#388; mockup #377) |
+| [design/printers-mockup.html](design/printers-mockup.html) | Built: the Printers page (#461) |
+| [design/settings-mockup.html](design/settings-mockup.html) | Built: Settings and the profile editor (#474) |
 
 ## Keeping docs true
 
@@ -61,5 +66,4 @@ Proposals reviewed before any code lands. Once accepted, a design's decision is 
 
 Pages here get created by the PR that first needs them, then linked above:
 
-- `modules/web.md`: the web package's page, written with the UI rewrite. The other packages already have one.
 - `audits/YYYY-MM-DD.md`: doc audit reports.

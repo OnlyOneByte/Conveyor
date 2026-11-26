@@ -46,7 +46,7 @@ app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 registerAuthGuard(app);
 await registerAuthRoutes(app);
 
-registerHealthRoutes(app, redisPing(queue));
+registerHealthRoutes(app, redisPing(queue), undefined, uploads.dir);
 
 await registerGeneratorRoutes(app);
 await registerUploadRoutes(app, uploads);

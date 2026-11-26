@@ -8,6 +8,7 @@ import { ACTIVE_JOBS_KEY, jobSnapshotKey, parseStatusEvent, publishStatus } from
 import { dbGetJob, openDb } from "@conveyor/shared/db";
 import { Queue } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
+import { dropsItsRedisKeys } from "../../shared/test/helpers/index.ts";
 import { type RedisWorker, type RedisWorkerDeps, startRedisWorker } from "./index";
 import { startWorker } from "./main";
 import { ORPHAN_REASON, REAPER_INTERVAL_MS } from "./redis-reaper";
@@ -226,3 +227,5 @@ describe.skipIf(!url)("the Redis worker's double-print guard (real Redis)", () =
     }
   });
 });
+
+dropsItsRedisKeys();

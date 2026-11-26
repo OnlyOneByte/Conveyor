@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
   cancelJob,
   fetchActiveJobs,
-  fetchAuthStatus,
   fetchCatalogPrinters,
   fetchCatalogProfiles,
   fetchCatalogSlicers,
@@ -24,6 +23,7 @@ import {
   submitJob,
   uploadStl,
 } from "./api";
+import { fetchAuthStatus } from "./auth-gate";
 import { Unreachable } from "./http-error";
 
 interface Sent {
@@ -68,7 +68,7 @@ describe("reads", () => {
     await fetchCatalogProfiles();
     await fetchCatalogSlicers();
     await fetchActiveJobs();
-    await fetchAuthStatus();
+    await fetchAuthStatus().catch(() => undefined);
     await fetchJobHistory();
     await fetchPrinterReachable("voron 2");
     expect(sent.map((s) => s.path)).toEqual([

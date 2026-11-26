@@ -5,6 +5,8 @@ import {
   type JobState,
   type JobStatusEvent,
   type JobTarget,
+  type Note,
+  type NoteText,
   type PrinterTarget,
   type PrintHandle,
   type Registry,
@@ -16,6 +18,7 @@ import {
 } from "@conveyor/shared";
 import type { ResumeState } from "@conveyor/shared/queue";
 import { type JobEvent, jsonLine } from "./job-log.js";
+import type { PrinterLock } from "./printer-lock.js";
 import type { ProfileForSlice } from "./profile.js";
 
 export type TerminalState = "done" | "failed" | "canceled";
@@ -27,7 +30,7 @@ export interface TerminalRecord {
   filament?: FilamentUse;
   stage?: Stage;
   reason?: string;
-  notes?: string;
+  notes?: NoteText;
   timings?: StageTiming[];
 }
 
@@ -59,6 +62,8 @@ export interface PipelineDeps {
   resolveJobTarget(req: JobRequest): JobTarget | null;
   resolvePrinter(printerId: string): Promise<PrinterTarget>;
   printerSeen(printerId: string): void;
+  printerLock?: PrinterLock;
+  holdPrinter?(jobId: string, printerId: string, reason: string): void;
   readFilament(gcodePath: string): Promise<FilamentUse | undefined>;
   resolveProfile(target: JobTarget, workDir: string): Promise<ProfileForSlice>;
   cancelRequested(): Promise<boolean>;
@@ -114,7 +119,7 @@ export interface Run {
   gcodePath?: string;
   filament?: FilamentUse;
   print?: PrintAttempt;
-  notes: string[];
+  notes: Note[];
 }
 
 export function messageOf(err: unknown): string {

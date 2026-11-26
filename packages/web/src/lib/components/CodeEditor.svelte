@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import type { Diagnose, EditorHandle, Lang } from "#lib/code-editor.js";
+  import Notice from "./Notice.svelte";
 
   export let file: string;
   export let text: string;
@@ -15,19 +16,26 @@
   let host: HTMLDivElement;
   let editor: EditorHandle | null = null;
   let shown = file;
-  let failed = false;
+  let [failed, busy, misses] = [false, false, 0];
 
-  onMount(async () => {
-    try {
-      const { createEditor } = await import("#lib/code-editor.js");
-      const check = (t: string) => diagnose(t);
-      editor = createEditor(host, { text, lang, label, described, change, diagnose: check });
-      ready = true;
-      host.querySelector<HTMLElement>(".cm-content")?.focus();
-    } catch {
-      failed = true;
+  async function load() {
+    if (busy) return;
+    busy = true;
+    const module = await import("#lib/code-editor.js").catch(() => null);
+    busy = false;
+    if (!module) {
+      [failed, misses] = [true, misses + 1];
+      return;
     }
-  });
+    failed = false;
+    await tick();
+    const check = (t: string) => diagnose(t);
+    editor = module.createEditor(host, { text, lang, label, described, change, diagnose: check });
+    ready = true;
+    host.querySelector<HTMLElement>(".cm-content")?.focus();
+  }
+
+  onMount(load);
 
   $: if (editor && file !== shown) {
     shown = file;
@@ -37,15 +45,16 @@
   onDestroy(() => editor?.destroy());
 </script>
 
-<div class="code" class:bad={invalid} bind:this={host}>
-  {#if failed}
-    <p class="note" role="alert">
-      The editor needs a connection to load. Reconnect, then reload the page.
-    </p>
-  {:else if !editor}
-    <p class="note">Loading the editor…</p>
-  {/if}
-</div>
+{#if failed}
+  <Notice tone="warn" title="You're offline" role="alert" stamp={misses}>
+    <span>This profile opens once Conveyor is reachable again.</span>
+    <button slot="action" class="btn" type="button" aria-disabled={busy} on:click={load}>{busy ? "Trying…" : "Try again"}</button>
+  </Notice>
+{:else}
+  <div class="code" class:bad={invalid} bind:this={host}>
+    {#if !editor}<p class="note">Loading the editor…</p>{/if}
+  </div>
+{/if}
 
 <style>
   .code {
@@ -56,5 +65,6 @@
   .code.bad { border-color: var(--err); }
   .code:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
   .note { margin: 0; padding: var(--s4); color: var(--muted); }
+  .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); }
   @media (max-width: 759px) { .code { height: max(240px, calc(100dvh - 600px)); } }
 </style>

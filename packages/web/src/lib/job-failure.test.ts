@@ -58,3 +58,47 @@ describe("failureText", () => {
     }
   });
 });
+
+test("a print start the printer never answered says it may have started, before any retry", () => {
+  const reason = "moonraker gave no answer to print start within 30000 ms";
+  expect(failureText("transport", reason)).toEqual({
+    title: "Sending to the printer didn't finish",
+    detail:
+      "The printer didn't answer the print start, so it may have started. Conveyor has put it on hold: check it, then choose Release hold on the Printers page before you retry.",
+  });
+});
+
+test.each([
+  [
+    "printer is busy: moonraker reports it printing",
+    "The printer is busy with another print. Wait for it to finish, then retry.",
+  ],
+  [
+    "printer is busy: elegoo reports it paused",
+    "The printer is busy with another print. Wait for it to finish, then retry.",
+  ],
+  [
+    "printer reports an error: elegoo says error",
+    "The printer reports an error. Clear it on the printer, then retry.",
+  ],
+  [
+    "moonraker idle check failed: Unable to connect",
+    "Conveyor couldn't check that the printer is free, so it didn't send the job. Check that the printer is on and connected, then retry.",
+  ],
+  [
+    "elegoo idle check from 10.0.0.8: no status within 15000 ms",
+    "Conveyor couldn't check that the printer is free, so it didn't send the job. Check that the printer is on and connected, then retry.",
+  ],
+  [
+    "printer state unknown: moonraker gave no usable state",
+    "Conveyor couldn't check that the printer is free, so it didn't send the job. Check that the printer is on and connected, then retry.",
+  ],
+])("a refused upload (%s) says why in plain words", (reason, detail) => {
+  expect(failureText("transport", reason).detail).toBe(detail);
+});
+
+test("a printer on hold says to check it and release the hold", () => {
+  expect(failureText("transport", "printer is on hold: moonraker gave no answer").detail).toBe(
+    "The printer is on hold until someone checks it. Check the printer, then choose Release hold on the Printers page and retry.",
+  );
+});

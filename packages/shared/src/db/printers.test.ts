@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { holdPrinter, releasePrinterHold } from "../queue/hold";
 import {
   dbGetPrinter,
   dbListPrinters,
@@ -99,4 +100,17 @@ describe("a printer whose stored generator list doesn't parse", () => {
     expect(dbResolveJobTarget(db, "p2", profileId)).toMatchObject({ printerId: "p2", profileId });
     expect(dbResolveJobTarget(db, "p1", profileId)?.allowedGenerators).toEqual([]);
   });
+});
+
+test("a held printer carries its hold in the list, and loses it once released", () => {
+  const { db } = withPrinter();
+  expect(dbGetPrinter(db, "p1")?.hold).toBeUndefined();
+  holdPrinter(db, { printerId: "p1", jobId: "j1", reason: "the print start got no answer", at: 5 });
+  expect(dbListPrinters(db).find((printer) => printer.id === "p1")?.hold).toEqual({
+    jobId: "j1",
+    reason: "the print start got no answer",
+    at: 5,
+  });
+  expect(releasePrinterHold(db, "p1")).toBe(true);
+  expect(dbGetPrinter(db, "p1")?.hold).toBeUndefined();
 });

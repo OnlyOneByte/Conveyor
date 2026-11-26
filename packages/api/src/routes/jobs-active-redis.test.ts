@@ -26,6 +26,7 @@ import { Queue } from "bullmq";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
 import { z } from "zod";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -132,11 +133,22 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     }
   });
 
+  test("a snapshot that isn't JSON answers 404, not 500", async () => {
+    const corrupt = randomUUID();
+    mine.add(corrupt);
+    await redis.set(jobSnapshotKey(corrupt), "{");
+    const res = await fetch(`${base}/jobs/${corrupt}`);
+    expect([res.status, await res.json()]).toEqual([404, { error: "unknown job" }]);
+  });
+
   test("answers the snapshot alone for a request that fails the schema or a BullMQ read that fails", async () => {
     const broken = randomUUID();
     const failing = randomUUID();
     mine.add(broken).add(failing);
-    const job = await queue.jobQueue.add("job", { printerId: "" } as never, { jobId: broken });
+    const untyped = new Queue(JOB_QUEUE, {
+      connection: new Redis(url ?? "", { maxRetriesPerRequest: null }),
+    });
+    const job = await untyped.add("job", { printerId: "" }, { jobId: broken });
     try {
       await publishStatus(redis, { jobId: broken, state: "queued", at: 50 });
       await publishStatus(redis, { jobId: failing, state: "slicing", at: 51 });
@@ -154,6 +166,8 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
       expect([res.status, await res.json()]).toEqual([200, bare(failing, "slicing", 51)]);
     } finally {
       await job.remove();
+      await untyped.close();
+      await untyped.disconnect();
     }
   });
 
@@ -204,3 +218,5 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
     expect(app.hasRoute({ method: "POST", url: "/jobs/:id/dismiss" })).toBe(true);
   });
 });
+
+dropsItsRedisKeys();

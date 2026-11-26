@@ -6,10 +6,11 @@ import multipart from "@fastify/multipart";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerErrorReplies } from "../error-replies.js";
-import { registerUploadRoutes, store } from "./uploads.js";
+import { registerUploadRoutes, store, type Write } from "./uploads.js";
 
 const dir = mkdtempSync(join(tmpdir(), "conveyor-api-uploads-"));
 const maxBytes = 84 + 50 * 3;
+const SLACK = { idleMs: 30_000, deadlineMs: 600_000 };
 let app: FastifyInstance;
 let base = "";
 
@@ -18,7 +19,7 @@ const uploaded = z.object({ uploadId: z.string(), filename: z.string(), bytes: z
 beforeAll(async () => {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: maxBytes } });
-  await registerUploadRoutes(app, { dir, maxBytes });
+  await registerUploadRoutes(app, { dir, maxBytes, ...SLACK });
   base = await app.listen({ host: "127.0.0.1", port: 0 });
 });
 
@@ -29,6 +30,10 @@ afterAll(async () => {
 });
 
 const ASCII = "solid bin\nfacet normal 0 0 1\nendfacet\nendsolid bin\n";
+
+async function* chunks(text: string) {
+  yield Buffer.from(text);
+}
 
 function binaryStl(facets: number): Uint8Array {
   const bytes = new Uint8Array(84 + 50 * facets);
@@ -81,6 +86,23 @@ describe("POST /uploads", () => {
 
   test("accepts a file of exactly the size limit", async () => {
     expect((await uploadOk("edge.stl", binaryStl(3))).bytes).toBe(maxBytes);
+  });
+
+  test("accepts a binary STL far bigger than the 4 KiB kept for the check", async () => {
+    const big = Fastify();
+    await big.register(multipart, { limits: { fileSize: 84 + 50 * 200 } });
+    await registerUploadRoutes(big, { dir, maxBytes: 84 + 50 * 200, ...SLACK });
+    const at = await big.listen({ host: "127.0.0.1", port: 0 });
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([binaryStl(200)]), "big.stl");
+      const res = await fetch(`${at}/uploads`, { method: "POST", body: form });
+      expect(res.status).toBe(201);
+      expect(uploaded.parse(await res.json()).bytes).toBe(84 + 50 * 200);
+    } finally {
+      big.server.closeAllConnections();
+      await big.close();
+    }
   });
 
   test("accepts a binary STL whose size matches its triangle count", async () => {
@@ -145,7 +167,7 @@ describe("POST /uploads when storage fails", () => {
     broken = Fastify();
     registerErrorReplies(broken);
     await broken.register(multipart, { limits: { fileSize: maxBytes } });
-    await registerUploadRoutes(broken, { dir: join(blocked, "uploads"), maxBytes });
+    await registerUploadRoutes(broken, { dir: join(blocked, "uploads"), maxBytes, ...SLACK });
     at = await broken.listen({ host: "127.0.0.1", port: 0 });
   });
 
@@ -173,12 +195,15 @@ describe("POST /uploads when the write fails partway", () => {
     app = Fastify();
     registerErrorReplies(app);
     await app.register(multipart, { limits: { fileSize: maxBytes } });
-    const diskFull = async (path: string, data: Buffer) => {
+    const diskFull: Write = async (path, source) => {
       written.push(path);
-      writeFileSync(path, data.subarray(0, 10));
+      for await (const chunk of source) {
+        writeFileSync(path, chunk.subarray(0, 10));
+        break;
+      }
       throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
     };
-    await registerUploadRoutes(app, { dir: full, maxBytes }, diskFull);
+    await registerUploadRoutes(app, { dir: full, maxBytes, ...SLACK }, diskFull);
     at = await app.listen({ host: "127.0.0.1", port: 0 });
   });
 
@@ -200,13 +225,13 @@ describe("POST /uploads when the write fails partway", () => {
 
   test("a failed clean-up keeps the write's own error as the cause", async () => {
     const enospc = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
-    const path = join(full, "stuck.stl");
-    const blocked = async (part: string) => {
-      mkdirSync(join(part, "child"), { recursive: true });
+    const part = join(full, "stuck.stl.part");
+    const blocked: Write = async (path) => {
+      mkdirSync(join(path, "child"), { recursive: true });
       throw enospc;
     };
-    const failure = await store(path, Buffer.from(ASCII), blocked).catch((e: unknown) => e);
+    const failure = await store(part, chunks(ASCII), blocked).catch((e: unknown) => e);
     expect(failure instanceof Error && failure.cause).toBe(enospc);
-    rmSync(`${path}.part`, { recursive: true, force: true });
+    rmSync(part, { recursive: true, force: true });
   });
 });

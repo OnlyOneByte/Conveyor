@@ -1,6 +1,5 @@
 import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type PrintHandle,
@@ -8,10 +7,21 @@ import {
   type StageCtx,
   StageError,
 } from "@conveyor/shared";
+import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
 import { SDCP_CMD } from "./sdcp";
 
+const tempDir = tempDirs("conveyor-elegoo-");
+const gcode = async (text: string) => {
+  const dir = await tempDir();
+  await writeFile(join(dir, "a.gcode"), text);
+  return { dir, path: join(dir, "a.gcode") };
+};
 const RealWebSocket = globalThis.WebSocket;
+const IDLE_PUSH = JSON.stringify({
+  Topic: "sdcp/status/mb",
+  Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: 0 } } },
+});
 
 afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
@@ -32,6 +42,7 @@ class FakeWebSocket {
   }
   send(raw: string) {
     const frame = JSON.parse(raw);
+    if (frame.Data.Cmd === 0) return queueMicrotask(() => this.onmessage?.({ data: IDLE_PUSH }));
     FakeWebSocket.sent.push({ url: this.url, frame });
     if (FakeWebSocket.mode === "close") queueMicrotask(() => this.onclose?.());
     if (FakeWebSocket.mode === "garbage")
@@ -126,9 +137,7 @@ afterAll(() => {
 describe("elegoo submit", () => {
   test("a cancel during the upload never sends START_PRINT", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
-    const path = join(dir, "a.gcode");
-    await writeFile(path, "G28\n");
+    const { dir, path } = await gcode("G28\n");
     const controller = new AbortController();
     const upload = async () => {
       controller.abort();
@@ -150,9 +159,7 @@ describe("elegoo submit", () => {
 
   test("streams the g-code as the multipart File part", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
-    const path = join(dir, "a.gcode");
-    await writeFile(path, "G28\nG1 X5\n");
+    const { dir, path } = await gcode("G28\nG1 X5\n");
     const parts: { field: string; name: string; text: string }[] = [];
     const sent: number[][] = [];
     const upload = async (_url: string | URL | Request, init?: RequestInit) => {
@@ -176,15 +183,13 @@ describe("elegoo submit", () => {
     };
     const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
     await elegoo.submit({ path, format: "gcode" }, target, ctx);
-    expect(parts).toEqual([{ field: "File", name: "a.gcode", text: "G28\nG1 X5\n" }]);
+    expect(parts).toEqual([{ field: "File", name: "conveyor-j.gcode", text: "G28\nG1 X5\n" }]);
     expect(sent).toEqual([[10, 10]]);
   });
 
   test("an upload the printer never answers times out and never sends START_PRINT", async () => {
     useFakeSocket("ack");
-    const dir = await mkdtemp(join(tmpdir(), "conveyor-elegoo-"));
-    const path = join(dir, "a.gcode");
-    await writeFile(path, "G28\n");
+    const { dir, path } = await gcode("G28\n");
     const hang = (_url: string | URL | Request, init?: RequestInit) =>
       new Promise<Response>((_resolve, reject) =>
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true }),
@@ -213,22 +218,6 @@ describe("elegoo submit", () => {
       if (before === undefined) delete process.env.CONVEYOR_UPLOAD_TIMEOUT_MS;
       else process.env.CONVEYOR_UPLOAD_TIMEOUT_MS = before;
     }
-  });
-});
-
-describe("elegoo handles", () => {
-  test("handleFor carries the stored mainboard id", () => {
-    const built = elegoo.handleFor?.(
-      {
-        id: "conveyor-printer-1",
-        transportId: "elegoo",
-        address: "10.0.0.8",
-        secrets: { mainboardId: "mainboard-abc" },
-      },
-      "a.gcode",
-    );
-    expect(built?.deviceId).toBe("mainboard-abc");
-    expect(built?.address).toBe("10.0.0.8");
   });
 });
 

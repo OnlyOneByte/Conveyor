@@ -1,10 +1,6 @@
-import { type AuthStatus, fetchAuthStatus } from "#lib/api.js";
+import { checkAuth } from "#lib/auth-gate.js";
 import type { LayoutLoad } from "./$types";
 
 export const ssr = false;
 
-const UNREACHABLE: AuthStatus = { authEnabled: false, authenticated: false };
-
-export const load: LayoutLoad = async ({ fetch }) => ({
-  auth: await fetchAuthStatus(fetch).catch(() => UNREACHABLE),
-});
+export const load: LayoutLoad = ({ fetch }) => checkAuth(fetch);

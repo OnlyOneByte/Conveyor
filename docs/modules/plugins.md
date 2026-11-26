@@ -171,6 +171,24 @@ dropped. Two guards apply to every upload:
   A failed poll (a timeout, a refused connection or an error reply) is retried after the usual wait; once
   `MOONRAKER_STATUS_FAILURES` (default 5) fail in a row, the stage fails with `moonraker status query failed:
   <last error> (<n> in a row)`. A good poll resets the count. Both settings must be whole numbers above 0.
+- Once, just before uploading, both transports ask the printer whether it is free (`ready.ts`), and refuse the
+  upload unless it says so. The check is a snapshot, not a lock (see `docs/self-hosting.md`):
+  - **Moonraker:** `GET /printer/objects/query?print_stats`, bounded by `MOONRAKER_STATUS_TIMEOUT_MS`. `standby`,
+    `complete` and `cancelled` are idle; `printing` and `paused` are busy; `error` is an error; anything else is
+    unknown.
+  - **Elegoo:** one SDCP `STATUS` request over the socket, bounded by 15 s. `CurrentStatus` all `0` with
+    `PrintInfo.Status` `0`, `8`, `9` or absent is idle; `PrintInfo.Status` `5` or `6` is paused; anything else is
+    busy; an `sdcp/error` push is an error.
+  - **Anything but idle refuses the upload,** and so does a check that fails or times out: it fails closed. The
+    job fails at the transport stage with `PrintNotStartedError`, so a later cancel never sends a stop to the
+    other print. The job page says "The printer is busy with another print.", "The printer reports an error.",
+    or "Conveyor couldn't check that the printer is free, so it didn't send the job." (`web/src/lib/job-failure.ts`).
+- Both transports upload the g-code to the printer as `conveyor-<jobId>.gcode` (`printerFileName` in
+  `@conveyor/shared`) and start that name, so two jobs sent to one printer never overwrite each other's file.
+  The handle's `ref` is that name. Conveyor never deletes files from the printer, so one file per job stays
+  there until someone deletes it ([#596](https://github.com/OnlyOneByte/Conveyor/issues/596)).
+- Moonraker's print start gives up after `MOONRAKER_START_TIMEOUT_MS` (default 30000) and fails the stage with
+  `moonraker gave no answer to print start within <n> ms`; the printer may still have started, so check it.
 - Every upload, status poll and cancel first checks the printer's host against the address rule in
   [docs/self-hosting.md](../self-hosting.md#printer-addresses), resolving names each time. Elegoo checks before
   its upload, before `START_PRINT`, before opening the status socket and before `STOP_PRINT`.

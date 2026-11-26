@@ -25,10 +25,20 @@ export const scenes: Scene[] = [
   touch("touch-receipt-failed", "/jobs/seed-failed", "text=didn't finish", [
     { wait: 800 },
     { targets: `${SHELL}, main` },
+    { marker: "main summary" },
   ]),
   touch("touch-receipt-printed", "/jobs/seed-printed", "text=Print again", [
     { wait: 800 },
     { targets: `${SHELL}, main` },
+  ]),
+  touch("touch-jobs-pills", "/jobs", "[data-id]", [
+    { wait: 500 },
+    { fits: ".pills .pill:last-child" },
+    { targets: ".pills" },
+    { click: ".pill >> text=Failed" },
+    { waitFor: ".pill[aria-pressed='true'] >> text=Failed" },
+    { fits: ".pills .pill:last-child" },
+    { wait: 800 },
   ]),
   touch("touch-belt-sheet", "/jobs", "h1", [
     ...onChip,

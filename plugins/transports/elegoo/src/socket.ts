@@ -35,7 +35,7 @@ export function printerEndpoint(address: string): string {
   return formatHostPort(parsed.host, parsed.port);
 }
 
-function socketUrl(address: string): string {
+export function socketUrl(address: string): string {
   return `ws://${printerEndpoint(address)}/websocket`;
 }
 

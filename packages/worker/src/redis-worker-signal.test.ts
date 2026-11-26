@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { dropsItsRedisKeys } from "../../shared/test/helpers/index.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -41,3 +42,5 @@ describe.skipIf(!url)("the worker entry point on the Redis queue, on SIGTERM (re
     }
   }, 15_000);
 });
+
+dropsItsRedisKeys();

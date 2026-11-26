@@ -45,6 +45,40 @@ The Redis Lua-guard tests in `packages/worker/src/status.test.ts` run only when 
 fails without it. To match CI locally, start a Redis (`docker run --rm -p 6379:6379 redis:8-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483`) and
 export `REDIS_URL=redis://127.0.0.1:6379` before `bun run test:coverage`.
 
+A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `packages/shared/test/helpers`, which
+removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. CI's `test` job points
+`TMPDIR` at a fresh empty directory for its test steps, and `bun run check:test-leaks` runs after both test runs:
+it fails on any entry left in `$TMPDIR`, whatever its name and however it was made (`mkdtemp`, `mkdirSync`,
+`Bun.write`), and on any key left in Redis. That check is what catches a leak. The prefix scan below is a second
+line of defence that names the file and line before a leak happens, and a shadowed name or a computed
+`fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
+`TMPDIR`. Every temp name made
+directly under `tmpdir()` starts with a prefix in `TEMP_PREFIXES` (`temp-prefixes.ts` there): `tempDirs` refuses
+any other. `test-leaks.test.ts` reads every `mkdtemp`-family call in the repository's `.ts`, `.mts`,
+`.cts`, `.js`, `.mjs` and `.cjs` files with TypeScript's parser (`scripts/checks/temp-prefix-scan.ts`), under any
+name it is imported as or through `fs.`, and it fails closed. A call passes only when its first argument is
+`join(tmpdir(), "<listed prefix>")` written out in place, with `join` or `resolve` and `tmpdir` under any import
+name or as `path.` and `os.`, or `join(<dir>, "<literal>")` inside a dir the same file made that way. Anything
+else fails, naming the file and line: a template that starts with `${...}`, a prefix in a variable or built
+with `+`, `tmpdir()` or the joined path held in a const, `process.env.TMPDIR`, a literal `/tmp` path, or
+`os["tmpdir"]()`. A prefix or a name inside a made dir that contains `/`, `\` or `..` fails, since it could put
+the dir outside `TMPDIR`. Any use of a `mkdtemp`, `mkdtempSync`, `mkdtempDisposable` or `mkdtempDisposableSync`
+name other than a direct call fails too: an alias, `.call`, `promisify(...)`, a `require` destructure or a
+re-export. Two reviewed calls are the exceptions, listed with their reason in `REVIEWED`: `tempDirs`' own
+call, and the coverage sweep's probe, which has to sit inside the repository. A test file that writes
+to Redis calls `dropsItsRedisKeys()` as its last line: it notes the keys that exist before the file runs and
+deletes the ones the file added, after the file's own teardown. It deletes every key that appeared meanwhile,
+whoever wrote it, so the tests need a Redis of their own: never point `REDIS_URL` at one a running stack uses. A
+key written while the file's modules load, before its first hook (BullMQ writes `bull:<queue>:meta` when a queue
+is created), is already in that first snapshot, so the file removes it itself. Every api test file that loads
+`queue.js` at import calls `closeQueue(process.env.REDIS_URL)` (`packages/api/test/helpers/close-queue.ts`) in
+its `afterAll`: with a URL it reconnects the shared connection if an earlier file closed it, waits for it, and
+obliterates the job queue, and it always disconnects both clients. `check:test-leaks` sees only what is left at
+the end: two files (`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`,
+which also hides any key an earlier file left. To find those, run each file alone against an empty Redis. The
+check refuses to run without `TMPDIR`. To run it locally, `export TMPDIR="$(mktemp -d)"` before the tests and point
+`REDIS_URL` at a Redis of its own, since it reports every entry and every key it finds.
+
 CI's `test` job also runs the whole suite once more in a random order. The seed comes from the commit being
 tested, so rerunning the job gives the same order. The log and job summary print the seed, the commit, a
 command to check that commit out, and the command that reruns the order. On a pull request the commit is
@@ -125,6 +159,11 @@ Two bun over-counts are left as they are:
 - A function whose first statement, or for a single statement its header, shares a line with code outside
   it (`items.map((x) => { return f(x); })` on one line) takes that outside code's count. It is never
   zeroed, so the check can only under-correct here, never zero code that ran.
+
+A correction to how coverage is counted can make a package measure lower with no test lost. Floors are never
+lowered for it. Until coverage catches up, a package's floor can read up to the correction's size above what
+it measures; that stays within the half-point tolerance (`plugins` reads 97.38 against a measured 97.28 after
+#579), and the floor follows once coverage rises past it again.
 
 For `web` that means the TypeScript under `packages/web/src`: `lib/`, the route loaders (`+page.ts`,
 `+layout.ts`) and the service worker. Svelte components (`.svelte`) are out of scope: `bun test` can't load
@@ -229,19 +268,20 @@ When there is a base, every id the branch's baseline adds over it must appear in
 
 ### Image scan
 
-`bun audit` sees only npm packages. Each `Docker build (<service>)` job also scans the image it built with Trivy, pinned by digest, for vulnerabilities that already have a fix: in Debian packages, in the base images and in anything else the image holds. Fixed critical and high findings go in the job summary and the `image-scan-<service>` artifact. A fixed critical one fails the job; a high one doesn't. Usually the fix is a rebuild on a newer base image. To see the findings for an image you built locally:
+`bun audit` sees only npm packages. Each `Docker build (<service>)` job also scans the image it built with `scripts/checks/scan-image.sh`, which runs Trivy pinned by digest and looks for vulnerabilities that already have a fix: in Debian packages, in the base images and in anything else the image holds. A fixed high or critical finding fails the job unless `.github/image-scan-allowlist.yaml` accepts it. The findings, and the accepted ones as suppressed, go in the job summary and the `image-scan-<service>` artifact. Usually the fix is an OS refresh or a newer base image. To scan an image you built locally (the script writes `image-scan.txt` in the current directory, and keeps Trivy's database in `$TRIVY_CACHE`, default `~/.cache/trivy`):
 
 ```sh
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c \
-  image --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH conveyor-api
+scripts/checks/scan-image.sh conveyor-api
 ```
 
-`Docker build (worker)` builds without OrcaSlicer (`ORCA_ENABLE=0`). The `orca slice` job builds the worker with it (`ORCA_ENABLE=1`) and scans that image the same way, into the `image-scan-worker-orca` artifact, so OrcaSlicer's bundled files are scanned too. `release.yml` scans each image it pushes, per architecture, into `image-scan-<service>-<arch>`. It pulls the image, then runs `docker logout ghcr.io`, which removes the stored GHCR login from the runner's Docker config before Trivy starts. That is a small step: a container with the Docker socket is root on the runner, so the real protection is that Trivy is pinned by digest. The step then downloads Trivy's vulnerability and Java databases once, with up to three tries, and runs both scans from that copy. The Java database is what lets Trivy report a JAR's CVEs; without it a scan of an image with a JAR fails instead of reporting. A fixed critical there fails the build job. Neither the job that creates the GitHub Release page (`attach OpenSCAD source`) nor the one that tags images (`publish`) runs then. The pushed image stays in GHCR untagged, by digest only. Nothing pulls an untagged digest, but you can delete that version from the `conveyor-<service>` package's page on GitHub.
+The allowlist is for a finding that can't be fixed yet, reviewed like code. Each entry is a Trivy ignore rule with an `id` (a CVE or GHSA id, no wildcards), a `statement` giving the reason it's accepted, and an `expired_at` date at most 180 days away. `image-scan-allowlist.test.ts` refuses an entry without all three, a date that doesn't exist (`2027-02-30`), a key given twice (YAML would keep only the last), and any other kind of suppression. Once `expired_at` passes, Trivy stops accepting the entry and the scan fails again until it is fixed or renewed in a reviewed PR. Delete an entry in the PR whose upgrade fixes it. `scan-image.test.ts` runs the script with a stand-in `docker` and pins it failing closed: a scan that finds something, a database download that fails three times, and a missing allowlist each exit non-zero, and every Trivy run must use an image pinned by digest.
+
+`Docker build (worker)` builds without OrcaSlicer (`ORCA_ENABLE=0`). The `orca slice` job builds the worker with it (`ORCA_ENABLE=1`) and scans that image the same way, into the `image-scan-worker-orca` artifact, so OrcaSlicer's bundled files are scanned too. `release.yml` scans each image it pushes, per architecture, into `image-scan-<service>-<arch>`. It pulls the image, then runs `docker logout ghcr.io`, which removes the stored GHCR login from the runner's Docker config before Trivy starts. That is a small step: a container with the Docker socket is root on the runner, so the real protection is that Trivy is pinned by digest. The script downloads Trivy's vulnerability and Java databases once, with up to three tries, and scans from that copy. The Java database is what lets Trivy report a JAR's CVEs; without it a scan of an image with a JAR fails instead of reporting. A fixed high or critical finding the allowlist doesn't accept fails the build job there too. Neither the job that creates the GitHub Release page (`attach OpenSCAD source`) nor the one that tags images (`publish`) runs then. The pushed image stays in GHCR untagged, by digest only. Nothing pulls an untagged digest, but you can delete that version from the `conveyor-<service>` package's page on GitHub.
 
 A build cache can hand an image an OS-package layer built weeks ago, with packages missing later security fixes. Two things keep those layers current:
 
 - **Base images are pinned by digest** in every `FROM` (`oven/bun:debian@sha256:…`). Dependabot's weekly `docker` update bumps the digest, and a new digest rebuilds every layer above it. Check that the first digest-only bump of `node:26-bookworm-slim` (same tag, new digest) actually arrives: a Dependabot experiment flag can suppress digest-only updates. If none has come after two weekly runs while the tag moved upstream, bump that digest by hand.
-- **The worker's own apt layer takes an `OS_REFRESH` build argument.** CI, the compose job and `release.yml` pass the ISO week (`date -u +%G-W%V`), so that layer is rebuilt once a week, and the layers above it with it. The `deps` stage (`bun install`) and the OpenSCAD source build don't use it and stay cached. The api and web images install no OS packages of their own; their OS packages are the pinned base image.
+- **The api and worker images' apt layers take an `OS_REFRESH` build argument.** Each runs `apt-get upgrade`, so it picks up Debian's security fixes newer than the base image. CI, the compose job and `release.yml` pass the ISO week (`date -u +%G-W%V`), so that layer is rebuilt once a week, and the layers above it with it. The `deps` stage (`bun install`) and the OpenSCAD source build don't use it and stay cached. The web image installs no OS packages; its OS packages are the pinned base image, and it drops the npm bundled with Node, which it never runs.
 
 CI also runs on a weekly schedule (Mondays, 05:23 UTC), so `main`'s images are rebuilt and scanned even in a week with no merges.
 

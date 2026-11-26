@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { ACTIVE_JOBS_KEY, type JobRequest, publishStatus } from "@conveyor/shared";
 import { dbGetJob, dbListNeedsYou } from "@conveyor/shared/db";
 import { Worker } from "bullmq";
+import { dropsItsRedisKeys } from "../../shared/test/helpers/index.ts";
 import { reaperUrl, request, useReaperHarness } from "../test/helpers/reaper-harness.js";
 import { ORPHAN_REASON, WORKER_OPTIONS } from "./redis-reaper.js";
 
@@ -92,3 +93,5 @@ describe.skipIf(!reaperUrl)("the Redis reaper with live workers", () => {
     }
   }, 20_000);
 });
+
+dropsItsRedisKeys();

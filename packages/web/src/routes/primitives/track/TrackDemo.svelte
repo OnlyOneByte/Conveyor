@@ -16,7 +16,7 @@
     <li><Chip jobs={jobs.slice(1, 4)} /></li>
   </ul>
 {:else}
-  <Track {jobs} idle="Nothing on the rail · Voron and Ender ready" />
+  <Track {jobs} idle="Nothing on the rail · Voron and Ender ready" label="Track sample" />
 {/if}
 
 <style>

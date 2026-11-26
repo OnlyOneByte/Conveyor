@@ -74,29 +74,17 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=min,scope=${{ matrix.service }}-${{ matrix.platform.arch }}
 
-      - name: Scan the pushed image for vulnerabilities with a fix
+      - name: No fixed high or critical vulnerability in the pushed image outside the allowlist
         env:
-          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
           DIGEST: ${{ steps.build.outputs.digest }}
           SERVICE: ${{ matrix.service }}
           ARCH: ${{ matrix.platform.arch }}
+          TRIVY_CACHE: ${{ runner.temp }}/trivy
         run: |
           image="$REGISTRY_IMAGE@$DIGEST"
           docker pull --quiet "$image"
           docker logout ghcr.io
-          trivy() {
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
-              "$TRIVY" image --quiet "$@"
-          }
-          for attempt in 1 2 3; do
-            if trivy --download-db-only && trivy --download-java-db-only; then break; fi
-            if [ "$attempt" = 3 ]; then exit 1; fi
-            sleep $((attempt * 20))
-          done
-          scan() { trivy --skip-db-update --skip-java-db-update --scanners vuln --ignore-unfixed "$@" "$image"; }
-          scan --severity CRITICAL,HIGH --format table | tee image-scan.txt
-          { echo "### conveyor-$SERVICE ($ARCH): fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          scan --severity CRITICAL --exit-code 1 --format table > /dev/null
+          scripts/checks/scan-image.sh "$image" "conveyor-$SERVICE ($ARCH)"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

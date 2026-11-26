@@ -52,7 +52,10 @@ function inspectUpload(path: string, uploadId: string, maxBytes: number): string
   }
 }
 
-export function checkUpload(uploadId: string, settings: UploadSettings): ParamIssue | null {
+export function checkUpload(
+  uploadId: string,
+  settings: Pick<UploadSettings, "dir" | "maxBytes">,
+): ParamIssue | null {
   const path = join(settings.dir, `${basename(uploadId)}.stl`);
   const message = inspectUpload(path, uploadId, settings.maxBytes);
   return message ? { field: "uploadId", message } : null;

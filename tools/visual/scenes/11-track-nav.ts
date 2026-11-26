@@ -19,6 +19,23 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "track-keys-narrow",
+    route: "/primitives/track?jobs=8",
+    ready: "h1",
+    widths: [390],
+    steps: [
+      { wait: 600 },
+      ...keys("Tab", "Enter", "Tab"),
+      { waitFor: "button.grp:focus", timeout: 5000 },
+      ...keys("ArrowRight", "ArrowRight"),
+      { waitFor: ".card li:nth-child(2) a:focus", timeout: 5000 },
+      ...keys("ArrowLeft"),
+      { waitFor: ".card li:nth-child(1) a:focus", timeout: 5000 },
+      ...keys("Escape"),
+      { waitFor: "button.grp:focus", timeout: 5000 },
+    ],
+  },
+  {
     name: "track-card",
     route: "/primitives/track?jobs=3",
     ready: "h1",

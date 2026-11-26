@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -172,18 +172,22 @@ export function harness(opts: HarnessOptions = {}): Harness {
     generated: 0,
     run: async () => {
       const workDir = opts.workDir ?? (await mkdtemp(join(tmpdir(), "conveyor-pipeline-")));
-      return (opts.resume ? resumeJob : runJob)(
-        {
-          jobId: "job-1",
-          req,
-          workDir,
-          controller: h.controller,
-          cancelPollMs: opts.cancelPollMs,
-          streamCloseMs: opts.streamCloseMs,
-          historyRetryMs: 0,
-        },
-        deps,
-      );
+      try {
+        return await (opts.resume ? resumeJob : runJob)(
+          {
+            jobId: "job-1",
+            req,
+            workDir,
+            controller: h.controller,
+            cancelPollMs: opts.cancelPollMs,
+            streamCloseMs: opts.streamCloseMs,
+            historyRetryMs: 0,
+          },
+          deps,
+        );
+      } finally {
+        if (!opts.workDir) await rm(workDir, { recursive: true, force: true });
+      }
     },
   };
   const deps = { ...buildDeps(h, opts), ...opts.deps?.(h) };

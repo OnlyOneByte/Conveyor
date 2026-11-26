@@ -10,6 +10,7 @@ const UPLOAD_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const PART_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.stl\.part$/i;
 
 export const ABANDONED_PART_AGE_MS = 60 * 60 * 1000;
+export const PART_CLOCK_MAX_LAG_MS = 24 * 60 * 60 * 1000;
 
 export interface LiveJobs {
   ids: Set<string>;
@@ -160,8 +161,8 @@ async function reapUploads(deps: RetentionDeps, cutoff: number, live: LiveJobs):
   return reaped;
 }
 
-async function reapParts(deps: RetentionDeps): Promise<string[]> {
-  const cutoff = deps.now() - ABANDONED_PART_AGE_MS;
+async function reapParts(deps: RetentionDeps, clock: number): Promise<string[]> {
+  const cutoff = clock - ABANDONED_PART_AGE_MS;
   const names = await readdir(deps.uploadDir).catch(() => []);
   const reaped: string[] = [];
   for (const name of names) {
@@ -181,11 +182,15 @@ function anchor(clock: ProcessClock, at: number): void {
 }
 
 export async function reapOnce(deps: RetentionDeps): Promise<Reaped> {
-  const parts = await reapParts(deps);
-  return { ...(await reapAged(deps)), parts };
+  const { clock, ...aged } = await reapAged(deps);
+  if (clock === null) return { ...aged, parts: [] };
+  const partClock = Math.max(clock, deps.now() - PART_CLOCK_MAX_LAG_MS);
+  return { ...aged, parts: await reapParts(deps, partClock) };
 }
 
-async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts">> {
+async function reapAged(
+  deps: RetentionDeps,
+): Promise<Omit<Reaped, "parts"> & { clock: number | null }> {
   const real = deps.now();
   const { startedAt, lastRunAt } = deps.state.read();
   const process = deps.process ?? processClock();
@@ -195,7 +200,7 @@ async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts">> {
     deps.log(
       `[retention] removed nothing: the stored reaper clock (${new Date(lastRunAt).toISOString()}) is ahead of the system clock (${new Date(real).toISOString()}); it is reset to now and the ${Math.round(deps.maxAgeMs / DAY_MS)}-day count starts again`,
     );
-    return { dirs: [], uploads: [] };
+    return { dirs: [], uploads: [], clock: real };
   }
   if (lastRunAt === undefined) {
     deps.state.write({ startedAt: real, lastRunAt: real });
@@ -204,7 +209,7 @@ async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts">> {
       deps.log(
         "[retention] removed nothing: the stored reaper clock was missing, so the count starts again",
       );
-    return { dirs: [], uploads: [] };
+    return { dirs: [], uploads: [], clock: null };
   }
   const since = process.anchor ?? { clock: lastRunAt, at: process.mark() };
   process.anchor = since;
@@ -217,13 +222,13 @@ async function reapAged(deps: RetentionDeps): Promise<Omit<Reaped, "parts">> {
   const started = startedAt ?? lastRunAt;
   deps.state.write({ startedAt: started, lastRunAt: now });
   const cutoff = now - deps.maxAgeMs;
-  if (started > cutoff) return { dirs: [], uploads: [] };
+  if (started > cutoff) return { dirs: [], uploads: [], clock: now };
   const live = await deps.live();
   const dirs = await reapDirs(deps, cutoff, live);
   const uploads = await reapUploads(deps, cutoff, live);
   if (dirs.length || uploads.length)
     deps.log(`[retention] removed ${dirs.length} job folders and ${uploads.length} uploads`);
-  return { dirs, uploads };
+  return { dirs, uploads, clock: now };
 }
 
 export function startRetention(

@@ -14,7 +14,9 @@ needs a session), then the generator, upload, catalog and job routes, and the pr
 registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
-that does not opt in.
+that does not opt in. A 401 for an upload body (multipart, chunked, or over 1 MiB) carries
+`Connection: close`, and the api closes the socket once it is sent, so an unauthenticated client can't keep
+trickling one (`routes/close-after.ts`). A 401 for a small JSON body keeps the connection for reuse.
 `routes/auth-guard.test.ts` boots the real `index.ts` with auth on and checks that every mutating route
 answers `401` without a session. `routes/auth-guard-sqlite.test.ts` does the same in `CONVEYOR_QUEUE=sqlite`
 mode for every job route, the WebSocket upgrade and the history routes.
@@ -249,8 +251,9 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   - `limit`: 1 to 200, default 50. A value that is not a positive whole number reads as 50, and a larger one as
     200, as before.
   - `before=<updatedAt>:<id>`: the cursor, built from the last job of the previous page. A page holds only jobs
-    that finished before it, so jobs that finish while someone pages back go to the front, never into a later
-    page.
+    ordered before it by `(updatedAt, id)`, so a job that finishes while someone pages back normally goes to the
+    front. Two cases can still land in a later page: a job that finishes in the same millisecond as the cursor's
+    `updatedAt` with a smaller id, and a job stamped after the host's clock stepped backwards.
   - `state` (`done`, `failed` or `canceled`), `printerId`, and `since` / `until` in epoch ms on `updatedAt`
     (`since` inclusive, `until` exclusive).
 - `GET /jobs-history/counts` takes `printerId`, `since` and `until` and answers `{ done, failed, canceled }`
@@ -312,10 +315,22 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
 - `POST /uploads` stores STL bytes at `${UPLOAD_DIR}/<uploadId>.stl` (default `${DATA_DIR}/uploads`) on the
   shared volume, where the worker's passthrough generator reads them. The client submits the returned
   `uploadId` as the passthrough generator's `params.uploadId`.
-- The bytes are never treated as code; they go to the slicer as-is. Before anything is written the route checks:
+- The bytes are never treated as code; they go to the slicer as-is. The upload is streamed straight to
+  `<uploadId>.stl.part`, never held in memory whole; only its first 4 KiB and its length are kept for the
+  checks below. Anything that fails a check is removed before the reply:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
   - **Extension:** the file must end in `.stl`, otherwise 415.
   - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
+  - **Time limits:** an upload that sends no bytes for `UPLOAD_IDLE_TIMEOUT_MS` (default 30 s), or isn't
+    finished within `UPLOAD_TIMEOUT_MS`, is cut off with a 408: "the upload took too long. Try again on a
+    faster connection." The reply carries `Connection: close`, and the api closes the socket once it is sent,
+    so a client trickling a byte at a time can't hold a connection or a `.part` file. The overall default is
+    one minute plus `MAX_UPLOAD_BYTES` at 64 KiB a second, about 27 minutes for 100 MiB. One per-request
+    timer covers both the wait for the file part and the file's bytes, and is cleared when the request ends
+    (`routes/upload-timer.ts`). Behind Caddy, a client on plain HTTP/1.1 sees the 408 (or a 401) only
+    after about 60 s, because Caddy holds the response while the client is still sending. The api has
+    already closed its side by then. Over HTTP/2, which the shipped TLS site and browsers use, the reply
+    arrives at once.
   - **Not empty:** an empty file is a 400: "the file is empty."
   - **Looks like an STL** (`routes/stl-check.ts`): either binary, with at least one triangle and exactly
     `84 + 50 × triangles` bytes, or ASCII, starting with `solid` (after an optional UTF-8 byte-order mark) and
@@ -323,13 +338,15 @@ and checks compatibility with `validateJobRequest` (400). `registerArtifactRoute
     isn't an STL model."
   - **Server faults:** a failed write, or any read error that isn't the client's, goes to the error handler
     as a 500.
-- The bytes are written to `<uploadId>.stl.part` in the same folder, then renamed to `<uploadId>.stl`. A
+- Once every check passes, the `.part` file is renamed to `<uploadId>.stl` in the same folder. A
   write that fails, for example on a full disk, removes the `.part` file, so no partial upload is ever left
-  under an id. If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
+  under an id. The default writer opens the `.part` before reading any bytes and writes through that open
+  file, so a client that drops before the open finishes can't leave an empty `.part` behind the clean-up.
+  If removing the `.part` fails too, the 500 is thrown with the write's own error as its `cause`.
   A `.part` left by a crash is removed by the worker's retention reaper once it is over an hour old.
-- `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR` and `MAX_UPLOAD_BYTES` for the api,
-  the worker and passthrough. `MAX_UPLOAD_BYTES` must be a positive integer: the api and worker exit 1 at
-  boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
+- `uploadSettings` in `@conveyor/shared/uploads` parses `UPLOAD_DIR`, `DATA_DIR`, `MAX_UPLOAD_BYTES`,
+  `UPLOAD_IDLE_TIMEOUT_MS` and `UPLOAD_TIMEOUT_MS` for the api, the worker and passthrough. The last three
+  must be positive integers: the api and worker exit 1 at boot on anything else. `POST /jobs` reports an upload it cannot read as `upload <id> could not be read`
   and logs the cause on the server only.
 
 ## Registry (`registry.ts`, `validate.ts`, `routes/generators.ts`)

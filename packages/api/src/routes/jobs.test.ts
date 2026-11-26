@@ -7,6 +7,7 @@ import { dbRecordJob, dbUpsertPrinter, openDb } from "@conveyor/shared/db";
 import { Job } from "bullmq";
 import Fastify from "fastify";
 import { z } from "zod";
+import { closeQueue } from "../../test/helpers/close-queue.ts";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerJobRoutes } from "./jobs.js";
 
@@ -76,14 +77,18 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  await app.close();
-  mock.restore();
-  openDb().close();
-  if (previous.db === undefined) delete process.env.DB_PATH;
-  else process.env.DB_PATH = previous.db;
-  if (previous.data === undefined) delete process.env.DATA_DIR;
-  else process.env.DATA_DIR = previous.data;
-  rmSync(dir, { recursive: true, force: true });
+  try {
+    await app.close();
+    mock.restore();
+    openDb().close();
+    if (previous.db === undefined) delete process.env.DB_PATH;
+    else process.env.DB_PATH = previous.db;
+    if (previous.data === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = previous.data;
+    rmSync(dir, { recursive: true, force: true });
+  } finally {
+    await closeQueue(process.env.REDIS_URL);
+  }
 });
 
 describe("POST /jobs", () => {

@@ -148,7 +148,7 @@ export interface TrackJob {
 
 export function value({ state, progress }: TrackJob): string {
   if (state === "queued") return "next";
-  if (state === "generating") return "…";
+  if (state === "generating") return WORDS.generating;
   if (state === "done") return "✓";
   if (state === "failed") return "!";
   if (state === "canceled") return "×";
@@ -182,13 +182,23 @@ export const today = (n: number) => `${n} today`;
 export const status = (job: TrackJob) =>
   `${WORDS[job.state]}${job.printer ? ` on ${job.printer}` : ""}`;
 
-export const visible = (job: TrackJob) => `${shortName(job.name)} ${value(job)}`;
+export const face = (job: TrackJob) => (job.state === "generating" ? "making" : value(job));
+
+export const visible = (job: TrackJob) => `${shortName(job.name)} ${face(job)}`;
 
 export const chipName = (job: TrackJob) =>
   `${visible(job)}, ${job.name}${job.printer ? ` on ${job.printer}` : ""}, ${WORDS[job.state]}`;
 
+const UNMEASURED: JobState[] = ["queued", "generating"];
+
+export const groupValues = (jobs: TrackJob[]) =>
+  jobs
+    .filter((job) => !UNMEASURED.includes(job.state))
+    .map(value)
+    .join(" · ");
+
 export const groupVisible = (jobs: TrackJob[]) =>
-  `${jobs.length} jobs ${jobs.map(value).join(" · ")}`;
+  `${jobs.length} jobs${groupValues(jobs) ? ` ${groupValues(jobs)}` : ""}`;
 
 export const groupName = (jobs: TrackJob[]) =>
   `${groupVisible(jobs)}: ${jobs.map((j) => `${shortName(j.name)}, ${WORDS[j.state]}`).join("; ")}`;

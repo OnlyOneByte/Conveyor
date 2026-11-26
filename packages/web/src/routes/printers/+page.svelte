@@ -122,7 +122,7 @@
 {:else}
   <ul class="grid" aria-label="Printers">
     {#each cards as { printer, card } (printer.id)}
-      <PrinterCard {printer} {card} how="{transportName(printer.transportId)} · {printer.address}" limits={limitsText(printer, generators)} edit={() => edit(printer)} />
+      <PrinterCard {printer} {card} how="{transportName(printer.transportId)} · {printer.address}" limits={limitsText(printer, generators)} edit={() => edit(printer)} changed={load} />
     {/each}
   </ul>
 {/if}

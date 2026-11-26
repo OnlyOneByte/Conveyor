@@ -9,6 +9,15 @@ export function holdPrinter(
   ).run(hold.jobId, hold.reason, hold.at, hold.printerId);
 }
 
+export function printerHoldReason(db: Database, printerId: string): string | null {
+  const row = db
+    .query<{ hold_reason: string | null }, [string]>(
+      "SELECT hold_reason FROM printers WHERE id = ? AND hold_job_id IS NOT NULL",
+    )
+    .get(printerId);
+  return row ? (row.hold_reason ?? "held") : null;
+}
+
 export function releasePrinterHold(db: Database, printerId: string): boolean {
   const { changes } = db
     .query(

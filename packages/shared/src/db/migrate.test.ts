@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeLegacyStationDb } from "../../test/helpers/legacy-db.ts";
+import { note, noteText } from "../job-notes.js";
 import { dbGetJob, dbRecordJob, openDb } from "./index";
 
 const dirs: string[] = [];
@@ -104,7 +105,7 @@ describe("openDb legacy station migration", () => {
       printerId: "printer-a",
       profileId: "profile-a",
       state: "canceled",
-      notes: "work dir not removed",
+      notes: noteText(note("workDirNotRemoved")),
     });
     expect(db.query("SELECT job_id, state FROM job_state_log").all()).toEqual([
       { job_id: "job-a", state: "canceled" },

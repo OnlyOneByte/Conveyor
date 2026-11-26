@@ -1,10 +1,12 @@
-import { basename } from "node:path";
 import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
+  printerFileName,
+  refuseUnlessIdle,
   type StageCtx,
   StageError,
   type TransportPlugin,
@@ -18,11 +20,13 @@ import {
 } from "@conveyor/shared/node";
 import { poll, positiveSetting, unresolved } from "./poll.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
+import { moonrakerReadiness } from "./ready.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = 2000;
 const CANCEL_TIMEOUT_MS = 15000;
 const STATUS_TIMEOUT_MS = 30000;
+const START_TIMEOUT_MS = 30000;
 const STATUS_FAILURES = 5;
 
 export const moonraker: TransportPlugin = {
@@ -33,7 +37,7 @@ export const moonraker: TransportPlugin = {
   acceptsFlavors: ["klipper", "marlin"],
 
   async submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle> {
-    const filename = basename(gcode.path);
+    const filename = printerFileName(ctx.jobId);
     if (STUB) {
       ctx.log(`[stub] upload ${filename} → ${target.address} and start`);
       return {
@@ -47,6 +51,8 @@ export const moonraker: TransportPlugin = {
     const base = baseUrl(target.address);
     await requirePrinterAddress(target.address);
     const headers = apiKeyHeaders(target);
+    const readyMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
+    refuseUnlessIdle("moonraker", await moonrakerReadiness(base, headers, readyMs, ctx.signal));
 
     const upload = multipartFileUpload(
       { field: "file", path: gcode.path, filename },
@@ -67,16 +73,26 @@ export const moonraker: TransportPlugin = {
     refuseRedirect(up, "moonraker upload");
     if (!up.ok) throw new StageError("transport", `moonraker upload failed: ${up.status}`);
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before print start");
+    await ctx.confirmStart?.();
 
+    const startMs = positiveSetting("MOONRAKER_START_TIMEOUT_MS", START_TIMEOUT_MS);
     const start = await fetch(
       `${base}/printer/print/start?filename=${encodeURIComponent(filename)}`,
       {
         method: "POST",
         headers,
         redirect: "manual",
-        signal: ctx.signal,
+        signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(startMs)]),
       },
-    );
+    ).catch((e) => {
+      if (ctx.signal.aborted) throw e;
+      const timedOut = e instanceof Error && e.name === "TimeoutError";
+      throw new PrintMayHaveStartedError(
+        timedOut
+          ? `moonraker gave no answer to print start within ${startMs} ms`
+          : `moonraker start failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
     refuseRedirect(start, "moonraker start");
     if (!start.ok) throw new StageError("transport", `moonraker start failed: ${start.status}`);
 

@@ -31,6 +31,7 @@ export interface Printer extends Omit<PrinterInput, "secrets"> {
   lastSeenAt?: number;
   lastCheckedAt?: number;
   unreadable?: "allowedGenerators"[];
+  hold?: { jobId: string; reason: string; at: number };
 }
 
 export interface PrinterCheck {
@@ -47,6 +48,9 @@ interface PrinterRow {
   allowed_generators_json: string | null;
   last_seen_at: number | null;
   last_checked_at: number | null;
+  hold_job_id: string | null;
+  hold_reason: string | null;
+  hold_at: number | null;
 }
 
 const allowedGeneratorsSchema = z.array(z.string());
@@ -76,6 +80,9 @@ function rowToPrinter(r: PrinterRow): Printer {
     ...allowedGeneratorsOf(r),
     lastSeenAt: r.last_seen_at ?? undefined,
     lastCheckedAt: r.last_checked_at ?? undefined,
+    ...(r.hold_job_id
+      ? { hold: { jobId: r.hold_job_id, reason: r.hold_reason ?? "", at: r.hold_at ?? 0 } }
+      : {}),
   };
 }
 

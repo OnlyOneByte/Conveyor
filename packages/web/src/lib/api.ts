@@ -8,6 +8,7 @@ import type {
   PrusaProfileDocument,
   StageTiming,
 } from "@conveyor/shared";
+import type { AuthStatus } from "@conveyor/shared/auth-status";
 import { failure, statusError } from "./http-error.js";
 
 export const API = "/api";
@@ -89,19 +90,8 @@ export interface PrinterReachable {
 export const fetchPrinterReachable = (id: string, f: typeof fetch = fetch) =>
   getJson<PrinterReachable>(`${API}/catalog/printers/${encodeURIComponent(id)}/reachable`, f);
 
-export interface AuthStatus {
-  authEnabled: boolean;
-  authenticated: boolean;
-}
-
-export const signedIn = (status: AuthStatus): boolean =>
-  !status.authEnabled || status.authenticated;
-
-export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<AuthStatus> {
-  const r = await fetchFn(`${API}/auth/status`);
-  if (!r.ok) throw statusError(r, "GET /auth/status");
-  return r.json();
-}
+export const signedIn = (status: AuthStatus | null): boolean =>
+  status !== null && (!status.authEnabled || status.authenticated);
 
 export async function logout(): Promise<void> {
   await fetch(`${API}/auth/logout`, { method: "POST" });
@@ -116,8 +106,9 @@ export interface CatalogPrinter {
   allowedGenerators?: string[];
   lastSeenAt?: number;
   lastCheckedAt?: number;
+  hold?: { jobId: string; reason: string; at: number };
 }
-type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt"> & {
+type PrinterWrite = Omit<CatalogPrinter, "hasSecrets" | "lastSeenAt" | "lastCheckedAt" | "hold"> & {
   secrets?: Record<string, string> | null;
 };
 export interface CatalogProfile {
@@ -227,4 +218,13 @@ export async function fetchJobHistoryEntry(
 }
 
 export const savePrinter = (p: PrinterWrite) => putJson(`${API}/catalog/printers`, p);
+export async function releasePrinterHold(id: string, fetchFn: typeof fetch = fetch): Promise<void> {
+  const path = `${API}/catalog/printers/${encodeURIComponent(id)}/release`;
+  const r = await fetchFn(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ confirm: true }),
+  });
+  if (!r.ok) throw await failure(r, `POST ${path}`);
+}
 export const saveProfile = (p: CatalogProfile) => putJson(`${API}/catalog/profiles`, p);

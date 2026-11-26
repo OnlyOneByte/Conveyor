@@ -3,7 +3,9 @@
   import {
     ACTIONS,
     chipName,
+    face,
     groupName,
+    groupValues,
     groupVisible,
     shortName,
     status,
@@ -60,12 +62,12 @@
   {#if jobs.length > 1}
     <button type="button" class="chip grp" aria-expanded={open} aria-controls={card} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
       <span class="stack" aria-hidden="true">{#each jobs as member (member.id)}<i class="ring" class:ind={member.state === "generating"} style="--p: {fill(member)}"></i>{/each}</span>
-      {jobs.length} jobs <span class="v">{jobs.map(value).join(" · ")}<span class="sr">{groupName(jobs).slice(groupVisible(jobs).length)}</span></span>
+      {jobs.length} jobs <span class="v">{groupValues(jobs)}<span class="sr">{groupName(jobs).slice(groupVisible(jobs).length)}</span></span>
     </button>
   {:else if job}
     <a class="chip s-{job.state}" href="/jobs/{job.id}" aria-describedby={open ? `${card}-n ${card}-w` : undefined} data-stop={index} {tabindex} bind:this={chip} bind:offsetWidth={width}>
       <span class="ring" class:ind={job.state === "generating"} style="--p: {fill(job)}" aria-hidden="true"></span>
-      <span class="t">{shortName(job.name)}</span> <span class="v">{value(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
+      <span class="t">{shortName(job.name)}</span> <span class="v">{face(job)}<span class="sr">{chipName(job).slice(visible(job).length)}</span></span>
     </a>
   {/if}
   {#if open && job}

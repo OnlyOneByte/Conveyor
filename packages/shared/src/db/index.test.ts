@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { note, noteText } from "../job-notes.js";
 import {
   dbDeletePrinter,
   dbDeleteProfile,
@@ -133,7 +134,7 @@ describe("dbRecordJob notes", () => {
 
   test("a canceled job keeps its notes apart from the error", () => {
     const db = openDb(":memory:");
-    dbRecordJob(db, { ...settled, notes: "work dir not removed: EACCES" });
+    dbRecordJob(db, { ...settled, notes: noteText(note("workDirNotRemoved", "EACCES")) });
     const job = dbGetJob(db, "job-1");
     expect(job?.notes).toBe("work dir not removed: EACCES");
     expect(job?.error).toBeUndefined();
@@ -141,7 +142,7 @@ describe("dbRecordJob notes", () => {
 
   test("re-recording a job replaces its notes", () => {
     const db = openDb(":memory:");
-    dbRecordJob(db, { ...settled, notes: "first" });
+    dbRecordJob(db, { ...settled, notes: noteText(note("canceledOnPrinter")) });
     dbRecordJob(db, settled);
     expect(dbGetJob(db, "job-1")?.notes).toBeUndefined();
   });

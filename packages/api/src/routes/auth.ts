@@ -1,3 +1,4 @@
+import type { AuthStatus } from "@conveyor/shared/auth-status";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../auth.js";
 import { type LoginLimiter, loginLimiter } from "../login-limit.js";
 import { clientKey } from "../trusted-proxies.js";
+import { closeAfterReply, sendsUploadBody } from "./close-after.js";
 
 const loginSchema = z.object({ password: z.string().min(1).max(512) });
 
@@ -29,7 +31,9 @@ export function registerAuthGuard(app: FastifyInstance): void {
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     if (isPublic(req)) return;
-    if (!hasSession(req)) return reply.code(401).send({ error: "authentication required" });
+    if (hasSession(req)) return;
+    if (sendsUploadBody(req)) closeAfterReply(req, reply);
+    return reply.code(401).send({ error: "authentication required" });
   });
 }
 
@@ -38,7 +42,7 @@ export async function registerAuthRoutes(
   limiter: LoginLimiter = loginLimiter(),
   now: () => number = Date.now,
 ): Promise<void> {
-  app.get("/auth/status", PUBLIC_ROUTE, async (req) => {
+  app.get("/auth/status", PUBLIC_ROUTE, async (req): Promise<AuthStatus> => {
     return { authEnabled, authenticated: hasSession(req) };
   });
 

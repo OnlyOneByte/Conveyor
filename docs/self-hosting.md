@@ -159,6 +159,7 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |
 | `CONVEYOR_UPLOAD_TIMEOUT_MS` | `600000` (10 minutes) | Longest the worker waits for one g-code upload to a printer before failing the job. 10 minutes covers about 600 MB at 1 MB/s, or about 180 MB at 300 KB/s. Raise it for very large prints on slow printers. Compose passes it to the worker; an unset or empty value uses the default. Any other value must be a positive integer of milliseconds: one that isn't, such as `0` or `soon`, fails each job's upload at the transport stage, naming the variable, rather than falling back to the default. |
 | `PRINTER_ADDRESS_ALLOW` | none | Hosts and CIDRs the api and worker may reach even though they fall in a refused range ([Printer addresses](#printer-addresses)), separated by commas or spaces, for example `169.254.10.0/24, printer.example`. An entry that isn't a valid CIDR stops the api at startup and fails a job's transport stage, naming the variable. |
+| `MOONRAKER_START_TIMEOUT_MS` | `30000` | Longest the worker waits for Moonraker to answer the print start. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
 | `MOONRAKER_STATUS_TIMEOUT_MS` | `30000` | Longest the worker waits for one Moonraker status reply. Unset or empty uses the default; any other value must be a whole number above 0, or the job's transport stage fails naming the variable. |
 | `CONVEYOR_RETENTION_DAYS` | `30` | Days the worker keeps a finished job's folder (its STL and g-code downloads) and an upload no queued or running job uses ([Disk and Redis retention](#disk-and-redis-retention)). `0` keeps everything. Compose passes it to the api and the worker. Unset or empty uses the default; any other value must be a whole number, or the api and worker stop at startup naming the variable. |
 | `MOONRAKER_STATUS_FAILURES` | `5` | Status polls in a row that may fail (a timeout, a refused connection or an error reply) before the worker gives up on a running print. A successful poll resets the count. Same rules as above. |
@@ -189,9 +190,13 @@ The worker removes what a finished job no longer needs, so `./data` and Redis do
 | --- | --- |
 | A job's folder, `./data/<jobId>/` (model and g-code downloads) | The job is done, failed or canceled and its history row hasn't changed for `CONVEYOR_RETENTION_DAYS` (30 days by default). The job page then says "Files removed after 30 days." in place of the download buttons, and the download links answer `410`; its history stays |
 | An upload, `./data/uploads/<uploadId>.stl` | It is older than `CONVEYOR_RETENTION_DAYS` (30 days by default) and no queued or running job uses it. Retrying a failed upload job after that needs the file uploaded again |
-| An unfinished upload write, `./data/uploads/<uploadId>.stl.part` | Its last write is more than an hour old (`ABANDONED_PART_AGE_MS` in `packages/worker/src/retention.ts`). The api writes the whole body to this file and renames it to `<uploadId>.stl` within seconds, so only a crash mid-write leaves one. Its age is not counted from the first run, but nothing is removed while `CONVEYOR_RETENTION_DAYS` is `0` |
+| An unfinished upload write, `./data/uploads/<uploadId>.stl.part` | Its last write is more than an hour old (`ABANDONED_PART_AGE_MS` in `packages/worker/src/retention.ts`). The api writes the whole body to this file and renames it to `<uploadId>.stl` within seconds, so only a crash mid-write leaves one. Its age is measured on the reaper clock below, but never more than 24 hours behind the system clock (`PART_CLOCK_MAX_LAG_MS`). So after a long outage an abandoned write goes within a day, and a write in flight survives a system clock that jumps ahead by up to 24 hours. The very first run, with no stored reaper clock yet, removes no `.part` files at all; the next run catches up. Otherwise a jump of more than 25 hours can cut that one write short; the upload then fails with a 500 and can be sent again. Job folders and finished uploads keep the uncapped reaper clock, so a wrong system clock still never deletes them early. It is not counted from the first run, but nothing is removed while `CONVEYOR_RETENTION_DAYS` is `0` |
 | Redis `job:<id>` and `job:<id>:seq` | 7 days after the job settles, whatever `CONVEYOR_RETENTION_DAYS` says; the job's history lives in SQLite |
 | BullMQ's record of a finished job | After 7 days |
+
+**Busy printers are refused.** Just before uploading, the worker asks the printer once whether it is free. If it is printing, paused, in error, or doesn't answer, the job fails with a plain note and nothing is uploaded. The check runs once, so it is not a lock. With the SQLite queue that's enough, because Conveyor itself never sends two jobs to one printer at once. In Redis mode each worker first takes a lock on the printer in Redis (`printer:<id>:lock`), holds it through the check, the upload and the whole print, and releases it when the print settles; a second job for that printer waits for it. The lock lasts 60 seconds and the worker renews it every 20, so a worker that dies frees the printer within a minute.
+
+**Files on the printer are not cleaned up.** Each job uploads its g-code to the printer as `conveyor-<jobId>.gcode`, so two jobs never share a file, and Conveyor never deletes it. One file per job stays on the printer's storage. To free space, delete old `conveyor-*.gcode` files from the printer's own file list: in Mainsail or Fluidd under G-code files, or on an Elegoo printer's screen under its files. Never delete the one it is printing. Automatic cleanup is tracked in [#596](https://github.com/OnlyOneByte/Conveyor/issues/596).
 
 **Counted from the first run.** The worker records in the database when retention first ran (`retention:started_at` in the `meta` table). An item's age is counted from whichever is later: when the job finished or the upload was made, or that first run. So nothing that already existed when the worker first ran retention is removed until `CONVEYOR_RETENTION_DAYS` after that. Ages are measured against a reaper clock kept in the same table. It never moves back, never passes the system clock, and moves only as fast as the running worker has itself measured with a monotonic timer, so a wrong system clock, a crash loop or a second worker can't bring deletion forward; after an outage it resumes from where it stopped, which only delays deletion. If the stored reaper clock is ahead of the system clock (an edited database, a clock that was set years ahead), that run removes nothing, logs it, and resets the reaper clock and the first-run time to now, so the 30-day count starts again. A stored reaper clock that is missing or unreadable is treated the same way, as a first run.
 
@@ -203,15 +208,18 @@ Compose checks the `api` (`GET /health`) and `web` (`GET /`) every 10 seconds fr
 
 `GET /health` only says the api is running. For the whole stack, sign in and open `https://<your Conveyor address>/api/health/deep`. Without a session it answers `401`. It reports:
 
+Every check has a `state` and a `says` line in plain words, such as "The uploads folder takes new files." or "Worker printer-room last checked in 3 min ago, so it has probably stopped.". The top-level `says` names the first problem, or reads "Conveyor is ready to print.".
+
 | Field | Values | Means |
 | --- | --- | --- |
-| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer; `degraded` (HTTP `200`) when no worker has checked in within 45 seconds, or when the worker has no OpenSCAD or no slicer |
+| `status` | `ok`, `degraded`, `down` | `down` (HTTP `503`) when the database or Redis doesn't answer. `degraded` (HTTP `200`) when no worker has checked in, no running worker has OpenSCAD and a slicer, any worker has stopped checking in, or the uploads folder can't take a file |
 | `db` | `ok`, `down` | the api ran `SELECT 1` on the database |
 | `redis` | `ok`, `down` | Redis answered `PING` within 2 seconds; absent with `CONVEYOR_QUEUE=sqlite` |
-| `worker` | `state`: `ok`, `stale`, `missing`; `lastSeenSecondsAgo` | the worker writes a heartbeat to the database every 15 seconds. `missing` means none was ever written, and `stale` means the last is over 45 seconds old |
-| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether the worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) when it started. `stub` with `CONVEYOR_ENGINE_STUB=1` |
+| `uploads` | `ok`, `down` | the api wrote and removed a small `.health-<id>` file in the uploads folder just now. Each check first removes any such file over a minute old, which only an api that crashed mid-check leaves behind |
+| `workers` | one entry per worker: `id`, `state` (`ok`, `down`), `lastSeenSecondsAgo`, `engines` | each worker writes its own heartbeat to the database every 15 seconds, under `CONVEYOR_WORKER_ID` or else its host name (the container ID in Compose). Two workers run outside containers on the same machine share a host name, so give each its own `CONVEYOR_WORKER_ID`, or they overwrite one heartbeat. The api compares each heartbeat with its own clock, so the api and the workers must share one clock: run them on the same host, as Compose does, or keep their clocks in sync. A worker is `down` once its last heartbeat is over 45 seconds old, or dated more than 5 seconds in the future (a clock that was set back after it wrote); a running worker reads right again at its next heartbeat. A worker that stops cleanly, as on `docker compose up` after an upgrade, removes itself from the list; one that died drops off after a day without a heartbeat |
+| `engines` | `openscad`, `orca`, `prusa`: `ok`, `missing`, `stub` | whether that worker found each engine's binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`) at its last heartbeat. `stub` with `CONVEYOR_ENGINE_STUB=1` |
 
-The report carries only these states, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
+The report carries only these states and lines, never an error message, path or address. A failed check is logged by the api (`docker compose logs api`) with its error.
 
 The worker logs one JSON line each time a job enters a stage, and one when the job ends:
 
@@ -246,7 +254,7 @@ To move an install that already generated a key, paste the contents of `./data/s
 
 Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
 
-A local `--build` reuses Docker's build cache, including the worker's OS-package layer from your last build. To pick up Debian's security fixes since then, rebuild that layer with `docker compose build --build-arg OS_REFRESH="$(date -u +%G-W%V)"`, then `docker compose up -d`.
+A local `--build` reuses Docker's build cache, including the api's and worker's OS-package layers from your last build. To pick up Debian's security fixes since then, rebuild those layers with `docker compose build --build-arg OS_REFRESH="$(date -u +%G-W%V)"`, then `docker compose up -d`.
 
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 
@@ -452,10 +460,14 @@ Redis 8's image loads four add-on modules on start (RedisBloom, RediSearch, Redi
 
 ## Releasing a held printer
 
-This applies only to the SQLite queue (`CONVEYOR_QUEUE=sqlite`); the default Redis queue never holds a
-printer. When a worker stops while it is sending a job to a printer, the queue cannot know whether the printer got
-the job. It fails that job with "check the printer before releasing it" and holds the printer, so no other
-job is sent to it. Check the printer, stop or remove anything it should not be printing, then release the
+Conveyor holds a printer when it can't tell whether a job started on it:
+
+- **Any queue:** the printer didn't answer the print start (`MOONRAKER_START_TIMEOUT_MS`). The job fails with "The
+  printer didn't answer the print start, so it may have started", and the printer is held.
+- **SQLite queue only:** a worker stopped while it was sending a job to the printer. The job fails with "check the
+  printer before releasing it", and the printer is held.
+
+While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then release the
 hold. Until the UI has a button for it, release it from a shell. With authentication on (the default), log
 in first; the session cookie goes in a private temporary file:
 

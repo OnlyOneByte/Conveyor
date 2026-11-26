@@ -47,10 +47,27 @@ Compose passes one `${CONVEYOR_QUEUE:-redis}` and one `${CONVEYOR_QUEUE_UNSTABLE
 worker, so in a normal install they always run the same queue; `queue-mode.test.ts` checks both services.
 
 In both modes `main.ts` starts `startHeartbeat` (`heartbeat.ts`). It writes `{ at, engines }` to the
-`worker_heartbeat` row of the `meta` table at start and every 15 seconds. `engines` says whether each engine's
-binary (`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`) was
-found at start, or `stub` with `CONVEYOR_ENGINE_STUB=1`. A write that fails is logged and never stops the
-worker. The api's `GET /health/deep` reads that row.
+`worker_heartbeat:<id>` row of the `meta` table at start and every 15 seconds. `<id>` is `CONVEYOR_WORKER_ID`, or
+else the host name, so each worker has its own row; two workers outside containers on one machine need distinct
+`CONVEYOR_WORKER_ID`s. Each beat looks for every engine's binary again
+(`OPENSCAD_BIN`, `ORCA_BIN`, `PRUSA_BIN`, or `openscad`, `orca-slicer` and `prusa-slicer` on `PATH`), so a binary
+removed while the worker runs shows as `missing` within a beat; `stub` with `CONVEYOR_ENGINE_STUB=1`. Each write
+also drops the single `worker_heartbeat` row from before per-worker beats and any row over a day old. A worker that stops cleanly (`SIGTERM`, as `docker compose up` sends
+before it recreates a container) removes its own row, so only a worker that died stays listed as down. A write that
+fails is logged and never stops the worker. The api's `GET /health/deep` reads these rows and ages them on its own clock, so the api and the workers
+must share a clock (one host, or synced clocks).
+
+## printer-lock.ts
+
+In Redis mode `printStage` takes a per-printer lock before the idle check and releases it in a `finally` once the
+print settles, so two workers never upload to or start one printer at once (the SQLite queue's `TAKE_SLOT` already
+serializes printers). The lock is `printer:<id>:lock`, set with `SET NX PX 60000` to a token per job; a timer renews
+it every 20 s, and renew and release are Lua scripts that only touch the key while it still holds the job's token.
+A job that finds the printer locked waits, polling every 2 s, until it gets the lock or is canceled. A worker that
+dies stops renewing, so its lock expires within 60 s. Before each claim the worker checks the printer's SQLite hold,
+and refuses the job with `printer is on hold: <reason>` while one is set. When a transport throws
+`PrintMayHaveStartedError` (Moonraker's print start gave no answer), `printStage` holds the printer in either queue
+mode, with that error as the reason, until someone releases it.
 
 ## sqlite.ts
 

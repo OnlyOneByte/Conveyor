@@ -82,7 +82,7 @@
     if (!done) return;
     uploading = false;
     if (!done.ok) {
-      [uploadError, uploadWhy] = failed(`upload ${chosen.name}`, done.error);
+      [file, [uploadError, uploadWhy]] = [null, failed(`upload ${chosen.name}`, done.error)];
       return;
     }
     uploadId = done.value.uploadId;

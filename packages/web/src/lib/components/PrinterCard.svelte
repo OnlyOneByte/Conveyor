@@ -1,13 +1,33 @@
 <script lang="ts">
-  import type { CatalogPrinter } from "#lib/api.js";
+  import { type CatalogPrinter, releasePrinterHold } from "#lib/api.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
   import type { PrinterCard } from "#lib/printer-status.js";
+  import Confirm from "./Confirm.svelte";
 
   export let printer: CatalogPrinter;
   export let card: PrinterCard;
   export let how: string;
   export let limits: string;
   export let edit: () => void;
+  export let changed: () => Promise<void>;
+
+  let asking = false;
+  let releasing = false;
+  let refused = "";
+
+  async function releaseHold() {
+    releasing = true;
+    refused = "";
+    try {
+      await releasePrinterHold(printer.id);
+      await changed();
+      asking = false;
+    } catch (err) {
+      refused = err instanceof Error ? err.message : String(err);
+    } finally {
+      releasing = false;
+    }
+  }
 
   $: stuck = card.tone === "offline" && card.waiting.length > 0;
   $: waitTitle = !card.waiting.length
@@ -25,6 +45,15 @@
     </div>
     <span class="pill {card.tone}">{card.status}</span>
   </header>
+  {#if printer.hold}
+    <div class="hold" role="status">
+      <h3>On hold</h3>
+      <p>Conveyor stopped sending jobs here because it couldn't tell whether a print started.</p>
+      {#if printer.hold.reason}<p class="why">{printer.hold.reason}</p>{/if}
+      {#if refused}<p class="refused" role="alert">The hold wasn't released: {refused}</p>{/if}
+      <button class="btn" type="button" on:click={() => (asking = true)}>Release hold</button>
+    </div>
+  {/if}
   {#if card.job}
     <div class="now">
       <a href="/jobs/{card.job.id}">{card.job.name}</a>
@@ -53,6 +82,10 @@
   </div>
 </li>
 
+<Confirm bind:open={asking} title="Release the hold on {printer.name}?" keep="Keep the hold" go="Release hold" busy={releasing} run={releaseHold}>
+  <p>Check the printer first, and stop or remove anything it shouldn't be printing. Once you release the hold, Conveyor sends it jobs again.</p>
+</Confirm>
+
 <style>
   .card { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) var(--s5) var(--s5); }
   .card.offline { border: 1.5px solid var(--err); }
@@ -64,8 +97,16 @@
   .pill { display: inline-flex; align-items: center; gap: var(--s1-5); min-height: 28px; padding: 0 var(--s2-5); border: 1.5px solid currentColor; border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-chip); white-space: nowrap; }
   .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .pill.ready { color: var(--ok); }
-  .pill.busy { color: var(--live); }
+  .pill.busy {
+    border-color: color-mix(in oklch, var(--live) 80%, var(--paper));
+    background: color-mix(in oklch, var(--live) 14%, var(--paper)); color: var(--ink);
+  }
+  .pill.busy::before { background: var(--live); }
   .pill.offline { color: var(--err); }
+  .pill.offline::before {
+    box-sizing: border-box; border: 1.5px solid currentColor;
+    background: linear-gradient(45deg, transparent 42%, currentColor 42% 58%, transparent 58%);
+  }
   .pill.checking { color: var(--muted); }
   .pill.checking::before { box-sizing: border-box; background: none; border: 1.5px solid currentColor; }
   .now { display: flex; flex-direction: column; gap: var(--s0); color: var(--muted); }
@@ -78,6 +119,11 @@
   ol a { display: inline-flex; align-items: center; min-height: 24px; }
   .now a { align-self: flex-start; display: inline-flex; align-items: center; min-height: 24px; }
   @media (pointer: coarse) { ol a, .now a { min-height: var(--tap); } }
+  .hold { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s3); border: 1.5px solid var(--err); border-radius: var(--r-inner); }
+  .hold h3 { color: var(--err); font-size: var(--fs-body); }
+  .hold .why { font: 500 var(--fs-chip) var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  .hold .refused { color: var(--err); }
+  .hold .btn { align-self: flex-start; min-height: var(--tap); margin-top: var(--s1); padding: 0 var(--s4); border-color: var(--field-line); }
   .foot { display: flex; align-items: center; gap: var(--s2); margin-top: auto; color: var(--muted); font-size: var(--fs-chip); }
   .foot span { flex: 1; }
   .foot .btn { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); border-color: var(--field-line); }
