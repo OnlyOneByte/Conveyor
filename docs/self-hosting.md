@@ -252,7 +252,7 @@ To move an install that already generated a key, paste the contents of `./data/s
 
 Upgrade the api and the worker together; `docker compose up -d --build` does both. An older worker cannot read encrypted credentials, and an older api writes plaintext that the new worker refuses.
 
-A local `--build` reuses Docker's build cache, including the worker's OS-package layer from your last build. To pick up Debian's security fixes since then, rebuild that layer with `docker compose build --build-arg OS_REFRESH="$(date -u +%G-W%V)"`, then `docker compose up -d`.
+A local `--build` reuses Docker's build cache, including the api's and worker's OS-package layers from your last build. To pick up Debian's security fixes since then, rebuild those layers with `docker compose build --build-arg OS_REFRESH="$(date -u +%G-W%V)"`, then `docker compose up -d`.
 
 Older images cannot read the encrypted column either: the printer list answers `500`. To go back to a version from before encryption, stop the stack, run the same `sqlite3` command as for a lost key, start the older images, and enter each printer's credentials again. Restoring a `conveyor.db` backup taken before the upgrade works too.
 

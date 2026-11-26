@@ -287,18 +287,11 @@ jobs:
             OS_REFRESH=${{ steps.refresh.outputs.week }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-      - name: Scan ${{ matrix.service }} for vulnerabilities with a fix
+      - name: No fixed high or critical vulnerability in ${{ matrix.service }} outside the allowlist
         env:
-          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
           IMAGE: conveyor-scan-${{ matrix.service }}
-        run: |
-          trivy() {
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
-              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$IMAGE"
-          }
-          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
-          { echo "### $IMAGE: fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+          TRIVY_CACHE: ${{ runner.temp }}/trivy
+        run: scripts/checks/scan-image.sh "$IMAGE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -356,18 +349,10 @@ jobs:
             OS_REFRESH=${{ steps.refresh.outputs.week }}
           build-contexts: orca-cache=orca-cache
           cache-from: type=gha,scope=worker
-      - name: Scan the worker with OrcaSlicer for vulnerabilities with a fix
+      - name: No fixed high or critical vulnerability in the worker with OrcaSlicer outside the allowlist
         env:
-          TRIVY: aquasec/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c
-          IMAGE: conveyor-worker
-        run: |
-          trivy() {
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
-              "$TRIVY" image --quiet --scanners vuln --ignore-unfixed "$@" "$IMAGE"
-          }
-          trivy --severity CRITICAL,HIGH --format table | tee image-scan.txt
-          { echo "### $IMAGE with OrcaSlicer: fixed critical and high vulnerabilities"; echo '```'; cat image-scan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          trivy --severity CRITICAL --exit-code 1 --format table > /dev/null
+          TRIVY_CACHE: ${{ runner.temp }}/trivy
+        run: scripts/checks/scan-image.sh conveyor-worker "conveyor-worker with OrcaSlicer"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

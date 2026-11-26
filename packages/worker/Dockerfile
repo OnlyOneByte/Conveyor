@@ -37,7 +37,8 @@ ARG OS_REFRESH=""
 ENV ORCA_BIN=/opt/orca/AppRun
 
 RUN echo "OS package refresh: ${OS_REFRESH:-none}" \
- && apt-get update && apt-get install -y --no-install-recommends \
+ && apt-get update && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
       prusa-slicer \
       xvfb xauth ca-certificates curl \
       libharfbuzz0b libgpg-error0 libgcrypt20 libglib2.0-0 libfontconfig1 libfreetype6 libgomp1 \

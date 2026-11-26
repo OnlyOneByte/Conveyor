@@ -18,6 +18,10 @@ FROM oven/bun:debian@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145
 LABEL org.opencontainers.image.source="https://github.com/OnlyOneByte/Conveyor" \
       org.opencontainers.image.description="Conveyor API — REST + WebSocket front door" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
+ARG OS_REFRESH=""
+RUN echo "OS package refresh: ${OS_REFRESH:-none}" \
+ && apt-get update && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app ./
 COPY . .
