@@ -23,6 +23,7 @@
   export let jobs: TrackJob[];
   export let ended: TrackJob[] = [];
   export let idle = IDLE;
+  export let label = "On the belt";
   export let offline = false;
   export let onAction: (job: TrackJob, action: string) => void = () => {};
   export let finishedToday: number | undefined = undefined;
@@ -77,7 +78,7 @@
 </script>
 
 <svelte:document on:visibilitychange={() => (hidden = document.hidden)} />
-<section class="belt" class:paused={hidden} aria-label="On the belt">
+<section class="belt" class:paused={hidden} aria-label={label}>
   <div class="queue">
     <span class="label">Queue</span>
     <span class="slot q">{offline ? "Not known" : waiting ? "Waiting" : "Empty"}{#if waiting && !offline}<span class="n">{waiting}</span>{/if}</span>
