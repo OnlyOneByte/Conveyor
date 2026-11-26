@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { TEMP_PREFIXES } from "../../packages/shared/test/helpers/temp-prefixes.ts";
+import { TEMP_PREFIXES, watchedPrefix } from "../../packages/shared/test/helpers/temp-prefixes.ts";
+import { type TempDirCall, tempDirCalls } from "./temp-prefix-scan";
 import { leakErrors } from "./test-leaks";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -37,18 +38,26 @@ describe("leakErrors", () => {
   });
 });
 
-describe("the watched prefixes", () => {
-  const TMPDIR_TEMP = /mkdtemp(?:Sync)?\(\s*join\(\s*(?:os\.)?tmpdir\(\),\s*([`"'])([^`"'$]*)/g;
+const problemOf = (file: string, call: TempDirCall): string | null => {
+  if (call.prefix === null) return `${file}:${call.line}: prefix isn't a literal`;
+  if (!watchedPrefix(call.prefix))
+    return `${file}:${call.line}: ${call.prefix} isn't in TEMP_PREFIXES`;
+  return null;
+};
 
-  test("cover every temp prefix a file in the repository makes under tmpdir()", () => {
+describe("the watched prefixes", () => {
+  test("cover every temp dir a file in the repository makes under tmpdir(), each with a literal prefix", () => {
     const tracked = Bun.spawnSync(["git", "ls-files", "-z", "*.ts"], { cwd: ROOT });
-    const files = tracked.stdout.toString().split("\0").filter(Boolean);
-    const found = new Set<string>();
-    for (const file of files)
-      for (const match of readFileSync(join(ROOT, file), "utf8").matchAll(TMPDIR_TEMP))
-        if (match[2]) found.add(match[2]);
-    const unwatched = [...found].filter((p) => !TEMP_PREFIXES.some((w) => p.startsWith(w)));
-    expect(found.size).toBeGreaterThan(50);
-    expect(unwatched).toEqual([]);
+    const calls = tracked.stdout
+      .toString()
+      .split("\0")
+      .filter(Boolean)
+      .flatMap((file) =>
+        tempDirCalls(readFileSync(join(ROOT, file), "utf8"), file).map((call) =>
+          problemOf(file, call),
+        ),
+      );
+    expect(calls.length).toBeGreaterThan(50);
+    expect(calls.filter((problem) => problem !== null)).toEqual([]);
   });
 });
