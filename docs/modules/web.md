@@ -42,7 +42,7 @@ submit it themselves.
   - **Sharing:** each answer goes into the `activeJobs` store, which the queued job card reads instead of
     polling itself.
   - **Pace:** `createTicker` polls every 2 s while the tab is visible, and every 10 s (`COVERED_MS`) while every job
-    on the belt is on the rail with an open socket. A queued job, or a closed socket, brings it back to 2 s.
+    on the belt is moving and has an open socket. A queued job, or a closed socket, brings it back to 2 s.
   - **Offline:** after `FAILS_TO_CLEAR` failed polls in a row the belt goes offline, keeping its last jobs, and says
     so once. When `GET /jobs-history/counts` or Needs you fails, the end counts keep their last values and the belt
     shows its offline state too ("Can't reach Conveyor", with the last jobs), until a refresh answers again:
