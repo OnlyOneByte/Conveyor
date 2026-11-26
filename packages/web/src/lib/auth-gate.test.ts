@@ -36,6 +36,8 @@ describe("checkAuth", () => {
   test.each([
     ["an empty object", "{}"],
     ["a bare true", "true"],
+    ["a null", "null"],
+    ["half a status", '{"authEnabled":false}'],
     ["another route's answer", '{"ok":true}'],
     ["a string flag", '{"authEnabled":"false","authenticated":false}'],
     ["an extra key", '{"authEnabled":false,"authenticated":false,"admin":true}'],

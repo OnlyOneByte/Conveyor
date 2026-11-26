@@ -50,7 +50,7 @@ Each scene has:
 - an optional `touch`, which emulates a touch screen (`hover: none`);
 - an optional `fullPage`, which shoots the whole page rather than the viewport;
 - an optional `signedOut`, `reducedMotion` or `widths`, which stub a signed-out session, ask for reduced motion, or shoot only some widths;
-- an optional `authDown`, which answers `/api/auth/status` with its `status` (for its first `times` requests, if set) before the page loads;
+- an optional `authDown`, which answers `/api/auth/status` with its `status` (for its first `times` requests, if set) before the page loads, or never answers with `hang: true`, as `auth-timeout` does to reach the 8 s timeout;
 - an optional `visits`, listing every page the scene reaches by a click or a redirect rather than a `follow` or `history` step.
 
 When you add a page, add a scene for it, and keep selectors on stable text or roles. Capture fails a scene that lands on a page it doesn't list.
