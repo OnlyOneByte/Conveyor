@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { announce } from "#lib/announce.js";
   import { EMPTY, type Filter } from "#lib/jobs-list.js";
+  import Skeleton from "#lib/ui/Skeleton.svelte";
 
   export let kind: "loading" | "down" | "empty";
   export let filter: Filter;
@@ -15,7 +16,7 @@
 </script>
 
 {#if kind === "loading"}
-  <p class="state">Loading jobs…</p>
+  <Skeleton count={3} label="Loading jobs" spoken={false} />
 {:else if kind === "down"}
   <div class="state"><p class="big">Can't reach Conveyor</p><p>The job history didn't load. Check that Conveyor is running, then try again.</p><button class="btn primary" type="button" on:click={retry}>Try again</button></div>
 {:else}

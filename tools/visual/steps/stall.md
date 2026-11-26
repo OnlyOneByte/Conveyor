@@ -1,0 +1,1 @@
+`stall` answers every GET to a URL glob with a fixed status and JSON body, but holds each request open until a later `release` step names the same glob. So a scene can assert a loading state for as long as it needs, without racing a timer. The `loading-*` scenes stall the request a page waits on, check its skeleton, then `release` it.

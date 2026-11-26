@@ -16,18 +16,21 @@
   import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import PrinterCard from "#lib/components/PrinterCard.svelte";
   import PrinterDialog from "#lib/components/PrinterDialog.svelte";
+  import PrintersHead from "#lib/components/PrintersHead.svelte";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
-  import Menu from "#lib/ui/Menu.svelte";
-  import { goto, replaceState } from "$app/navigation";
-  import { page } from "$app/state";
+  import Skeleton from "#lib/ui/Skeleton.svelte";
 
   let printers: CatalogPrinter[] = [];
   let transports: CatalogTransport[] = [];
   let generators: GeneratorSummary[] = [];
   let active: JobView[] = [];
   let reach: Record<string, PrinterReachable> = {};
-  let [loaded, failed, now, open] = [false, false, Date.now(), false];
-  let [editing, addButton]: [CatalogPrinter | null, HTMLButtonElement | null] = [null, null];
+  let loaded = false;
+  let failed = false;
+  let now = Date.now();
+  let open = false;
+  let editing: CatalogPrinter | null = null;
+  let loading: Promise<void> = Promise.resolve();
 
   $: catalog = { printers, generators };
   $: cards = printers.map((printer) => ({
@@ -83,13 +86,14 @@
     open = true;
   }
 
-  function fromLink() {
-    addButton?.focus();
-    edit();
-    replaceState("/printers", {});
+  async function add() {
+    await loading;
+    if (!failed) edit();
   }
+
   onMount(() => {
-    void refresh().then(() => page.url.searchParams.has("add") && fromLink());
+    loading = load();
+    void loading.then(() => Promise.all([poll(), probe()]));
     const timers = [setInterval(poll, POLL_MS), setInterval(probe, REACH_MS)];
     return () => timers.forEach(clearInterval);
   });
@@ -97,21 +101,13 @@
 
 <svelte:head><title>Printers · Conveyor</title></svelte:head>
 
-<div class="head">
-  <div class="t">
-    <h1>Printers</h1>
-    {#if loaded && !failed && printers.length}<p class="sub">{printersSummary(printers, active)}</p>{/if}
-  </div>
-  <div class="acts">
-    <button class="btn primary big" type="button" bind:this={addButton} on:click={() => edit()} disabled={!loaded || failed}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add printer
-    </button>
-    <Menu label="More" items={[{ label: "Check printers again", run: () => void probe() }, { label: "Settings", run: () => goto("/settings") }]} />
-  </div>
-</div>
+<PrintersHead
+  summary={loaded && !failed && printers.length ? printersSummary(printers, active) : ""}
+  ready={loaded} {failed} {add} check={() => void probe()}
+/>
 
 {#if !loaded}
-  <p class="sub">Loading printers…</p>
+  <Skeleton kind="cards" count={2} label="Loading printers" />
 {:else if failed}
   <div class="empty" role="alert">
     <h2>Can't reach Conveyor</h2>
@@ -131,20 +127,15 @@
 <PrinterDialog bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} />
 
 <style>
-  .head { display: flex; align-items: flex-end; gap: var(--s4); flex-wrap: wrap; margin: var(--s2) 0 var(--s5); }
-  .t { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: var(--s1); }
-  h1 { margin: 0; line-height: 1.05; }
   h2, p { margin: 0; }
   .sub { color: var(--muted); }
-  .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
-  .acts :global(.btn), .big { min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); border-color: var(--field-line); }
-  .acts .primary { border-color: var(--accent); }
-  .big svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+  .big {
+    min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
+    border-color: var(--field-line);
+  }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s4); margin: 0; padding: 0; list-style: none; }
   .empty { max-width: 520px; display: flex; flex-direction: column; gap: var(--s3); padding: 6vh 0; }
   @media (max-width: 759px) {
     .grid { grid-template-columns: 1fr; }
-    .acts { width: 100%; }
-    .acts .primary { flex: 1; }
   }
 </style>

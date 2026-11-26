@@ -32,6 +32,8 @@ export function fileSize(bytes: number): string {
   return `${(bytes / KB / KB).toFixed(1)} MB`;
 }
 
+export const EMPTY_CATALOG = { generators: [], printers: [], profiles: [], transports: [] };
+
 export const dockLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" · ");
 
 type Outcome<R> = { ok: true; value: R } | { ok: false; error: unknown };
