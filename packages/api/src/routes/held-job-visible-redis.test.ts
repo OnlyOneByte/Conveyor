@@ -58,8 +58,11 @@ describe.skipIf(!url)("a job waiting on a printer hold on the Redis queue", () =
     const queue = new Queue(JOB_QUEUE, {
       connection: new Redis(redisUrl, { maxRetriesPerRequest: null }),
     });
-    await queue.obliterate({ force: true });
-    await queue.close();
+    try {
+      await queue.obliterate({ force: true });
+    } finally {
+      await queue.close();
+    }
     api = await bootApi(dir, {
       REDIS_URL: redisUrl,
       CONVEYOR_QUEUE: "redis",
@@ -111,13 +114,15 @@ describe.skipIf(!url)("a job waiting on a printer hold on the Redis queue", () =
   });
 
   afterAll(async () => {
-    worker?.kill();
-    await worker?.exited;
-    await api?.stop();
     const redis = new Redis(redisUrl);
-    await redis.flushdb();
-    redis.disconnect();
-    rmSync(dir, { recursive: true, force: true });
+    try {
+      worker?.kill();
+      await worker?.exited;
+      await api?.stop();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      await redis.flushdb().finally(() => redis.disconnect());
+    }
   });
 
   test("is shown queued with no start estimate until Release hold, then the jobs run oldest first", async () => {
