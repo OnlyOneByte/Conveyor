@@ -84,11 +84,22 @@ export const scenes: Scene[] = [
     widths: [390],
     fullPage: false,
   },
-  finish(),
+  finish("finish-phone", "done", [
+    { waitFor: "main >> text=12.4 g" },
+    { waitFor: "main .live >> text=Printed" },
+    { waitFor: "main .live >> text=Took 1 h 13 min" },
+    { above: "main .receipt", of: "main .mat" },
+  ]),
+  finish("fail-phone", "failed", [
+    { waitFor: "main .live >> text=Failed" },
+    { waitFor: "main .live li.stop >> text=Print" },
+    { absent: "main .live li.stop >> text=Send" },
+  ]),
 ];
 
-function finish(): Scene {
-  const jobId = "scene-finish-phone";
+function finish(name: string, state: "done" | "failed", checks: Step[]): Scene {
+  const jobId = `scene-${name}`;
+  const failure = { error: { stage: "transport", reason: "printer reported an error" } };
   const done = `**/api/jobs/${jobId}`;
   const view = {
     jobId,
@@ -97,7 +108,7 @@ function finish(): Scene {
     ...request,
   };
   return {
-    name: "receipt-finish-phone",
+    name: `receipt-${name}`,
     route: "/",
     ready: "text=How big?",
     widths: [390],
@@ -109,8 +120,9 @@ function finish(): Scene {
         json: {
           id: jobId,
           request,
-          state: "done",
+          state,
           stage: "transport",
+          ...(state === "failed" ? failure : {}),
           artifacts: {
             model: `/data/jobs/${jobId}/model.stl`,
             gcode: `/data/jobs/${jobId}/model.gcode`,
@@ -127,13 +139,18 @@ function finish(): Scene {
         },
       },
       { fulfill: `**/api/jobs-history/${jobId}`, status: 404, json: {}, times: 1 },
-      { stall: done, status: 200, json: { ...view, state: "done", progress: 1 } },
+      { stall: done, status: 200, json: { ...view, state, progress: state === "done" ? 1 : 0.64 } },
       { fulfill: done, status: 200, json: { ...view, ...PRINTING }, times: 1 },
       { follow: `/jobs/${jobId}` },
       { waitFor: "main >> text=38 min left" },
-      { stays: ["main .receipt"], until: "text=Print again", releasing: done },
-      { waitFor: "main >> text=12.4 g" },
-      { above: "main .receipt", of: "main .mat" },
+      state === "done"
+        ? {
+            stays: ["main .receipt", "main h2:has-text('Settings')"],
+            until: "text=Print again",
+            releasing: done,
+          }
+        : { stays: ["main h1"], until: "main .live >> text=Failed", releasing: done },
+      ...checks,
     ],
   };
 }

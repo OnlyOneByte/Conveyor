@@ -20,12 +20,16 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
   void loadViewportCanvas();
   const catalog = Promise.all([
     fetchGenerators(fetch).catch(() => []),
-    fetchCatalogPrinters(fetch).catch(() => []),
+    fetchCatalogPrinters(fetch).then(
+      (list) => ({ list, failed: false }),
+      () => ({ list: [], failed: true }),
+    ),
     fetchCatalogProfiles(fetch).catch(() => []),
     fetchCatalogTransports(fetch).catch(() => []),
   ]).then(([generators, printers, profiles, transports]) => ({
     generators,
-    printers,
+    printers: printers.list,
+    printersFailed: printers.failed,
     profiles,
     transports,
   }));

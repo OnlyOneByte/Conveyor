@@ -107,7 +107,8 @@
   <div class="grid" class:first={cardFirst}>
     {#if !cardFirst}{@render model()}{/if}
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
+      {#if live || (cardFirst && job)}
+        <JobProgress view={live} settled={cardFirst ? job : null} printer={data.printer} />{/if}
     </JobReceipt>
     {#if cardFirst}{@render model()}{/if}
   </div>

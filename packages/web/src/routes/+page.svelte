@@ -25,7 +25,7 @@
   let cat: Awaited<PageData["catalog"]> | null = null;
   const take = (p: PageData["catalog"]) => p.then((c) => (cat = p === data.catalog ? c : cat));
   $: void take(data.catalog);
-  $: ({ generators, printers, profiles, transports } = cat ?? EMPTY_CATALOG);
+  $: ({ generators, printers, printersFailed: down, profiles, transports } = cat ?? EMPTY_CATALOG);
 
   const UPLOAD = "upload";
 
@@ -104,7 +104,7 @@
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
   $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
-  $: setup = printers.length ? "" : "Add a printer to print";
+  $: setup = printers.length ? "" : down ? "Printers didn't load" : "Add a printer to print";
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name ?? setup);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -151,7 +151,7 @@
           Can't reach Conveyor right now. Check that it's running, then reload the page.
         </p>
       {/if}
-      <MakeWhere {eligible} {compatible} all={printers.length} bind:printerId bind:profileId />
+      <MakeWhere {down} {eligible} {compatible} all={printers.length} bind:printerId bind:profileId />
     </div>
     <PrintDock {summary} {detail} {ready} {...$job} />
   </form>
