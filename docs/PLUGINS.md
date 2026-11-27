@@ -149,7 +149,7 @@ export interface TransportPlugin extends PluginManifest {
   acceptsFlavors: string[];                // gcode flavors it can print
   submit(gcode: GcodeArtifact, target: PrinterTarget, ctx: StageCtx): Promise<PrintHandle>;
   status(handle: PrintHandle, signal?: AbortSignal, target?: PrinterTarget): AsyncIterable<PrintStatus>; // stop when signal aborts
-  cancel?(handle: PrintHandle, target?: PrinterTarget): Promise<void>; // resolve only once the printer confirmed the stop
+  cancel?(handle: PrintHandle, target?: PrinterTarget, signal?: AbortSignal): Promise<void>; // resolve only once the printer confirmed the stop; send nothing once signal aborts
   handleFor?(target: PrinterTarget, ref: string): PrintHandle; // handle for a submit() that never returned
   pruneFiles?(target: PrinterTarget, keep: ReadonlySet<string>, signal: AbortSignal): Promise<string[]>; // delete Conveyor's old files, return their names
 }
@@ -158,6 +158,8 @@ export interface TransportPlugin extends PluginManifest {
 `pruneFiles()` may delete only names `filesToPrune` (from `@conveyor/shared`) returns, so it never touches a file Conveyor didn't name, one in `keep`, or the one the printer has loaded. It throws, deleting nothing, when it can't tell what is loaded.
 
 The worker passes the job's printer, secrets included, as `target` to `status()` and `cancel()`, so a transport can authenticate every request the way `submit()` did. The handle is stored with the job, so keep secrets off it.
+
+`cancel()` must honour its `signal`. The worker aborts it when the stop bound expires, just before it frees the printer for the next job, so a stop still on its way then could cancel that job's print. Once the signal aborts, send nothing more to the printer, abort any request in flight, and reject. Check the signal after any slow step before the request, such as resolving the printer's name.
 
 `submit()` must check `ctx.signal` between the upload and the start command, and throw `PrintNotStartedError` (from `@conveyor/shared`) when it is cancelled before the start command was sent. The worker sends no stop for that error. Any other error from `submit()` after a cancel is treated as "the print may have started", and the worker sends a stop. Right before the start command, `submit()` calls `await ctx.confirmStart?.()`, which throws `PrintNotStartedError` when the worker no longer holds the printer. When the start command gets no answer, `submit()` throws `PrintMayHaveStartedError`; the worker then holds the printer until someone releases it.
 

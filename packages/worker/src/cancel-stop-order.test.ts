@@ -153,3 +153,50 @@ test("a stop that never answers frees the lock after the bound and fails the job
     answer();
   }
 });
+
+test("a stop still on its way when the bound expires is aborted before the lock is released, and never reaches the printer", async () => {
+  const order: string[] = [];
+  const lock = recordingLock(order);
+  let lookedUp = () => {};
+  const lookup = new Promise<void>((resolve) => {
+    lookedUp = resolve;
+  });
+  let stopDone: Promise<void> = Promise.resolve();
+  const { job: a, seen } = printingJob(lock, {
+    cancel: (_handle, _target, signal) => {
+      order.push("stop begun");
+      signal?.addEventListener("abort", () => order.push("stop aborted"), { once: true });
+      stopDone = lookup.then(() => {
+        if (!signal?.aborted) order.push("stop reached the printer");
+      });
+      return stopDone;
+    },
+    stopBoundMs: 50,
+  });
+  const b = harness({
+    submit: async () => {
+      order.push("next job submitted");
+    },
+    deps: () => ({ printerLock: lock }),
+  });
+  try {
+    const first = a.run();
+    await until(() => seen.printing, "A never started printing");
+    const second = b.run();
+    a.controller.abort();
+    await expect(within(first, "the job never settled")).rejects.toThrow(
+      "did not confirm the stop",
+    );
+    expect(await second).toBe("done");
+  } finally {
+    lookedUp();
+  }
+  await stopDone;
+  expect(order).toEqual([
+    "stop begun",
+    "stop aborted",
+    "lock released",
+    "next job submitted",
+    "lock released",
+  ]);
+});

@@ -97,7 +97,7 @@ export interface TransportPlugin extends PluginManifest {
     signal?: AbortSignal,
     target?: PrinterTarget,
   ): AsyncIterable<PrintStatus>;
-  cancel?(handle: PrintHandle, target?: PrinterTarget): Promise<void>;
+  cancel?(handle: PrintHandle, target?: PrinterTarget, signal?: AbortSignal): Promise<void>;
   handleFor?(target: PrinterTarget, ref: string): PrintHandle;
   pruneFiles?(
     target: PrinterTarget,

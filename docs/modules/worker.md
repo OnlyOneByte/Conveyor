@@ -73,7 +73,9 @@ A canceled print is stopped (`stopPrinter`, `stop.ts`) before that `finally` rel
 waiting for the printer doesn't find it still printing and fail as busy. `settleError` then reuses that stop's result
 (`run.stop`) instead of sending a second one. A lost lease, or a print that ends any way other than a cancel, sends
 no stop. The wait for the stop is bounded at 20 s (`STOP_BOUND_MS`, above the shipped transports' 15 s cancel
-timeout), because `TransportPlugin.cancel` doesn't require a bound of its own. A stop that hasn't answered by then
+timeout), because `TransportPlugin.cancel` doesn't require a bound of its own. When the bound expires, the worker
+aborts the signal it passed to `cancel()` before it releases the lock, so a late stop can't reach the printer
+after the next job has started on it. A stop that hasn't answered by then
 releases the lock and settles the job `failed`: "cancel requested but the printer did not confirm the stop: no answer
 within 20000 ms; check the printer".
 A job that finds the printer locked waits, polling every 2 s, until it gets the lock or is canceled. A worker that
