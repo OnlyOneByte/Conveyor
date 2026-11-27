@@ -27,9 +27,11 @@ export async function elegooReadiness(
   timeoutMs = READY_TIMEOUT_MS,
   signal?: AbortSignal,
 ): Promise<PrinterReadiness> {
-  const push = await elegooStatusOnce(address, mainboardId, timeoutMs, signal);
-  return push.kind === "error" ? "error" : elegooState(push.status);
+  return readinessOf(await elegooStatusOnce(address, mainboardId, timeoutMs, signal));
 }
+
+export const readinessOf = (push: SdcpPush): PrinterReadiness =>
+  push.kind === "error" ? "error" : elegooState(push.status);
 
 export function elegooStatusOnce(
   address: string,

@@ -21,11 +21,22 @@ function printProgressOf(frame: SdcpStatusFrame): PrintProgress | undefined {
 
 export interface Watched {
   filename?: string;
+  priorTask?: string;
   printing?: PrintStatus;
 }
 
-const isThisPrint = (frame: SdcpStatusFrame, { filename, printing }: Watched) =>
-  printing !== undefined || (filename !== undefined && frame.filename === filename);
+const baseName = (path: string) => path.split("/").pop() ?? path;
+
+function isThisPrint(frame: SdcpStatusFrame, { filename, priorTask, printing }: Watched) {
+  if (printing !== undefined) return true;
+  if (
+    filename !== undefined &&
+    frame.filename !== undefined &&
+    baseName(frame.filename) === filename
+  )
+    return true;
+  return priorTask !== undefined && frame.taskId !== undefined && frame.taskId !== priorTask;
+}
 
 function printStatusOf(frame: SdcpStatusFrame, watched: Watched): PrintStatus | undefined {
   const sub = frame.printStatus;

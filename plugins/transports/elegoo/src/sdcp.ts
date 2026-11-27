@@ -48,6 +48,7 @@ export interface SdcpStatusFrame {
   currentTicks: number | null;
   totalTicks: number | null;
   filename?: string;
+  taskId?: string;
 }
 
 export type SdcpPush =
@@ -75,6 +76,7 @@ function readStatus(data: unknown, buf: string): SdcpRead<SdcpPush> {
     totalTicks: pi.TotalTicks ?? null,
   };
   if (pi.Filename) status.filename = pi.Filename;
+  if (pi.TaskId) status.taskId = pi.TaskId;
   return { kind: "frame", frame: { kind: "status", status } };
 }
 

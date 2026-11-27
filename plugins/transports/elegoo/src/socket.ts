@@ -21,6 +21,7 @@ interface StatusStream {
   mainboardId: string;
   idleTimeoutMs: number;
   filename?: string;
+  priorTask?: string;
 }
 
 export class SdcpRejectedError extends StageError {
@@ -52,6 +53,8 @@ function nowMs(): number {
 
 export function ackCode(raw: string, requestId: string): SdcpRead<number> {
   const decoded = decodeFrame(AckFrame, raw);
+  if (decoded.kind === "malformed" && !raw.includes(requestId))
+    return { kind: "other", reason: decoded.reason };
   if (decoded.kind === "malformed") return decoded;
   const data = decoded.value.Data;
   const ackId = data?.RequestID ?? data?.Data?.RequestID;
@@ -125,7 +128,7 @@ function badCountAfter(read: SdcpRead<SdcpPush>, count: number): number {
 }
 
 export async function* streamStatus(
-  { address, mainboardId, idleTimeoutMs, filename }: StatusStream,
+  { address, mainboardId, idleTimeoutMs, filename, priorTask }: StatusStream,
   signal?: AbortSignal,
 ): AsyncIterable<PrintStatus> {
   const queue: PrintStatus[] = [];
@@ -185,7 +188,7 @@ export async function* streamStatus(
           ),
         );
       case "frame": {
-        const status = toPrintStatus(read.frame, { filename, printing });
+        const status = toPrintStatus(read.frame, { filename, priorTask, printing });
         if (!status) return;
         if (status.state === "printing") printing = status;
         if (read.frame.kind === "status") restartIdleTimer();

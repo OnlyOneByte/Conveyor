@@ -9,7 +9,7 @@ const tempDir = tempDirs("conveyor-elegoo-files-");
 const RealWebSocket = globalThis.WebSocket;
 const IDLE_PUSH = JSON.stringify({
   Topic: "sdcp/status/mb",
-  Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: 0 } } },
+  Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: 0, TaskId: "task-before" } } },
 });
 const { preconnect } = globalThis.fetch;
 const fetchSpy = spyOn(globalThis, "fetch");
@@ -60,6 +60,7 @@ test("two jobs to one printer upload and start their own files", async () => {
   const first = await elegoo.submit({ path, format: "gcode" }, target, ctx("a1"));
   const second = await elegoo.submit({ path, format: "gcode" }, target, ctx("b2"));
   expect([first.ref, second.ref]).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
+  expect([first.priorTask, second.priorTask]).toEqual(["task-before", "task-before"]);
   expect(uploaded).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
   expect(started).toEqual(["conveyor-a1.gcode", "conveyor-b2.gcode"]);
 });

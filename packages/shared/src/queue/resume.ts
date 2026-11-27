@@ -23,6 +23,7 @@ const handleSchema = z.object({
   ref: z.string(),
   address: z.string().optional(),
   deviceId: z.string().optional(),
+  priorTask: z.string().optional(),
 });
 
 const ON_PRINTER = "state IN ('transferring', 'printing') AND submitted_at IS NOT NULL";

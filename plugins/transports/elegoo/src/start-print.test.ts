@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { PrintMayHaveStartedError, StageError } from "@conveyor/shared";
+import { PrintMayHaveStartedError, PrintNotStartedError, StageError } from "@conveyor/shared";
 import { startPrint } from "./index";
-import { SdcpRejectedError } from "./socket";
 
 const RealWebSocket = globalThis.WebSocket;
 
@@ -9,10 +8,11 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
-type Mode = "ack" | "nack" | "closeAfterSend" | "errorBeforeOpen" | "errorAfterSend";
+type Mode = "ack" | "nack" | "closeAfterSend" | "errorBeforeOpen" | "errorAfterSend" | "strayFirst";
 
 class StartSocket {
   static mode: Mode = "ack";
+  static ackCode = 1;
   static sent = 0;
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: string }) => void) | null = null;
@@ -28,7 +28,10 @@ class StartSocket {
     const mode = StartSocket.mode;
     if (mode === "closeAfterSend") return queueMicrotask(() => this.onclose?.());
     if (mode === "errorAfterSend") return queueMicrotask(() => this.onerror?.());
-    const ack = { Data: { RequestID, Data: { Ack: mode === "nack" ? 1 : 0 } } };
+    if (mode === "strayFirst")
+      for (const stray of ["pong", '{"Data":null}', '{"Data":{"RequestID":7}}'])
+        queueMicrotask(() => this.onmessage?.({ data: stray }));
+    const ack = { Data: { RequestID, Data: { Ack: mode === "nack" ? StartSocket.ackCode : 0 } } };
     queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
   }
   close() {}
@@ -49,11 +52,20 @@ describe("elegoo START_PRINT", () => {
     expect(StartSocket.sent).toBe(1);
   });
 
-  test("a start the printer rejects did not start, so it stays a plain transport error", async () => {
+  test("a start the printer rejects (busy, file not found, file errors) did not start", async () => {
     use("nack");
-    const err = await start().catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(SdcpRejectedError);
-    expect(err).not.toBeInstanceOf(PrintMayHaveStartedError);
+    for (const code of [1, 2, 3, 4, 5, 6, 7, 99]) {
+      StartSocket.ackCode = code;
+      const err = await start().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PrintNotStartedError);
+      expect(err).not.toBeInstanceOf(PrintMayHaveStartedError);
+      expect(String(err)).toContain(`rejected (ack ${code})`);
+    }
+  });
+
+  test("frames that aren't this start's ack are skipped until the ack arrives", async () => {
+    use("strayFirst");
+    await expect(start()).resolves.toBeUndefined();
   });
 
   test("a start sent but never acked may have started", async () => {

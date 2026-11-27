@@ -42,10 +42,10 @@ const handle: PrintHandle = {
   deviceId: "mainboard-abc",
 };
 
-async function drainStatus(): Promise<PrintStatus[]> {
+async function drainStatus(watched: PrintHandle = handle): Promise<PrintStatus[]> {
   const seen: PrintStatus[] = [];
   const drain = (async () => {
-    for await (const s of elegoo.status(handle)) seen.push(s);
+    for await (const s of elegoo.status(watched)) seen.push(s);
   })();
   await Promise.race([
     drain,
@@ -156,10 +156,12 @@ describe("elegoo status stream", () => {
     expect(seen.map((s) => s.state)).toEqual(["transferring", "done"]);
   });
 
-  const idleAfter = (printStatus: number, Filename?: string) =>
+  const idleAfter = (printStatus: number, Filename?: string, TaskId?: string) =>
     JSON.stringify({
       Topic: "sdcp/status/mb",
-      Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: printStatus, Filename } } },
+      Data: {
+        Status: { CurrentStatus: [0], PrintInfo: { Status: printStatus, Filename, TaskId } },
+      },
     });
 
   test("the last print's finished or stopped frame, pushed first, doesn't end this job", async () => {
@@ -175,5 +177,22 @@ describe("elegoo status stream", () => {
     expect((await drainStatus()).map((s) => s.state)).toEqual(["transferring", "done"]);
     usePushes([idleAfter(8, "a.gcode")]);
     expect((await drainStatus()).map((s) => s.state)).toEqual(["transferring", "canceled"]);
+    usePushes([idleAfter(9, "/local/a.gcode")]);
+    expect((await drainStatus()).map((s) => s.state)).toEqual(["transferring", "done"]);
+  });
+
+  test("a finished frame whose TaskId differs from the one before the start is this job's", async () => {
+    const started = { ...handle, priorTask: "task-before" };
+    usePushes([idleAfter(9, undefined, "task-before"), idleAfter(9, undefined, "task-ours")]);
+    expect((await drainStatus(started)).map((s) => s.state)).toEqual(["transferring", "done"]);
+    usePushes([idleAfter(8, undefined, "task-ours")]);
+    const fromIdle = { ...handle, priorTask: "" };
+    expect((await drainStatus(fromIdle)).map((s) => s.state)).toEqual(["transferring", "canceled"]);
+  });
+
+  test("without a TaskId before the start, a TaskId alone doesn't end the job", async () => {
+    usePushes([idleAfter(9, undefined, "task-any"), statusFrame(13, 0.5), statusFrame(9, 1)]);
+    const seen = await drainStatus();
+    expect(seen.map((s) => s.state)).toEqual(["transferring", "printing", "done"]);
   });
 });
