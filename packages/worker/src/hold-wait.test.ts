@@ -10,8 +10,8 @@ function fakeJob(id: string, timestamp: number, printerId: string, log: string[]
     promote: async () => {
       log.push(`promote ${id}`);
     },
-    moveToDelayed: async (until: number) => {
-      log.push(`delay ${id} ${until > Date.now() + 1000 ? "later" : "now"}`);
+    moveToDelayed: async (until: number, token?: string) => {
+      log.push(`delay ${id} ${until > Date.now() + 1000 ? "later" : "now"} with ${token}`);
     },
   };
 }
@@ -37,8 +37,8 @@ test("a job claimed after the release lets the older waiting jobs for its printe
   const newer = fakeJob("d", 400, "p1", log);
   const claimed = fakeJob("c", 300, "p1", log);
   const waiting = deps([newer, older, otherPrinter, oldest]);
-  await expect(waitOutHold(claimed, "t", "p1", waiting)).rejects.toBeInstanceOf(DelayedError);
-  expect(log).toEqual(["promote a", "promote b", "delay c now"]);
+  await expect(waitOutHold(claimed, "lock-c", "p1", waiting)).rejects.toBeInstanceOf(DelayedError);
+  expect(log).toEqual(["promote a", "promote b", "delay c now with lock-c"]);
 });
 
 test("a job with no older job waiting runs", async () => {
@@ -62,10 +62,10 @@ test("a held job is shown queued once, then waits again without publishing", asy
       current = { state: "queued", message };
     },
   });
-  await expect(waitOutHold(claimed, "t", "p1", held)).rejects.toBeInstanceOf(DelayedError);
-  await expect(waitOutHold(claimed, "t", "p1", held)).rejects.toBeInstanceOf(DelayedError);
+  await expect(waitOutHold(claimed, "lock-1", "p1", held)).rejects.toBeInstanceOf(DelayedError);
+  await expect(waitOutHold(claimed, "lock-2", "p1", held)).rejects.toBeInstanceOf(DelayedError);
   expect(shown).toEqual(["waiting: the printer is on hold (may have started)"]);
-  expect(log).toEqual(["delay a later", "delay a later"]);
+  expect(log).toEqual(["delay a later with lock-1", "delay a later with lock-2"]);
 });
 
 test("a canceled job settles instead of waiting again", async () => {
