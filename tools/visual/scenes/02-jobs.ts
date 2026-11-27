@@ -48,6 +48,17 @@ const longNote = {
     "work dir not removed: /data/jobs/long-note is busy",
 };
 
+export const emptyCard = (card: string, action: string): Step[] => [
+  { waitFor: `${card} >> ${action}` },
+  { computed: card, property: "border-top-style", matches: "^dashed$" },
+];
+
+export const errorCard = (card: string): Step[] => [
+  { waitFor: `${card} .t svg` },
+  { waitFor: `${card} button.btn.primary >> text=Try again` },
+  { computed: card, property: "border-top-style", matches: "^solid$" },
+];
+
 export const scenes: Scene[] = [
   {
     name: "jobs-today",
@@ -147,6 +158,7 @@ export const scenes: Scene[] = [
       { click: ".pill >> text=Printed" },
       { click: ".pill >> text=All" },
       { waitFor: "text=No jobs yet" },
+      ...emptyCard("main .state.empty", "a.btn.primary >> text=Make something"),
       { wait: 300 },
     ],
   },
@@ -160,6 +172,7 @@ export const scenes: Scene[] = [
       { click: ".pill >> text=Printed" },
       { click: ".pill >> text=All" },
       { waitFor: "text=Can't reach Conveyor" },
+      ...errorCard("main .state.err"),
       { wait: 300 },
     ],
   },

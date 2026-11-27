@@ -92,7 +92,9 @@
 {:else}
   <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
     <p slot="status" class="sr" role="status">{said}</p>
-    {#if rerun}
+    {#if retryOf && data.held}
+      <a class="btn primary" href="/printers">Check the printer</a>
+    {:else if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
       </button>

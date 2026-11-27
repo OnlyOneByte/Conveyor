@@ -36,13 +36,12 @@
     {#if summary}<p class="sub">{summary}</p>{/if}
   </div>
   <div class="acts">
-    <button
-      class="btn primary big" type="button" bind:this={button} on:click={take} disabled={failed}
-      aria-busy={opening}
+    {#if !failed}<button
+      class="btn primary big" type="button" bind:this={button} on:click={take} aria-busy={opening}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
       {opening ? "Opening…" : "Add printer"}
-    </button>
+    </button>{/if}
     <Menu
       label="More"
       items={[

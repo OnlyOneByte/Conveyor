@@ -1,27 +1,20 @@
 <script lang="ts">
+  import StateCard from "./StateCard.svelte";
+
   export let none: boolean;
-  export let onPrinters = false;
+  export let add: (() => void) | null = null;
 </script>
 
 {#if none}
-  <div class="first">
-    <svelte:element this={onPrinters ? "h2" : "h3"} class="t">Add your first printer</svelte:element>
+  <StateCard level={add ? "h2" : "h3"} title="Add your first printer">
     <p>Conveyor sends each job to a printer you add. It needs a name and the printer's address.</p>
-    {#if !onPrinters}<a class="btn primary" href="/printers?add">Add a printer</a>{/if}
-  </div>
+    {#if add}<button class="btn primary" type="button" on:click={add}>Add a printer</button>
+    {:else}<a class="btn primary" href="/printers?add">Add a printer</a>{/if}
+  </StateCard>
 {:else}
   <p class="note">No printer can print this yet. Add one on <a href="/printers">Printers</a>.</p>
 {/if}
 
 <style>
-  .first {
-    display: grid; gap: var(--s2); justify-items: start; padding: var(--s5);
-    border: 1px dashed var(--line-2); border-radius: var(--r-card); color: var(--muted);
-  }
-  .t { margin: 0; color: var(--ink); font: 700 var(--fs-section) var(--display); }
-  p { margin: 0; }
-  .note { color: var(--muted); }
-  .btn {
-    min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body); text-decoration: none;
-  }
+  .note { margin: 0; color: var(--muted); }
 </style>

@@ -13,14 +13,15 @@
   export let retried: string | null = null;
   export let why: string | null = null;
   export let attempt = 0;
+  export let none = false;
 
   let say: HTMLElement | null = null;
-  let print: HTMLButtonElement;
+  let print: HTMLButtonElement | null = null;
 
   $: if (!error || retried) handOff();
 
   function handOff() {
-    if (say?.contains(document.activeElement)) print.focus();
+    if (say?.contains(document.activeElement)) print?.focus();
   }
 </script>
 
@@ -47,12 +48,13 @@
     <p class="sum">
       <b title={summary}>{summary}</b>
       <span class="line">
-        <span class="detail">{detail}</span> · <a href="#make-where" class="change">Change</a>
+        <span class="detail">{detail}</span>{#if !none} · <a href="#make-where" class="change">Change</a>{/if}
       </span>
     </p>
-    <button type="submit" class="print" bind:this={print} disabled={!ready} aria-disabled={busy}>
+    {#if none}<a class="print" href="/printers?add">Add printer</a>
+    {:else}<button type="submit" class="print" bind:this={print} disabled={!ready} aria-disabled={busy}>
       {sent ? "Sent ✓" : busy ? "Sending…" : "Print"}
-    </button>
+    </button>{/if}
   </div>
 </div>
 
@@ -95,6 +97,7 @@
     min-height: 54px; padding: 0 var(--s5); border: 0; border-radius: var(--r-chip);
     background: var(--accent); color: var(--accent-ink); font-size: var(--fs-section); font-weight: 800;
   }
+  a.print { display: inline-flex; align-items: center; flex: none; text-decoration: none; }
   @media (hover: hover) { .print:hover:not(:disabled) { box-shadow: 0 0 0 3px var(--dock-ink); } }
   .print:focus-visible { outline: 3px solid var(--dock-ink); outline-offset: 3px; }
   .print:disabled {

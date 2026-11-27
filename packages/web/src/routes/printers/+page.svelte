@@ -17,6 +17,7 @@
   import PrinterCard from "#lib/components/PrinterCard.svelte";
   import PrinterDialog from "#lib/components/PrinterDialog.svelte";
   import PrintersHead from "#lib/components/PrintersHead.svelte";
+  import StateCard from "#lib/components/StateCard.svelte";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
   import Skeleton from "#lib/ui/Skeleton.svelte";
 
@@ -109,13 +110,12 @@
 {#if !loaded}
   <Skeleton kind="cards" count={2} label="Loading printers" />
 {:else if failed}
-  <div class="empty" role="alert">
-    <h2>Can't reach Conveyor</h2>
-    <p class="sub">The printer list didn't load. Check that Conveyor is running, then try again.</p>
-    <div><button class="btn big" type="button" on:click={refresh}>Try again</button></div>
-  </div>
+  <StateCard tone="err" level="h2" role="alert" title="Can't reach Conveyor">
+    <p>The printer list didn't load. Check that Conveyor is running, then try again.</p>
+    <button class="btn primary" type="button" on:click={refresh}>Try again</button>
+  </StateCard>
 {:else if !printers.length}
-  <FirstPrinter none onPrinters />
+  <FirstPrinter none {add} />
 {:else}
   <ul class="grid" aria-label="Printers">
     {#each cards as { printer, card } (printer.id)}
@@ -127,14 +127,7 @@
 <PrinterDialog bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} />
 
 <style>
-  h2, p { margin: 0; }
-  .sub { color: var(--muted); }
-  .big {
-    min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
-    border-color: var(--field-line);
-  }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s4); margin: 0; padding: 0; list-style: none; }
-  .empty { max-width: 520px; display: flex; flex-direction: column; gap: var(--s3); padding: 6vh 0; }
   @media (max-width: 759px) {
     .grid { grid-template-columns: 1fr; }
   }
