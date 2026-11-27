@@ -2,12 +2,20 @@ import { expect, test } from "bun:test";
 import { DelayedError } from "bullmq";
 import { type HeldJob, type HoldWaitDeps, waitOutHold } from "./hold-wait";
 
-function fakeJob(id: string, timestamp: number, printerId: string, log: string[]): HeldJob {
+function fakeJob(
+  id: string,
+  timestamp: number,
+  printerId: string,
+  log: string[],
+  promoted: { error?: Error; state?: "delayed" | "waiting" } = {},
+): HeldJob {
   return {
     id,
     timestamp,
     data: { printerId },
+    getState: async () => promoted.state ?? "delayed",
     promote: async () => {
+      if (promoted.error) throw promoted.error;
       log.push(`promote ${id}`);
     },
     moveToDelayed: async (until: number, token?: string) => {
@@ -81,5 +89,26 @@ test("a canceled job settles instead of waiting again", async () => {
   });
   expect(await waitOutHold(claimed, "t", "p1", held)).toBe("canceled");
   expect(settled).toEqual(["a"]);
+  expect(log).toEqual([]);
+});
+
+const lost = (id: string) => new Error(`Job ${id} is not in the delayed state. promote`);
+
+test("an older job another worker already promoted is left alone, and the rest still go first", async () => {
+  const log: string[] = [];
+  const taken = fakeJob("a", 100, "p1", log, { error: lost("a"), state: "waiting" });
+  const older = fakeJob("b", 200, "p1", log);
+  const claimed = fakeJob("c", 300, "p1", log);
+  const waiting = deps([taken, older]);
+  await expect(waitOutHold(claimed, "lock-c", "p1", waiting)).rejects.toBeInstanceOf(DelayedError);
+  expect(log).toEqual(["promote b", "delay c now with lock-c"]);
+});
+
+test("a promote that fails while the job is still delayed is not ignored", async () => {
+  const log: string[] = [];
+  const broken = new Error("Connection is closed.");
+  const stuck = fakeJob("a", 100, "p1", log, { error: broken, state: "delayed" });
+  const claimed = fakeJob("c", 300, "p1", log);
+  await expect(waitOutHold(claimed, "lock-c", "p1", deps([stuck]))).rejects.toBe(broken);
   expect(log).toEqual([]);
 });

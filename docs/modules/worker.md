@@ -139,7 +139,10 @@ its two connections. `redisPrinterDeps(db, env)` builds the job's printer lookup
   - **Cancel:** a cancel between checks removes the delayed job. One that lands during a check sets the cancel
     key, and the check settles the job `canceled` straight away instead of waiting again.
   - **After Release hold:** the first check that finds the printer free promotes that printer's older delayed
-    jobs, oldest first, and goes back behind them, so the held jobs run in the order they were queued.
+    jobs, oldest first, and goes back behind them, so the oldest jobs are released first. With several worker
+    slots they then start side by side, and the printer lock decides which prints first. A job another slot has
+    already promoted is skipped; any other failure to promote fails the claimed job, like other errors before
+    the pipeline.
 - Every step before the pipeline settles the same way when it throws: parsing the payload, creating the work
   dir and subscribing to the job's control channel. The job is recorded `failed` in SQLite at the `generator`
   stage, with the error as its reason, so it shows in history and Needs you; then `failed` is published. A
