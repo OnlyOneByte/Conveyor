@@ -152,7 +152,11 @@ dropped. Two guards apply to every upload:
 - Status polls `print_stats.state` every `MOONRAKER_POLL_MS` (default 2000, read when the status stream starts; it must be a whole number above 0). Klipper states are `standby`,
   `printing`, `paused`, `complete`, `cancelled` and `error`. Progress prefers `display_status.progress` and
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
-  `standby` after `printing` with progress at ~1 counts as done.
+  `standby` after `printing` with progress at ~1 counts as done. A macro that runs `SDCARD_RESET_FILE`, or a
+  firmware restart, can also move the printer back to `standby` before a poll sees `complete` or `cancelled`.
+  So 3 `standby` polls in a row after `printing` (`STANDBY_POLLS` in `watch.ts`), with progress below ~1, end
+  the job `failed` with "the printer went back to standby before reporting how the print ended; check the
+  printer", so the job settles and the printer is free for the next one.
 - Print progress (`PrintStatus.print`, on `printing` and `paused` polls): `layer` is
   `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper
   fills `info` only when the slicer emits `SET_PRINT_STATS_INFO`, so either can be absent. `secondsLeft` is

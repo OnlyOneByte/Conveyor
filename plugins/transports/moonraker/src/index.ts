@@ -22,6 +22,7 @@ import { poll, positiveSetting, unresolved } from "./poll.ts";
 import { pruneGcodes } from "./prune.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
 import { moonrakerReadiness } from "./ready.ts";
+import { printWatch } from "./watch.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = 2000;
@@ -127,7 +128,7 @@ export const moonraker: TransportPlugin = {
     const pollMs = positiveSetting("MOONRAKER_POLL_MS", POLL_MS);
 
     yield { state: "transferring" };
-    let printingSeen = false;
+    const watch = printWatch();
     let failures = 0;
     while (true) {
       const res =
@@ -150,34 +151,14 @@ export const moonraker: TransportPlugin = {
       const progress = clamp01(
         objects.display_status?.progress ?? objects.virtual_sdcard?.progress ?? 0,
       );
-      const print = printProgressOf(objects);
-
-      switch (state) {
-        case "printing":
-          printingSeen = true;
-          yield { state: "printing", progress, message: ps?.message, print };
-          break;
-        case "paused":
-          yield { state: "printing", progress, message: "paused", print };
-          break;
-        case "complete":
-          yield { state: "done", progress: 1 };
-          return;
-        case "cancelled":
-          yield { state: "canceled", message: "print cancelled on printer" };
-          return;
-        case "error":
-          yield { state: "failed", message: ps?.message ?? "printer reported an error" };
-          return;
-        case "standby":
-          if (printingSeen && progress >= 0.999) {
-            yield { state: "done", progress: 1 };
-            return;
-          }
-          break;
-        default:
-          break;
-      }
+      const step = watch({
+        state,
+        progress,
+        message: ps?.message,
+        print: printProgressOf(objects),
+      });
+      if (step.status) yield step.status;
+      if (step.final) return;
       await sleep(pollMs, signal);
     }
   },
