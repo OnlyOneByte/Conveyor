@@ -12,9 +12,9 @@ import { titleMismatch } from "./hits.ts";
 import { hoverProblem } from "./hover-lint.ts";
 import { HEIGHTS, type Scene, scenes, WIDTHS } from "./scenes.ts";
 import { bootStack, type Stack } from "./stack.ts";
+import { routeHashedAssets } from "./static-assets.ts";
 import { runStep } from "./step.ts";
 import { assertStyles } from "./styles.ts";
-import { fetchStylesheets } from "./stylesheets.ts";
 
 export interface ShotResult {
   scene: string;
@@ -132,12 +132,12 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
     shotContextOptions(scene, { width, height }, colorScheme),
   );
   await pinHistoryRoute(context);
-  await fetchStylesheets(context);
   await context.clock.setSystemTime(CAPTURE_NOW);
   await stubAuth(context, scene);
   const page = await context.newPage();
   const logPath = join(logsDir(outDir), `${scene.name}-${width}.caddy.log`);
   const net = watchShot(page, caddyLogs && { read: caddyLogs, path: logPath });
+  await routeHashedAssets(context, scene, net.assetFailed);
   const landed = new Set<string>();
   page.on("framenavigated", (frame) => {
     const url = new URL(frame.url());

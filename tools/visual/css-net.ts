@@ -27,6 +27,7 @@ export interface CaddyLog {
 export interface ShotNetwork {
   failed: (request: CssRequest) => void;
   response: (response: CssResponse) => void;
+  assetFailed: (url: string, error: string) => void;
   note: (error: string) => Promise<string>;
 }
 
@@ -37,8 +38,8 @@ const named = (url: string) => new URL(url).pathname.split("/").pop() ?? url;
 
 export function cssReport(problems: string[]): string {
   return problems.length === 0
-    ? "CSS requests: none failed and none answered other than 200"
-    : `CSS requests: ${problems.join("; ")}`;
+    ? "Asset requests: none failed and none answered other than 200"
+    : `Asset requests: ${problems.join("; ")}`;
 }
 
 export function needsServiceWorker(scene: Scene): boolean {
@@ -89,10 +90,12 @@ export function shotNetwork(caddy?: CaddyLog, now: () => number = Date.now): Sho
   const problems: string[] = [];
   return {
     failed: (request) => {
-      if (isCss(request))
-        problems.push(
-          `${named(request.url())} failed: ${request.failure()?.errorText ?? "no error text"}`,
-        );
+      const error = request.failure()?.errorText ?? "no error text";
+      if (isCss(request) || error.includes("ERR_NETWORK_CHANGED"))
+        problems.push(`${named(request.url())} failed: ${error}`);
+    },
+    assetFailed: (url, error) => {
+      problems.push(`${named(url)} failed twice outside Chromium: ${error}`);
     },
     response: (response) => {
       if (isCss(response.request()) && response.status() !== 200)

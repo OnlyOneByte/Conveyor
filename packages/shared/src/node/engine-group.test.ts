@@ -102,3 +102,27 @@ describe("killGroup", () => {
     ctx.cleanup();
   });
 });
+
+test("a process that stops right after an abort still sends the SIGKILL before it exits", async () => {
+  const ctx = testCtx();
+  const script = join(ctx.workDir, "exit-after-abort.ts");
+  const engine = join(import.meta.dir, "engine.ts");
+  writeFileSync(
+    script,
+    [
+      `import { killGroup } from ${JSON.stringify(engine)};`,
+      "const sent = [];",
+      "const how = { graceMs: 200, kill: (pid, signal) => { sent.push(signal); if (signal === 'SIGKILL') console.log(sent.join(' ')); } };",
+      "killGroup(4242, { log: () => {} }, how);",
+      "",
+    ].join("\n"),
+  );
+  try {
+    const child = Bun.spawn([process.execPath, script], { cwd: ctx.workDir, stdout: "pipe" });
+    const exited = await Promise.race([child.exited, Bun.sleep(5000).then(() => "timeout")]);
+    expect(exited).toBe(0);
+    expect((await new Response(child.stdout).text()).trim()).toBe("SIGTERM SIGKILL");
+  } finally {
+    ctx.cleanup();
+  }
+});
