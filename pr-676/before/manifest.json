@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:39481",
+  "url": "http://127.0.0.1:37877",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 624873,
+      "gifBytes": 624806,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 356730,
+      "gifBytes": 363008,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 496762,
+      "gifBytes": 526906,
       "gif": "make-print-1440.gif"
     },
     {
@@ -169,7 +169,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 736972,
+      "gifBytes": 737147,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -435,7 +435,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 836197,
+      "gifBytes": 810534,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -551,7 +551,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 518391,
+      "gifBytes": 517061,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -559,7 +559,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1130004,
+      "gifBytes": 1130817,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -567,7 +567,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1437194,
+      "gifBytes": 1345154,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -599,7 +599,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 302550,
+      "gifBytes": 311849,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -637,7 +637,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 399656,
+      "gifBytes": 416803,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -669,7 +669,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 966758,
+      "gifBytes": 970582,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -683,7 +683,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 801210,
+      "gifBytes": 821053,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -727,7 +727,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 770772,
+      "gifBytes": 809258,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -785,6 +785,13 @@
       "warnings": [],
       "error": "waitFor: Timeout 2000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-save-fails-1440.caddy.log)",
       "png": "printers-save-fails-1440.png"
+    },
+    {
+      "scene": "printers-hostname-focus",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 2000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-hostname-focus-1440.caddy.log)",
+      "png": "printers-hostname-focus-1440.png"
     },
     {
       "scene": "auth-timeout",
@@ -942,7 +949,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 383920,
+      "gifBytes": 385049,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1064,7 +1071,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 655887,
+      "gifBytes": 656216,
       "gif": "new-job-390.gif"
     },
     {
@@ -1072,7 +1079,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 357219,
+      "gifBytes": 383074,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1146,7 +1153,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1049300,
+      "gifBytes": 1044802,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1382,7 +1389,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1007124,
+      "gifBytes": 1023833,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1504,7 +1511,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 513601,
+      "gifBytes": 514538,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1548,7 +1555,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 639871,
+      "gifBytes": 637663,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1580,7 +1587,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1319048,
+      "gifBytes": 1323840,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1594,7 +1601,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1140667,
+      "gifBytes": 1118929,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1626,7 +1633,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1110825,
+      "gifBytes": 1139907,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1684,6 +1691,13 @@
       "warnings": [],
       "error": "waitFor: Timeout 2000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-save-fails-390.caddy.log)",
       "png": "printers-save-fails-390.png"
+    },
+    {
+      "scene": "printers-hostname-focus",
+      "width": 390,
+      "warnings": [],
+      "error": "waitFor: Timeout 2000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-hostname-focus-390.caddy.log)",
+      "png": "printers-hostname-focus-390.png"
     },
     {
       "scene": "touch-home",
@@ -1864,7 +1878,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 451036,
+      "gifBytes": 450171,
       "gif": "motion-sheet-390.gif"
     },
     {
