@@ -52,6 +52,7 @@ export async function startPrint(
   mainboardId: string,
   filename: string,
   timeoutMs = startTimeoutMs(),
+  signal?: AbortSignal,
 ) {
   let sent = false;
   const start = {
@@ -62,9 +63,12 @@ export async function startPrint(
   const onSent = () => {
     sent = true;
   };
-  await sendCommand(address, start, true, { onSent, timeoutMs }).catch((err: unknown) => {
+  await sendCommand(address, start, true, { onSent, timeoutMs, signal }).catch((err: unknown) => {
     if (err instanceof SdcpRejectedError)
       throw new PrintNotStartedError(err.reason, { cause: err });
+    if (signal?.aborted && !sent) throw new PrintNotStartedError("canceled before START_PRINT");
+    if (signal?.aborted)
+      throw new StageError("transport", "canceled while waiting for the START_PRINT ack");
     if (!sent) throw err;
     const why = err instanceof Error ? err.message : String(err);
     throw new PrintMayHaveStartedError(`elegoo START_PRINT was sent but not acknowledged: ${why}`);
@@ -102,7 +106,7 @@ export const elegoo: TransportPlugin = {
     refuseUnlessIdle("elegoo", readinessOf(justBefore));
     const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
-    await startPrint(startAt, mainboardId, filename, ackTimeoutMs);
+    await startPrint(startAt, mainboardId, filename, ackTimeoutMs, signal);
 
     return elegooHandle(target, filename, priorTask);
   },
