@@ -105,6 +105,8 @@ test("one page's change captures only the scenes that reach it", () => {
     "touch-steppers",
     "printers-down",
     "printers-down-retry",
+    "queued-held",
+    "queued-free",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");
