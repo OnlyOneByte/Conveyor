@@ -42,10 +42,10 @@ test("records each CSS request that failed or answered other than 200", async ()
   net.response(response("http://x/api/jobs", 500, "fetch"));
   net.failed(request("http://x/theme.css?v=2", "other", "net::ERR_EMPTY_RESPONSE"));
   expect(await net.note("styles not applied")).toBe(
-    "styles not applied. CSS requests: Menu.G1hA2JiC.css failed: net::ERR_ABORTED; Demo.DuBZ85RU.css answered HTTP 502; theme.css failed: net::ERR_EMPTY_RESPONSE",
+    "styles not applied. Asset requests: Menu.G1hA2JiC.css failed: net::ERR_ABORTED; Demo.DuBZ85RU.css answered HTTP 502; theme.css failed: net::ERR_EMPTY_RESPONSE",
   );
   expect(await shotNetwork().note("boom")).toBe(`boom. ${cssReport([])}`);
-  expect(cssReport([])).toBe("CSS requests: none failed and none answered other than 200");
+  expect(cssReport([])).toBe("Asset requests: none failed and none answered other than 200");
 });
 
 test("watchShot listens for failed requests and responses on the page", async () => {
@@ -64,7 +64,7 @@ test("watchShot listens for failed requests and responses on the page", async ()
     failed(request("http://x/a.css", "stylesheet", "net::ERR_FAILED"));
   if (typeof answered === "function") answered(response("http://x/b.css", 503));
   expect(await net.note("x")).toBe(
-    "x. CSS requests: a.css failed: net::ERR_FAILED; b.css answered HTTP 503",
+    "x. Asset requests: a.css failed: net::ERR_FAILED; b.css answered HTTP 503",
   );
 });
 
@@ -183,4 +183,17 @@ test("a registered worker fails a scene that blocks it, and is never asked about
   const kept = page(1);
   expect(offlineNav && (await workerProblem(kept, offlineNav))).toBeNull();
   expect(kept.asked).toBe(0);
+});
+
+test("records any request Chromium lost to a network change, and an asset the route couldn't fetch", async () => {
+  const net = shotNetwork();
+  net.failed(
+    request("http://x/_app/immutable/chunks/Track.js", "script", "net::ERR_NETWORK_CHANGED"),
+  );
+  net.failed(request("http://x/api/jobs/active", "fetch", "net::ERR_NETWORK_CHANGED"));
+  net.failed(request("http://x/_app/immutable/chunks/other.js", "script", "net::ERR_ABORTED"));
+  net.assetFailed("http://x/_app/immutable/chunks/Gone.js", "connect ECONNREFUSED 127.0.0.1:4173");
+  expect(await net.note("timed out")).toBe(
+    "timed out. Asset requests: Track.js failed: net::ERR_NETWORK_CHANGED; active failed: net::ERR_NETWORK_CHANGED; Gone.js failed twice outside Chromium: connect ECONNREFUSED 127.0.0.1:4173",
+  );
 });
