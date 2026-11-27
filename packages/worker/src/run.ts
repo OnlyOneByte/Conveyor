@@ -83,6 +83,7 @@ export interface RunJobOptions {
   controller: AbortController;
   cancelPollMs?: number;
   streamCloseMs?: number;
+  stopBoundMs?: number;
   historyRetryMs?: number;
 }
 
@@ -122,6 +123,7 @@ export interface Run {
   gcodePath?: string;
   filament?: FilamentUse;
   print?: PrintAttempt;
+  stop?: Promise<Note | undefined>;
   notes: Note[];
 }
 

@@ -9,6 +9,7 @@
   export let error = "";
   export let type: "text" | "password" = "text";
   export let name = "";
+  export let autocomplete: "off" | undefined = undefined;
   const id = uid("field");
   $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`]
     .filter(Boolean)
@@ -26,7 +27,7 @@
       inputmode={numeric ? "decimal" : undefined}
       aria-invalid={error ? "true" : undefined}
       aria-describedby={described || undefined}
-      autocomplete={type === "password" ? "off" : undefined}
+      autocomplete={autocomplete ?? (type === "password" ? "off" : undefined)}
       on:input={(e) => (value = e.currentTarget.value)}
       on:input
     />

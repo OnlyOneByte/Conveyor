@@ -12,7 +12,7 @@ import {
   StageError,
 } from "@conveyor/shared";
 import { ENGINE_LOG } from "@conveyor/shared/node";
-import { fallbackHandle, ResumeFailedError } from "./print.js";
+import { ResumeFailedError } from "./print.js";
 import {
   JobCanceledError,
   LeaseLostError,
@@ -23,25 +23,10 @@ import {
   type TerminalRecord,
   type TerminalState,
 } from "./run.js";
+import { stopPrinter } from "./stop.js";
 
 const HISTORY_ATTEMPTS = 3;
 const DEFAULT_HISTORY_RETRY_MS = 250;
-
-async function stopPrinter(run: Run): Promise<Note | undefined> {
-  const attempt = run.print;
-  if (!attempt || attempt.notStarted) return undefined;
-  const { transport } = attempt;
-  if (!transport.cancel) return note("cannotStop", `${transport.id} cannot stop a print`);
-  try {
-    await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer);
-    run.ctx.log(`transport ${transport.id} cancel sent`);
-    return undefined;
-  } catch (e) {
-    const reason = note("stopUnconfirmed", messageOf(e));
-    run.ctx.log(noteText(reason));
-    return reason;
-  }
-}
 
 const noted = (run: Run, first?: Note): NoteText | undefined =>
   notesText(first ? [first, ...run.notes] : run.notes);

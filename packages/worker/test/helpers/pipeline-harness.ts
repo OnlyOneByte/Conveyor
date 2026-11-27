@@ -46,6 +46,7 @@ export interface HarnessOptions {
   profileCleanup?: () => Promise<void>;
   cancelPollMs?: number;
   streamCloseMs?: number;
+  stopBoundMs?: number;
   workDir?: string;
   deps?: (h: Harness) => Partial<PipelineDeps>;
   resume?: boolean;
@@ -183,6 +184,7 @@ export function harness(opts: HarnessOptions = {}): Harness {
             controller: h.controller,
             cancelPollMs: opts.cancelPollMs,
             streamCloseMs: opts.streamCloseMs,
+            stopBoundMs: opts.stopBoundMs,
             historyRetryMs: 0,
           },
           deps,

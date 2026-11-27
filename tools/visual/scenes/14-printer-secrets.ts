@@ -95,6 +95,8 @@ export const scenes: Scene[] = [
   fleetPage("printers-edit-secrets", [
     { click: "button[aria-label='Edit Garage Klipper']" },
     { waitFor: `${dialog} >> text=An API key is saved for this printer.` },
+    { waitFor: `${dialog} input[name="name"][autocomplete="off"]`, timeout: 2000 },
+    { waitFor: `${dialog} input[name="address"][autocomplete="off"]`, timeout: 2000 },
     { wait: 400 },
   ]),
   fleetPage("printers-address-reentry", [

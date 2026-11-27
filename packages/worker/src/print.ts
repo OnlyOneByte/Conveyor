@@ -25,6 +25,7 @@ import {
   type Run,
   race,
 } from "./run.js";
+import { canceled, stopWithin } from "./stop.js";
 
 const DEFAULT_CANCEL_POLL_MS = 2000;
 const DEFAULT_STREAM_CLOSE_MS = 5000;
@@ -57,6 +58,9 @@ export async function printStage(
   run.ctx.confirmStart = () => held.confirm();
   try {
     return await sendWatchAndPrune(run, target, gcode);
+  } catch (err) {
+    if (canceled(run, err)) await stopWithin(run);
+    throw err;
   } finally {
     run.ctx.confirmStart = undefined;
     await held.release();
@@ -223,16 +227,4 @@ async function watchPrint(
       run.ctx.log(`job ${run.opts.jobId} transport ${transport.id}: ${noteText(closeNote)}`);
     }
   }
-}
-
-export function fallbackHandle(attempt: PrintAttempt): PrintHandle {
-  const { transport, printer, ref } = attempt;
-  return (
-    transport.handleFor?.(printer, ref) ?? {
-      transportId: transport.id,
-      printerId: printer.id,
-      ref,
-      address: printer.address,
-    }
-  );
 }
