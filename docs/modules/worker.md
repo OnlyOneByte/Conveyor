@@ -204,8 +204,10 @@ releasing a claim is conditional on its holder, so overlapping sweeps agree.
   folder. A job id that isn't a UUID (`job-folder.ts`) names no folder: the job fails at that first claim
   with `refusedJobId`, before anything touches the disk. Every id the api has minted is a `randomUUID()`.
 - **Run timer.** Each job has one timer, every `tickMs` (1 s). Each tick reads `isCancelRequested` and aborts
-  the run when it is set, so a cancel reaches a running engine within a second. Every `renewEvery`-th tick
-  (10th) renews the lease.
+  the run when it is set, so a cancel reaches a running engine within a second. It also reads the lease
+  (`leaseHeld`) and treats one another worker has taken, or that has run out, as lost, so a worker that
+  wakes from a stall stops its engine on its next tick rather than at its next renewal. Every
+  `renewEvery`-th tick (10th) renews the lease.
 - **Renewal.** `renewLease` changing nothing is a lost lease. `SQLITE_BUSY` is retried every `busyRetryMs`
   (1 s) until `busyMarginMs` (5 s) before the lease ends, then the lease counts as lost. A lost lease aborts
   the run with `LeaseLostError`.

@@ -10,19 +10,16 @@ test("an engine run writes its command, stdout, stderr and exit to engine.log", 
   try {
     await runEngine("slicer", "sh", ["-c", "echo sliced; echo warned >&2"], ctx);
     await runEngine("slicer", "sh", ["-c", "echo boom >&2; exit 3"], ctx).catch(() => undefined);
-    const log = await readFile(join(ctx.workDir, ENGINE_LOG), "utf8");
-    expect(log).toBe(
-      [
-        "$ sh -c echo sliced; echo warned >&2",
-        "sliced",
-        "warned",
-        "[exited 0]",
-        "$ sh -c echo boom >&2; exit 3",
-        "boom",
-        "[exited 3]",
-        "",
-      ].join("\n"),
-    );
+    const lines = (await readFile(join(ctx.workDir, ENGINE_LOG), "utf8")).split("\n");
+    expect(lines[0]).toBe("$ sh -c echo sliced; echo warned >&2");
+    expect(lines.slice(1, 3).sort()).toEqual(["sliced", "warned"]);
+    expect(lines.slice(3)).toEqual([
+      "[exited 0]",
+      "$ sh -c echo boom >&2; exit 3",
+      "boom",
+      "[exited 3]",
+      "",
+    ]);
   } finally {
     ctx.cleanup();
   }
@@ -108,6 +105,25 @@ test("the lease is checked once the engine has run, whatever its exit code", asy
     rmSync(ran, { force: true });
     const unchecked = runEngine("slicer", "sh", ["-c", 'touch "$0"', ran], ctx);
     await expect(unchecked).resolves.toEqual({ stderr: "" });
+  } finally {
+    ctx.cleanup();
+  }
+});
+
+test("lines from one pipe keep their order in engine.log", async () => {
+  const ctx = testCtx();
+  try {
+    await runEngine(
+      "slicer",
+      "sh",
+      ["-c", "echo one; echo two; echo three >&2; echo four >&2"],
+      ctx,
+    );
+    const lines = (await readFile(join(ctx.workDir, ENGINE_LOG), "utf8")).split("\n");
+    const out = lines.filter((line) => line === "one" || line === "two");
+    const err = lines.filter((line) => line === "three" || line === "four");
+    expect(out).toEqual(["one", "two"]);
+    expect(err).toEqual(["three", "four"]);
   } finally {
     ctx.cleanup();
   }

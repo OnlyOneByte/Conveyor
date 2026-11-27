@@ -72,10 +72,45 @@ export async function runEngine(
   }
 }
 
+export const KILL_GRACE_MS = 2000;
+
+export interface GroupKill {
+  kill(pid: number, signal: "SIGTERM" | "SIGKILL"): void;
+  graceMs: number;
+}
+
+const SYSTEM_KILL: GroupKill = {
+  kill: (pid, signal) => process.kill(pid, signal),
+  graceMs: KILL_GRACE_MS,
+};
+
+function signalGroup(pid: number, signal: "SIGTERM" | "SIGKILL", ctx: StageCtx, how: GroupKill) {
+  try {
+    how.kill(-pid, signal);
+    return true;
+  } catch (err) {
+    if (err instanceof Error && "code" in err && err.code === "ESRCH") return false;
+    ctx.log(
+      `engine process group ${pid} not sent ${signal}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return false;
+  }
+}
+
+export function killGroup(
+  pid: number | undefined,
+  ctx: StageCtx,
+  how: GroupKill = SYSTEM_KILL,
+): void {
+  if (pid === undefined || pid <= 1) return;
+  if (!signalGroup(pid, "SIGTERM", ctx, how)) return;
+  setTimeout(() => signalGroup(pid, "SIGKILL", ctx, how), how.graceMs).unref();
+}
+
 function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): Promise<EngineRun> {
   return new Promise((resolve, reject) => {
     const log = openEngineLog(ctx, cmd, args);
-    const child = spawn(cmd, args, { signal: ctx.signal });
+    const child = spawn(cmd, args, { signal: ctx.signal, detached: true });
     let stderr = "";
     let failed = false;
     child.stdout.on("data", (b) => log.write(b.toString()));
@@ -84,6 +119,7 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
       log.write(b.toString());
     });
     child.on("error", (e) => {
+      if (ctx.signal.aborted) killGroup(child.pid, ctx);
       failed = true;
       log.write(`[${e.message}]\n`);
       void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));
