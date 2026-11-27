@@ -83,6 +83,7 @@
       close();
       changed();
     });
+    if (problem) await tick().then(() => drafts.focusProblem(form, problem));
   }
 
   const clearSecrets = (saved: CatalogPrinter) =>
@@ -124,7 +125,7 @@
         {/if}
       {/key}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
-      {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
+      {#if problem}<p class="problem" role="alert" tabindex="-1">{problem}</p><ErrorDetails detail={why} />{/if}
     </form>
   {/if}
   <svelte:fragment slot="actions">

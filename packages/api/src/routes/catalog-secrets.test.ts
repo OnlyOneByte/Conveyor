@@ -106,7 +106,13 @@ for (const mode of modes) {
         const printer = newPrinter();
         expect((await put({ ...printer, secrets: { apiKey: "hunter2" } })).status).toBe(200);
         const before = rawRow(printer.id);
-        for (const move of [{ address: "10.0.0.8" }, { transportId: "moonraker" }]) {
+        const moves = [
+          { address: "10.0.0.8" },
+          { address: "10.0.0.7:3030" },
+          { address: " 10.0.0.7" },
+          { transportId: "moonraker" },
+        ];
+        for (const move of moves) {
           const refused = await put({ ...printer, ...move });
           expect(refused.status).toBe(409);
           expect(await refused.json()).toEqual({

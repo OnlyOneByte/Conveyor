@@ -88,8 +88,35 @@ const inSentence = (label: string) =>
 
 export const addressHint = (secretsSaved: boolean, secretLabel: string) =>
   secretsSaved
-    ? `${ADDRESS_HINT}\nChanging the address asks for the ${inSentence(secretLabel)} again.`
+    ? `${ADDRESS_HINT}\nChanging the address or printer software asks for the ${inSentence(secretLabel)} again.`
     : ADDRESS_HINT;
+
+const mentionAt = (said: string, name: string) => {
+  if (!name) return -1;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return said.search(new RegExp(`\\b${escaped}\\b`));
+};
+
+export function firstNamedField(labels: { name: string }[], problem: string): number {
+  const said = problem.toLowerCase();
+  let best = { at: Number.POSITIVE_INFINITY, index: -1 };
+  labels.forEach(({ name }, index) => {
+    const at = mentionAt(said, name.trim().toLowerCase());
+    if (at >= 0 && at < best.at) best = { at, index };
+  });
+  return best.index;
+}
+
+export function focusProblem(form: HTMLFormElement | undefined, problem: string) {
+  if (!form || !problem) return;
+  const labels = [...form.querySelectorAll("label")];
+  const index = firstNamedField(
+    labels.map((label) => ({ name: label.textContent ?? "" })),
+    problem,
+  );
+  const target = labels[index]?.control ?? form.querySelector<HTMLElement>(".problem");
+  target?.focus();
+}
 
 export const dialogTitle = (printer: CatalogPrinter | null, confirming: boolean) => {
   if (confirming) return `Delete ${printer?.name}?`;

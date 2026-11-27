@@ -114,6 +114,19 @@ export const scenes: Scene[] = [
     },
     { click: `${dialog} button:has-text('Save changes')` },
     { waitFor: `${dialog} [role=alert] >> text=Enter them again` },
+    { waitFor: `${dialog} .field:has(label:text-is("Address")) input:focus`, timeout: 2000 },
+    { wait: 400 },
+  ]),
+  fleetPage("printers-save-fails", [
+    { click: "button[aria-label='Edit Voron 2.4']" },
+    {
+      fulfill: "**/api/catalog/printers",
+      method: "PUT",
+      status: 500,
+      json: { error: "disk full" },
+    },
+    { click: `${dialog} button:has-text('Save changes')` },
+    { waitFor: `${dialog} p.problem:focus >> text=disk full`, timeout: 2000 },
     { wait: 400 },
   ]),
 ];

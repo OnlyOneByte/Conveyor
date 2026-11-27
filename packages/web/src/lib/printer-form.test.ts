@@ -9,6 +9,7 @@ import {
   dialogTitle,
   draftErrors,
   draftOf,
+  firstNamedField,
   printerPayload,
   slugOf,
 } from "./printer-form";
@@ -121,10 +122,20 @@ describe("the printer dialog's words", () => {
     const plain = addressHint(false, "API key");
     expect(plain).not.toContain("\n");
     expect(addressHint(true, "API key")).toBe(
-      `${plain}\nChanging the address asks for the API key again.`,
+      `${plain}\nChanging the address or printer software asks for the API key again.`,
     );
     expect(addressHint(true, "Mainboard ID").split("\n")[1]).toBe(
-      "Changing the address asks for the mainboard ID again.",
+      "Changing the address or printer software asks for the mainboard ID again.",
     );
+  });
+
+  test("a failed save names the field mentioned first, as a whole word, or none", () => {
+    const labels = ["Name", "Printer software", "Address", "API key"].map((name) => ({ name }));
+    const refusal =
+      "The address or printer software changed, so the saved secrets won't be sent to it.";
+    expect(firstNamedField(labels, refusal)).toBe(2);
+    expect(firstNamedField(labels, "not an IPv4 address, IPv6 address or hostname")).toBe(2);
+    expect(firstNamedField(labels, "Printer software is not installed")).toBe(1);
+    expect(firstNamedField(labels, "disk full")).toBe(-1);
   });
 });
