@@ -23,9 +23,17 @@
   export let offline = false;
   const sheet = uid("sheet");
   let open = false;
+  let closing = false;
   let toggle: HTMLButtonElement;
 
-  afterNavigate(() => (open = false));
+  afterNavigate(() => (open = closing = false));
+  const flip = () => {
+    closing = open;
+    open = !open;
+  };
+  const settled = (event: AnimationEvent) => {
+    if (event.target === event.currentTarget) closing = false;
+  };
   $: moving = jobs
     .flatMap((job) => (onRail(job.state) ? [{ job, x: centre(job.state, job.progress ?? 0) }] : []))
     .sort((a, b) => b.x - a.x);
@@ -34,7 +42,7 @@
     const tray =
       event.currentTarget instanceof Element && event.currentTarget.querySelector(".tray");
     if (event.key !== "Escape" || !open || event.defaultPrevented || tray) return;
-    open = false;
+    flip();
     toggle.focus();
   }
 </script>
@@ -46,9 +54,9 @@
       <span>{offline ? "Last known jobs" : `${waiting} ${BINS.waiting}`}{#if needs.length}{" · "}<span class="bad">{BINS.needs} {needs.length}</span>{/if}</span>
       <span class="mini" class:stale={offline} aria-hidden="true">{#each moving as { job, x } (job.id)}<i style="left: {x * 100}%"></i>{/each}</span>
     </div>
-    <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={() => (open = !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
+    <button class="exp" type="button" aria-expanded={open} aria-controls={sheet} aria-label={open ? "Collapse the belt" : "Expand the belt"} bind:this={toggle} on:click={flip}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></button>
   </div>
-  <div class="sheet" class:open id={sheet}>
+  <div class="sheet" class:open class:closing id={sheet} inert={closing} on:animationend={settled}>
     {#each moving as { job } (job.id)}
       <a class="row" href="/jobs/{job.id}"><span class="t">{shortName(job.name)}</span><span class="v">{value(job)}</span><span class="st">{status(job)}</span></a>
     {:else}
@@ -56,7 +64,7 @@
     {/each}
     <div class="bins">
       <a class="done" href="/jobs?day=today">{BINS.finished}<span class="n">{today(finishedToday ?? 0)}</span></a>
-      {#if open && needs.length}<NeedsYou jobs={needs} {onAction} />{/if}
+      {#if (open || closing) && needs.length}<NeedsYou jobs={needs} {onAction} />{/if}
     </div>
   </div>
 </div></section>
@@ -76,13 +84,13 @@
   .chip :focus-visible { outline-color: var(--belt-ink); }
   .exp svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
   .sheet { display: none; gap: var(--s1-5); max-height: 60vh; margin: var(--s2) calc(-1 * var(--s1-5)) 0; padding: var(--s1-5); overflow-y: auto; }
-  .sheet {
-    opacity: 0; translate: 0 calc(-1 * var(--s2));
-    transition: opacity var(--t-fast) ease-out, translate var(--t-fast) var(--ease-move),
-      display var(--t-fast) allow-discrete;
+  .sheet.open {
+    display: grid;
+    transition: opacity var(--t-move) ease-out, translate var(--t-move) var(--ease-move);
   }
-  .sheet.open { display: grid; opacity: 1; translate: 0 0; transition-duration: var(--t-move); }
   @starting-style { .sheet.open { opacity: 0; translate: 0 calc(-1 * var(--s2)); } }
+  .sheet.closing { display: grid; animation: shut var(--t-fast) ease-in forwards; }
+  @keyframes shut { to { opacity: 0; translate: 0 calc(-1 * var(--s2)); } }
   .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s0) var(--s2); min-height: 48px; padding: var(--s1-5) var(--s3-5); border: 1px solid var(--line-2); border-radius: var(--r-chip); background: var(--paper); color: var(--ink); text-decoration: none; }
   .t { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .v { font: 500 var(--fs-mono) var(--mono); color: var(--live); }
