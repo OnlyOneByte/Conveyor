@@ -60,7 +60,14 @@ export const job: TrackJob = {
   printer: "Voron 2.4",
 };
 
-export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }) {
+export const HOLD =
+  "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.";
+
+export function rig(
+  refuse: string[] = [],
+  retried: Retried = { ok: true, jobId: "j2" },
+  submit?: EndsFeed["submit"],
+) {
   const calls: string[] = [];
   const said: [string, Politeness][] = [];
   const shown: [number, TrackJob[]][] = [];
@@ -89,7 +96,7 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
       }),
     ],
     entry: async (id) => records.get(id) ?? null,
-    submit: call("submit"),
+    submit: submit ?? call("submit"),
     retry: async (failed) => {
       await call("retry")(failed.id);
       return retried;

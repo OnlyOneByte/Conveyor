@@ -4,7 +4,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 
 export type Retried =
   | { ok: true; jobId: string }
-  | { ok: false; status: number; error: string; retriedBy?: string };
+  | { ok: false; status: number; error: string; retriedBy?: string; held?: true };
 
 export async function retryJob(
   failed: Pick<JobHistoryEntry, "id" | "request">,
@@ -25,5 +25,6 @@ export async function retryJob(
   const retriedBy = text("retriedBy");
   const error = text("error") ?? `POST /jobs ${r.status}`;
   const refused = { ok: false as const, status: r.status, error };
+  if (isRecord(body) && body.held === true) return { ...refused, held: true };
   return retriedBy ? { ...refused, retriedBy } : refused;
 }

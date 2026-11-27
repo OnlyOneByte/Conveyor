@@ -1,11 +1,13 @@
 import { exhaustive, type JobRequest, jobRequestSchema } from "@conveyor/shared";
 import {
   dbDismissJob,
+  dbGetPrinter,
   dbListNeedsYou,
   dbResolveJobTarget,
   dbRetryProblem,
   openDb,
 } from "@conveyor/shared/db";
+import { printerHoldReason } from "@conveyor/shared/queue";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
@@ -18,9 +20,15 @@ import { describeIssues, parseGeneratorParams, validateJobRequest } from "../val
 
 type Submission =
   | { ok: true; request: JobRequest; retryOf?: string }
-  | { ok: false; code: 400 | 404; error: string };
+  | { ok: false; code: 400 | 404 | 409; error: string; held?: true };
 
 const retrySchema = z.object({ retryOf: z.string().min(1).max(200).optional() });
+
+function held(printerId: string): Submission {
+  const name = dbGetPrinter(openDb(), printerId)?.name ?? printerId;
+  const error = `${name} is on hold. Check it, then choose Release hold on the Printers page before you print to it.`;
+  return { ok: false, code: 409, error, held: true };
+}
 
 export function parseSubmission(body: unknown): Submission {
   const parsed = jobRequestSchema.safeParse(body);
@@ -45,12 +53,16 @@ export function parseSubmission(body: unknown): Submission {
   }
   const params = parseGeneratorParams(parsed.data);
   if (!params.ok) return { ok: false, code: 400, error: params.error };
+  if (printerHoldReason(openDb(), target.printerId) !== null) return held(target.printerId);
   return {
     ok: true,
     request: { ...parsed.data, generator: { ...parsed.data.generator, params: params.params } },
     retryOf,
   };
 }
+
+export const refusal = ({ error, held }: { error: string; held?: true }) =>
+  held ? { error, held } : { error };
 
 export function registerArtifactRoute(app: FastifyInstance): void {
   app.get<{ Params: { id: string; kind: string } }>(

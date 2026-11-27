@@ -49,7 +49,7 @@ export async function sendJob(
     });
   const retried = await retryJob({ id: retryOf, request }, fetchFn);
   if (retried.ok) return { jobId: retried.jobId };
-  if (retried.status === 409) throw new AlreadyRetried(retried.retriedBy ?? null);
+  if (retried.status === 409 && !retried.held) throw new AlreadyRetried(retried.retriedBy ?? null);
   throw new Error(retried.error);
 }
 
