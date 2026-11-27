@@ -37,3 +37,18 @@ export function stopPrinter(run: Run): Promise<Note | undefined> {
   run.stop ??= sendStop(run);
   return run.stop;
 }
+
+export const STOP_BOUND_MS = 20_000;
+
+export async function stopWithin(run: Run, ms = run.opts.stopBoundMs ?? STOP_BOUND_MS) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<"late">((resolve) => {
+    timer = setTimeout(() => resolve("late"), ms);
+  });
+  const answered = await Promise.race([stopPrinter(run), late]);
+  clearTimeout(timer);
+  if (answered !== "late") return;
+  const unanswered = note("stopUnconfirmed", `no answer within ${ms} ms; check the printer`);
+  run.ctx.log(noteText(unanswered));
+  run.stop = Promise.resolve(unanswered);
+}

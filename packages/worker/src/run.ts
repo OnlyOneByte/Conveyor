@@ -83,6 +83,7 @@ export interface RunJobOptions {
   controller: AbortController;
   cancelPollMs?: number;
   streamCloseMs?: number;
+  stopBoundMs?: number;
   historyRetryMs?: number;
 }
 

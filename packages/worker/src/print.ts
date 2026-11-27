@@ -25,7 +25,7 @@ import {
   type Run,
   race,
 } from "./run.js";
-import { canceled, stopPrinter } from "./stop.js";
+import { canceled, stopWithin } from "./stop.js";
 
 const DEFAULT_CANCEL_POLL_MS = 2000;
 const DEFAULT_STREAM_CLOSE_MS = 5000;
@@ -59,7 +59,7 @@ export async function printStage(
   try {
     return await sendWatchAndPrune(run, target, gcode);
   } catch (err) {
-    if (canceled(run, err)) await stopPrinter(run);
+    if (canceled(run, err)) await stopWithin(run);
     throw err;
   } finally {
     run.ctx.confirmStart = undefined;
