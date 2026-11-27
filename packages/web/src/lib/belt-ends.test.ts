@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { at, entry, HOLD, job, request, rig } from "../../test/helpers/belt-ends";
 import { ENDS_MS, http, midnight } from "./belt-ends";
+import { MESSAGE_MAX } from "./http-error";
 
 describe("the belt's end states", () => {
   test("a counts poll that can't reach Conveyor says the belt is down until one answers again, keeping the last counts", async () => {
@@ -184,5 +185,31 @@ describe("a held printer on the belt", () => {
       [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],
       [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],
     ]);
+  });
+  test("only a held reply with a string error is read out, capped; others get the plain message", async () => {
+    const replies: unknown[] = [
+      { held: true },
+      { held: true, error: { why: "x" } },
+      { error: "retryOf: job c3 was already retried" },
+      { held: true, error: `Held ${"a".repeat(3000)}` },
+    ];
+    const said: string[] = [];
+    for (const reply of replies) {
+      const stub = spyOn(globalThis, "fetch").mockImplementation(
+        Object.assign(async () => Response.json(reply, { status: 409 }), {
+          preconnect: fetch.preconnect,
+        }),
+      );
+      const belt = rig([], undefined, http.submit);
+      belt.records.set("c3", entry("c3", "canceled"));
+      await belt.ends.act({ ...job, id: "c3", state: "canceled", request }, "Print again");
+      stub.mockRestore();
+      said.push(...belt.said.map(([text]) => text));
+    }
+    const plain = "Couldn't print Bin 2×3 again.";
+    expect(said.slice(0, 3)).toEqual([plain, plain, plain]);
+    expect(said[3]).toStartWith("Couldn't print Bin 2×3 again: Held aaa");
+    expect(said[3]).toEndWith("…");
+    expect(said[3].length).toBeLessThan(MESSAGE_MAX + 40);
   });
 });

@@ -2,7 +2,7 @@ import type { Politeness } from "./announce";
 import { API, type JobHistoryEntry } from "./api";
 import { trackJob } from "./belt";
 import type { Catalog } from "./catalog";
-import { statusError, unreachable } from "./http-error";
+import { shown, statusError, unreachable } from "./http-error";
 import { rerunRequest } from "./rerun";
 import { type Retried, retryJob } from "./retry";
 import { shortName, type TrackJob } from "./track";
@@ -120,11 +120,13 @@ export function createEnds(
 
   const act = (job: TrackJob, action: string): Promise<void> =>
     run(job, action).catch((e: unknown) => {
-      const why = e instanceof Refused ? `: ${e.message}` : ".";
-      const name = shortName(job.name);
-      const what =
-        action === "Print again" ? `print ${name} again` : `${action.toLowerCase()} ${name}`;
-      ui.say(`Couldn't ${what}${why}`, "assertive");
+      const why = e instanceof Refused ? `: ${shown(e.message)}` : ".";
+      ui.say(
+        action === "Print again"
+          ? `Couldn't print ${shortName(job.name)} again${why}`
+          : `Couldn't ${action.toLowerCase()} ${shortName(job.name)}${why}`,
+        "assertive",
+      );
     });
 
   return { refresh, act };
@@ -132,18 +134,18 @@ export function createEnds(
 
 class Refused extends Error {}
 
-const send = async (path: string, body?: unknown) => {
-  const init =
-    body === undefined
-      ? { method: "POST" }
-      : {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        };
+const send = async (path: string, body: unknown = {}) => {
+  const init = {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  };
   const r = await fetch(`${API}${path}`, init);
-  if (r.status === 409) throw new Refused((await r.json()).error);
-  if (!r.ok) throw statusError(r, `POST ${path}`);
+  if (!r.ok) {
+    const no = await r.json();
+    const held = no?.held === true && typeof no.error === "string";
+    throw held ? new Refused(no.error) : statusError(r, `POST ${path}`);
+  }
   return r.json();
 };
 
