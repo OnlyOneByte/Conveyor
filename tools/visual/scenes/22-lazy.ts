@@ -21,6 +21,7 @@ export const scenes: Scene[] = [
       { absent: `${OPTION} >> text=Keyboard shortcuts` },
       { absent: `${OPTION} >> text=Switch theme` },
       { waitFor: "h1 >> text=Printers" },
+      { wait: 400 },
     ],
   },
   {
@@ -36,6 +37,7 @@ export const scenes: Scene[] = [
       { press: "n" },
       { waitFor: "dialog[open] >> text=Search didn't load. Reload the page to try again." },
       { waitFor: "h1 >> text=Printers" },
+      { wait: 400 },
     ],
   },
   {
