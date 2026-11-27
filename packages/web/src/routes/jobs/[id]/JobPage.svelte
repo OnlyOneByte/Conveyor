@@ -21,6 +21,7 @@
 
   let latest: JobView | null = null;
   let stop = () => {};
+  const settle = () => void setTimeout(invalidateAll, 300);
   $: job = data.job;
   $: live = data.view && { ...data.view, ...latest };
   $: {
@@ -60,6 +61,9 @@
   $: tone = state ?? (live?.state === "queued" ? "queued" : "live");
   $: pill = pillText(job ?? live ?? { state: "queued" });
   $: meta = [data.printer, data.profile].filter(Boolean).join(" · ");
+  let seenLive = "";
+  $: if (live && !job) seenLive = live.jobId;
+  $: cardFirst = seenLive !== "" && seenLive === (job?.id ?? live?.jobId);
 
   async function again() {
     if (!rerun) return;
@@ -67,10 +71,6 @@
     const { id: generatorId, params: stashed } = generator;
     stashRerun({ generatorId, params: stashed, printerId, profileId, retryOf });
     await goto("/?rerun=1");
-  }
-
-  function settle() {
-    setTimeout(invalidateAll, 300);
   }
 </script>
 
@@ -98,7 +98,7 @@
   {#if failure}
     <div class="why" role="note"><strong>{failure.title}</strong><p>{failure.detail}</p></div>
   {/if}
-  <div class="grid" class:live={Boolean(live) && !job}>
+  {#snippet model()}
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}
         <Viewport params={isRecord(params) ? params : {}} />
@@ -106,9 +106,13 @@
         <span class="tag">{title}</span>
       {/if}
     </div>
+  {/snippet}
+  <div class="grid" class:first={cardFirst}>
+    {#if !cardFirst}{@render model()}{/if}
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
       {#if live}<JobProgress view={live} printer={data.printer} />{/if}
     </JobReceipt>
+    {#if cardFirst}{@render model()}{/if}
   </div>
 {/if}
 
@@ -130,6 +134,7 @@
     display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: var(--s5); align-items: start;
   }
+  .grid.first .mat { grid-column: 1; grid-row: 1; }
   .mat {
     position: relative; aspect-ratio: 4 / 3; display: grid; place-items: center;
     overflow: hidden; border-radius: var(--r-panel); background: var(--mat);
@@ -140,6 +145,6 @@
   .nf { max-width: 520px; display: flex; flex-direction: column; gap: var(--s4); padding: 10vh 0; }
   @media (max-width: 759px) {
     .grid { grid-template-columns: 1fr; }
-    .grid.live .mat { order: 1; }
+    .grid.first .mat { grid-column: auto; grid-row: auto; }
   }
 </style>

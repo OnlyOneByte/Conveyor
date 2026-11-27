@@ -84,4 +84,47 @@ export const scenes: Scene[] = [
     widths: [390],
     fullPage: false,
   },
+  finish(),
 ];
+
+function finish(): Scene {
+  const jobId = "scene-finish-phone";
+  const view = {
+    jobId,
+    at: ADDED + 60_000,
+    timings: [{ stage: "generator", enteredAt: ADDED }],
+    ...request,
+  };
+  return {
+    name: "receipt-finish-phone",
+    route: "/",
+    ready: "text=How big?",
+    widths: [390],
+    fullPage: false,
+    steps: [
+      {
+        fulfill: `**/api/jobs-history/${jobId}`,
+        status: 200,
+        json: {
+          id: jobId,
+          request,
+          state: "done",
+          stage: "transport",
+          createdAt: ADDED,
+          updatedAt: ADDED + 120_000,
+        },
+      },
+      { fulfill: `**/api/jobs-history/${jobId}`, status: 404, json: {}, times: 1 },
+      {
+        fulfill: `**/api/jobs/${jobId}`,
+        status: 200,
+        json: { ...view, state: "done", progress: 1 },
+      },
+      { fulfill: `**/api/jobs/${jobId}`, status: 200, json: { ...view, ...PRINTING }, times: 1 },
+      { follow: `/jobs/${jobId}` },
+      { waitFor: "main .receipt" },
+      { stays: "main .receipt", until: "text=Print again" },
+      { above: "main .receipt", of: "main .mat" },
+    ],
+  };
+}

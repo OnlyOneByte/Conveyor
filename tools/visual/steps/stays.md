@@ -1,0 +1,1 @@
+`stays` records the top edge of its selector's first match, then samples it until `until` appears and for 600 ms after. It fails if that top moves by more than a pixel, or if `until` never appears within 15 s. `receipt-finish-phone` uses it to keep a phone's job card in place while a live print finishes and the page switches to the settled job.
