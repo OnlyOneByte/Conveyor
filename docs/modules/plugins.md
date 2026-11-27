@@ -247,7 +247,8 @@ SDCP (Smart Device Control Protocol), written from the
   - the stream has seen the job printing;
   - `PrintInfo.Filename`, by base name, is this job's file (`handle.ref`), so `/local/<file>` matches too;
   - its `PrintInfo.TaskId` is set and differs from the `TaskId` read right before `START_PRINT` (a second
-    status read after the upload).
+    status read after the upload). That read runs the idle check again: a printer that turned busy during the
+    upload is refused with `PrintNotStartedError`, so no `START_PRINT` and no stop are sent.
     - **Why not the pre-upload read:** a print someone starts and ends on the printer during the upload leaves
       a new `TaskId`, and its leftover 9 or 8 would then read as this job's ending.
     - **Where it's kept:** on the handle as `priorTask` (`""` when the printer had no task), which survives a

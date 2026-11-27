@@ -70,6 +70,7 @@ export const elegoo: TransportPlugin = {
     await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
     const justBefore = await elegooStatusOnce(target.address, mainboardId, undefined, signal);
+    refuseUnlessIdle("elegoo", readinessOf(justBefore));
     const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
     await startPrint(target.address, mainboardId, filename);

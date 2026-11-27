@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, spyOn, test } from "bun:test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { PrintStatus, StageCtx } from "@conveyor/shared";
+import { PrintNotStartedError, type PrintStatus, type StageCtx } from "@conveyor/shared";
 import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
 
@@ -20,6 +20,8 @@ class PrinterSocket {
   static statusReplies: string[] = [];
   static streamPushes: string[] = [];
   static streaming = false;
+  static ack = 0;
+  static starts = 0;
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
@@ -37,7 +39,8 @@ class PrinterSocket {
       if (reply) queueMicrotask(() => this.onmessage?.({ data: reply }));
       return;
     }
-    const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: 0 } } };
+    if (frame.Data.Data?.Filename) PrinterSocket.starts++;
+    const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: PrinterSocket.ack } } };
     queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(ack) }));
   }
   close() {}
@@ -46,7 +49,27 @@ class PrinterSocket {
 afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
   PrinterSocket.streaming = false;
+  PrinterSocket.ack = 0;
+  PrinterSocket.starts = 0;
 });
+
+async function submitted(jobId: string) {
+  const dir = await tempDir();
+  const path = join(dir, "model.gcode");
+  await writeFile(path, "G28\n");
+  fetchSpy.mockImplementation(
+    Object.assign(async () => new Response("{}", { status: 200 }), { preconnect }),
+  );
+  const ctx: StageCtx = {
+    jobId,
+    workDir: dir,
+    signal: new AbortController().signal,
+    report: () => {},
+    log: () => {},
+  };
+  const target = { id: "p", transportId: "elegoo", address: "10.0.0.8", secrets: {} };
+  return elegoo.submit({ path, format: "gcode" }, target, ctx);
+}
 afterAll(() => fetchSpy.mockRestore());
 
 async function drain(statuses: AsyncIterable<PrintStatus>): Promise<string[]> {
@@ -92,5 +115,22 @@ test.each([
     expect(PrinterSocket.statusReplies).toEqual([]);
     PrinterSocket.streaming = true;
     expect(await drain(elegoo.status(handle))).toEqual(["transferring", "printing", "done"]);
+  },
+);
+
+test.each([
+  ["would accept it", 0],
+  ["would refuse it as busy", 1],
+])(
+  "a printer that turned busy during the upload gets no START, even one that %s",
+  async (_label, ack) => {
+    Reflect.set(globalThis, "WebSocket", PrinterSocket);
+    PrinterSocket.ack = ack;
+    PrinterSocket.statusReplies = [status(0, 0), status(1, 13, "task-other")];
+    const err = await submitted("busy").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrintNotStartedError);
+    expect(String(err)).toContain("printer is busy: elegoo reports it printing");
+    expect(PrinterSocket.starts).toBe(0);
+    expect(PrinterSocket.statusReplies).toEqual([]);
   },
 );
