@@ -197,3 +197,14 @@ test("records any request Chromium lost to a network change, and an asset the ro
     "timed out. Asset requests: Track.js failed: net::ERR_NETWORK_CHANGED; active failed: net::ERR_NETWORK_CHANGED; Gone.js failed twice outside Chromium: connect ECONNREFUSED 127.0.0.1:4173",
   );
 });
+
+test("names a hashed JS chunk or font that answered other than 200, but not an API call", async () => {
+  const net = shotNetwork();
+  net.response(response("http://x/_app/immutable/chunks/Stale.9f8e.js", 404, "script"));
+  net.response(response("http://x/_app/immutable/assets/inter.Cw1.woff2", 503, "font"));
+  net.response(response("http://x/_app/immutable/chunks/Fine.1a2b.js", 200, "script"));
+  net.response(response("http://x/api/jobs/active", 500, "fetch"));
+  expect(await net.note("timed out")).toBe(
+    "timed out. Asset requests: Stale.9f8e.js answered HTTP 404; inter.Cw1.woff2 answered HTTP 503",
+  );
+});

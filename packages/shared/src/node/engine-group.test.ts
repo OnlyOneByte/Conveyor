@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { testCtx } from "../../test/helpers/index.ts";
-import { type GroupKill, killGroup, runEngine } from "./engine";
+import { type GroupKill, killGroup, runEngine, settleGroupKills } from "./engine";
 
 const alive = (pid: number) => {
   try {
@@ -46,7 +46,7 @@ test("an abort stops the engine's whole process group, so a wrapped engine write
   }
 });
 
-function fakeKill(fail: Partial<Record<"SIGTERM" | "SIGKILL", string>>) {
+function fakeKill(fail: Partial<Record<"SIGTERM" | "SIGKILL" | 0, string>>) {
   const sent: string[] = [];
   const how: GroupKill = {
     graceMs: 10,
@@ -125,4 +125,99 @@ test("a process that stops right after an abort still sends the SIGKILL before i
   } finally {
     ctx.cleanup();
   }
+});
+
+describe("settleGroupKills", () => {
+  test("returns at once when no SIGKILL is pending", async () => {
+    await settleGroupKills(5000);
+    const start = performance.now();
+    await settleGroupKills(5000);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  test("waits for a pending SIGKILL to be sent", async () => {
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({});
+    killGroup(4242, ctx, { ...how, graceMs: 80 });
+    await settleGroupKills(5000);
+    expect(sent).toEqual(["SIGTERM -4242", "SIGKILL -4242"]);
+    ctx.cleanup();
+  });
+
+  test("a kill dropped once its group is empty sends no SIGKILL and leaves nothing pending", async () => {
+    await settleGroupKills(5000);
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({ 0: "ESRCH" });
+    const dropIfGone = killGroup(4242, ctx, { ...how, graceMs: 80 });
+    dropIfGone();
+    const start = performance.now();
+    await settleGroupKills(5000);
+    expect(performance.now() - start).toBeLessThan(50);
+    await Bun.sleep(120);
+    expect(sent).toEqual(["SIGTERM -4242", "0 -4242"]);
+    ctx.cleanup();
+  });
+
+  test("a kill is kept while its group still has a member, or the probe fails otherwise", async () => {
+    const ctx = testCtx();
+    const member = fakeKill({});
+    killGroup(4242, ctx, { ...member.how, graceMs: 40 })();
+    const denied = fakeKill({ 0: "EPERM" });
+    killGroup(4343, ctx, { ...denied.how, graceMs: 40 })();
+    await settleGroupKills(5000);
+    expect(member.sent).toEqual(["SIGTERM -4242", "0 -4242", "SIGKILL -4242"]);
+    expect(denied.sent).toEqual(["SIGTERM -4343", "0 -4343", "SIGKILL -4343"]);
+    ctx.cleanup();
+  });
+
+  test("a grandchild that ignores SIGTERM and sent its output to /dev/null still gets SIGKILL", async () => {
+    const ctx = testCtx();
+    const pidFile = join(ctx.workDir, "stubborn.pid");
+    const script = `(trap "" TERM; exec sleep 30) </dev/null >/dev/null 2>&1 & echo $! > "${pidFile}"; wait`;
+    let stubborn = 0;
+    try {
+      const run = runEngine("slicer", "sh", ["-c", script], ctx).catch((err: unknown) => err);
+      await until(
+        () => existsSync(pidFile) && readFileSync(pidFile, "utf8").trim() !== "",
+        3000,
+        "the grandchild never started",
+      );
+      stubborn = Number(readFileSync(pidFile, "utf8").trim());
+      ctx.abort();
+      expect(await run).toBeInstanceOf(Error);
+      expect(alive(stubborn)).toBe(true);
+      await settleGroupKills(5000);
+      await until(() => !alive(stubborn), 1000, "the grandchild outlived the SIGKILL");
+    } finally {
+      if (stubborn > 1 && alive(stubborn)) process.kill(stubborn, "SIGKILL");
+      ctx.cleanup();
+    }
+  });
+
+  test("an aborted engine that exits on SIGTERM leaves no SIGKILL pending", async () => {
+    await settleGroupKills(5000);
+    const ctx = testCtx();
+    try {
+      const run = runEngine("slicer", "sleep", ["30"], ctx).catch((err: unknown) => err);
+      await Bun.sleep(50);
+      ctx.abort();
+      expect(await run).toBeInstanceOf(Error);
+      const start = performance.now();
+      await settleGroupKills(5000);
+      expect(performance.now() - start).toBeLessThan(500);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
+  test("stops waiting at its bound, and the SIGKILL still goes out later", async () => {
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({});
+    killGroup(4242, ctx, { ...how, graceMs: 400 });
+    await settleGroupKills(30);
+    expect(sent).toEqual(["SIGTERM -4242"]);
+    await settleGroupKills(5000);
+    expect(sent).toEqual(["SIGTERM -4242", "SIGKILL -4242"]);
+    ctx.cleanup();
+  });
 });
