@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubAuth } from "./auth.ts";
+import { skipsOnBase } from "./base-scenes.ts";
 import { logsDir, shotContextOptions, watchShot, workerProblem } from "./css-net.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
@@ -73,7 +74,7 @@ if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")
 const dirs = pageDirs(resolve(values.root));
 const BASE_READY_MS = 5000;
 const readyMs = values.base ? BASE_READY_MS : 30000;
-const absent = new Set<string>();
+const absent = await skipsOnBase(values.base ? resolve(values.root) : null, selected);
 let caddyLogs: ((sinceMs: number) => string) | undefined;
 const notOnBase = (scene: Scene) =>
   `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
@@ -126,7 +127,7 @@ async function writePng(page: Page, result: ShotResult, fullPage: boolean): Prom
 
 async function shoot({ browser, base, scene, width }: ShotOptions): Promise<ShotResult> {
   const result: ShotResult = { scene: scene.name, width, warnings: [] };
-  if (absent.has(scene.name)) return { ...result, warnings: [notOnBase(scene)] };
+  if (absent.has(scene.name)) return { ...result, warnings: [absent.get(scene.name) ?? ""] };
   const height = scene.height ?? HEIGHTS[width] ?? 900;
   const context = await browser.newContext(
     shotContextOptions(scene, { width, height }, colorScheme),
@@ -158,7 +159,7 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
         },
       );
     if (!ready) {
-      absent.add(scene.name);
+      absent.set(scene.name, notOnBase(scene));
       await context.close();
       return { ...result, warnings: [notOnBase(scene)] };
     }
@@ -193,8 +194,9 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
 async function warmUp(browser: Browser, base: string): Promise<string[]> {
   const page = await browser.newPage();
   const warnings: string[] = [];
-  for (const route of new Set(selected.map((s) => s.route))) {
-    const ready = selected.find((s) => s.route === route)?.ready ?? "body";
+  const shown = selected.filter((s) => !absent.has(s.name));
+  for (const route of new Set(shown.map((s) => s.route))) {
+    const ready = shown.find((s) => s.route === route)?.ready ?? "body";
     try {
       await page.goto(new URL(route, base).toString(), { waitUntil: "load", timeout: 120000 });
       await page
