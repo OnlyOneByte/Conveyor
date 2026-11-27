@@ -46,7 +46,7 @@ test("an abort stops the engine's whole process group, so a wrapped engine write
   }
 });
 
-function fakeKill(fail: Partial<Record<"SIGTERM" | "SIGKILL", string>>) {
+function fakeKill(fail: Partial<Record<"SIGTERM" | "SIGKILL" | 0, string>>) {
   const sent: string[] = [];
   const how: GroupKill = {
     graceMs: 10,
@@ -144,18 +144,54 @@ describe("settleGroupKills", () => {
     ctx.cleanup();
   });
 
-  test("a cancelled kill sends no SIGKILL and leaves nothing pending", async () => {
+  test("a kill dropped once its group is empty sends no SIGKILL and leaves nothing pending", async () => {
     await settleGroupKills(5000);
     const ctx = testCtx();
-    const { how, sent } = fakeKill({});
-    const cancel = killGroup(4242, ctx, { ...how, graceMs: 80 });
-    cancel();
+    const { how, sent } = fakeKill({ 0: "ESRCH" });
+    const dropIfGone = killGroup(4242, ctx, { ...how, graceMs: 80 });
+    dropIfGone();
     const start = performance.now();
     await settleGroupKills(5000);
     expect(performance.now() - start).toBeLessThan(50);
     await Bun.sleep(120);
-    expect(sent).toEqual(["SIGTERM -4242"]);
+    expect(sent).toEqual(["SIGTERM -4242", "0 -4242"]);
     ctx.cleanup();
+  });
+
+  test("a kill is kept while its group still has a member, or the probe fails otherwise", async () => {
+    const ctx = testCtx();
+    const member = fakeKill({});
+    killGroup(4242, ctx, { ...member.how, graceMs: 40 })();
+    const denied = fakeKill({ 0: "EPERM" });
+    killGroup(4343, ctx, { ...denied.how, graceMs: 40 })();
+    await settleGroupKills(5000);
+    expect(member.sent).toEqual(["SIGTERM -4242", "0 -4242", "SIGKILL -4242"]);
+    expect(denied.sent).toEqual(["SIGTERM -4343", "0 -4343", "SIGKILL -4343"]);
+    ctx.cleanup();
+  });
+
+  test("a grandchild that ignores SIGTERM and sent its output to /dev/null still gets SIGKILL", async () => {
+    const ctx = testCtx();
+    const pidFile = join(ctx.workDir, "stubborn.pid");
+    const script = `(trap "" TERM; exec sleep 30) </dev/null >/dev/null 2>&1 & echo $! > "${pidFile}"; wait`;
+    let stubborn = 0;
+    try {
+      const run = runEngine("slicer", "sh", ["-c", script], ctx).catch((err: unknown) => err);
+      await until(
+        () => existsSync(pidFile) && readFileSync(pidFile, "utf8").trim() !== "",
+        3000,
+        "the grandchild never started",
+      );
+      stubborn = Number(readFileSync(pidFile, "utf8").trim());
+      ctx.abort();
+      expect(await run).toBeInstanceOf(Error);
+      expect(alive(stubborn)).toBe(true);
+      await settleGroupKills(5000);
+      await until(() => !alive(stubborn), 1000, "the grandchild outlived the SIGKILL");
+    } finally {
+      if (stubborn > 1 && alive(stubborn)) process.kill(stubborn, "SIGKILL");
+      ctx.cleanup();
+    }
   });
 
   test("an aborted engine that exits on SIGTERM leaves no SIGKILL pending", async () => {

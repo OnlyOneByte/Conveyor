@@ -58,7 +58,10 @@ describe("the worker entry point on the sqlite queue", () => {
     dir = mkdtempSync(join(tmpdir(), "conveyor-worker-main-"));
     const started = await startWorker(workerEnv({ WORKER_CONCURRENCY: "1" }));
     const sent: string[] = [];
-    const how = { graceMs: 150, kill: (_pid: number, signal: string) => void sent.push(signal) };
+    const how = {
+      graceMs: 150,
+      kill: (_pid: number, signal: string | 0) => void sent.push(String(signal)),
+    };
     killGroup(
       4242,
       {

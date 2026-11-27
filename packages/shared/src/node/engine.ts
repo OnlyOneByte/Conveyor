@@ -75,7 +75,7 @@ export async function runEngine(
 export const KILL_GRACE_MS = 2000;
 
 export interface GroupKill {
-  kill(pid: number, signal: "SIGTERM" | "SIGKILL"): void;
+  kill(pid: number, signal: "SIGTERM" | "SIGKILL" | 0): void;
   graceMs: number;
 }
 
@@ -84,12 +84,23 @@ const SYSTEM_KILL: GroupKill = {
   graceMs: KILL_GRACE_MS,
 };
 
+const isGone = (err: unknown) => err instanceof Error && "code" in err && err.code === "ESRCH";
+
+function groupIsEmpty(pid: number, how: GroupKill): boolean {
+  try {
+    how.kill(-pid, 0);
+    return false;
+  } catch (err) {
+    return isGone(err);
+  }
+}
+
 function signalGroup(pid: number, signal: "SIGTERM" | "SIGKILL", ctx: StageCtx, how: GroupKill) {
   try {
     how.kill(-pid, signal);
     return true;
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "ESRCH") return false;
+    if (isGone(err)) return false;
     ctx.log(
       `engine process group ${pid} not sent ${signal}: ${err instanceof Error ? err.message : String(err)}`,
     );
@@ -117,7 +128,9 @@ export function killGroup(
   });
   pendingKills.add(sent);
   void sent.then(() => pendingKills.delete(sent));
-  return cancel;
+  return () => {
+    if (groupIsEmpty(pid, how)) cancel();
+  };
 }
 
 const pendingKills = new Set<Promise<void>>();
@@ -138,20 +151,20 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
     const child = spawn(cmd, args, { signal: ctx.signal, detached: true });
     let stderr = "";
     let failed = false;
-    let skipKill = () => {};
+    let dropKillIfGone = () => {};
     child.stdout.on("data", (b) => log.write(b.toString()));
     child.stderr.on("data", (b) => {
       stderr += b.toString();
       log.write(b.toString());
     });
     child.on("error", (e) => {
-      if (ctx.signal.aborted) skipKill = killGroup(child.pid, ctx);
+      if (ctx.signal.aborted) dropKillIfGone = killGroup(child.pid, ctx);
       failed = true;
       log.write(`[${e.message}]\n`);
       void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));
     });
     child.on("close", (code) => {
-      skipKill();
+      dropKillIfGone();
       if (failed) return;
       log.write(`[exited ${code}]\n`);
       void log
