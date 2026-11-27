@@ -41,7 +41,8 @@ with code 1 on anything else, because `NaN` would remove the engine cap and `0` 
 `SIGINT` calls `stop()` and exits 0 once it returns. In `sqlite` mode that is once every running job has been
 released ([loop.ts](#loopts)); in `redis` mode `stop()` waits for BullMQ's running jobs to finish. Either way it
 then waits, for at most 2 s, for any engine `SIGKILL` still in its grace (`settleGroupKills`), so an engine that
-ignored `SIGTERM` is not left running after the worker exits. The handler is
+ignored `SIGTERM` is not left running after the worker exits. A `SIGKILL` is dropped once the engine has exited and
+closed its output, so a recycled group id is never signalled and an engine that stopped on `SIGTERM` adds no wait. The handler is
 installed with `process.once`, so a second signal during the grace period kills the process at once. In `sqlite`
 mode a job caught between intent and marker is then failed by the reaper with its printer held, as for any crash
 in that window. In `redis` mode a killed job stalls, BullMQ fails it and the Redis reaper records it with

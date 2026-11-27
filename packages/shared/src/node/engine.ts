@@ -101,17 +101,23 @@ export function killGroup(
   pid: number | undefined,
   ctx: StageCtx,
   how: GroupKill = SYSTEM_KILL,
-): void {
-  if (pid === undefined || pid <= 1) return;
-  if (!signalGroup(pid, "SIGTERM", ctx, how)) return;
+): () => void {
+  if (pid === undefined || pid <= 1) return () => {};
+  if (!signalGroup(pid, "SIGTERM", ctx, how)) return () => {};
+  let cancel = () => {};
   const sent = new Promise<void>((resolve) => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       signalGroup(pid, "SIGKILL", ctx, how);
       resolve();
     }, how.graceMs);
+    cancel = () => {
+      clearTimeout(timer);
+      resolve();
+    };
   });
   pendingKills.add(sent);
   void sent.then(() => pendingKills.delete(sent));
+  return cancel;
 }
 
 const pendingKills = new Set<Promise<void>>();
@@ -132,18 +138,20 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
     const child = spawn(cmd, args, { signal: ctx.signal, detached: true });
     let stderr = "";
     let failed = false;
+    let skipKill = () => {};
     child.stdout.on("data", (b) => log.write(b.toString()));
     child.stderr.on("data", (b) => {
       stderr += b.toString();
       log.write(b.toString());
     });
     child.on("error", (e) => {
-      if (ctx.signal.aborted) killGroup(child.pid, ctx);
+      if (ctx.signal.aborted) skipKill = killGroup(child.pid, ctx);
       failed = true;
       log.write(`[${e.message}]\n`);
       void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));
     });
     child.on("close", (code) => {
+      skipKill();
       if (failed) return;
       log.write(`[exited ${code}]\n`);
       void log

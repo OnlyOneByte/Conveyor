@@ -144,6 +144,36 @@ describe("settleGroupKills", () => {
     ctx.cleanup();
   });
 
+  test("a cancelled kill sends no SIGKILL and leaves nothing pending", async () => {
+    await settleGroupKills(5000);
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({});
+    const cancel = killGroup(4242, ctx, { ...how, graceMs: 80 });
+    cancel();
+    const start = performance.now();
+    await settleGroupKills(5000);
+    expect(performance.now() - start).toBeLessThan(50);
+    await Bun.sleep(120);
+    expect(sent).toEqual(["SIGTERM -4242"]);
+    ctx.cleanup();
+  });
+
+  test("an aborted engine that exits on SIGTERM leaves no SIGKILL pending", async () => {
+    await settleGroupKills(5000);
+    const ctx = testCtx();
+    try {
+      const run = runEngine("slicer", "sleep", ["30"], ctx).catch((err: unknown) => err);
+      await Bun.sleep(50);
+      ctx.abort();
+      expect(await run).toBeInstanceOf(Error);
+      const start = performance.now();
+      await settleGroupKills(5000);
+      expect(performance.now() - start).toBeLessThan(500);
+    } finally {
+      ctx.cleanup();
+    }
+  });
+
   test("stops waiting at its bound, and the SIGKILL still goes out later", async () => {
     const ctx = testCtx();
     const { how, sent } = fakeKill({});
