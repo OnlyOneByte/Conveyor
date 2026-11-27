@@ -85,6 +85,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "first-run-add",
     "first-run-dock",
     "first-run-printers",
+    "first-run-printers-save",
     "first-run-limited",
     "loading-make",
     "loading-job",

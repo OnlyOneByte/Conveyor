@@ -23,6 +23,8 @@ const active = (json: unknown, status = 200): Step => ({
   json,
 });
 
+const HISTORY = "**/api/jobs-history?*";
+
 const lateFailure = {
   id: "stale-failed",
   request: {
@@ -173,6 +175,46 @@ export const scenes: Scene[] = [
       { click: ".pill >> text=All" },
       { waitFor: "text=Can't reach Conveyor" },
       ...errorCard("main .state.err"),
+      { wait: 300 },
+    ],
+  },
+  {
+    name: "jobs-down-retry",
+    route: "/jobs",
+    ready: "h1",
+    widths: [390],
+    steps: [
+      { fulfill: HISTORY, status: 503, json: { error: "down" } },
+      { click: ".pill >> text=Printed" },
+      { click: ".pill >> text=All" },
+      { waitFor: "main .state.err >> text=Can't reach Conveyor" },
+      { stall: HISTORY, status: 200, json: [lateFailure] },
+      { click: "main .state.err button >> text=Try again" },
+      { waitFor: "main .state.err button:focus >> text=Trying again…" },
+      { wait: 500 },
+      { absent: "main .state.empty" },
+      { release: HISTORY },
+      { waitFor: "[data-id='stale-failed']" },
+      { absent: "main .state" },
+      { waitFor: ".pill[aria-pressed='true']:focus >> text=All" },
+    ],
+  },
+  {
+    name: "jobs-active-down",
+    route: "/jobs",
+    ready: "h1",
+    steps: [
+      active({ error: "down" }, 503),
+      { fulfill: HISTORY, status: 200, json: [] },
+      {
+        fulfill: "**/api/jobs-history/counts",
+        status: 200,
+        json: { done: 0, failed: 0, canceled: 0 },
+      },
+      { click: ".pill >> text=Printed" },
+      { click: ".pill >> text=All" },
+      ...errorCard("main .state.err"),
+      { absent: "main .state.empty" },
       { wait: 300 },
     ],
   },

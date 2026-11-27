@@ -31,7 +31,7 @@ export const scenes: Scene[] = [
       { click: `${card} button >> text=Try again` },
       { waitFor: "main ul[aria-label=Printers] li" },
       { absent: "main .state" },
-      { waitFor: "main .acts button.primary >> text=Add printer" },
+      { waitFor: "main .acts button.primary:focus >> text=Add printer" },
     ],
   },
 ];

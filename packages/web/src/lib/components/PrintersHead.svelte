@@ -6,10 +6,11 @@
   export let summary: string;
   export let ready: boolean;
   export let failed: boolean;
+  export let empty: boolean;
   export let add: () => Promise<void>;
   export let check: () => void;
 
-  let button: HTMLButtonElement | null = null;
+  export let button: HTMLButtonElement | null = null;
   let linked = false;
   let opening = false;
 
@@ -36,7 +37,7 @@
     {#if summary}<p class="sub">{summary}</p>{/if}
   </div>
   <div class="acts">
-    {#if !failed}<button
+    {#if !failed && !empty}<button
       class="btn primary big" type="button" bind:this={button} on:click={take} aria-busy={opening}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>

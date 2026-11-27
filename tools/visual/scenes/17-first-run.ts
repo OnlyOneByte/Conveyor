@@ -1,5 +1,16 @@
 import type { Scene, Step } from "../scene.ts";
 import { emptyCard } from "./02-jobs.ts";
+import { dialog } from "./13-printers.ts";
+
+const PRINTERS = "**/api/catalog/printers";
+const field = (name: string) => `${dialog} >> role=textbox[name="${name}"s]`;
+const mk4 = {
+  id: "mk4",
+  transportId: "moonraker",
+  name: "MK4",
+  address: "10.0.0.9",
+  hasSecrets: false,
+};
 
 const noPrinters: Step = {
   fulfill: "**/api/catalog/printers",
@@ -56,9 +67,8 @@ export const scenes: Scene[] = [
       { click: "#make-where .state a >> text=Add a printer" },
       { waitFor: "dialog[open] >> text=Add printer" },
       { press: "Escape" },
-      { waitFor: "main .acts button.primary:focus >> text=Add printer" },
-      { waitFor: "main .state h2 >> text=Add your first printer" },
-      { waitFor: "main .state button.primary >> text=Add a printer" },
+      { waitFor: "main .state button.primary:focus >> text=Add a printer" },
+      { absent: "main .acts >> text=Add printer" },
       { history: "back", url: "/" },
       { waitFor: "text=How big?" },
       { history: "forward", url: "/printers" },
@@ -91,11 +101,33 @@ export const scenes: Scene[] = [
       { follow: "/printers" },
       { waitFor: "main .state h2 >> text=Add your first printer" },
       ...emptyCard("main .state.empty", "button.btn.primary >> text=Add a printer"),
+      { absent: "main .acts >> text=Add printer" },
       { click: "main .state button >> text=Add a printer" },
       { waitFor: "dialog[open] >> text=Add printer" },
       { press: "Escape" },
       { waitFor: "main .state button:focus >> text=Add a printer" },
       { wait: 400 },
+    ],
+  },
+  {
+    name: "first-run-printers-save",
+    route: "/settings",
+    ready: "h1",
+    visits: ["/printers"],
+    steps: [
+      noPrinters,
+      { follow: "/printers" },
+      { click: "main .state button >> text=Add a printer" },
+      { waitFor: `${dialog} >> text=Printer software` },
+      { type: field("Name"), text: "MK4" },
+      { type: field("Address"), text: "10.0.0.9" },
+      { fulfill: PRINTERS, method: "PUT", status: 200, json: { ok: true } },
+      { fulfill: PRINTERS, method: "GET", status: 200, json: [mk4] },
+      { click: `${dialog} button[type=submit]` },
+      { waitFor: "text=Added MK4" },
+      { waitFor: "main ul[aria-label=Printers] li" },
+      { absent: "main .state" },
+      { waitFor: "main .acts button.primary:focus >> text=Add printer" },
     ],
   },
   {

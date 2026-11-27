@@ -76,13 +76,13 @@ export function createJobsView(day: () => string | null) {
 
   async function load() {
     const at = req.start();
-    set({ since: day() === "today" ? midnight(new Date()) : undefined, down: false });
+    set({ since: day() === "today" ? midnight(new Date()) : undefined });
     set({ catalog: await loadCatalog().catch(() => null) });
     const [views, history] = await Promise.allSettled([fetchActiveJobs(), refresh(at)]);
     if (at !== req.now()) return;
     const { catalog } = get(view);
     set({
-      down: history.status === "rejected",
+      down: history.status === "rejected" || views.status === "rejected",
       live:
         views.status === "fulfilled" ? views.value.map((v) => liveRow(v, catalog, Date.now())) : [],
       loaded: true,

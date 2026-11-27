@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { JobView } from "@conveyor/shared";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     type CatalogPrinter,
     type CatalogTransport,
@@ -32,6 +32,9 @@
   let open = false;
   let editing: CatalogPrinter | null = null;
   let loading: Promise<void> = Promise.resolve();
+  let head: HTMLButtonElement | null = null;
+  let first: HTMLButtonElement | null = null;
+  let shown = false;
 
   $: catalog = { printers, generators };
   $: cards = printers.map((printer) => ({
@@ -80,6 +83,17 @@
   async function refresh() {
     await load();
     await Promise.all([poll(), probe()]);
+    await refocus();
+  }
+
+  async function refocus() {
+    await tick();
+    if (document.activeElement === document.body) (head ?? first)?.focus();
+  }
+
+  $: if (open !== shown) {
+    shown = open;
+    if (!open) void refocus();
   }
 
   function edit(printer: CatalogPrinter | null = null) {
@@ -104,7 +118,8 @@
 
 <PrintersHead
   summary={loaded && !failed && printers.length ? printersSummary(printers, active) : ""}
-  ready={loaded} {failed} {add} check={() => void probe()}
+  ready={loaded} {failed} {add} check={() => void probe()} bind:button={head}
+  empty={loaded && !failed && !printers.length}
 />
 
 {#if !loaded}
@@ -115,7 +130,7 @@
     <button class="btn primary" type="button" on:click={refresh}>Try again</button>
   </StateCard>
 {:else if !printers.length}
-  <FirstPrinter none {add} />
+  <FirstPrinter none {add} bind:button={first} />
 {:else}
   <ul class="grid" aria-label="Printers">
     {#each cards as { printer, card } (printer.id)}

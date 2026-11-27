@@ -7,12 +7,19 @@
 
   export let kind: "loading" | "down" | "empty";
   export let filter: Filter;
-  export let retry: () => void = () => {};
+  export let retry: () => Promise<void> = async () => {};
+  let busy = false;
+  async function again() {
+    if (busy) return;
+    busy = true;
+    await retry();
+    busy = false;
+  }
   export let today = false;
   onMount(() => {
     if (kind === "loading") void announce("Loading jobs…");
     else if (kind === "down")
-      void announce("Can't reach Conveyor. The job history didn't load", "assertive");
+      void announce("Can't reach Conveyor. The job list didn't load", "assertive");
   });
 </script>
 
@@ -20,8 +27,10 @@
   <Skeleton count={3} label="Loading jobs" spoken={false} />
 {:else if kind === "down"}
   <StateCard tone="err" title="Can't reach Conveyor">
-    <p>The job history didn't load. Check that Conveyor is running, then try again.</p>
-    <button class="btn primary" type="button" on:click={retry}>Try again</button>
+    <p>The job list didn't load. Check that Conveyor is running, then try again.</p>
+    <button class="btn primary" type="button" aria-busy={busy} on:click={again}>
+      {busy ? "Trying again…" : "Try again"}
+    </button>
   </StateCard>
 {:else}
   <StateCard title={today ? "Nothing finished today" : EMPTY[filter]}>
