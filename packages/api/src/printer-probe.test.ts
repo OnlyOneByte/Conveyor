@@ -20,8 +20,21 @@ describe("parseAddress accepts", () => {
     ["https://printer.local", "moonraker", "printer.local", 443],
     ["ws://printer.local", "elegoo", "printer.local", 3030],
     ["http://[fe80::1]:7125/", "moonraker", "fe80::1", 7125],
+    ["10.0.0.9/moonraker", "moonraker", "10.0.0.9", 80],
+    ["printer.lan:7125/api", "moonraker", "printer.lan", 7125],
+    ["//printer.lan/moonraker", "moonraker", "printer.lan", 80],
+    ["user:pass@10.0.0.9", "moonraker", "10.0.0.9", 80],
+    ["user:pass@[fd00::1]:7125/api", "moonraker", "fd00::1", 7125],
+    ["10.0.0.9/x", "elegoo", "10.0.0.9", 3030],
   ])("%p for %p as %p port %p", (address, transport, host, port) => {
     expect(parseAddress(address, transport)).toEqual({ kind: "parsed", host, port });
+  });
+});
+
+test("a refused path form quotes the whole address, credentials hidden", () => {
+  expect(parseAddress("user:pass@10.0.0.256/moonraker", "moonraker")).toEqual({
+    kind: "invalid",
+    reason: '"***@10.0.0.256/moonraker": not a valid IPv4 address',
   });
 });
 

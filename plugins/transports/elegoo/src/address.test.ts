@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { type PrintHandle, PrintNotStartedError, type StageCtx } from "@conveyor/shared";
 import { tempDirs } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
+import { printerEndpoint } from "./socket";
 
 const tempDir = tempDirs("conveyor-elegoo-");
 
@@ -95,4 +96,14 @@ describe("elegoo printer addresses", () => {
     await expect(stop).rejects.toThrow('elegoo printer address "fe80::1::2": not a valid IPv6');
     expect(AckingSocket.urls).toHaveLength(0);
   });
+});
+
+test("the documented path and credential forms reach the printer's host and port", () => {
+  expect(printerEndpoint("10.0.0.9/printer")).toBe("10.0.0.9:3030");
+  expect(printerEndpoint("//printer.lan/printer")).toBe("printer.lan:3030");
+  expect(printerEndpoint("user:pass@printer.lan:3031/ws")).toBe("printer.lan:3031");
+  expect(printerEndpoint("user:pass@[fd00::1]/ws")).toBe("[fd00::1]:3030");
+  expect(() => printerEndpoint("user:pass@10.0.0.256/ws")).toThrow(
+    'elegoo printer address "***@10.0.0.256/ws": not a valid IPv4 address',
+  );
 });

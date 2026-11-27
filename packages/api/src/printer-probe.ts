@@ -1,5 +1,5 @@
 import { createConnection } from "node:net";
-import { type HostPort, parseHostPort } from "@conveyor/shared/address";
+import { type HostPort, hostPortOf, parseHostPort } from "@conveyor/shared/address";
 
 interface ReachResult {
   reachable: boolean;
@@ -15,7 +15,9 @@ const DEFAULT_PORTS: Record<string, number> = {
 };
 
 export function parseAddress(address: string, transportId: string): HostPort {
-  return parseHostPort(address, DEFAULT_PORTS[transportId] ?? 80);
+  const hostPort = hostPortOf(address);
+  const shown = hostPort === address ? undefined : address;
+  return parseHostPort(hostPort, DEFAULT_PORTS[transportId] ?? 80, shown);
 }
 
 export function probePrinter(

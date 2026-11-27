@@ -269,7 +269,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   for the filter pills. Both modes share these routes, since both keep finished jobs in the SQLite `jobs` table.
   The static `counts` path wins over `/jobs-history/:id`; job ids are UUIDs, so none is called `counts`.
 - `GET /catalog/printers/:id/reachable` returns 404 for an unknown printer, 400 when `checkPrinterAddress`
-  refuses its address (as `PUT /catalog/printers` does), otherwise 200 with the probe result.
+  refuses its address (as `PUT /catalog/printers` does), otherwise 200 with the probe result. The probe
+  (`printer-probe.ts`) reads the host and port with `hostPortOf` from `@conveyor/shared/address`. That is the
+  same step the save-time address check and both transports use. So every documented form (`host:port`,
+  `http(s)://…`, `//host/path`, `user:pass@host[/path]`) is probed at the host the worker would connect to.
   `reachable: false` is a successful probe of an offline printer, not an error. Every probe stamps the printer's
   `lastCheckedAt`, and a reachable one also stamps `lastSeenAt`. `GET /catalog/printers` returns both, so a
   printer that was seen and then failed a probe shows how long it has been offline. Probing stays on demand:

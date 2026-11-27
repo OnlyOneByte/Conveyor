@@ -11,7 +11,7 @@ import {
   StageError,
   type TransportPlugin,
 } from "@conveyor/shared";
-import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
+import { addressParts, formatHostPort, parseHostPort } from "@conveyor/shared/address";
 import {
   multipartFileUpload,
   refuseRedirect,
@@ -189,15 +189,11 @@ export const moonraker: TransportPlugin = {
 
 function baseUrl(address: string): string {
   if (/^https?:\/\//i.test(address)) return address.replace(/\/$/, "");
-  const bare = address.replace(/^\/\//, "");
-  const slash = bare.indexOf("/");
-  const authority = slash === -1 ? bare : bare.slice(0, slash);
-  const path = slash === -1 ? "" : bare.slice(slash).replace(/\/$/, "");
-  const host = authority.slice(authority.lastIndexOf("@") + 1);
+  const { host, path } = addressParts(address);
   const parsed = parseHostPort(host, 80, address);
   if (parsed.kind === "invalid")
     throw new StageError("transport", `moonraker printer address ${parsed.reason}`);
-  return `http://${formatHostPort(parsed.host, parsed.port)}${path}`;
+  return `http://${formatHostPort(parsed.host, parsed.port)}${path.replace(/\/$/, "")}`;
 }
 
 function apiKeyHeaders(target: PrinterTarget): Record<string, string> {

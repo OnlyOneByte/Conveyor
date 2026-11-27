@@ -1,5 +1,6 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { addressParts, hasScheme } from "../address.js";
 import { StageError } from "../context.js";
 
 export const ALLOW_SETTING = "PRINTER_ADDRESS_ALLOW";
@@ -111,16 +112,13 @@ function refusedRange(ip: string): string | undefined {
 }
 
 function authorityOf(text: string): string {
-  const bare = text.replace(/^\/\//, "");
-  const slash = bare.indexOf("/");
-  const authority = slash === -1 ? bare : bare.slice(0, slash);
-  const host = authority.slice(authority.lastIndexOf("@") + 1);
+  const { host } = addressParts(text);
   return isIP(host) === 6 ? `[${host}]` : host;
 }
 
 export function printerHost(address: string): string | undefined {
   const text = address.trim();
-  const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `http://${authorityOf(text)}`;
+  const url = hasScheme(text) ? text : `http://${authorityOf(text)}`;
   if (!URL.canParse(url)) return undefined;
   return normalHost(new URL(url).hostname) || undefined;
 }

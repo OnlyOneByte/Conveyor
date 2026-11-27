@@ -91,3 +91,17 @@ export function parseHostPort(address: string, defaultPort: number, shown?: stri
 export function formatHostPort(host: string, port: number): string {
   return host.includes(":") ? `[${host}]:${port}` : `${host}:${port}`;
 }
+
+export const hasScheme = (address: string) => /^[a-z][a-z0-9+.-]*:\/\//i.test(address.trim());
+
+export function hostPortOf(address: string): string {
+  return hasScheme(address) ? address : addressParts(address).host;
+}
+
+export function addressParts(address: string): { host: string; path: string } {
+  const bare = address.replace(/^\/\//, "");
+  const slash = bare.indexOf("/");
+  const authority = slash === -1 ? bare : bare.slice(0, slash);
+  const path = slash === -1 ? "" : bare.slice(slash);
+  return { host: authority.slice(authority.lastIndexOf("@") + 1), path };
+}
