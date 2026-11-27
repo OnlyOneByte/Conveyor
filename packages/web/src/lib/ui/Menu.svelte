@@ -41,6 +41,7 @@
 
 <style>
   [popover] { inset: auto; top: anchor(bottom); left: anchor(left); margin: var(--s1) 0 0; min-width: 180px; padding: var(--s1); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--raised); color: var(--ink); box-shadow: var(--lift-hi); }
+  [popover] { position-try-fallbacks: flip-inline; max-width: calc(100vw - 2 * var(--s2)); }
   [role="menuitem"] { display: block; width: 100%; min-height: 30px; padding: 0 var(--s3); border: 0; border-radius: var(--r-control); background: none; text-align: left; }
   [role="menuitem"]:focus-visible { background: var(--sunk); }
   @media (hover: hover) { [role="menuitem"]:hover { background: var(--sunk); } }

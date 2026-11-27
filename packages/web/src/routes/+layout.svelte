@@ -117,8 +117,10 @@
   <main id="main" tabindex="-1">
     {#if showApp}
       <slot />
+    {:else if data.down}
+      <CantReach down={data.down} />
     {:else}
-      {#if data.down}<CantReach down={data.down} />{:else}<Login on:authed={() => invalidateAll()} />{/if}
+      <Login on:authed={() => invalidateAll()} />
     {/if}
   </main>
   <div class="sr" aria-live="polite">{$polite}</div>

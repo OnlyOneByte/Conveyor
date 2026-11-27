@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { toasts } from "./behaviour";
+  import { keepLeaving, type Shown, toasts } from "./behaviour";
 
   let back: HTMLElement | null = null;
+  let shown: Shown[] = [];
+  $: shown = keepLeaving(shown, $toasts);
+  const gone = (id: number) => (shown = shown.filter((toast) => toast.id !== id));
   const inside = (e: FocusEvent) =>
     e.currentTarget instanceof Node &&
     e.relatedTarget instanceof Node &&
@@ -9,9 +12,12 @@
 </script>
 
 <div class="toasts">
-  {#each $toasts as toast (toast.id)}
+  {#each shown as toast (toast.id)}
     <div
       class="toast"
+      class:gone={toast.gone}
+      inert={toast.gone}
+      on:animationend={() => toast.gone && gone(toast.id)}
       role="group"
       aria-label={toast.text}
       on:focusin={(e) => { if (!inside(e)) back = e.relatedTarget instanceof HTMLElement ? e.relatedTarget : null; toasts.hold(toast.id, "focus"); }}
@@ -37,4 +43,6 @@
   .toast { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-radius: var(--r-chip); background: var(--ink); color: var(--bg); --focus: var(--bg); box-shadow: var(--lift-hi); font-weight: 650; pointer-events: auto; }
   .toast { transition: opacity var(--t-fast) ease-out, translate var(--t-fast) var(--ease-move); }
   @starting-style { .toast { opacity: 0; translate: 0 var(--s2); } }
+  .gone { animation: leave var(--t-fast) ease-in forwards; pointer-events: none; }
+  @keyframes leave { to { opacity: 0; translate: 0 var(--s2); } }
 </style>

@@ -4,7 +4,6 @@
   import type { Size } from "#lib/stl-size.js";
   import ErrorDetails from "./ErrorDetails.svelte";
   import Notice from "./Notice.svelte";
-  import StlFit from "./StlFit.svelte";
 
   export let file: File | null = null;
   export let bed: Size | undefined = undefined;
@@ -58,7 +57,15 @@
     </Notice>
   </div>
 {/if}
-{#if ready && file}<StlFit {file} {bed} {printer} />{/if}
+{#if ready && file}
+  {#await import("./StlFit.svelte") then fit}
+    <svelte:component this={fit.default} {file} {bed} {printer} />
+  {:catch}
+    <p class="unsized" role="status">
+      Conveyor couldn't check this file's size. The slicer still checks it when you print.
+    </p>
+  {/await}
+{/if}
 {#if ready}
   <button type="button" class="btn clear" on:click={() => (dispatch("clear", null), input.focus())}>
     Remove file
@@ -81,6 +88,7 @@
   input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   .up { display: flex; flex-direction: column; align-items: stretch; }
   .fail { margin: var(--s2) 0 0; }
+  .unsized { margin: var(--s2) 0 0; color: var(--muted); }
   @media (max-width: 759px) { .fail { order: -1; margin: 0 0 var(--s2); } }
   .clear { align-self: flex-start; margin-top: var(--s2); }
 </style>

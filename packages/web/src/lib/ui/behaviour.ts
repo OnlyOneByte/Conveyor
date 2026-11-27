@@ -42,6 +42,14 @@ interface Toast {
 
 export const TOAST_MS = 6000;
 
+export type Shown = Toast & { gone?: boolean };
+
+export function keepLeaving(shown: Shown[], live: Toast[]): Shown[] {
+  const now = new Map(live.map((toast) => [toast.id, toast]));
+  const kept = shown.map((toast) => now.get(toast.id) ?? { ...toast, gone: true });
+  return [...kept, ...live.filter((toast) => !shown.some((s) => s.id === toast.id))];
+}
+
 type Hold = "focus" | "pointer";
 type Timer = { after: (run: () => void, ms: number) => () => void; now: () => number };
 
