@@ -158,16 +158,19 @@ export const moonraker: TransportPlugin = {
     }
   },
 
-  async cancel(handle: PrintHandle, target?: PrinterTarget): Promise<void> {
+  async cancel(handle: PrintHandle, target?: PrinterTarget, signal?: AbortSignal): Promise<void> {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "moonraker cancel: missing printer address on handle");
     const at = await reach(handle.address, baseUrl, statusKeyHeaders(target));
+    const timeout = AbortSignal.timeout(CANCEL_TIMEOUT_MS);
+    if (signal?.aborted)
+      throw new StageError("transport", "moonraker cancel abandoned before it was sent");
     const res = await fetch(`${at.base}/printer/print/cancel`, {
       method: "POST",
       headers: at.headers,
       redirect: "manual",
-      signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
     refuseRedirect(res, "moonraker cancel");
     if (!res.ok) throw new StageError("transport", `moonraker cancel failed: ${res.status}`);

@@ -203,7 +203,8 @@ dropped. Two guards apply to every upload:
 - Every upload, status poll and cancel first checks the printer's host against the address rule in
   [docs/self-hosting.md](../self-hosting.md#printer-addresses), resolving names each time. Elegoo checks before
   its upload, before `START_PRINT`, before opening the status socket and before `STOP_PRINT`.
-  `cancel()` posts `/printer/print/cancel` with a 15 s timeout. `submit()` checks the signal between the upload
+  `cancel()` posts `/printer/print/cancel` with a 15 s timeout. When the worker aborts its signal, it sends no request
+  if the name lookup is still running, and aborts the one in flight. `submit()` checks the signal between the upload
   and the start request, and throws `PrintNotStartedError` when it was cancelled first.
 
 Verify on hardware:
@@ -230,7 +231,7 @@ SDCP (Smart Device Control Protocol), written from the
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
-  up to 15 s for its ack. Frames for other requests are skipped, unreadable ones included; an unreadable reply naming this request rejects the command.
+  up to 15 s for its ack, except `START_PRINT`, which waits `ELEGOO_START_TIMEOUT_MS` (default 30000, decimal digits from 1 to 600000). Frames for other requests are skipped, unreadable ones included; an unreadable reply naming this request rejects the command.
   The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames since the last readable
   status frame, so one garbled push does not fail a running print; the third ends `status()` with a
   `StageError` that names the count and quotes the last frame. Only a readable status frame resets the
@@ -290,7 +291,8 @@ SDCP (Smart Device Control Protocol), written from the
 - Files: HTTP upload to the mainboard. The route and chunking differ between resin and FDM lines.
 - Cancel: `cancel()` sends `Cmd 130` (STOP_PRINT) to the handle's `deviceId`, which is the stored
   `mainboardId`. It resolves only on a matching ack with `Ack 0`. A non-zero ack, a socket close before the
-  ack, an error or the 15 s timeout rejects it. `handleFor()` builds the same handle for an interrupted
+  ack, an error or the 15 s timeout rejects it. Once the worker aborts its signal, it opens no socket and sends no
+  `STOP_PRINT`, and a socket still connecting is closed. `handleFor()` builds the same handle for an interrupted
   `submit()`. The socket, ack and status-stream code lives in `src/socket.ts`.
 
 Status mapping from a pushed `sdcp/status/<id>` frame. `Status` is read from the top level of the frame, as the

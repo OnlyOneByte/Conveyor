@@ -17,6 +17,7 @@ import {
   requirePrinterAddress,
   uploadSignal,
 } from "@conveyor/shared/node";
+import { z } from "zod";
 import { pruneLocalFiles } from "./prune.js";
 import { elegooStatusOnce, readinessOf } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
@@ -25,16 +26,43 @@ import { printerEndpoint, SdcpRejectedError, sendCommand, streamStatus } from ".
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
 
-export async function startPrint(address: string, mainboardId: string, filename: string) {
+export const START_TIMEOUT_ENV = "ELEGOO_START_TIMEOUT_MS";
+export const START_TIMEOUT_MS = 30_000;
+export const START_TIMEOUT_MAX_MS = 600_000;
+const PositiveMs = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().min(1).max(START_TIMEOUT_MAX_MS));
+
+export function startTimeoutMs(env: Record<string, string | undefined> = process.env): number {
+  const raw = env[START_TIMEOUT_ENV];
+  if (raw === undefined || raw.trim() === "") return START_TIMEOUT_MS;
+  const parsed = PositiveMs.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  throw new StageError(
+    "transport",
+    `${START_TIMEOUT_ENV} must be a whole number of milliseconds from 1 to ${START_TIMEOUT_MAX_MS}, got ${raw}`,
+  );
+}
+
+export async function startPrint(
+  address: string,
+  mainboardId: string,
+  filename: string,
+  timeoutMs = startTimeoutMs(),
+) {
   let sent = false;
   const start = {
     mainboardId,
     cmd: SDCP_CMD.START_PRINT,
     data: { Filename: filename, StartLayer: 0 },
   };
-  await sendCommand(address, start, true, () => {
+  const onSent = () => {
     sent = true;
-  }).catch((err: unknown) => {
+  };
+  await sendCommand(address, start, true, { onSent, timeoutMs }).catch((err: unknown) => {
     if (err instanceof SdcpRejectedError)
       throw new PrintNotStartedError(err.reason, { cause: err });
     if (!sent) throw err;
@@ -57,6 +85,7 @@ export const elegoo: TransportPlugin = {
       return elegooHandle(target, filename);
     }
 
+    const ackTimeoutMs = startTimeoutMs();
     const mainboardId = mainboardIdOf(target);
     const at = await pinned(target.address);
     const signal = ctx.signal;
@@ -73,7 +102,7 @@ export const elegoo: TransportPlugin = {
     refuseUnlessIdle("elegoo", readinessOf(justBefore));
     const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
-    await startPrint(startAt, mainboardId, filename);
+    await startPrint(startAt, mainboardId, filename, ackTimeoutMs);
 
     return elegooHandle(target, filename, priorTask);
   },
@@ -105,13 +134,14 @@ export const elegoo: TransportPlugin = {
     }
   },
 
-  async cancel(handle: PrintHandle): Promise<void> {
+  async cancel(handle: PrintHandle, _target?: PrinterTarget, signal?: AbortSignal): Promise<void> {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
     const at = await pinned(handle.address);
     const mainboardId = handle.deviceId ?? handle.printerId;
-    await sendCommand(at, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
+    const stop = { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} };
+    await sendCommand(at, stop, true, { signal });
   },
 
   async pruneFiles(target, keep, signal) {

@@ -17,13 +17,13 @@ export const canceled = (run: Run, err: unknown) =>
   !(err instanceof LeaseLostError || run.signal.reason instanceof LeaseLostError) &&
   (err instanceof JobCanceledError || run.signal.aborted);
 
-async function sendStop(run: Run): Promise<Note | undefined> {
+async function sendStop(run: Run, signal?: AbortSignal): Promise<Note | undefined> {
   const attempt = run.print;
   if (!attempt || attempt.notStarted) return undefined;
   const { transport } = attempt;
   if (!transport.cancel) return note("cannotStop", `${transport.id} cannot stop a print`);
   try {
-    await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer);
+    await transport.cancel(attempt.handle ?? fallbackHandle(attempt), attempt.printer, signal);
     run.ctx.log(`transport ${transport.id} cancel sent`);
     return undefined;
   } catch (e) {
@@ -33,21 +33,23 @@ async function sendStop(run: Run): Promise<Note | undefined> {
   }
 }
 
-export function stopPrinter(run: Run): Promise<Note | undefined> {
-  run.stop ??= sendStop(run);
+export function stopPrinter(run: Run, signal?: AbortSignal): Promise<Note | undefined> {
+  run.stop ??= sendStop(run, signal);
   return run.stop;
 }
 
 export const STOP_BOUND_MS = 20_000;
 
 export async function stopWithin(run: Run, ms = run.opts.stopBoundMs ?? STOP_BOUND_MS) {
+  const bound = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<"late">((resolve) => {
     timer = setTimeout(() => resolve("late"), ms);
   });
-  const answered = await Promise.race([stopPrinter(run), late]);
+  const answered = await Promise.race([stopPrinter(run, bound.signal), late]);
   clearTimeout(timer);
   if (answered !== "late") return;
+  bound.abort(new Error(`no answer within ${ms} ms`));
   const unanswered = note("stopUnconfirmed", `no answer within ${ms} ms; check the printer`);
   run.ctx.log(noteText(unanswered));
   run.stop = Promise.resolve(unanswered);

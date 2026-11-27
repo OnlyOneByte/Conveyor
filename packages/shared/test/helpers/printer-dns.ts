@@ -14,3 +14,20 @@ export function stubPrinterDns(...answers: string[][]): PrinterDnsStub {
   });
   return { asked, restore: () => spy.mockRestore() };
 }
+
+export interface HeldPrinterDns {
+  answer: () => void;
+  restore: () => void;
+}
+
+export function holdPrinterDns(ips: string[]): HeldPrinterDns {
+  let answer = () => {};
+  const answered = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
+  const spy = spyOn(printerDns, "resolve").mockImplementation(async () => {
+    await answered;
+    return ips;
+  });
+  return { answer, restore: () => spy.mockRestore() };
+}

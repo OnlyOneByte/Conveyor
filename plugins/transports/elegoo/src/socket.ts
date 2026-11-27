@@ -68,13 +68,22 @@ function replyData(raw: string): unknown {
   return decoded.kind === "decoded" ? decoded.value.Data?.Data : undefined;
 }
 
+interface SendOptions {
+  onSent?: () => void;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
 export function sendCommand(
   address: string,
   { mainboardId, cmd, data }: SdcpCommand,
   requireAck = false,
-  onSent?: () => void,
+  { onSent, signal, timeoutMs = COMMAND_TIMEOUT_MS }: SendOptions = {},
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
+    const abandoned = () =>
+      new StageError("transport", `elegoo cmd ${cmd} abandoned before it was sent`);
+    if (signal?.aborted) return reject(abandoned());
     const ws = new WebSocket(socketUrl(address));
     const requestId = randomUUID();
     let settled = false;
@@ -82,15 +91,19 @@ export function sendCommand(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abandon);
       ws.close();
       if (err) reject(err);
       else resolve(reply);
     };
+    const abandon = () => done(abandoned());
+    signal?.addEventListener("abort", abandon, { once: true });
     const timer = setTimeout(
-      () => done(new StageError("transport", `elegoo cmd ${cmd} timed out`)),
-      COMMAND_TIMEOUT_MS,
+      () => done(new StageError("transport", `elegoo cmd ${cmd} timed out after ${timeoutMs} ms`)),
+      timeoutMs,
     );
     ws.onopen = () => {
+      if (settled) return;
       ws.send(buildCommand(mainboardId, cmd, data, requestId, Math.floor(nowMs() / 1000)));
       onSent?.();
     };
