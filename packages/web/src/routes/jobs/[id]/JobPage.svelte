@@ -8,7 +8,7 @@
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
   import Viewport from "#lib/components/Viewport.svelte";
-  import { failureText } from "#lib/job-failure.js";
+  import { failureText, HELD } from "#lib/job-failure.js";
   import { followJob, pillText, SETTLED } from "#lib/job-live.js";
   import { isRecord, jobName, settingRows } from "#lib/job-settings.js";
   import { rerunRequest, stashRerun } from "#lib/rerun.js";
@@ -48,6 +48,7 @@
   let stopped = -1;
   $: stage = stopped === 3 ? "printing" : (job?.error?.stage ?? "");
   $: failure = job?.error ? failureText(stage, job.error.reason) : null;
+  $: note = failure ? (cardFirst ? null : failure) : rerun && data.held ? HELD : null;
   $: said = failure && cardFirst ? `${failure.title}. ${failure.detail}` : "";
   $: retryOf =
     job?.state === "failed" &&
@@ -92,7 +93,7 @@
 {:else}
   <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
     <p slot="status" class="sr" role="status">{said}</p>
-    {#if retryOf && data.held}
+    {#if rerun && data.held}
       <a class="btn primary" href="/printers">Check the printer</a>
     {:else if rerun}
       <button class="btn primary" type="button" on:click={again}>
@@ -102,7 +103,7 @@
       {#key live.jobId}<CancelJob id={live.jobId} printing={live.state === "printing"} />{/key}
     {/if}
   </JobHead>
-  {#if failure && !cardFirst}<FailureNote {failure} />{/if}
+  {#if note}<FailureNote failure={note} />{/if}
   {#snippet model()}
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}<Viewport params={isRecord(params) ? params : {}} />

@@ -51,6 +51,23 @@ export const scenes: Scene[] = [
       { waitFor: "text=On hold" },
     ],
   },
+  {
+    name: "receipt-held-again",
+    route: "/settings",
+    ready: "h1",
+    visits: ["/jobs/seed-printed", "/printers"],
+    steps: [
+      { fulfill: "**/api/catalog/printers", method: "GET", status: 200, json: heldElegoo },
+      { follow: "/jobs/seed-printed" },
+      { waitFor: "main .acts a.btn.primary[href='/printers'] >> text=Check the printer" },
+      { absent: "main button:has-text('Print again')" },
+      { waitFor: "main .why[role=note] >> text=The printer is on hold" },
+      { wait: 400 },
+      { click: "main a.btn.primary >> text=Check the printer" },
+      { waitFor: "main h1 >> text=Printers" },
+      { waitFor: "text=On hold" },
+    ],
+  },
   heldPage("printers-hold"),
   heldPage("printers-hold-details", [
     { click: "text=Details" },
