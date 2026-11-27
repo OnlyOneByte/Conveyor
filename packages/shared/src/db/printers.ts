@@ -19,7 +19,7 @@ export interface PrinterInput {
 export class PrinterSecretsWriteError extends Error {
   override name = "PrinterSecretsWriteError";
   constructor(
-    readonly kind: "TooManySecrets" | "StoredSecretsUnreadable",
+    readonly kind: "TooManySecrets" | "StoredSecretsUnreadable" | "SecretsNeedReentry",
     message: string,
   ) {
     super(message);
@@ -95,8 +95,13 @@ export function dbListPrinters(db: Database): Printer[] {
   return db.query<PrinterRow, []>("SELECT * FROM printers ORDER BY name").all().map(rowToPrinter);
 }
 
-function mergedSecrets(db: Database, id: string, patch: PrinterSecretsPatch): string | null {
-  const stored = dbGetPrinterSecrets(db, id);
+function mergedSecrets(
+  db: Database,
+  id: string,
+  patch: PrinterSecretsPatch,
+  fresh: boolean,
+): string | null {
+  const stored = fresh ? { ok: true as const, value: {} } : dbGetPrinterSecrets(db, id);
   if (!stored.ok) {
     throw new PrinterSecretsWriteError(
       "StoredSecretsUnreadable",
@@ -121,8 +126,27 @@ export function dbUpsertPrinter(db: Database, p: PrinterInput): void {
   db.transaction(() => upsertPrinter(db, p)).immediate();
 }
 
+function movedWithSecrets(db: Database, p: PrinterInput): boolean {
+  const before = db
+    .query<Pick<PrinterRow, "address" | "transport_id" | "secrets_json">, [string]>(
+      "SELECT address, transport_id, secrets_json FROM printers WHERE id = ?",
+    )
+    .get(p.id);
+  if (before === null || before.secrets_json === null) return false;
+  return before.address !== p.address || before.transport_id !== p.transportId;
+}
+
 function upsertPrinter(db: Database, p: PrinterInput): void {
-  const secrets = p.secrets ? mergedSecrets(db, p.id, p.secrets) : null;
+  const moved = movedWithSecrets(db, p);
+  const resent =
+    p.secrets === null || (p.secrets !== undefined && Object.keys(p.secrets).length > 0);
+  if (moved && !resent) {
+    throw new PrinterSecretsWriteError(
+      "SecretsNeedReentry",
+      `printer ${p.id}'s address or transport changed, so its saved secrets won't be sent to the new one; enter them again, or clear them to save without`,
+    );
+  }
+  const secrets = p.secrets ? mergedSecrets(db, p.id, p.secrets, moved) : null;
   db.prepare(
     `INSERT INTO printers (id, transport_id, name, address, secrets_json, allowed_generators_json, created_at)
      VALUES (?,?,?,?,?,?,?)

@@ -317,6 +317,7 @@ One integrity rule is enforced in the API rather than the database:
 
 - **A printer upsert merges `secrets` per key into the stored ones** (`dbUpsertPrinter`, in one transaction). Reads strip secrets, so a client editing a printer cannot round-trip them; replacing the stored set used to wipe every credential the write did not repeat (#412).
   A string sets a key, `null` removes it, and keys left out (or `secrets` omitted) are kept. Removing the last key sets `secrets_json` to `NULL`.
+  A write that changes the address or transport of a printer with stored secrets must send them again (they then replace the stored set) or send `secrets: null`; otherwise it is refused with `SecretsNeedReentry`, so a stored key never goes to a new host (#663).
 
 Deleting a printer or profile is refused only while it is still needed:
 

@@ -90,7 +90,7 @@ for (const mode of modes) {
         const printer = newPrinter();
         const both = { mainboardId: "board-7f3a", apiKey: "hunter2" };
         expect((await put({ ...printer, secrets: both })).status).toBe(200);
-        expect((await put({ ...printer, address: "10.0.0.8" })).status).toBe(200);
+        expect((await put({ ...printer, name: "Renamed" })).status).toBe(200);
         expect(stored(printer.id)).toEqual(both);
         expect((await put({ ...printer, secrets: { apiKey: null } })).status).toBe(200);
         expect(stored(printer.id)).toEqual({ mainboardId: "board-7f3a" });
@@ -100,6 +100,25 @@ for (const mode of modes) {
         expect(listed).toContainEqual(
           expect.objectContaining({ id: printer.id, hasSecrets: false }),
         );
+      });
+
+      test("a new address or transport without the secrets again answers 409, so they never reach another host", async () => {
+        const printer = newPrinter();
+        expect((await put({ ...printer, secrets: { apiKey: "hunter2" } })).status).toBe(200);
+        const before = rawRow(printer.id);
+        for (const move of [{ address: "10.0.0.8" }, { transportId: "moonraker" }]) {
+          const refused = await put({ ...printer, ...move });
+          expect(refused.status).toBe(409);
+          expect(await refused.json()).toEqual({
+            error: expect.stringContaining("enter them again, or clear them"),
+          });
+        }
+        expect(rawRow(printer.id)).toBe(before);
+        const moved = { ...printer, address: "10.0.0.9", secrets: { mainboardId: "board-1" } };
+        expect((await put(moved)).status).toBe(200);
+        expect(stored(printer.id)).toEqual({ mainboardId: "board-1" });
+        expect((await put({ ...moved, address: "10.0.0.10", secrets: null })).status).toBe(200);
+        expect(stored(printer.id)).toBeUndefined();
       });
 
       test("a write that would pass 16 secrets in total is refused and stores nothing", async () => {

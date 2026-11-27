@@ -366,7 +366,7 @@ Profile reads select only the columns a `Profile` needs plus one `is_edited` fla
 
 | Column | On update | Why |
 |---|---|---|
-| `secrets_json` | `IIF(secrets given, merged, stored)` | Reads strip secrets, so a client cannot round-trip them. Assigning directly wiped the stored credential whenever someone changed only the address. Omitted or `{}` keeps every key, a string sets that key, a `null` value removes it (`mergedSecrets`), and `secrets: null` clears them all. |
+| `secrets_json` | `IIF(secrets given, merged, stored)` | Reads strip secrets, so a client cannot round-trip them. Assigning directly wiped the stored credential whenever someone changed only the address. Omitted or `{}` keeps every key, a string sets that key, a `null` value removes it (`mergedSecrets`), and `secrets: null` clears them all. A change of `address` or `transport_id` on a printer with stored secrets throws `SecretsNeedReentry` unless the write sends secrets (which then replace the stored set) or `secrets: null` (#663). |
 | `allowed_generators_json` | assigned directly | It is returned on read, so omitting it is a deliberate "no restriction". COALESCE would make an allowlist impossible to remove. |
 
 `Profile.hasEditableContent` is true when the profile has an edit: all three Orca documents, or the Prusa

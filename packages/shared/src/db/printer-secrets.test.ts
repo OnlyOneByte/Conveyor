@@ -149,6 +149,28 @@ describe("printer secrets at rest", () => {
     expect(dbGetPrinterSecrets(db, "no-key")).toEqual({ ok: true, value: { apiKey: "fresh-key" } });
   });
 
+  test("an upsert to a new address or transport needs the secrets again, or a clear", () => {
+    const db = reopen(dbWithPlaintextRows(), KEY_A);
+    const printer = { id: "no-key", transportId: "moonraker", name: "N", address: "10.0.0.9" };
+    dbUpsertPrinter(db, { ...printer, secrets: { apiKey: "k1", other: "o1" } });
+    const before = storedOf(db, "no-key");
+    for (const move of [{ address: "10.0.0.10" }, { transportId: "elegoo" }]) {
+      for (const secrets of [undefined, {}]) {
+        expect(() => dbUpsertPrinter(db, { ...printer, ...move, secrets })).toThrow(
+          "address or transport changed, so its saved secrets won't be sent to the new one",
+        );
+      }
+    }
+    expect(storedOf(db, "no-key")).toBe(before);
+    expect(dbGetPrinter(db, "no-key")?.address).toBe("10.0.0.9");
+    dbUpsertPrinter(db, { ...printer, address: "10.0.0.10", secrets: { apiKey: "k2" } });
+    expect(dbGetPrinterSecrets(db, "no-key")).toEqual({ ok: true, value: { apiKey: "k2" } });
+    dbUpsertPrinter(db, { ...printer, address: "10.0.0.11", secrets: null });
+    expect(storedOf(db, "no-key")).toBeNull();
+    dbUpsertPrinter(db, { ...printer, address: "10.0.0.12" });
+    expect(dbGetPrinter(db, "no-key")?.address).toBe("10.0.0.12");
+  });
+
   test("an upsert merges secrets per key, and null removes one", () => {
     const db = reopen(dbWithPlaintextRows(), KEY_A);
     const printer = { id: "no-key", transportId: "elegoo", name: "N", address: "10.0.0.9" };
