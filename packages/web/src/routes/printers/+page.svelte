@@ -15,9 +15,9 @@
   import { POLL_MS } from "#lib/belt.js";
   import FirstPrinter from "#lib/components/FirstPrinter.svelte";
   import PrinterCard from "#lib/components/PrinterCard.svelte";
-  import PrinterDialog from "#lib/components/PrinterDialog.svelte";
   import PrintersHead from "#lib/components/PrintersHead.svelte";
   import StateCard from "#lib/components/StateCard.svelte";
+  import { loadPrinterDialog } from "#lib/printer-dialog.js";
   import { limitsText, printerCard, printersSummary, REACH_MS } from "#lib/printer-status.js";
   import Skeleton from "#lib/ui/Skeleton.svelte";
 
@@ -32,8 +32,8 @@
   let open = false;
   let editing: CatalogPrinter | null = null;
   let loading: Promise<void> = Promise.resolve();
-  let head: HTMLButtonElement | null = null;
-  let first: HTMLButtonElement | null = null;
+  let [head, first]: (HTMLButtonElement | null)[] = [null, null];
+  let Dialog: Awaited<ReturnType<typeof loadPrinterDialog>> = null;
   let shown = false;
 
   $: catalog = { printers, generators };
@@ -96,14 +96,15 @@
     if (!open) void refocus();
   }
 
-  function edit(printer: CatalogPrinter | null = null) {
+  async function edit(printer: CatalogPrinter | null = null) {
     editing = printer;
-    open = true;
+    Dialog ??= await loadPrinterDialog();
+    open = Dialog !== null;
   }
 
   async function add() {
     await loading;
-    if (!failed) edit();
+    if (!failed) await edit();
   }
 
   onMount(() => {
@@ -139,7 +140,7 @@
   </ul>
 {/if}
 
-<PrinterDialog bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} />
+{#if Dialog}<svelte:component this={Dialog} bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} />{/if}
 
 <style>
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s4); margin: 0; padding: 0; list-style: none; }
