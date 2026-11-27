@@ -115,7 +115,7 @@
         <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
       {/if}
       <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
-      <Field label="Address" bind:value={draft.address} hint="The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it." error={errors.address ?? ""} />
+      <Field label="Address" bind:value={draft.address} hint={drafts.addressHint(secretsSaved, secret.label)} error={errors.address ?? ""} />
       <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
       {#key shown}
         {#if printer}

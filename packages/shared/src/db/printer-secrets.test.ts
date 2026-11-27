@@ -157,7 +157,7 @@ describe("printer secrets at rest", () => {
     for (const move of [{ address: "10.0.0.10" }, { transportId: "elegoo" }]) {
       for (const secrets of [undefined, {}]) {
         expect(() => dbUpsertPrinter(db, { ...printer, ...move, secrets })).toThrow(
-          "address or transport changed, so its saved secrets won't be sent to the new one",
+          "The address or printer software changed, so the saved secrets won't be sent to it.",
         );
       }
     }

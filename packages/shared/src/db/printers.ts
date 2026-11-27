@@ -143,7 +143,7 @@ function upsertPrinter(db: Database, p: PrinterInput): void {
   if (moved && !resent) {
     throw new PrinterSecretsWriteError(
       "SecretsNeedReentry",
-      `printer ${p.id}'s address or transport changed, so its saved secrets won't be sent to the new one; enter them again, or clear them to save without`,
+      "The address or printer software changed, so the saved secrets won't be sent to it. Enter them again, or clear the saved secrets to save without them.",
     );
   }
   const secrets = p.secrets ? mergedSecrets(db, p.id, p.secrets, moved) : null;

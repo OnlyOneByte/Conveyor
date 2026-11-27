@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CatalogPrinter } from "./api";
 import {
+  addressHint,
   blankDraft,
   clearSecretsPayload,
   deleteFailure,
@@ -114,5 +115,16 @@ describe("the printer dialog's words", () => {
       "Voron still has jobs on the belt, so it can't be deleted yet.",
     );
     expect(deleteFailure("Voron", "Server error")).toBe("Server error");
+  });
+
+  test("the address hint warns, on its own line, only when secrets are saved", () => {
+    const plain = addressHint(false, "API key");
+    expect(plain).not.toContain("\n");
+    expect(addressHint(true, "API key")).toBe(
+      `${plain}\nChanging the address asks for the API key again.`,
+    );
+    expect(addressHint(true, "Mainboard ID").split("\n")[1]).toBe(
+      "Changing the address asks for the mainboard ID again.",
+    );
   });
 });

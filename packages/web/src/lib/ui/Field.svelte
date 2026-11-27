@@ -43,6 +43,7 @@
   input { flex: 1; min-width: 0; border: 0; background: transparent; min-height: 30px; outline: none; }
   .unit { padding: 0 var(--s3); font: 500 var(--fs-chip) var(--mono); color: var(--muted); }
   .hint, .error { margin: 0; font-size: var(--fs-chip); color: var(--muted); }
+  .hint { white-space: pre-line; }
   .error { color: var(--err); }
   @media (pointer: coarse) { input { min-height: var(--tap); } }
 </style>

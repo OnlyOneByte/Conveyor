@@ -110,7 +110,7 @@ for (const mode of modes) {
           const refused = await put({ ...printer, ...move });
           expect(refused.status).toBe(409);
           expect(await refused.json()).toEqual({
-            error: expect.stringContaining("enter them again, or clear them"),
+            error: expect.stringContaining("Enter them again, or clear the saved secrets"),
           });
         }
         expect(rawRow(printer.id)).toBe(before);
