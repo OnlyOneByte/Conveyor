@@ -81,8 +81,12 @@ export function sendCommand(
   { onSent, signal, timeoutMs = COMMAND_TIMEOUT_MS }: SendOptions = {},
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
+    let sent = false;
     const abandoned = () =>
-      new StageError("transport", `elegoo cmd ${cmd} abandoned before it was sent`);
+      new StageError(
+        "transport",
+        `elegoo cmd ${cmd} abandoned ${sent ? "before its ack" : "before it was sent"}`,
+      );
     if (signal?.aborted) return reject(abandoned());
     const ws = new WebSocket(socketUrl(address));
     const requestId = randomUUID();
@@ -105,6 +109,7 @@ export function sendCommand(
     ws.onopen = () => {
       if (settled) return;
       ws.send(buildCommand(mainboardId, cmd, data, requestId, Math.floor(nowMs() / 1000)));
+      sent = true;
       onSent?.();
     };
     ws.onmessage = (ev) => {

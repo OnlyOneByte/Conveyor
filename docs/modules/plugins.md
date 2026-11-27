@@ -265,6 +265,10 @@ SDCP (Smart Device Control Protocol), written from the
   - A socket that closes, errors or times out after the command was sent throws `PrintMayHaveStartedError`
     ("elegoo START_PRINT was sent but not acknowledged"), so the worker holds the printer as it does for
     Moonraker.
+  - The ack wait follows the job's cancel signal. A cancel before `START_PRINT` goes out throws
+    `PrintNotStartedError` ("canceled before START_PRINT"). A cancel after it went out ends the wait at once with
+    a plain `StageError` ("canceled while waiting for the START_PRINT ack"), so the worker takes its normal
+    stop path and sends `STOP_PRINT`, rather than holding the printer.
   - While a command waits for its ack, a frame that doesn't decode as an ack and doesn't contain the
     command's `RequestID` (a pong, `{"Data":null}`, another request's reply) is skipped. Only a reply naming
     this request can end the wait early.
