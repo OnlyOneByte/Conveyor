@@ -8,6 +8,7 @@
   export let hint = "";
   export let error = "";
   export let type: "text" | "password" = "text";
+  export let name = "";
   const id = uid("field");
   $: described = [unit && `${id}-unit`, hint && `${id}-hint`, error && `${id}-error`]
     .filter(Boolean)
@@ -19,6 +20,7 @@
   <div class="box" class:bad={error}>
     <input
       {id}
+      name={name || undefined}
       {type}
       {value}
       inputmode={numeric ? "decimal" : undefined}

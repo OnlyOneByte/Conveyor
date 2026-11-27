@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fetchCatalogProfiles } from "./api.js";
-import { failure, MESSAGE_MAX, shown, Unreachable, unreachable } from "./http-error.js";
+import { failure, fieldOf, MESSAGE_MAX, shown, Unreachable, unreachable } from "./http-error.js";
 
 const answering = (status: number, body: BodyInit | null, type = "application/json") =>
   Object.assign(async () => new Response(body, { status, headers: { "content-type": type } }), {
@@ -11,6 +11,16 @@ describe("a failed request", () => {
   test("carries the server's error message", async () => {
     const locked = answering(500, JSON.stringify({ error: "database is locked" }));
     await expect(fetchCatalogProfiles(locked)).rejects.toThrow("database is locked");
+  });
+
+  test("carries the field the server names, and only a non-empty string one", async () => {
+    const said = (body: object) =>
+      failure(new Response(JSON.stringify(body), { status: 409 }), "PUT /api/catalog/printers");
+    const named = await said({ error: "enter them again", field: "secrets" });
+    expect([named.message, fieldOf(named)]).toEqual(["enter them again", "secrets"]);
+    for (const field of [undefined, "", 7, null])
+      expect(fieldOf(await said({ error: "x", field }))).toBeNull();
+    expect(fieldOf(new Error("plain"))).toBeNull();
   });
 
   test("falls back to the method, path and status when the body has no message", async () => {

@@ -3,6 +3,10 @@ import { type PrinterTarget, StageError } from "@conveyor/shared";
 import { dbGetPrinter, dbGetPrinterSecrets, dbRecordPrinterCheck } from "@conveyor/shared/db";
 
 export function resolvePrinterTarget(db: Database, printerId: string): PrinterTarget {
+  return db.transaction(() => readTarget(db, printerId)).deferred();
+}
+
+function readTarget(db: Database, printerId: string): PrinterTarget {
   const printer = dbGetPrinter(db, printerId);
   if (!printer) throw new StageError("transport", `unknown printer ${printerId}`);
   const secrets = dbGetPrinterSecrets(db, printerId);

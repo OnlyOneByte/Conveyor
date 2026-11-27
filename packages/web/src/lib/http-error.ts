@@ -15,11 +15,25 @@ export const statusError = (r: Response, label: string): Error =>
     ? new Unreachable(`${label} ${r.status}`)
     : new Error(`${label} ${r.status}`);
 
+export class FieldError extends Error {
+  constructor(
+    message: string,
+    readonly field: string,
+  ) {
+    super(message);
+  }
+}
+
+export const fieldOf = (e: unknown) => (e instanceof FieldError ? e.field : null);
+
 export async function failure(r: Response, label: string): Promise<Error> {
   const fallback = `${label} ${r.status}`;
   if (GATEWAY.has(r.status)) return new Unreachable(fallback);
   const body: unknown = await r.json().catch(() => null);
-  const error = body && typeof body === "object" && "error" in body ? body.error : null;
-  const message = typeof error === "string" ? shown(error) : "";
-  return new Error(message || fallback);
+  const read = (key: string) =>
+    body && typeof body === "object" && key in body ? Reflect.get(body, key) : null;
+  const error = read("error");
+  const field = read("field");
+  const message = (typeof error === "string" ? shown(error) : "") || fallback;
+  return typeof field === "string" && field ? new FieldError(message, field) : new Error(message);
 }

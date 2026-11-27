@@ -88,8 +88,18 @@ const inSentence = (label: string) =>
 
 export const addressHint = (secretsSaved: boolean, secretLabel: string) =>
   secretsSaved
-    ? `${ADDRESS_HINT}\nChanging the address asks for the ${inSentence(secretLabel)} again.`
+    ? `${ADDRESS_HINT}\nChanging the address or printer software asks for the ${inSentence(secretLabel)} again.`
     : ADDRESS_HINT;
+
+const FIELDS = new Set(["id", "name", "address", "transport", "secrets"]);
+
+export const fieldSelector = (field: string | null) =>
+  field && FIELDS.has(field) ? `[name="${field}"]` : ".problem";
+
+export function focusProblem(form: HTMLFormElement | undefined, field: string | null) {
+  const named = form?.querySelector<HTMLElement>(fieldSelector(field));
+  (named ?? form?.querySelector<HTMLElement>(".problem"))?.focus();
+}
 
 export const dialogTitle = (printer: CatalogPrinter | null, confirming: boolean) => {
   if (confirming) return `Delete ${printer?.name}?`;
@@ -107,3 +117,5 @@ export const deleteFailure = (name: string, message: string) =>
   message.includes("queued or running")
     ? `${name} still has jobs on the belt, so it can't be deleted yet.`
     : message;
+
+export type Failure = [string, string | null, string | null];

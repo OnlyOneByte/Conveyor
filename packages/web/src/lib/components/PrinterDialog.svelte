@@ -7,6 +7,7 @@
     savePrinter,
   } from "#lib/api.js";
   import { deletePrinter } from "#lib/api-delete.js";
+  import { fieldOf } from "#lib/http-error.js";
   import * as drafts from "#lib/printer-form.js";
   import { secretFieldFor } from "#lib/printer-secrets.js";
   import { detailOf, said } from "#lib/said.js";
@@ -28,7 +29,7 @@
 
   let draft = drafts.blankDraft();
   let errors: drafts.DraftErrors = {};
-  let [problem, why]: [string, string | null] = ["", null];
+  let [problem, why, failedField]: drafts.Failure = ["", null, null];
   let [busy, idEdited, confirming] = [false, false, false];
   let [tried, secretsSaved, cleared] = [false, false, false];
   let form: HTMLFormElement;
@@ -62,9 +63,9 @@
 
   async function attempt(work: () => Promise<void>, explain = said) {
     [problem, busy] = ["", true];
-    [problem, why] = await work().then(
-      (): [string, string | null] => ["", null],
-      (e: unknown): [string, string | null] => [explain(e), detailOf(e)],
+    [problem, why, failedField] = await work().then(
+      (): drafts.Failure => ["", null, null],
+      (e: unknown): drafts.Failure => [explain(e), detailOf(e), fieldOf(e)],
     );
     busy = false;
   }
@@ -83,6 +84,7 @@
       close();
       changed();
     });
+    if (problem) await tick().then(() => drafts.focusProblem(form, failedField));
   }
 
   const clearSecrets = (saved: CatalogPrinter) =>
@@ -110,13 +112,13 @@
     {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
-      <Field label="Name" bind:value={draft.name} error={errors.name ?? ""} />
+      <Field label="Name" name="name" bind:value={draft.name} error={errors.name ?? ""} />
       {#if adding}
-        <Field label="ID" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
+        <Field label="ID" name="id" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
       {/if}
-      <Select label="Printer software" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
-      <Field label="Address" bind:value={draft.address} hint={drafts.addressHint(secretsSaved, secret.label)} error={errors.address ?? ""} />
-      <Field label={secret.label} type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
+      <Select label="Printer software" name="transport" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
+      <Field label="Address" name="address" bind:value={draft.address} hint={drafts.addressHint(secretsSaved, secret.label)} error={errors.address ?? ""} />
+      <Field label={secret.label} name="secrets" type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
       {#key shown}
         {#if printer}
           {@const saved = printer}
@@ -124,7 +126,7 @@
         {/if}
       {/key}
       <GeneratorLimits {generators} bind:restrict={draft.restrict} bind:allowed={draft.allowed} />
-      {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
+      {#if problem}<p class="problem" role="alert" tabindex="-1">{problem}</p><ErrorDetails detail={why} />{/if}
     </form>
   {/if}
   <svelte:fragment slot="actions">

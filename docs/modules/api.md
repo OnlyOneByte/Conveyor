@@ -227,6 +227,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
     unless it sends the secrets again or `secrets: null`, and nothing in it is saved. Secrets sent with
     such a move replace the stored set instead of merging into it, so no stored key reaches the new host
     (#663).
+  - A refused write's body is `{ error, field? }`. `field` names the input to fix: `id`, `name`, `address`,
+    `transport` or `secrets` (schema issues by their first path, a refused address as `address`, and every
+    secrets refusal, the `409`s included, as `secrets`). A schema issue on `allowedGenerators` has none. The
+    printer form moves focus to that input, or to the error message when there is no `field` (#669).
   - The 16-secret limit counts the merged result. A write that would pass it answers `400`, and nothing in it
     is stored.
   - A printer whose stored secrets don't decrypt can't be patched: the write answers `409` and changes

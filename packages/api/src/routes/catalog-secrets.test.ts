@@ -106,11 +106,18 @@ for (const mode of modes) {
         const printer = newPrinter();
         expect((await put({ ...printer, secrets: { apiKey: "hunter2" } })).status).toBe(200);
         const before = rawRow(printer.id);
-        for (const move of [{ address: "10.0.0.8" }, { transportId: "moonraker" }]) {
+        const moves = [
+          { address: "10.0.0.8" },
+          { address: "10.0.0.7:3030" },
+          { address: " 10.0.0.7" },
+          { transportId: "moonraker" },
+        ];
+        for (const move of moves) {
           const refused = await put({ ...printer, ...move });
           expect(refused.status).toBe(409);
           expect(await refused.json()).toEqual({
             error: expect.stringContaining("Enter them again, or clear the saved secrets"),
+            field: "secrets",
           });
         }
         expect(rawRow(printer.id)).toBe(before);
@@ -130,6 +137,7 @@ for (const mode of modes) {
         expect(refused.status).toBe(400);
         expect(await refused.json()).toEqual({
           error: "secrets: at most 16 secrets per printer, counting the ones already stored",
+          field: "secrets",
         });
         expect(rawRow(printer.id)).toBe(before);
       });
@@ -147,6 +155,7 @@ for (const mode of modes) {
         expect(refused.status).toBe(409);
         expect(await refused.json()).toEqual({
           error: `printer ${printer.id}'s stored secrets can't be read, so they can't be updated; clear its saved secrets and enter them again`,
+          field: "secrets",
         });
         expect(rawRow(printer.id)).toBe("v1:garbage");
         const listed = await (await fetch(`${base()}/catalog/printers`)).json();

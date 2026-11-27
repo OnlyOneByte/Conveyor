@@ -68,7 +68,10 @@ describe("printers", () => {
   test("refuses an unknown transport with a 400 and stores nothing", async () => {
     const res = await put("/catalog/printers", printer({ id: "typo", transportId: "moonrakr" }));
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "transportId: unknown transport" });
+    expect(await res.json()).toEqual({
+      error: "transportId: unknown transport",
+      field: "transport",
+    });
     const listed = await (await get("/catalog/printers")).json();
     expect(listed).not.toContainEqual(expect.objectContaining({ id: "typo" }));
   });

@@ -156,29 +156,53 @@ describe("PUT /catalog/printers", () => {
       "an unregistered generator",
       printer({ allowedGenerators: ["gridfinity", "laser"] }),
       "allowedGenerators.1: unknown generator",
+      undefined,
     ],
     [
       "too many secrets",
       printer({ secrets: manySecrets }),
       `secrets: at most ${MAX_SECRETS} secrets`,
+      "secrets",
     ],
     [
       "an oversized secret",
       printer({ secrets: { apiKey: "k".repeat(MAX_SECRET_VALUE_LENGTH + 1) } }),
       `secrets.apiKey: Too big: expected string to have <=${MAX_SECRET_VALUE_LENGTH} characters`,
+      "secrets",
     ],
     [
       "an oversized secret name",
       printer({ secrets: { ["k".repeat(65)]: "v" } }),
       `secrets.${"k".repeat(65)}: Too big: expected string to have <=64 characters`,
+      "secrets",
     ],
     [
       "an unknown transport",
       printer({ id: "typo-transport", transportId: "octoprint" }),
       "transportId: unknown transport",
+      "transport",
     ],
-  ])("refuses %s with a 400 naming the field", async (_label, body, error) => {
-    expect(await put("/catalog/printers", body)).toEqual({ status: 400, body: { error } });
+    [
+      "an empty name",
+      printer({ name: "" }),
+      "name: Too small: expected string to have >=1 characters",
+      "name",
+    ],
+    [
+      "an empty id",
+      printer({ id: "" }),
+      "id: Too small: expected string to have >=1 characters",
+      "id",
+    ],
+    [
+      "an empty address",
+      printer({ address: "" }),
+      "address: Too small: expected string to have >=1 characters",
+      "address",
+    ],
+  ])("refuses %s with a 400 naming the field", async (_label, body, error, field) => {
+    const expected = field ? { error, field } : { error };
+    expect(await put("/catalog/printers", body)).toEqual({ status: 400, body: expected });
   });
 });
 

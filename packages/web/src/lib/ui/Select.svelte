@@ -6,13 +6,14 @@
   export let options: { value: string; label: string }[];
   export let hint = "";
   export let error = "";
+  export let name = "";
   const id = uid("select");
   $: described = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
 </script>
 
 <div class="field">
   <label for={id}>{label}</label>
-  <select {id} bind:value class:bad={error} aria-invalid={error ? "true" : undefined} aria-describedby={described || undefined}>
+  <select {id} name={name || undefined} bind:value class:bad={error} aria-invalid={error ? "true" : undefined} aria-describedby={described || undefined}>
     {#each options as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
   </select>
   {#if hint}<p id="{id}-hint" class="hint">{hint}</p>{/if}

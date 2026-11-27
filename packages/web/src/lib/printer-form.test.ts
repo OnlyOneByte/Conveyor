@@ -9,6 +9,7 @@ import {
   dialogTitle,
   draftErrors,
   draftOf,
+  fieldSelector,
   printerPayload,
   slugOf,
 } from "./printer-form";
@@ -121,10 +122,17 @@ describe("the printer dialog's words", () => {
     const plain = addressHint(false, "API key");
     expect(plain).not.toContain("\n");
     expect(addressHint(true, "API key")).toBe(
-      `${plain}\nChanging the address asks for the API key again.`,
+      `${plain}\nChanging the address or printer software asks for the API key again.`,
     );
     expect(addressHint(true, "Mainboard ID").split("\n")[1]).toBe(
-      "Changing the address asks for the mainboard ID again.",
+      "Changing the address or printer software asks for the mainboard ID again.",
     );
+  });
+
+  test("a failed save focuses the field the api names, or the message when it names none", () => {
+    for (const field of ["id", "name", "address", "transport", "secrets"])
+      expect(fieldSelector(field)).toBe(`[name="${field}"]`);
+    for (const field of [null, "", "allowedGenerators", '"] body [x="'])
+      expect(fieldSelector(field)).toBe(".problem");
   });
 });

@@ -55,3 +55,18 @@ export function parseProfile(body: unknown) {
 export function parsePrinter(body: unknown) {
   return printerSchema.safeParse(body);
 }
+
+export type PrinterField = "id" | "name" | "address" | "transport" | "secrets";
+
+const PRINTER_FIELDS: Record<string, PrinterField> = {
+  id: "id",
+  name: "name",
+  address: "address",
+  transportId: "transport",
+  secrets: "secrets",
+};
+
+export function printerIssueField(issues: readonly { path: readonly PropertyKey[] }[]) {
+  const key = issues[0]?.path[0];
+  return typeof key === "string" ? PRINTER_FIELDS[key] : undefined;
+}
