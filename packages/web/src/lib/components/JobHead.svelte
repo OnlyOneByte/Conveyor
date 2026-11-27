@@ -4,6 +4,7 @@
   export let pill: string;
   export let meta: string;
   export let when: string;
+  export let stretch = true;
 </script>
 
 <a class="crumb" href="/jobs">← Jobs</a>
@@ -16,7 +17,7 @@
       {#if when}<span>{when}</span>{/if}
     </p>
   </div>
-  <div class="acts"><slot /></div>
+  <div class="acts" class:stretch><slot /></div>
 </div>
 
 <style>
@@ -44,7 +45,7 @@
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
   .acts:empty { display: none; }
   @media (max-width: 759px) {
-    .acts { width: 100%; }
-    .acts > :global(*) { flex: 1; }
+    .acts.stretch { width: 100%; }
+    .acts.stretch > :global(*) { flex: 1; }
   }
 </style>

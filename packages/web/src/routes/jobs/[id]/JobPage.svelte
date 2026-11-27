@@ -86,7 +86,7 @@
     </div>
   </section>
 {:else}
-  <JobHead {title} {tone} {pill} {meta} {when}>
+  <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
@@ -98,7 +98,7 @@
   {#if failure}
     <div class="why" role="note"><strong>{failure.title}</strong><p>{failure.detail}</p></div>
   {/if}
-  <div class="grid">
+  <div class="grid" class:live={Boolean(live) && !job}>
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}
         <Viewport params={isRecord(params) ? params : {}} />
@@ -140,5 +140,6 @@
   .nf { max-width: 520px; display: flex; flex-direction: column; gap: var(--s4); padding: 10vh 0; }
   @media (max-width: 759px) {
     .grid { grid-template-columns: 1fr; }
+    .grid.live .mat { order: 1; }
   }
 </style>
