@@ -25,9 +25,11 @@ const timedOut = (e: unknown) => e instanceof DOMException && e.name === "Timeou
 export function authStatus(body: unknown): AuthStatus | null {
   if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
   if (Object.keys(body).length !== 2) return null;
-  if (!("authEnabled" in body) || typeof body.authEnabled !== "boolean") return null;
-  if (!("authenticated" in body) || typeof body.authenticated !== "boolean") return null;
-  return { authEnabled: body.authEnabled, authenticated: body.authenticated };
+  const own = (key: string): unknown => (Object.hasOwn(body, key) ? Reflect.get(body, key) : null);
+  const authEnabled = own("authEnabled");
+  const authenticated = own("authenticated");
+  if (typeof authEnabled !== "boolean" || typeof authenticated !== "boolean") return null;
+  return { authEnabled, authenticated };
 }
 
 export async function fetchAuthStatus(

@@ -122,6 +122,15 @@ describe("authStatus", () => {
     { authenticated: true, authEnabled: false },
   ];
 
+  test("reads only the answer's own keys, never inherited ones", () => {
+    Object.defineProperty(Object.prototype, "authenticated", { value: true, configurable: true });
+    try {
+      expect(authStatus({ authEnabled: true, x: 1 })).toBeNull();
+    } finally {
+      Reflect.deleteProperty(Object.prototype, "authenticated");
+    }
+  });
+
   test.each(bodies)("agrees with the API's schema on %j", (body) => {
     const parsed = authStatusSchema.safeParse(body);
     expect(authStatus(body)).toEqual(parsed.success ? parsed.data : null);

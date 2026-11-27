@@ -45,8 +45,37 @@ group("orcaProblem", () => {
     '{\n  "a" 1\n}',
     "{\n  a: 1\n}",
     '{\n  "a": {"b": [true, null, -1.5e3]}\n}\n}',
+    '{\n  "a": 1,\n  "b": 2,\n  "c": 3,\n  "d": 4,\n  "e": 5,\n  "f": "\\x",\n  "g": 7\n}',
+    '{\n  "path": "C:\\Users\\me\\bin",\n  "b": 2\n}',
+    '{\n  "a": "tab\there",\n  "b": 2\n}',
+    '{\n  "a": "\\u12G4",\n  "b": 2\n}',
   ])("puts the error on the line the editor's JSON parser does: %j", (filament) => {
     expect(orcaProblem({ ...good, filament })?.line).toBe(lezerLine(filament) ?? -1);
+  });
+
+  test("agrees with the editor's JSON parser on 600 one-character mutations", () => {
+    const base = JSON.stringify(
+      { type: "filament", name: 'PLA "basic" \\ 1', temps: [210, 60], ratio: -1.5e3, on: true },
+      null,
+      2,
+    );
+    const alphabet = '{}[]:,"\\ \t\nabcxu019.-eE';
+    let seed = 653;
+    const next = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed;
+    };
+    const misses: string[] = [];
+    for (let i = 0; i < 600; i++) {
+      const at = next() % base.length;
+      const char = alphabet[next() % alphabet.length] ?? "";
+      const filament = base.slice(0, at) + char + base.slice(at + (next() % 2));
+      const want = lezerLine(filament);
+      const got = orcaProblem({ ...good, filament });
+      const line = got?.text.includes("valid JSON") ? got.line : null;
+      if (line !== want) misses.push(JSON.stringify(filament));
+    }
+    expect(misses).toEqual([]);
   });
 
   test("passes nested JSON and survives deep nesting", () => {

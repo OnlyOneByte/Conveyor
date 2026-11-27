@@ -29,7 +29,7 @@ const lineAt = (text: string, offset: number) =>
   text.slice(0, Math.max(0, offset)).split("\n").length;
 
 const SPACE = /[ \t\n\r]*/y;
-const STRING = /"(?:[^"\\\n\r]|\\.)*"/y;
+const STRING = /"(?:[ !#-\[\]-\u{10FFFF}]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/uy;
 const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 const WORD = /true|false|null/y;
 
