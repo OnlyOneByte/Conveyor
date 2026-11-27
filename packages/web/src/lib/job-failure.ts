@@ -42,6 +42,12 @@ const KNOWN: [RegExp, string][] = [
   [/upload not found/i, "The uploaded file is gone. Upload it again to print it."],
 ];
 
+export const HELD: FailureText = {
+  title: "The printer is on hold",
+  detail:
+    "Someone needs to check it before it prints again. Check the printer, then choose Release hold on the Printers page.",
+};
+
 export function failureText(stage: string, reason: string): FailureText {
   const title = `${STEP.get(stage) ?? "This job"} didn't finish`;
   const known = KNOWN.find(([pattern]) => pattern.test(reason));

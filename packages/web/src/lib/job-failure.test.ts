@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { failureText } from "./job-failure.js";
+import { failureText, HELD } from "./job-failure.js";
 
 const TOO_BIG =
   "The model doesn't fit the printer's bed. Make it smaller, or pick a bigger printer.";
@@ -106,4 +106,9 @@ test("a printer on hold says to check it and release the hold", () => {
   expect(failureText("transport", "printer is on hold: moonraker gave no answer").detail).toBe(
     "The printer is on hold until someone checks it. Check the printer, then choose Release hold on the Printers page and retry.",
   );
+});
+
+test("the hold note sends the reader to Release hold on Printers", () => {
+  expect(HELD.title).toBe("The printer is on hold");
+  expect(HELD.detail).toContain("Release hold on the Printers page");
 });

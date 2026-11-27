@@ -60,6 +60,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "settings-delete-focus-empty",
     "belt-region",
     "receipt-held",
+    "receipt-held-again",
     "printers-hold",
     "printers-hold-details",
     "printers-hold-confirm",

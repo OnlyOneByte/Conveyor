@@ -2,8 +2,9 @@
   import type { JobView } from "@conveyor/shared";
   import { onDestroy } from "svelte";
   import { titled } from "#lib/belt.js";
-  import CancelJob from "#lib/components/CancelJob.svelte";
   import FailureNote from "#lib/components/FailureNote.svelte";
+  import HoldNote from "#lib/components/HoldNote.svelte";
+  import JobActions from "#lib/components/JobActions.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
@@ -92,17 +93,10 @@
 {:else}
   <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
     <p slot="status" class="sr" role="status">{said}</p>
-    {#if retryOf && data.held}
-      <a class="btn primary" href="/printers">Check the printer</a>
-    {:else if rerun}
-      <button class="btn primary" type="button" on:click={again}>
-        {retryOf ? "Retry" : "Print again"}
-      </button>
-    {:else if live}
-      {#key live.jobId}<CancelJob id={live.jobId} printing={live.state === "printing"} />{/key}
-    {/if}
+    <JobActions rerun={Boolean(rerun)} retry={Boolean(retryOf)} held={data.held} {live} {again} />
   </JobHead>
   {#if failure && !cardFirst}<FailureNote {failure} />{/if}
+  {#if rerun && data.held && !cardFirst}<HoldNote />{/if}
   {#snippet model()}
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}<Viewport params={isRecord(params) ? params : {}} />

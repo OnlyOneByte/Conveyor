@@ -1,4 +1,10 @@
-import type { Scene } from "../scene.ts";
+import type { Scene, Step } from "../scene.ts";
+
+const NO_HOLD: Step[] = [
+  { absent: "main .why" },
+  { absent: "main .held" },
+  { absent: "main >> text=Check the printer" },
+];
 
 export const scenes: Scene[] = [
   {
@@ -19,7 +25,7 @@ export const scenes: Scene[] = [
     name: "receipt-printed",
     route: "/jobs/seed-printed",
     ready: "text=Print again",
-    steps: [{ wait: 1200 }],
+    steps: [{ wait: 1200 }, ...NO_HOLD],
   },
   {
     name: "receipt-files-removed",
@@ -142,7 +148,7 @@ export const scenes: Scene[] = [
     name: "receipt-canceled",
     route: "/jobs/seed-canceled",
     ready: "text=Print again",
-    steps: [{ wait: 1200 }],
+    steps: [{ wait: 1200 }, ...NO_HOLD],
   },
   {
     name: "receipt-missing",
