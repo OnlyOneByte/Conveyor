@@ -7,6 +7,7 @@ const STEP = new Map([
   ["generator", "Making the model"],
   ["slicer", "Slicing"],
   ["transport", "Sending to the printer"],
+  ["printing", "The print"],
 ]);
 
 const KNOWN: [RegExp, string][] = [

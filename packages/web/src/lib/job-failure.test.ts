@@ -17,6 +17,11 @@ const PRUSA_292_OUTSIDE =
   "prusa-slicer exited 0 but wrote no G-code: All objects are outside of the print volume.";
 
 describe("failureText", () => {
+  test("titles a send failure and a print failure apart", () => {
+    expect(failureText("transport", "boom").title).toBe("Sending to the printer didn't finish");
+    expect(failureText("printing", "boom").title).toBe("The print didn't finish");
+  });
+
   test("reads the slicers' out-of-bed errors as a model that doesn't fit", () => {
     for (const reason of [ORCA_EMPTY, ORCA_PARTLY, PRUSA_EMPTY, PRUSA_292_OUTSIDE]) {
       expect(failureText("slicer", reason)).toEqual({

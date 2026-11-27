@@ -1,0 +1,1 @@
+`before` fails unless its target comes before the `of` element in DOM order, which is the order a screen reader reads and Tab moves in. `receipt-fail-phone` uses it so a failed job's spoken status comes before its Retry button.

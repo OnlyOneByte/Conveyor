@@ -3,6 +3,7 @@
   import { onDestroy } from "svelte";
   import { titled } from "#lib/belt.js";
   import CancelJob from "#lib/components/CancelJob.svelte";
+  import FailureNote from "#lib/components/FailureNote.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
@@ -44,7 +45,10 @@
     job?.state === "done" || job?.state === "failed" || job?.state === "canceled"
       ? job.state
       : null;
-  $: failure = job?.error ? failureText(job.error.stage, job.error.reason) : null;
+  let stopped = -1;
+  $: stage = stopped === 3 ? "printing" : (job?.error?.stage ?? "");
+  $: failure = job?.error ? failureText(stage, job.error.reason) : null;
+  $: said = failure && cardFirst ? `${failure.title}. ${failure.detail}` : "";
   $: retryOf =
     job?.state === "failed" &&
     job.request.generator.id !== "passthrough" &&
@@ -87,6 +91,7 @@
   </section>
 {:else}
   <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
+    <p slot="status" class="sr" role="status">{said}</p>
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
@@ -95,9 +100,7 @@
       {#key live.jobId}<CancelJob id={live.jobId} printing={live.state === "printing"} />{/key}
     {/if}
   </JobHead>
-  {#if failure}
-    <div class="why" role="note"><strong>{failure.title}</strong><p>{failure.detail}</p></div>
-  {/if}
+  {#if failure && !cardFirst}<FailureNote {failure} />{/if}
   {#snippet model()}
     <div class="mat">
       {#if gen?.preview?.module === "gridfinity"}<Viewport params={isRecord(params) ? params : {}} />
@@ -107,7 +110,9 @@
   <div class="grid" class:first={cardFirst}>
     {#if !cardFirst}{@render model()}{/if}
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
+      {#if live || (cardFirst && job)}
+        <JobProgress view={live} settled={cardFirst ? job : null} printer={data.printer}
+          bind:stopped note={cardFirst ? failure : null} />{/if}
     </JobReceipt>
     {#if cardFirst}{@render model()}{/if}
   </div>
@@ -122,11 +127,6 @@
   }
   .btn.primary { border-color: var(--accent); }
   .acts { display: flex; gap: var(--s2); flex-wrap: wrap; }
-  .why {
-    margin-bottom: var(--s5); padding: var(--s4); border: 1.5px solid var(--err);
-    border-radius: var(--r-card); background: color-mix(in oklch, var(--err) 10%, transparent);
-  }
-  .why strong { display: block; color: var(--err); font-size: var(--fs-section); }
   .grid {
     display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: var(--s5); align-items: start;
