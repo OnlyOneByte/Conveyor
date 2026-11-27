@@ -22,7 +22,12 @@ import type { LiveJobCounter } from "../live-jobs.js";
 import { connection, createSubscriber, jobQueue, QUEUE_DEADLINE_MS, redis } from "../queue.js";
 import { untilReady, withinDeadline } from "../queue-reach.js";
 import { createStatusHub } from "../status-hub.js";
-import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import {
+  parseSubmission,
+  refusal,
+  registerArtifactRoute,
+  registerNeedsYouRoutes,
+} from "./job-common.js";
 import { isJobId, registerJobStream } from "./job-stream.js";
 import type { LiveJobCounts } from "./metrics.js";
 import { logCancel, logSubmitted, submitJob } from "./submit.js";
@@ -93,7 +98,7 @@ export async function registerJobRoutes(
   const statusHub = createStatusHub(createSubscriber, logHubError);
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
-    if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
+    if (!submission.ok) return reply.code(submission.code).send(refusal(submission));
 
     const result = await submitJob(openDb(), submission, (jobId, request) =>
       enqueue(app, jobId, request),

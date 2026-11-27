@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { at, entry, job, request, rig } from "../../test/helpers/belt-ends";
+import { at, entry, HOLD, job, request, rig } from "../../test/helpers/belt-ends";
 import { ENDS_MS, http, midnight } from "./belt-ends";
 
 describe("the belt's end states", () => {
@@ -148,6 +148,28 @@ describe("the belt's end states", () => {
       [["Couldn't cancel Bin 2×3.", "assertive"]],
       [],
       [["Couldn't print Bin 2×3 again.", "assertive"]],
+    ]);
+  });
+});
+
+describe("a held printer on the belt", () => {
+  test("Needs you -> Retry says the hold, not 'already being retried'", async () => {
+    const { said, ends } = rig([], { ok: false, status: 409, error: HOLD, held: true });
+    await ends.refresh();
+    await ends.act(job, "Retry");
+    expect(said).toEqual([[`Couldn't retry Bin 2×3: ${HOLD}`, "assertive"]]);
+  });
+
+  test("Print again, from the belt or the cancel toast, says the hold", async () => {
+    const { said, toasts, records, ends } = rig(["submit-held"]);
+    records.set("c3", entry("c3", "canceled"));
+    await ends.act({ ...job, id: "c3", state: "canceled", request }, "Print again");
+    await ends.act({ ...job, id: "c4", state: "printing", request }, "Cancel");
+    toasts[0]?.action?.run();
+    await Bun.sleep(0);
+    expect(said).toEqual([
+      [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],
+      [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],
     ]);
   });
 });

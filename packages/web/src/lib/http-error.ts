@@ -8,6 +8,10 @@ export const shown = (text: string) => {
 
 export class Unreachable extends Error {}
 
+export class Held extends Error {}
+
+export const held = (e: unknown): e is Held => e instanceof Held;
+
 export const unreachable = (e: unknown) => e instanceof TypeError || e instanceof Unreachable;
 
 export const statusError = (r: Response, label: string): Error =>
@@ -35,5 +39,6 @@ export async function failure(r: Response, label: string): Promise<Error> {
   const error = read("error");
   const field = read("field");
   const message = (typeof error === "string" ? shown(error) : "") || fallback;
+  if (read("held") === true) return new Held(message);
   return typeof field === "string" && field ? new FieldError(message, field) : new Error(message);
 }

@@ -2,7 +2,7 @@ import type { Politeness } from "./announce";
 import { API, type JobHistoryEntry } from "./api";
 import { trackJob } from "./belt";
 import type { Catalog } from "./catalog";
-import { statusError, unreachable } from "./http-error";
+import { failure, Held, held, statusError, unreachable } from "./http-error";
 import { rerunRequest } from "./rerun";
 import { type Retried, retryJob } from "./retry";
 import { shortName, type TrackJob } from "./track";
@@ -105,6 +105,7 @@ export function createEnds(
       ui.pick({ ...failed.request, printerId: other?.id ?? "", profileId: "" }, job.id);
     } else if (action === "Retry" && failed) {
       const retried = await feed.retry(failed);
+      if (!retried.ok && retried.held) throw new Held(retried.error);
       if (!retried.ok && retried.status !== 409) throw new Error(retried.error);
       ui.say(
         retried.ok
@@ -118,14 +119,13 @@ export function createEnds(
   }
 
   const act = (job: TrackJob, action: string): Promise<void> =>
-    run(job, action).catch(() =>
-      ui.say(
-        action === "Print again"
-          ? `Couldn't print ${shortName(job.name)} again.`
-          : `Couldn't ${action.toLowerCase()} ${shortName(job.name)}.`,
-        "assertive",
-      ),
-    );
+    run(job, action).catch((e: unknown) => {
+      const why = held(e) ? `: ${e.message}` : ".";
+      const name = shortName(job.name);
+      const what =
+        action === "Print again" ? `print ${name} again` : `${action.toLowerCase()} ${name}`;
+      ui.say(`Couldn't ${what}${why}`, "assertive");
+    });
 
   return { refresh, act };
 }
@@ -140,7 +140,7 @@ const send = async (path: string, body?: unknown) => {
           body: JSON.stringify(body),
         };
   const r = await fetch(`${API}${path}`, init);
-  if (!r.ok) throw statusError(r, `POST ${path}`);
+  if (!r.ok) throw await failure(r, `POST ${path}`);
   return r.json();
 };
 

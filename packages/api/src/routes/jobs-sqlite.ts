@@ -20,7 +20,12 @@ import type { FastifyInstance } from "fastify";
 import { type ActiveJob, withEstimates } from "../estimates.js";
 import { DEFAULT_HEARTBEAT, type Heartbeat, keepAlive } from "../heartbeat.js";
 import { countSqliteLiveJobs, type LiveJobCounter } from "../live-jobs.js";
-import { parseSubmission, registerArtifactRoute, registerNeedsYouRoutes } from "./job-common.js";
+import {
+  parseSubmission,
+  refusal,
+  registerArtifactRoute,
+  registerNeedsYouRoutes,
+} from "./job-common.js";
 import type { LiveJobCounts } from "./metrics.js";
 import { logCancel, logSubmitted, submitJobInTransaction } from "./submit.js";
 
@@ -81,7 +86,7 @@ export async function registerJobRoutes(
 
   app.post("/jobs", async (req, reply) => {
     const submission = parseSubmission(req.body);
-    if (!submission.ok) return reply.code(submission.code).send({ error: submission.error });
+    if (!submission.ok) return reply.code(submission.code).send(refusal(submission));
     const result = submitJobInTransaction(db, submission, (id, request) =>
       enqueueJob(db, { id, request }),
     );

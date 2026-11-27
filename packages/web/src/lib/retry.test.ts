@@ -52,3 +52,21 @@ describe("retrying a failed job", () => {
     expect(retried).toEqual({ ok: false, status: 409, error, retriedBy: "r1" });
   });
 });
+
+test("a hold refusal comes back marked held, not as an earlier retry", async () => {
+  const held = answering(
+    409,
+    JSON.stringify({
+      error:
+        "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.",
+      held: true,
+    }),
+  );
+  expect(await retryJob(failed, held.fetchFn)).toEqual({
+    ok: false,
+    status: 409,
+    error:
+      "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.",
+    held: true,
+  });
+});

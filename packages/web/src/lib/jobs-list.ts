@@ -200,6 +200,7 @@ export async function retryRow(row: Row | undefined, send = retryJob): Promise<S
   const name = shortName(row.name);
   const done = await send({ id: row.id, request: row.request }).catch(() => null);
   if (done?.ok) return [`Retrying ${name}.`, "polite"];
+  if (done?.held) return [`Couldn't retry ${name}: ${done.error}`, "assertive"];
   return [
     done?.status === 409 ? `${name} is already being retried.` : `Couldn't retry ${name}.`,
     "assertive",

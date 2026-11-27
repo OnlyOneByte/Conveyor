@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { Held } from "./http-error";
 import {
   ALREADY_RETRIED,
   AlreadyRetried,
@@ -154,4 +155,20 @@ describe("handing a job back to Make", () => {
     ).not.toThrow();
     expect(takeRerun()).toBeNull();
   });
+});
+
+test("a retry from Make to a held printer throws the hold, not AlreadyRetried", async () => {
+  const hold = "Voron is on hold. Check it, then choose Release hold on the Printers page.";
+  const replying = (status: number, body: unknown) =>
+    Object.assign(async () => Response.json(body, { status }), { preconnect: fetch.preconnect });
+  const request = {
+    generator: { id: "gridfinity", params: {} },
+    printerId: "voron",
+    profileId: "p",
+  };
+  const refused = await sendJob(request, "f1", replying(409, { error: hold, held: true })).catch(
+    (e: unknown) => e,
+  );
+  expect(refused).toBeInstanceOf(Held);
+  expect(refused).not.toBeInstanceOf(AlreadyRetried);
 });
