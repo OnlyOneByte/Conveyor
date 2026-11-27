@@ -1,4 +1,5 @@
 import { expect, describe as group, test } from "bun:test";
+import { parser } from "@lezer/json";
 import { describe, orcaProblem, prusaProblem } from "./profile-check.js";
 
 const good = {
@@ -24,6 +25,35 @@ group("orcaProblem", () => {
 
   test("finds an unclosed document at its end", () => {
     expect(orcaProblem({ ...good, filament: '{\n  "a": 1,\n' })?.line).toBe(3);
+  });
+
+  const lezerLine = (text: string) => {
+    let at: number | null = null;
+    parser.parse(text).iterate({
+      enter: (node) => {
+        if (node.type.isError) at ??= node.from;
+        return at === null;
+      },
+    });
+    return at === null ? null : text.slice(0, at).split("\n").length;
+  };
+
+  test.each([
+    '{\n  "a": 1,\n  "b": 2,\n}',
+    '{\n  "a": [1, 2\n  "b": 3\n}',
+    '{\n  "a": tru\n}',
+    '{\n  "a" 1\n}',
+    "{\n  a: 1\n}",
+    '{\n  "a": {"b": [true, null, -1.5e3]}\n}\n}',
+  ])("puts the error on the line the editor's JSON parser does: %j", (filament) => {
+    expect(orcaProblem({ ...good, filament })?.line).toBe(lezerLine(filament) ?? -1);
+  });
+
+  test("passes nested JSON and survives deep nesting", () => {
+    const nested = '{"a": {"b": [1, {"c": "d\\"e"}]}}';
+    expect(orcaProblem({ ...good, filament: nested })?.text).not.toContain("valid JSON");
+    const deep = `{"a": ${"[".repeat(200_000)}${"]".repeat(200_000)}}`;
+    expect(orcaProblem({ ...good, filament: deep })?.text).not.toContain("valid JSON");
   });
 
   test("names a setting the API refuses, on its own line", () => {

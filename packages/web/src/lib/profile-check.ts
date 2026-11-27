@@ -4,7 +4,6 @@ import {
   validateOrcaProfileDocuments,
   validatePrusaProfileContent,
 } from "@conveyor/shared/profile";
-import { parser } from "@lezer/json";
 
 interface Problem {
   file: string;
@@ -29,14 +28,46 @@ export const describe = ({ file, line, text }: Problem) =>
 const lineAt = (text: string, offset: number) =>
   text.slice(0, Math.max(0, offset)).split("\n").length;
 
+const SPACE = /[ \t\n\r]*/y;
+const STRING = /"(?:[^"\\\n\r]|\\.)*"/y;
+const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+const WORD = /true|false|null/y;
+
+function firstError(text: string): number | null {
+  let at = 0;
+  const token = (pattern: RegExp) => {
+    pattern.lastIndex = at;
+    if (!pattern.test(text)) return false;
+    at = pattern.lastIndex;
+    return true;
+  };
+  const char = (c: string) => {
+    token(SPACE);
+    if (text[at] !== c) return false;
+    at += 1;
+    return true;
+  };
+  const list = (close: string, item: () => boolean) => {
+    if (char(close)) return true;
+    do if (!item()) return false;
+    while (char(","));
+    return char(close);
+  };
+  const key = () => token(SPACE) && token(STRING) && char(":") && value();
+  const value = (): boolean => {
+    if (char("{")) return list("}", key);
+    if (char("[")) return list("]", value);
+    return token(STRING) || token(NUMBER) || token(WORD);
+  };
+  try {
+    return value() && token(SPACE) && at === text.length ? null : at;
+  } catch {
+    return null;
+  }
+}
+
 function syntaxAt(text: string): number | null {
-  let at: number | null = null;
-  parser.parse(text).iterate({
-    enter: (node) => {
-      if (node.type.isError) at ??= node.from;
-      return at === null;
-    },
-  });
+  const at = firstError(text);
   if (at !== null) return at;
   try {
     JSON.parse(text);

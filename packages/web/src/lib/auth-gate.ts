@@ -22,12 +22,18 @@ const hint = (e: unknown) => {
 
 const timedOut = (e: unknown) => e instanceof DOMException && e.name === "TimeoutError";
 
+export function authStatus(body: unknown): AuthStatus | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
+  if (Object.keys(body).length !== 2) return null;
+  if (!("authEnabled" in body) || typeof body.authEnabled !== "boolean") return null;
+  if (!("authenticated" in body) || typeof body.authenticated !== "boolean") return null;
+  return { authEnabled: body.authEnabled, authenticated: body.authenticated };
+}
+
 export async function fetchAuthStatus(
   fetchFn: typeof fetch = fetch,
   timeoutMs = AUTH_TIMEOUT_MS,
 ): Promise<AuthStatus> {
-  const schema = import("@conveyor/shared/auth-status");
-  schema.catch(() => undefined);
   const late = (e: unknown) => {
     if (timedOut(e)) return new Unreachable(`GET /auth/status timed out after ${timeoutMs} ms`);
   };
@@ -41,9 +47,9 @@ export async function fetchAuthStatus(
     const timeout = late(e);
     if (timeout) throw timeout;
   });
-  const parsed = (await schema).authStatusSchema.safeParse(body);
-  if (!parsed.success) throw new Error("GET /auth/status answered in an unexpected shape");
-  return parsed.data;
+  const status = authStatus(body);
+  if (!status) throw new Error("GET /auth/status answered in an unexpected shape");
+  return status;
 }
 
 export const checkAuth = (fetchFn: typeof fetch, timeoutMs = AUTH_TIMEOUT_MS): Promise<Gate> =>
