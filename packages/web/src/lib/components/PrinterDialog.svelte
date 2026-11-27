@@ -112,12 +112,12 @@
     {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}
   {:else}
     <form bind:this={form} id={formId} class="form" novalidate on:submit|preventDefault={save}>
-      <Field label="Name" name="name" bind:value={draft.name} error={errors.name ?? ""} />
+      <Field label="Name" name="name" autocomplete="off" bind:value={draft.name} error={errors.name ?? ""} />
       {#if adding}
         <Field label="ID" name="id" bind:value={draft.id} on:input={() => (idEdited = true)} hint="Used in this printer's links. It can't change later." error={errors.id ?? ""} />
       {/if}
       <Select label="Printer software" name="transport" bind:value={draft.transportId} {options} hint="Klipper printers run Moonraker. Elegoo printers use ElegooLink." error={errors.transportId ?? ""} />
-      <Field label="Address" name="address" bind:value={draft.address} hint={drafts.addressHint(secretsSaved, secret.label)} error={errors.address ?? ""} />
+      <Field label="Address" name="address" autocomplete="off" bind:value={draft.address} hint={drafts.addressHint(secretsSaved, secret.label)} error={errors.address ?? ""} />
       <Field label={secret.label} name="secrets" type={secret.hidden ? "password" : "text"} bind:value={draft.secret} hint={secretsSaved ? "Leave blank to keep the saved one." : secret.hint} />
       {#key shown}
         {#if printer}

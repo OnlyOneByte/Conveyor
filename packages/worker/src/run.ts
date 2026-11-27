@@ -122,6 +122,7 @@ export interface Run {
   gcodePath?: string;
   filament?: FilamentUse;
   print?: PrintAttempt;
+  stop?: Promise<Note | undefined>;
   notes: Note[];
 }
 

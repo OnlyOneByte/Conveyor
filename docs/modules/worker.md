@@ -69,6 +69,9 @@ In Redis mode `printStage` takes a per-printer lock before the idle check and re
 print settles, so two workers never upload to or start one printer at once (the SQLite queue's `TAKE_SLOT` already
 serializes printers). The lock is `printer:<id>:lock`, set with `SET NX PX 60000` to a token per job; a timer renews
 it every 20 s, and renew and release are Lua scripts that only touch the key while it still holds the job's token.
+A canceled print is stopped (`stopPrinter`, `stop.ts`) before that `finally` releases the lock, so the next job
+waiting for the printer doesn't find it still printing and fail as busy. `settleError` then reuses that stop's result
+(`run.stop`) instead of sending a second one. A lost lease sends no stop, as before.
 A job that finds the printer locked waits, polling every 2 s, until it gets the lock or is canceled. A worker that
 dies stops renewing, so its lock expires within 60 s. Before each claim the worker checks the printer's SQLite hold,
 and refuses the job with `printer is on hold: <reason>` while one is set. When a transport throws

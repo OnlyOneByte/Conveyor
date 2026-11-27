@@ -200,6 +200,18 @@ describe("PUT /catalog/printers", () => {
       "address: Too small: expected string to have >=1 characters",
       "address",
     ],
+    [
+      "an empty name and an empty address, naming the first",
+      printer({ name: "", address: "" }),
+      "name: Too small: expected string to have >=1 characters; address: Too small: expected string to have >=1 characters",
+      "name",
+    ],
+    [
+      "an empty address and an oversized secret, naming the first",
+      printer({ address: "", secrets: { apiKey: "k".repeat(MAX_SECRET_VALUE_LENGTH + 1) } }),
+      `address: Too small: expected string to have >=1 characters; secrets.apiKey: Too big: expected string to have <=${MAX_SECRET_VALUE_LENGTH} characters`,
+      "address",
+    ],
   ])("refuses %s with a 400 naming the field", async (_label, body, error, field) => {
     const expected = field ? { error, field } : { error };
     expect(await put("/catalog/printers", body)).toEqual({ status: 400, body: expected });
