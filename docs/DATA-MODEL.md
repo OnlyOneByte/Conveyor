@@ -346,7 +346,8 @@ SQLite mode a live job has a row from enqueue, but the list filters on `done`/`f
 `/jobs-history/:id` answers 404 until it settles. That is why the Jobs page (`/jobs`) lists live jobs from
 `/jobs/active` in its On the belt group, above the settled ones, and shows each job once. `/jobs/<id>` reads that 404 as "not
 settled yet" and shows the live job from `/jobs/:id` and its socket instead, with place in line from
-`/jobs/active` while it waits. A `/?job=<id>` link that opens Make goes on to `/jobs/<id>`; Print sets `?job=` on Make's own history
+`/jobs/active` while it waits. If its printer is on hold (from the printers catalog), it shows the hold notice and
+Check the printer instead of a place in line. A `/?job=<id>` link that opens Make goes on to `/jobs/<id>`; Print sets `?job=` on Make's own history
 entry, so going back to it later opens the job too. The old `/history`, `/history/<id>` and `/monitor` answer
 308 with a Location of `/jobs`, `/jobs/<id>` and `/jobs`. They are the only routes the web server
 renders, so scripts and crawlers get the redirects too, not just the browser.

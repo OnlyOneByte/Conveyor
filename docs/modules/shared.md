@@ -598,8 +598,9 @@ is set, `claimJob` prepares no new job for that printer.
   - `failResume`, when a worker restarted mid-print and could not reconnect to the printer
     (`RESUME_FAILED_REASON`);
   - the worker's transport stage, in both queue modes, when `submit()` throws `PrintMayHaveStartedError`
-    (with that error's reason). On Redis there is no claim; the worker's printer lock reads the hold
-    with `printerHoldReason` and fails the job at the transport stage with `printer is on hold: <reason>`.
+    (with that error's reason). On Redis there is no claim query: the worker reads the hold with
+    `printerHoldReason` before modelling and keeps the job waiting ([worker.md](worker.md#indexts)), and its
+    printer lock reads it again, failing a job that was already modelling with `printer is on hold: <reason>`.
 - `releasePrinterHold(db, printerId)` clears all three columns and returns `true` only when there was a
   hold. The API's `POST /catalog/printers/:id/release` calls it after an explicit confirmation (see
   [api.md](api.md#printer-holds-routesprinter-holdsts)).
