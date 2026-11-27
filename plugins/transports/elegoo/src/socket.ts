@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type PrintStatus, StageError } from "@conveyor/shared";
-import { formatHostPort, parseHostPort } from "@conveyor/shared/address";
+import { formatHostPort, hostPortOf, parseHostPort } from "@conveyor/shared/address";
 import { AckFrame, decodeFrame, ReplyFrame } from "./frames.js";
 import { toPrintStatus } from "./print-status.js";
 import {
@@ -37,7 +37,8 @@ interface SdcpCommand {
 }
 
 export function printerEndpoint(address: string): string {
-  const parsed = parseHostPort(address, WS_PORT);
+  const hostPort = hostPortOf(address);
+  const parsed = parseHostPort(hostPort, WS_PORT, hostPort === address ? undefined : address);
   if (parsed.kind === "invalid")
     throw new StageError("transport", `elegoo printer address ${parsed.reason}`);
   return formatHostPort(parsed.host, parsed.port);
