@@ -5,13 +5,27 @@
   import { loadCatalog } from "#lib/catalog.js";
   import type { Command } from "#lib/commands.js";
   import { theme } from "#lib/preferences.js";
+  import { toasts } from "#lib/ui/behaviour.js";
   import { goto } from "$app/navigation";
+  import CommandMenu from "./CommandMenu.svelte";
 
   let menu = false;
   let sheet = false;
+  let failed = false;
   let commands: Command[] = [];
-  let Menu: typeof import("./CommandMenu.svelte").default | null = null;
+  let rare: Promise<typeof import("./rare.js")> | null = null;
+  let List: typeof import("./CommandList.svelte").default | null = null;
   let Sheet: typeof import("./ShortcutSheet.svelte").default | null = null;
+  const load = () => {
+    rare ??= import("./rare.js").then((mod) => {
+      List = mod.CommandList;
+      return mod;
+    });
+    return rare.catch((error: unknown) => {
+      rare = null;
+      throw error;
+    });
+  };
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
   const toggleTheme = () =>
@@ -26,17 +40,28 @@
   ];
 
   async function openSheet() {
-    Sheet ??= (await import("./rare.js")).ShortcutSheet;
-    sheet = true;
+    try {
+      Sheet = (await load()).ShortcutSheet;
+      sheet = true;
+    } catch {
+      toasts.show("Shortcuts didn't load. Reload the page to try again.");
+    }
   }
 
   async function openMenu() {
-    const rare = await import("./rare.js");
-    Menu ??= rare.CommandMenu;
     commands = actions;
     menu = true;
-    const [jobs, catalog] = await Promise.allSettled([fetchJobHistory(), loadCatalog()]);
-    const { jobCommands, printerCommands } = rare;
+    failed = false;
+    const data = Promise.allSettled([fetchJobHistory(), loadCatalog()]);
+    let mod: typeof import("./rare.js");
+    try {
+      mod = await load();
+    } catch {
+      failed = true;
+      return;
+    }
+    const [jobs, catalog] = await data;
+    const { jobCommands, printerCommands } = mod;
     const known = catalog.status === "fulfilled" ? catalog.value : null;
     const recent = jobs.status === "fulfilled" ? jobs.value : [];
     commands = [
@@ -52,10 +77,13 @@
       ...actions.map(({ hint, run }) => shortcuts.register(hint.toLowerCase(), run)),
     ];
     const listen = (event: KeyboardEvent) => {
-      if (!document.querySelector("dialog[open]") && shortcuts.handle(event))
+      if (!menu && !document.querySelector("dialog[open]") && shortcuts.handle(event))
         event.preventDefault();
     };
     window.addEventListener("keydown", listen);
+    const warm = () => void load().catch(() => {});
+    if ("requestIdleCallback" in window) requestIdleCallback(warm);
+    else setTimeout(warm, 1000);
     return () => {
       for (const unregister of off) unregister();
       window.removeEventListener("keydown", listen);
@@ -67,7 +95,7 @@
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
   <span class="word">Search</span><span class="sr"> jobs, printers and actions</span> <kbd>{mac ? "⌘K" : "Ctrl K"}</kbd>
 </button>
-{#if Menu}<svelte:component this={Menu} bind:open={menu} {commands} />{/if}
+<CommandMenu bind:open={menu} {commands} {List} {failed} />
 {#if Sheet}<svelte:component this={Sheet} bind:open={sheet} />{/if}
 
 <style>

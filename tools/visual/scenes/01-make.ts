@@ -168,6 +168,20 @@ export const scenes: Scene[] = [
     ],
   },
   {
+    name: "make-upload-fit-down",
+    route: "/",
+    ready: "text=How big?",
+    widths: [1440],
+    steps: [
+      { lazy: "/", fail: true },
+      uploadTab,
+      { upload: "input[type=file]", name: "bin.stl", text: STL },
+      { waitFor: "text=Ready to print" },
+      { waitFor: "text=Conveyor couldn't check this file's size." },
+      { absent: "section.fit" },
+    ],
+  },
+  {
     name: "rerun-stale-field",
     route: "/",
     visits: ["/jobs/seed-printed"],
