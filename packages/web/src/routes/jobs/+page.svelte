@@ -59,6 +59,13 @@
     await view.refresh().catch(view.markDown);
   }
 
+  async function reload() {
+    await view.load();
+    await tick();
+    if (document.activeElement === document.body)
+      root.querySelector<HTMLElement>(".pill[aria-pressed='true']")?.focus();
+  }
+
   async function cancel(row: Row) {
     confirming = false;
     announce(...(await cancelRow(row)));
@@ -99,7 +106,7 @@
       <button type="button" class="pill" aria-pressed={filter === f.id} on:click={() => choose(f.id)}>{f.label}{#if n !== null}<span class="n">{n}</span>{/if}</button>
     {/each}
   </div>
-  {#if !loaded}<JobsState kind="loading" {filter} />{:else if down}<JobsState kind="down" {filter} retry={view.load} />{/if}
+  {#if !loaded}<JobsState kind="loading" {filter} />{:else if down}<JobsState kind="down" {filter} retry={reload} />{/if}
   {#if loaded && !down && !rows.length}<JobsState kind="empty" {filter} today={since !== undefined} />
   {:else if rows.length}
     <JobList {groups} selected={current?.id} pick={(id) => (chosen = id)} />

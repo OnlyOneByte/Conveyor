@@ -104,7 +104,7 @@
   $: made = jobName(gen?.name ?? titled(tab), params, null, gen?.ui ?? null);
   $: jobLabel = upload ? (file?.name ?? "Your STL") : made;
   $: summary = printer ? `${jobLabel} on ${printer.name}` : jobLabel;
-  $: setup = printers.length ? "" : down ? "Printers didn't load" : "Add a printer to print";
+  $: setup = printers.length ? "" : down ? "Printers didn't load" : "Add a printer, then print.";
   $: detail = dockLine(upload ? "" : measurements(params, gen?.ui ?? null), profile?.name ?? setup);
   $: ready = !!printer && !!profile && (upload ? !!uploadId && !uploading : !!gen);
 
@@ -153,7 +153,7 @@
       {/if}
       <MakeWhere {down} {eligible} {compatible} all={printers.length} bind:printerId bind:profileId />
     </div>
-    <PrintDock {summary} {detail} {ready} {...$job} />
+    <PrintDock {summary} {detail} {ready} none={!printers.length && !down} {...$job} />
   </form>
 </section>
 {/if}

@@ -59,6 +59,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "settings-delete-focus-plain",
     "settings-delete-focus-empty",
     "belt-region",
+    "receipt-held",
     "printers-hold",
     "printers-hold-details",
     "printers-hold-confirm",
@@ -82,7 +83,9 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-hostname-focus",
     "first-run-make",
     "first-run-add",
+    "first-run-dock",
     "first-run-printers",
+    "first-run-printers-save",
     "first-run-limited",
     "loading-make",
     "loading-job",
@@ -99,6 +102,8 @@ test("one page's change captures only the scenes that reach it", () => {
     "print-at-few",
     "print-at-word",
     "touch-steppers",
+    "printers-down",
+    "printers-down-retry",
   ]);
   const receipt = named("packages/web/src/lib/components/JobReceipt.svelte");
   expect(receipt).toContain("receipt-printed");

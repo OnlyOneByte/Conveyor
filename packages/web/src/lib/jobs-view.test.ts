@@ -122,12 +122,23 @@ describe("createJobsView", () => {
     expect(get(view).counts).toEqual(counts);
   });
 
-  test("live jobs that can't load leave the live list empty, not the history", async () => {
+  test("live jobs that can't load mark the view down and keep the history", async () => {
     routes["/api/jobs/active"] = new Error("down");
     const view = createJobsView(() => null);
     await view.load();
     expect(get(view).live).toEqual([]);
     expect(get(view).settled).toHaveLength(2);
+    expect(get(view).down).toBe(true);
+  });
+
+  test("a retry stays down until it answers", async () => {
+    routes["/api/jobs-history?"] = new Error("down");
+    const view = createJobsView(() => null);
+    await view.load();
+    routes["/api/jobs-history?"] = [entry("d1", "done", at(9))];
+    const retry = view.load();
+    expect(get(view).down).toBe(true);
+    await retry;
     expect(get(view).down).toBe(false);
   });
 

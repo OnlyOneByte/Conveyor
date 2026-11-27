@@ -55,7 +55,7 @@ export const scenes: Scene[] = [
     "/printers",
     "**/api/catalog/printers",
     "Loading printers",
-    "main .first",
+    "main .state",
     [{ absent: "main .acts button.primary[disabled]" }],
   ),
   loading(

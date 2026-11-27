@@ -14,6 +14,12 @@ const held = fleet.map((printer) =>
     : printer,
 );
 
+const heldElegoo = fleet.map((printer) =>
+  printer.id === "elegoo-1"
+    ? { ...printer, hold: { jobId: "seed-failed", reason: "no answer to print start", at: 0 } }
+    : printer,
+);
+
 const heldPage = (name: string, extra: Step[] = []): Scene => ({
   name,
   route: "/settings",
@@ -29,6 +35,22 @@ const heldPage = (name: string, extra: Step[] = []): Scene => ({
 });
 
 export const scenes: Scene[] = [
+  {
+    name: "receipt-held",
+    route: "/settings",
+    ready: "h1",
+    visits: ["/jobs/seed-failed", "/printers"],
+    steps: [
+      { fulfill: "**/api/catalog/printers", method: "GET", status: 200, json: heldElegoo },
+      { follow: "/jobs/seed-failed" },
+      { waitFor: "main .acts a.btn.primary[href='/printers'] >> text=Check the printer" },
+      { absent: "main button:has-text('Retry')" },
+      { wait: 400 },
+      { click: "main a.btn.primary >> text=Check the printer" },
+      { waitFor: "main h1 >> text=Printers" },
+      { waitFor: "text=On hold" },
+    ],
+  },
   heldPage("printers-hold"),
   heldPage("printers-hold-details", [
     { click: "text=Details" },
