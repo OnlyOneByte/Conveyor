@@ -109,3 +109,22 @@ test("the lease is checked once the engine has run, whatever its exit code", asy
     ctx.cleanup();
   }
 });
+
+test("lines from one pipe keep their order in engine.log", async () => {
+  const ctx = testCtx();
+  try {
+    await runEngine(
+      "slicer",
+      "sh",
+      ["-c", "echo one; echo two; echo three >&2; echo four >&2"],
+      ctx,
+    );
+    const lines = (await readFile(join(ctx.workDir, ENGINE_LOG), "utf8")).split("\n");
+    const out = lines.filter((line) => line === "one" || line === "two");
+    const err = lines.filter((line) => line === "three" || line === "four");
+    expect(out).toEqual(["one", "two"]);
+    expect(err).toEqual(["three", "four"]);
+  } finally {
+    ctx.cleanup();
+  }
+});

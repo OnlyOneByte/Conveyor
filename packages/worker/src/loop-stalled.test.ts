@@ -99,3 +99,30 @@ test("a worker notices a taken lease on its next tick, not at its next renewal, 
   expect(stoppedAt - takenAt).toBeLessThan(500);
   await until(() => logs.some((line) => line === `job ${uid("a")}: job lease lost`), 2000);
 });
+
+test("a lease read that fails is logged as a lease check, apart from the cancel check", async () => {
+  enqueue("a");
+  const generating = gate();
+  const resume = gate();
+  start({
+    generate: async () => {
+      generating.open();
+      await resume.opened;
+    },
+  });
+  await generating.opened;
+  db.exec("ALTER TABLE jobs RENAME TO jobs_away");
+  try {
+    await until(
+      () => logs.some((line) => line.startsWith(`job ${uid("a")}: lease check failed: `)),
+      2000,
+    );
+    expect(logs.some((line) => line.startsWith(`job ${uid("a")}: cancel check failed: `))).toBe(
+      true,
+    );
+  } finally {
+    db.exec("ALTER TABLE jobs_away RENAME TO jobs");
+    resume.open();
+  }
+  await until(() => row("a").state === "done", 3000);
+});

@@ -131,9 +131,13 @@ export function startQueueWorker(o: QueueWorkerOptions): QueueWorker {
       tick++;
       try {
         if (isCancelRequested(o.db, jobId)) job.controller.abort();
-        if (!job.released && !leaseHeld(o.db, job.lease, timing)) lose(job);
       } catch (err) {
         o.base.log(`job ${jobId}: cancel check failed: ${String(err)}`);
+      }
+      try {
+        if (!job.released && !leaseHeld(o.db, job.lease, timing)) lose(job);
+      } catch (err) {
+        o.base.log(`job ${jobId}: lease check failed: ${String(err)}`);
       }
       if (tick % renewEvery === 0) void renew(job);
     }, tickMs);

@@ -293,8 +293,11 @@ What the lists leave out and how to regenerate them are in [../SLICER-PROFILES.m
 Server-only helpers, kept off the main entry so the web bundle never pulls in `node:` modules:
 
 - `runEngine(stage, cmd, args, ctx)` spawns an engine with the job's `AbortSignal`, in its own process group
-  (`detached`). An abort sends `SIGKILL` to that whole group, so a wrapped engine (Orca under `xvfb-run`)
-  stops too, not only the direct child. A spawn error or a non-zero
+  (`detached`). An abort sends `SIGTERM` to that whole group, then `SIGKILL` after `KILL_GRACE_MS` (2 s), so
+  a wrapped engine (Orca under `xvfb-run`) stops too, not only the direct child, and `xvfb-run` gets time to
+  remove its display lock. A worker killed hard (`SIGKILL`, a crash) outside Compose can leave its engine
+  running, because the engine's group isn't the worker's. Under Compose the worker container runs with
+  `init: true`, so orphans are reaped, and stopping the container stops every process in it. A spawn error or a non-zero
   exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
   generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
   error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
