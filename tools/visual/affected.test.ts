@@ -79,6 +79,7 @@ test("one page's change captures only the scenes that reach it", () => {
     "printers-edit-secrets",
     "printers-address-reentry",
     "printers-save-fails",
+    "printers-hostname-focus",
     "first-run-make",
     "first-run-add",
     "first-run-printers",

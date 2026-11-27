@@ -9,7 +9,7 @@ import {
   dialogTitle,
   draftErrors,
   draftOf,
-  firstNamedField,
+  fieldSelector,
   printerPayload,
   slugOf,
 } from "./printer-form";
@@ -129,13 +129,10 @@ describe("the printer dialog's words", () => {
     );
   });
 
-  test("a failed save names the field mentioned first, as a whole word, or none", () => {
-    const labels = ["Name", "Printer software", "Address", "API key"].map((name) => ({ name }));
-    const refusal =
-      "The address or printer software changed, so the saved secrets won't be sent to it.";
-    expect(firstNamedField(labels, refusal)).toBe(2);
-    expect(firstNamedField(labels, "not an IPv4 address, IPv6 address or hostname")).toBe(2);
-    expect(firstNamedField(labels, "Printer software is not installed")).toBe(1);
-    expect(firstNamedField(labels, "disk full")).toBe(-1);
+  test("a failed save focuses the field the api names, or the message when it names none", () => {
+    for (const field of ["id", "name", "address", "transport", "secrets"])
+      expect(fieldSelector(field)).toBe(`[name="${field}"]`);
+    for (const field of [null, "", "allowedGenerators", '"] body [x="'])
+      expect(fieldSelector(field)).toBe(".problem");
   });
 });

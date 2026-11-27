@@ -91,31 +91,14 @@ export const addressHint = (secretsSaved: boolean, secretLabel: string) =>
     ? `${ADDRESS_HINT}\nChanging the address or printer software asks for the ${inSentence(secretLabel)} again.`
     : ADDRESS_HINT;
 
-const mentionAt = (said: string, name: string) => {
-  if (!name) return -1;
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return said.search(new RegExp(`\\b${escaped}\\b`));
-};
+const FIELDS = new Set(["id", "name", "address", "transport", "secrets"]);
 
-export function firstNamedField(labels: { name: string }[], problem: string): number {
-  const said = problem.toLowerCase();
-  let best = { at: Number.POSITIVE_INFINITY, index: -1 };
-  labels.forEach(({ name }, index) => {
-    const at = mentionAt(said, name.trim().toLowerCase());
-    if (at >= 0 && at < best.at) best = { at, index };
-  });
-  return best.index;
-}
+export const fieldSelector = (field: string | null) =>
+  field && FIELDS.has(field) ? `[name="${field}"]` : ".problem";
 
-export function focusProblem(form: HTMLFormElement | undefined, problem: string) {
-  if (!form || !problem) return;
-  const labels = [...form.querySelectorAll("label")];
-  const index = firstNamedField(
-    labels.map((label) => ({ name: label.textContent ?? "" })),
-    problem,
-  );
-  const target = labels[index]?.control ?? form.querySelector<HTMLElement>(".problem");
-  target?.focus();
+export function focusProblem(form: HTMLFormElement | undefined, field: string | null) {
+  const named = form?.querySelector<HTMLElement>(fieldSelector(field));
+  (named ?? form?.querySelector<HTMLElement>(".problem"))?.focus();
 }
 
 export const dialogTitle = (printer: CatalogPrinter | null, confirming: boolean) => {
@@ -134,3 +117,5 @@ export const deleteFailure = (name: string, message: string) =>
   message.includes("queued or running")
     ? `${name} still has jobs on the belt, so it can't be deleted yet.`
     : message;
+
+export type Failure = [string, string | null, string | null];

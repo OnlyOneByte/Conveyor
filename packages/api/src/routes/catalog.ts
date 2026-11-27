@@ -22,7 +22,7 @@ import {
 import { checkPrinterAddress, PrinterAddressRefusedError } from "@conveyor/shared/node";
 import type { FastifyInstance } from "fastify";
 import { engineLogPath } from "../artifact-download.js";
-import { parsePrinter, parseProfile } from "../catalog-validation.js";
+import { parsePrinter, parseProfile, printerIssueField } from "../catalog-validation.js";
 import { historyCountQuery, historyPageQuery } from "../history-query.js";
 import type { JobReference, LiveJobCounter } from "../live-jobs.js";
 import { probePrinter } from "../printer-probe.js";
@@ -72,15 +72,19 @@ export async function registerCatalogRoutes(
 
   app.put("/catalog/printers", async (req, reply) => {
     const parsed = parsePrinter(req.body);
-    if (!parsed.success)
-      return reply.code(400).send({ error: describeIssues(parsed.error.issues) });
+    if (!parsed.success) {
+      const { issues } = parsed.error;
+      const field = printerIssueField(issues);
+      return reply.code(400).send({ error: describeIssues(issues), ...(field ? { field } : {}) });
+    }
     const refused = await refusal(parsed.data.address);
-    if (refused) return reply.code(400).send({ error: refused });
+    if (refused) return reply.code(400).send({ error: refused, field: "address" });
     try {
       dbUpsertPrinter(openDb(), parsed.data);
     } catch (err) {
       if (!(err instanceof PrinterSecretsWriteError)) throw err;
-      return reply.code(err.kind === "TooManySecrets" ? 400 : 409).send({ error: err.message });
+      const code = err.kind === "TooManySecrets" ? 400 : 409;
+      return reply.code(code).send({ error: err.message, field: "secrets" });
     }
     return reply.code(200).send({ ok: true });
   });

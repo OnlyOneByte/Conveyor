@@ -44,6 +44,7 @@ describe("saving a printer address", () => {
     expect(await res.json()).toEqual({
       error:
         "Conveyor won't connect to 169.254.169.254: it is a link-local address, where cloud metadata services listen, not a printer on your network. If it really is your printer, add 169.254.169.254 to PRINTER_ADDRESS_ALLOW.",
+      field: "address",
     });
     expect(dbGetPrinter(openDb(), "metadata-printer")).toBeUndefined();
   });

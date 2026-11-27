@@ -110,11 +110,12 @@ export const scenes: Scene[] = [
       json: {
         error:
           "The address or printer software changed, so the saved secrets won't be sent to it. Enter them again, or clear the saved secrets to save without them.",
+        field: "secrets",
       },
     },
     { click: `${dialog} button:has-text('Save changes')` },
     { waitFor: `${dialog} [role=alert] >> text=Enter them again` },
-    { waitFor: `${dialog} .field:has(label:text-is("Address")) input:focus`, timeout: 2000 },
+    { waitFor: `${dialog} input[name="secrets"]:focus`, timeout: 2000 },
     { wait: 400 },
   ]),
   fleetPage("printers-save-fails", [
@@ -127,6 +128,23 @@ export const scenes: Scene[] = [
     },
     { click: `${dialog} button:has-text('Save changes')` },
     { waitFor: `${dialog} p.problem:focus >> text=disk full`, timeout: 2000 },
+    { wait: 400 },
+  ]),
+  fleetPage("printers-hostname-focus", [
+    { click: "button[aria-label='Edit Voron 2.4']" },
+    {
+      fulfill: "**/api/catalog/printers",
+      method: "PUT",
+      status: 400,
+      json: {
+        error:
+          "Conveyor won't connect to my-name.local: it resolves to a link-local address, not a printer on your network.",
+        field: "address",
+      },
+    },
+    { click: `${dialog} button:has-text('Save changes')` },
+    { waitFor: `${dialog} [role=alert] >> text=my-name.local` },
+    { waitFor: `${dialog} input[name="address"]:focus`, timeout: 2000 },
     { wait: 400 },
   ]),
 ];
