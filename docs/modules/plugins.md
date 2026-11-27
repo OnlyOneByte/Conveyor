@@ -246,8 +246,12 @@ SDCP (Smart Device Control Protocol), written from the
   ends the job only in these cases:
   - the stream has seen the job printing;
   - `PrintInfo.Filename`, by base name, is this job's file (`handle.ref`), so `/local/<file>` matches too;
-  - its `PrintInfo.TaskId` is set and differs from the `TaskId` the idle check read before upload. That value
-    is kept on the handle as `priorTask` (`""` when the printer was idle with no task) and survives a resume.
+  - its `PrintInfo.TaskId` is set and differs from the `TaskId` read right before `START_PRINT` (a second
+    status read after the upload).
+    - **Why not the pre-upload read:** a print someone starts and ends on the printer during the upload leaves
+      a new `TaskId`, and its leftover 9 or 8 would then read as this job's ending.
+    - **Where it's kept:** on the handle as `priorTask` (`""` when the printer had no task), which survives a
+      resume.
 
   A handle without `priorTask` (one written before this field) uses only the first two. Any other 9 or 8 maps
   to no state, like idle, and doesn't restart the timer.

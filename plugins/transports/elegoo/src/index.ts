@@ -59,14 +59,18 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
-    const before = await elegooStatusOnce(target.address, mainboardId, undefined, ctx.signal);
-    refuseUnlessIdle("elegoo", readinessOf(before));
-    const priorTask = before.kind === "status" ? (before.status.taskId ?? "") : undefined;
+    const signal = ctx.signal;
+    refuseUnlessIdle(
+      "elegoo",
+      readinessOf(await elegooStatusOnce(target.address, mainboardId, undefined, signal)),
+    );
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
     await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
+    const justBefore = await elegooStatusOnce(target.address, mainboardId, undefined, signal);
+    const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
     await startPrint(target.address, mainboardId, filename);
 
