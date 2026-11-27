@@ -7,6 +7,7 @@ import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import { holdPrinter, releasePrinterHold } from "@conveyor/shared/queue";
 import Fastify from "fastify";
 import { z } from "zod";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
@@ -97,3 +98,5 @@ describe.skipIf(!url)("a held printer on the Redis queue", () => {
     expect(row).toEqual({ retried_by: retried.body.jobId });
   });
 });
+
+dropsItsRedisKeys();
