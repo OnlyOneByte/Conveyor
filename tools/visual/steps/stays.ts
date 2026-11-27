@@ -1,8 +1,9 @@
 import { type StepRunner, wrongKind } from "../step.ts";
+import { release } from "./stall.ts";
 
 declare module "../step.ts" {
   interface StepKinds {
-    stays: { stays: string; until: string };
+    stays: { stays: string[]; until: string; releasing?: string };
   }
 }
 
@@ -13,18 +14,28 @@ export const step: StepRunner = {
   kind: "stays",
   run: async (page, step) => {
     if (!("stays" in step)) throw wrongKind("stays", step);
-    const target = page.locator(step.stays).first();
-    const start = await target.boundingBox();
-    if (!start) throw new Error(`stays: ${step.stays} isn't on the page`);
+    const targets = step.stays.map((selector) => ({
+      selector,
+      at: page.locator(selector).first(),
+    }));
+    const tops = async () =>
+      Promise.all(targets.map(async ({ at }) => (await at.boundingBox())?.y));
+    const start = await tops();
+    start.forEach((top, i) => {
+      if (top === undefined) throw new Error(`stays: ${step.stays[i]} isn't on the page`);
+    });
+    if (step.releasing && release(page, step.releasing) === null)
+      throw new Error(`stays: no stall step names ${step.releasing}`);
     const deadline = Date.now() + LIMIT_MS;
     let settleAt = 0;
     while (Date.now() < deadline) {
-      const box = await target.boundingBox();
-      const moved = box ? Math.abs(box.y - start.y) : Number.POSITIVE_INFINITY;
-      if (moved > 1) {
-        const now = box ? `${Math.round(box.y)} px` : "gone";
-        throw new Error(`stays: ${step.stays} moved from ${Math.round(start.y)} px to ${now}`);
-      }
+      const now = await tops();
+      now.forEach((top, i) => {
+        const from = start[i] ?? 0;
+        if (top !== undefined && Math.abs(top - from) <= 1) return;
+        const to = top === undefined ? "gone" : `${Math.round(top)} px`;
+        throw new Error(`stays: ${step.stays[i]} moved from ${Math.round(from)} px to ${to}`);
+      });
       if (!settleAt && (await page.locator(step.until).count())) settleAt = Date.now() + SETTLE_MS;
       if (settleAt && Date.now() >= settleAt) return;
       await page.waitForTimeout(40);

@@ -3,6 +3,7 @@
   import { onDestroy } from "svelte";
   import { titled } from "#lib/belt.js";
   import CancelJob from "#lib/components/CancelJob.svelte";
+  import HeldCard from "#lib/components/HeldCard.svelte";
   import JobHead from "#lib/components/JobHead.svelte";
   import JobProgress from "#lib/components/JobProgress.svelte";
   import JobReceipt from "#lib/components/JobReceipt.svelte";
@@ -100,18 +101,17 @@
   {/if}
   {#snippet model()}
     <div class="mat">
-      {#if gen?.preview?.module === "gridfinity"}
-        <Viewport params={isRecord(params) ? params : {}} />
-      {:else}
-        <span class="tag">{title}</span>
-      {/if}
+      {#if gen?.preview?.module === "gridfinity"}<Viewport params={isRecord(params) ? params : {}} />
+      {:else}<span class="tag">{title}</span>{/if}
     </div>
   {/snippet}
   <div class="grid" class:first={cardFirst}>
     {#if !cardFirst}{@render model()}{/if}
-    <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
-      {#if live}<JobProgress view={live} printer={data.printer} />{/if}
-    </JobReceipt>
+    <HeldCard hold={cardFirst && (Boolean(job) || SETTLED.includes(live?.state ?? "queued"))}>
+      <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
+        {#if live}<JobProgress view={live} printer={data.printer} />{/if}
+      </JobReceipt>
+    </HeldCard>
     {#if cardFirst}{@render model()}{/if}
   </div>
 {/if}

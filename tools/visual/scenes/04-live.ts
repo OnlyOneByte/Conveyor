@@ -89,6 +89,7 @@ export const scenes: Scene[] = [
 
 function finish(): Scene {
   const jobId = "scene-finish-phone";
+  const done = `**/api/jobs/${jobId}`;
   const view = {
     jobId,
     at: ADDED + 60_000,
@@ -115,15 +116,11 @@ function finish(): Scene {
         },
       },
       { fulfill: `**/api/jobs-history/${jobId}`, status: 404, json: {}, times: 1 },
-      {
-        fulfill: `**/api/jobs/${jobId}`,
-        status: 200,
-        json: { ...view, state: "done", progress: 1 },
-      },
-      { fulfill: `**/api/jobs/${jobId}`, status: 200, json: { ...view, ...PRINTING }, times: 1 },
+      { stall: done, status: 200, json: { ...view, state: "done", progress: 1 } },
+      { fulfill: done, status: 200, json: { ...view, ...PRINTING }, times: 1 },
       { follow: `/jobs/${jobId}` },
-      { waitFor: "main .receipt" },
-      { stays: "main .receipt", until: "text=Print again" },
+      { waitFor: "main >> text=38 min left" },
+      { stays: ["main .receipt", "main .mat"], until: "text=Print again", releasing: done },
       { above: "main .receipt", of: "main .mat" },
     ],
   };
