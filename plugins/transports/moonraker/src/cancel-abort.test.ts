@@ -74,3 +74,34 @@ test("a cancel with no signal still sends the stop", async () => {
   await plugin.cancel?.(handle);
   expect(seen).toEqual(["http://192.168.1.40:7125/printer/print/cancel"]);
 });
+
+test("a cancel given a signal still gives up after its own 15 s", async () => {
+  const stub = stubPrinterDns(["192.168.1.40"]);
+  restores.push(stub.restore);
+  const clock = new AbortController();
+  const asked: number[] = [];
+  const spy = spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+    asked.push(ms);
+    return clock.signal;
+  });
+  restores.push(() => spy.mockRestore());
+  const signals: AbortSignal[] = [];
+  requests((signal) => {
+    signals.push(signal);
+    return untilAborted(signal);
+  });
+  const bound = new AbortController();
+  restores.push(() => bound.abort(new Error("test over")));
+  const cancel = plugin.cancel?.(handle, undefined, bound.signal);
+  while (signals.length === 0) await Bun.sleep(1);
+  clock.abort(new Error("15 s passed"));
+  const outcome = await Promise.race([
+    cancel?.then(
+      () => "resolved",
+      (e: unknown) => String(e),
+    ),
+    Bun.sleep(1000).then(() => "still waiting after the timeout fired"),
+  ]);
+  expect(outcome).toContain("15 s passed");
+  expect(asked).toEqual([15_000]);
+});

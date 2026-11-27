@@ -28,7 +28,13 @@ const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10
 
 export const START_TIMEOUT_ENV = "ELEGOO_START_TIMEOUT_MS";
 export const START_TIMEOUT_MS = 30_000;
-const PositiveMs = z.coerce.number().int().positive();
+export const START_TIMEOUT_MAX_MS = 600_000;
+const PositiveMs = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().min(1).max(START_TIMEOUT_MAX_MS));
 
 export function startTimeoutMs(env: Record<string, string | undefined> = process.env): number {
   const raw = env[START_TIMEOUT_ENV];
@@ -37,7 +43,7 @@ export function startTimeoutMs(env: Record<string, string | undefined> = process
   if (parsed.success) return parsed.data;
   throw new StageError(
     "transport",
-    `${START_TIMEOUT_ENV} must be a whole number above 0, got ${raw}`,
+    `${START_TIMEOUT_ENV} must be a whole number of milliseconds from 1 to ${START_TIMEOUT_MAX_MS}, got ${raw}`,
   );
 }
 

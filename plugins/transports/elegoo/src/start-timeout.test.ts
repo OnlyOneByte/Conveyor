@@ -1,13 +1,22 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { type GcodeArtifact, type PrintHandle, PrintMayHaveStartedError } from "@conveyor/shared";
 import { testCtx } from "../../../../packages/shared/test/helpers/index.ts";
-import { elegoo, START_TIMEOUT_ENV, startPrint, startTimeoutMs } from "./index";
+import {
+  elegoo,
+  START_TIMEOUT_ENV,
+  START_TIMEOUT_MAX_MS,
+  START_TIMEOUT_MS,
+  startPrint,
+  startTimeoutMs,
+} from "./index";
 
 const RealWebSocket = globalThis.WebSocket;
 const before = process.env[START_TIMEOUT_ENV];
+const restores: (() => void)[] = [];
 
 afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
+  for (const restore of restores.splice(0)) restore();
   if (before === undefined) delete process.env[START_TIMEOUT_ENV];
   else process.env[START_TIMEOUT_ENV] = before;
 });
@@ -39,6 +48,23 @@ function ackAfter(ms: number) {
 
 const start = () => startPrint("10.0.0.8", "mainboard-abc", "conveyor-job-1.gcode");
 
+const handle: PrintHandle = {
+  transportId: "elegoo",
+  printerId: "p1",
+  ref: "a.gcode",
+  address: "10.0.0.8",
+  deviceId: "mainboard-abc",
+};
+
+const refusal = (raw: string) =>
+  `${START_TIMEOUT_ENV} must be a whole number of milliseconds from 1 to ${START_TIMEOUT_MAX_MS}, got ${raw}`;
+
+function timerDelays(): () => unknown[] {
+  const spy = spyOn(globalThis, "setTimeout");
+  restores.push(() => spy.mockRestore());
+  return () => spy.mock.calls.map((call) => call[1]);
+}
+
 describe(START_TIMEOUT_ENV, () => {
   test("defaults to 30 s when unset or empty", () => {
     expect(startTimeoutMs({})).toBe(30_000);
@@ -46,10 +72,26 @@ describe(START_TIMEOUT_ENV, () => {
     expect(startTimeoutMs({ [START_TIMEOUT_ENV]: "90000" })).toBe(90_000);
   });
 
-  test.each(["0", "-5", "1.5", "abc", "Infinity"])("refuses %p, naming the variable", (raw) => {
-    expect(() => startTimeoutMs({ [START_TIMEOUT_ENV]: raw })).toThrow(
-      `${START_TIMEOUT_ENV} must be a whole number above 0, got ${raw}`,
-    );
+  test("accepts 1 and the 10 minute ceiling", () => {
+    expect(START_TIMEOUT_MAX_MS).toBe(600_000);
+    expect(startTimeoutMs({ [START_TIMEOUT_ENV]: "1" })).toBe(1);
+    expect(startTimeoutMs({ [START_TIMEOUT_ENV]: "600000" })).toBe(600_000);
+  });
+
+  test.each([
+    "0",
+    "-5",
+    "1.5",
+    "abc",
+    "Infinity",
+    "0x10",
+    "1e3",
+    "+500",
+    "600001",
+    "2147483648",
+    "3000000000",
+  ])("refuses %p, naming the variable and the range", (raw) => {
+    expect(() => startTimeoutMs({ [START_TIMEOUT_ENV]: raw })).toThrow(refusal(raw));
   });
 
   test("a slow ack inside the setting resolves", async () => {
@@ -66,17 +108,18 @@ describe(START_TIMEOUT_ENV, () => {
     expect(String(err)).toContain("timed out after 50 ms");
   });
 
-  test("other commands keep their own wait", async () => {
+  test("other commands ignore the setting", async () => {
     process.env[START_TIMEOUT_ENV] = "50";
     ackAfter(150);
-    const handle: PrintHandle = {
-      transportId: "elegoo",
-      printerId: "p1",
-      ref: "a.gcode",
-      address: "10.0.0.8",
-      deviceId: "mainboard-abc",
-    };
     await expect(elegoo.cancel?.(handle)).resolves.toBeUndefined();
+  });
+
+  test("other commands wait 15 s for their ack", async () => {
+    ackAfter(0);
+    const delays = timerDelays();
+    await elegoo.cancel?.(handle);
+    expect(delays()).toContain(15_000);
+    expect(delays()).not.toContain(START_TIMEOUT_MS);
   });
 
   test("a bad setting fails the submit before anything reaches the printer", async () => {
@@ -84,9 +127,12 @@ describe(START_TIMEOUT_ENV, () => {
     ackAfter(0);
     const target = { id: "p1", transportId: "elegoo", address: "10.0.0.8" };
     const gcode: GcodeArtifact = { path: "/nonexistent.gcode", format: "gcode" };
-    await expect(elegoo.submit(gcode, target, testCtx())).rejects.toThrow(
-      `${START_TIMEOUT_ENV} must be a whole number above 0, got soon`,
-    );
+    const ctx = testCtx();
+    try {
+      await expect(elegoo.submit(gcode, target, ctx)).rejects.toThrow(refusal("soon"));
+    } finally {
+      ctx.cleanup();
+    }
     expect(SlowAckSocket.opened).toBe(0);
   });
 });

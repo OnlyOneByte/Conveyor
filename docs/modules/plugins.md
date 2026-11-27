@@ -231,7 +231,7 @@ SDCP (Smart Device Control Protocol), written from the
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
-  up to 15 s for its ack, except `START_PRINT`, which waits `ELEGOO_START_TIMEOUT_MS` (default 30000). Frames for other requests are skipped, unreadable ones included; an unreadable reply naming this request rejects the command.
+  up to 15 s for its ack, except `START_PRINT`, which waits `ELEGOO_START_TIMEOUT_MS` (default 30000, decimal digits from 1 to 600000). Frames for other requests are skipped, unreadable ones included; an unreadable reply naming this request rejects the command.
   The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames since the last readable
   status frame, so one garbled push does not fail a running print; the third ends `status()` with a
   `StageError` that names the count and quotes the last frame. Only a readable status frame resets the
