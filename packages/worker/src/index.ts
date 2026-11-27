@@ -7,15 +7,24 @@ import {
   type JobRequest,
   jobCancelKey,
   jobControlChannel,
+  jobSnapshotKey,
   logErrors,
+  parseStatusEvent,
   StageError,
 } from "@conveyor/shared";
-import { dbRecordJob, dbResolveJobTarget, openDb, type SettledJob } from "@conveyor/shared/db";
+import {
+  dbRecordJob,
+  dbResolveJobTarget,
+  openDb,
+  queuedCancelRecord,
+  type SettledJob,
+} from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
 import { holdPrinter, printerHoldReason } from "@conveyor/shared/queue";
-import { type Job, Queue, Worker } from "bullmq";
+import { DelayedError, type Job, Queue, Worker } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
+import { type HoldWaitDeps, waitOutHold } from "./hold-wait.js";
 import { readJobPayload } from "./job-payload.js";
 import { jobLog, logger } from "./logger.js";
 import { runJob, type TerminalRecord } from "./pipeline.js";
@@ -139,16 +148,37 @@ export function startRedisWorker(
     await publish(jobId, "failed", { stage, error: { stage, reason } });
   }
 
-  async function handle(job: Job<unknown>): Promise<unknown> {
+  const holdWait = (req: JobRequest): HoldWaitDeps => ({
+    held: (printerId) => printerHoldReason(db(), printerId),
+    canceled: async (jobId) => (await commands.exists(jobCancelKey(jobId))) === 1,
+    settleCanceled: async (jobId) => {
+      if (await publish(jobId, "canceled")) dbRecordJob(db(), queuedCancelRecord(jobId, req));
+    },
+    shownAs: async (jobId) => parseStatusEvent(await commands.get(jobSnapshotKey(jobId))),
+    showQueued: async (jobId, message) => {
+      await publish(jobId, "queued", { message });
+    },
+    delayed: () => lookup.getDelayed(),
+    printerOf: (other) => requestOf(other.data).printerId,
+  });
+
+  async function handle(job: Job<unknown>, token?: string): Promise<unknown> {
     const jobId = job.id;
     if (!jobId) throw new Error("job has no id");
+    let req = requestOf(job.data);
+    try {
+      req = await readJobPayload(jobId, job.data, publish);
+      if ((await waitOutHold(job, token, req.printerId, holdWait(req))) === "canceled") return;
+    } catch (err) {
+      if (err instanceof DelayedError) throw err;
+      await failEarly(jobId, req, err);
+      throw err;
+    }
     const controller = new AbortController();
     const control = connect(`job ${jobId} control`);
     try {
-      let req = requestOf(job.data);
       let workDir: string;
       try {
-        req = await readJobPayload(jobId, job.data, publish);
         workDir = join(dataDir, jobId);
         await deps.makeDir(workDir);
         control.on("message", () => controller.abort());

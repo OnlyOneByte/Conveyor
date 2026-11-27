@@ -12,10 +12,12 @@
     STEPS,
   } from "#lib/job-live.js";
   import { duration } from "#lib/job-settings.js";
+  import HoldNote from "./HoldNote.svelte";
 
   export let view: JobView | null = null;
   export let settled: JobHistoryEntry | null = null;
   export let printer: string;
+  export let held = false;
   export let stopped = -1;
   export let note: { title: string; detail: string } | null = null;
 
@@ -52,7 +54,12 @@
 >
   <h2>Progress</h2>
   {#if view?.state === "queued"}
-    {#if place}
+    {#if held}
+      <div class="hold">
+        <HoldNote />
+        <a class="btn check" href="/printers">Check the printer</a>
+      </div>
+    {:else if place}
       <p class="big"><b>{ordinal(place)}</b><span>in line for the {printer}</span></p>
     {:else}
       <p class="big"><b>Waiting</b><span>for the {printer}</span></p>
@@ -89,6 +96,11 @@
 
 <style>
   .live { display: flex; flex-direction: column; gap: var(--s5); }
+  .hold { display: flex; flex-direction: column; }
+  .check {
+    align-self: flex-start; min-height: var(--tap); padding: 0 var(--s4); font-size: var(--fs-body);
+    text-decoration: none; border-color: var(--accent);
+  }
   .big { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin: 0; }
   .big b { font-size: var(--fs-title); line-height: 1; letter-spacing: -0.03em; }
   .big span { color: var(--muted); }

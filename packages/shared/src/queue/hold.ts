@@ -27,3 +27,12 @@ export function releasePrinterHold(db: Database, printerId: string): boolean {
     .run(printerId);
   return changes === 1;
 }
+
+export function heldPrinterIds(db: Database): Set<string> {
+  return new Set(
+    db
+      .query<{ id: string }, []>("SELECT id FROM printers WHERE hold_job_id IS NOT NULL")
+      .all()
+      .map((p) => p.id),
+  );
+}

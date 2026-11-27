@@ -505,7 +505,7 @@ Conveyor holds a printer when it can't tell whether a job started on it:
   it", and the job fails with the same reason, except that a settle during upload which already carried its own
   error keeps that error.
 
-While a printer is held, no other job is sent to it; in Redis mode such a job fails with "The printer is on hold". Check the printer, stop or remove anything it should not be printing, then choose **Release hold**
+While a printer is held, no other job is sent to it: a new one is refused, and one already queued waits, its page saying "The printer is on hold", until you release it. Check the printer, stop or remove anything it should not be printing, then choose **Release hold**
 on its card on the Printers page. To release it from a shell instead, log in first if authentication is on
 (the default); the session cookie goes in a private temporary file:
 

@@ -108,7 +108,7 @@
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
       {#if live || (cardFirst && job)}
         <JobProgress view={live} settled={cardFirst ? job : null} printer={data.printer}
-          bind:stopped note={cardFirst ? failure : null} />{/if}
+          held={data.held} bind:stopped note={cardFirst ? failure : null} />{/if}
     </JobReceipt>
     {#if cardFirst}{@render model()}{/if}
   </div>

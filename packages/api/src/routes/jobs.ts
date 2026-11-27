@@ -14,6 +14,7 @@ import {
   publishStatus,
 } from "@conveyor/shared";
 import { dbRecordJob, dbTypicalStageMs, openDb, queuedCancelRecord } from "@conveyor/shared/db";
+import { heldPrinterIds } from "@conveyor/shared/queue";
 import type { Queue } from "bullmq";
 import type { FastifyInstance } from "fastify";
 import { cancelJob } from "../cancel.js";
@@ -149,7 +150,8 @@ export async function registerJobRoutes(
     try {
       const live = active.map((event) => activeJob(queued.get(event.jobId) ?? undefined, event));
       const typical = (job: ActiveJob) => dbTypicalStageMs(openDb(), job);
-      listed = withEstimates(live, { typical, isHeld: () => false }, Date.now());
+      const held = heldPrinterIds(openDb());
+      listed = withEstimates(live, { typical, isHeld: held.has.bind(held) }, Date.now());
     } catch (err) {
       app.log.warn({ err }, "job estimates left out of /jobs/active");
     }
