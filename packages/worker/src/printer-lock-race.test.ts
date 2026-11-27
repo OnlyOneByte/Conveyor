@@ -7,7 +7,26 @@ import {
 } from "@conveyor/shared";
 import { memoryLocks } from "../test/helpers/memory-locks";
 import { harness } from "../test/helpers/pipeline-harness";
-import { type PrinterLock, printerLock, printerLockKey } from "./printer-lock";
+import { PRINTER_LOCK_TTL_MS, type PrinterLock, printerLock, printerLockKey } from "./printer-lock";
+
+async function until(check: () => boolean, what: string, ms = 5000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error(`${what} within ${ms} ms`);
+    await Bun.sleep(5);
+  }
+}
+
+function lockOnAClock() {
+  const clock = { now: 0 };
+  const now = () => clock.now;
+  const store = memoryLocks(now);
+  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, now });
+  const expire = () => {
+    clock.now += PRINTER_LOCK_TTL_MS;
+  };
+  return { store, lock, expire };
+}
 
 function twoWorkersOnOnePrinter(lock: PrinterLock | undefined) {
   const started: string[] = [];
@@ -36,12 +55,12 @@ function twoWorkersOnOnePrinter(lock: PrinterLock | undefined) {
   return { printer, finishFirst, a: worker("a"), b: worker("b") };
 }
 
-async function race(lock: PrinterLock | undefined) {
+async function race(lock: PrinterLock | undefined, secondArrived: () => boolean) {
   const { printer, finishFirst, a, b } = twoWorkersOnOnePrinter(lock);
   const first = a.run();
-  for (let tries = 0; tries < 200 && printer.started.length === 0; tries++) await Bun.sleep(5);
+  await until(() => printer.started.length > 0, "A never started");
   const second = b.run();
-  await Bun.sleep(60);
+  await until(() => secondArrived() || printer.started.length > 1, "B never reached the printer");
   const startedWhileFirstPrinted = [...printer.started];
   finishFirst();
   expect(await first).toBe("done");
@@ -50,15 +69,21 @@ async function race(lock: PrinterLock | undefined) {
 }
 
 test("two workers sending to one printer take turns: the second starts only after the first settles", async () => {
-  const lock = printerLock(memoryLocks(), { held: () => null, log: () => {}, pollMs: 5 });
-  const { printer, startedWhileFirstPrinted } = await race(lock);
+  const logs: string[] = [];
+  const lock = printerLock(memoryLocks(), {
+    held: () => null,
+    log: (line) => logs.push(line),
+    pollMs: 5,
+  });
+  const waiting = () => logs.includes("printer p1 is busy with another job; waiting for it");
+  const { printer, startedWhileFirstPrinted } = await race(lock, waiting);
   expect(startedWhileFirstPrinted).toEqual(["a"]);
   expect(printer.started).toEqual(["a", "b"]);
   expect(printer.most).toBe(1);
 });
 
 test("without the lock both workers start on the printer at once", async () => {
-  const { printer, startedWhileFirstPrinted } = await race(undefined);
+  const { printer, startedWhileFirstPrinted } = await race(undefined, () => false);
   expect(startedWhileFirstPrinted).toEqual(["a", "b"]);
   expect(printer.most).toBe(2);
 });
@@ -98,8 +123,7 @@ test("a start that may have happened puts the printer on hold, and the next job 
 });
 
 test("a job whose lock is lost mid-upload refuses at START, after another job took the printer", async () => {
-  const store = memoryLocks();
-  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const { lock, expire } = lockOnAClock();
   const started: string[] = [];
   const b = harness({
     submit: async (ctx) => {
@@ -111,10 +135,9 @@ test("a job whose lock is lost mid-upload refuses at START, after another job to
   let second: Promise<unknown> = Promise.resolve();
   const a = harness({
     submit: async (ctx) => {
-      store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+      expire();
       second = b.run();
-      for (let tries = 0; tries < 400 && started.length === 0; tries++) await Bun.sleep(5);
-      store.failRenewalsOf = undefined;
+      await until(() => started.length > 0, "B never started");
       await ctx.confirmStart?.();
       started.push("a");
     },
@@ -139,8 +162,7 @@ function printerFiles() {
 }
 
 test("a job whose lock is lost mid-upload never removes the file the next job uploaded", async () => {
-  const store = memoryLocks();
-  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const { lock, expire } = lockOnAClock();
   const printer = printerFiles();
   const startedWith: boolean[] = [];
   let bUploaded = false;
@@ -163,10 +185,9 @@ test("a job whose lock is lost mid-upload never removes the file the next job up
   const a = harness({
     submit: async (ctx) => {
       printer.files.add("conveyor-a.gcode");
-      store.failRenewalsOf = store.held.get(printerLockKey("p1"));
+      expire();
       second = b.run();
-      for (let tries = 0; tries < 400 && !bUploaded; tries++) await Bun.sleep(5);
-      store.failRenewalsOf = undefined;
+      await until(() => bUploaded, "B never started");
       await ctx.confirmStart?.();
     },
     pruneFiles: printer.pruneFiles,
@@ -181,15 +202,13 @@ test("a job whose lock is lost mid-upload never removes the file the next job up
 });
 
 test("a job whose lock is lost mid-print leaves the printer's files alone", async () => {
-  const store = memoryLocks();
-  const lock = printerLock(store, { held: () => null, log: () => {}, pollMs: 5, ttlMs: 30 });
+  const { store, lock } = lockOnAClock();
   const printer = printerFiles();
   const logs: string[] = [];
   const h = harness({
     status: async function* () {
       yield { state: "printing", progress: 0.5 };
       store.failRenewalsOf = store.held.get(printerLockKey("p1"));
-      await Bun.sleep(80);
       yield { state: "done" };
     },
     pruneFiles: printer.pruneFiles,
