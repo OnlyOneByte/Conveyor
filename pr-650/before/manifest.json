@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:46305",
+  "url": "http://127.0.0.1:39997",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 651602,
+      "gifBytes": 693357,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 380895,
+      "gifBytes": 393325,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -103,6 +103,13 @@
       "png": "make-upload-good-1440.png"
     },
     {
+      "scene": "make-upload-fit-down",
+      "width": 1440,
+      "warnings": [],
+      "error": "waitFor: Timeout 15000ms exceeded.. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (make-upload-fit-down-1440.caddy.log)",
+      "png": "make-upload-fit-down-1440.png"
+    },
+    {
       "scene": "rerun-stale-field",
       "width": 1440,
       "warnings": [],
@@ -113,7 +120,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 527869,
+      "gifBytes": 589328,
       "gif": "make-print-1440.gif"
     },
     {
@@ -163,7 +170,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 727955,
+      "gifBytes": 666146,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -429,7 +436,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 865347,
+      "gifBytes": 834271,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -545,7 +552,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 518383,
+      "gifBytes": 468031,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -553,7 +560,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1193323,
+      "gifBytes": 1316769,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -561,7 +568,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1530617,
+      "gifBytes": 1469316,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -593,7 +600,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 312142,
+      "gifBytes": 279792,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -631,7 +638,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 417059,
+      "gifBytes": 387222,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -663,7 +670,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1062327,
+      "gifBytes": 929973,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -677,7 +684,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 833728,
+      "gifBytes": 753354,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -721,7 +728,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 810216,
+      "gifBytes": 724473,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -918,7 +925,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 384504,
+      "gifBytes": 355666,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -926,6 +933,32 @@
       "width": 1440,
       "warnings": [],
       "png": "dock-depth-1440.png"
+    },
+    {
+      "scene": "palette-slow",
+      "width": 1440,
+      "warnings": [],
+      "error": "lazy: /printers imports nothing on demand. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-slow-1440.caddy.log)",
+      "png": "palette-slow-1440.png"
+    },
+    {
+      "scene": "palette-down",
+      "width": 1440,
+      "warnings": [],
+      "error": "lazy: /printers imports nothing on demand. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-down-1440.caddy.log)",
+      "png": "palette-down-1440.png"
+    },
+    {
+      "scene": "sign-in-lazy-down",
+      "width": 1440,
+      "warnings": [],
+      "png": "sign-in-lazy-down-1440.png"
+    },
+    {
+      "scene": "auth-down-lazy-down",
+      "width": 1440,
+      "warnings": [],
+      "png": "auth-down-lazy-down-1440.png"
     },
     {
       "scene": "make-upload-too-big",
@@ -1016,7 +1049,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 660228,
+      "gifBytes": 660150,
       "gif": "new-job-390.gif"
     },
     {
@@ -1024,7 +1057,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376621,
+      "gifBytes": 403870,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1098,7 +1131,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1049363,
+      "gifBytes": 1049368,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1334,7 +1367,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1016426,
+      "gifBytes": 1034271,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1456,7 +1489,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 531745,
+      "gifBytes": 531940,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1500,7 +1533,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 632358,
+      "gifBytes": 636085,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1532,7 +1565,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1332853,
+      "gifBytes": 1390856,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1546,7 +1579,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1158101,
+      "gifBytes": 1172202,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1578,7 +1611,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1134942,
+      "gifBytes": 1131889,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1798,7 +1831,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 448694,
+      "gifBytes": 449211,
       "gif": "motion-sheet-390.gif"
     },
     {
