@@ -69,6 +69,25 @@ describe("a held printer on the SQLite queue", () => {
     releasePrinterHold(db, request.printerId);
   });
 
+  test("a refused retry isn't used up: after Release hold, the same retry is queued", async () => {
+    enqueueJob(db, { id: "held-again", request });
+    db.query("UPDATE jobs SET state = 'failed' WHERE id = ?").run("held-again");
+    hold();
+    expect((await post({ ...request, retryOf: "held-again" })).status).toBe(409);
+    releasePrinterHold(db, request.printerId);
+    const retried = await post({ ...request, retryOf: "held-again" });
+    expect(retried.status).toBe(202);
+    const row = db.query("SELECT retried_by FROM jobs WHERE id = ?").get("held-again");
+    expect(row).toEqual({ retried_by: retried.body.jobId });
+  });
+
+  test("a bad request to a held printer gets its own 400 first", async () => {
+    hold();
+    const bad = { ...request, generator: { id: "gridfinity", params: { gridX: -9 } } };
+    expect((await post(bad)).status).toBe(400);
+    releasePrinterHold(db, request.printerId);
+  });
+
   test("once the hold is released, the same job is queued", async () => {
     hold();
     expect((await post(request)).status).toBe(409);

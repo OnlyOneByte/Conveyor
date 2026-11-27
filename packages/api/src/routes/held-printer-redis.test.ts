@@ -6,10 +6,18 @@ import { join } from "node:path";
 import { dbRecordJob, openDb } from "@conveyor/shared/db";
 import { holdPrinter, releasePrinterHold } from "@conveyor/shared/queue";
 import Fastify from "fastify";
+import { z } from "zod";
 
 const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
   throw new Error("REDIS_URL must be set in CI for the Redis held-printer tests");
+
+const answer = z.looseObject({
+  error: z.string().optional(),
+  held: z.boolean().optional(),
+  jobId: z.string().optional(),
+});
+type Answer = z.infer<typeof answer>;
 
 const request = {
   generator: { id: "gridfinity", params: {} },
@@ -48,13 +56,13 @@ describe.skipIf(!url)("a held printer on the Redis queue", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  const post = async (body: unknown) => {
+  const post = async (body: unknown): Promise<{ status: number; body: Answer }> => {
     const res = await fetch(`${base}/jobs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    return { status: res.status, body: await res.json() };
+    return { status: res.status, body: answer.parse(await res.json()) };
   };
 
   test("refuses a new job with a 409 that names the hold, and adds nothing to the queue", async () => {
@@ -74,5 +82,18 @@ describe.skipIf(!url)("a held printer on the Redis queue", () => {
     expect(await queue.jobQueue.getWaitingCount()).toBe(before);
     const row = openDb().query("SELECT retried_by FROM jobs WHERE id = ?").get(failed);
     expect(row).toEqual({ retried_by: null });
+  });
+
+  test("a refused retry isn't used up: after Release hold, the same retry is queued", async () => {
+    const failed = randomUUID();
+    dbRecordJob(openDb(), { ...request, id: failed, generatorId: "gridfinity", state: "failed" });
+    expect((await post({ ...request, retryOf: failed })).status).toBe(409);
+    releasePrinterHold(openDb(), request.printerId);
+    const retried = await post({ ...request, retryOf: failed });
+    holdPrinter(openDb(), { printerId: request.printerId, jobId: "held-by", reason: "x", at: 1 });
+    expect(retried.status).toBe(202);
+    if (retried.body.jobId) await (await queue.jobQueue.getJob(retried.body.jobId))?.remove();
+    const row = openDb().query("SELECT retried_by FROM jobs WHERE id = ?").get(failed);
+    expect(row).toEqual({ retried_by: retried.body.jobId });
   });
 });

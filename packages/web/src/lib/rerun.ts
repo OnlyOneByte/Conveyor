@@ -1,6 +1,5 @@
 import type { JobState } from "@conveyor/shared";
 import { type JobHistoryEntry, submitJob } from "./api";
-import { Held } from "./http-error";
 import { retryJob } from "./retry";
 
 const KEY = "conveyor.rerun";
@@ -50,8 +49,7 @@ export async function sendJob(
     });
   const retried = await retryJob({ id: retryOf, request }, fetchFn);
   if (retried.ok) return { jobId: retried.jobId };
-  if (retried.held) throw new Held(retried.error);
-  if (retried.status === 409) throw new AlreadyRetried(retried.retriedBy ?? null);
+  if (retried.status === 409 && !retried.held) throw new AlreadyRetried(retried.retriedBy ?? null);
   throw new Error(retried.error);
 }
 

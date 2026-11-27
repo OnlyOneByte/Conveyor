@@ -46,7 +46,6 @@ export function parseSubmission(body: unknown): Submission {
       error: `unknown printer ${parsed.data.printerId} or profile ${parsed.data.profileId}`,
     };
   }
-  if (printerHoldReason(openDb(), target.printerId) !== null) return held(target.printerId);
   try {
     validateJobRequest(parsed.data, target);
   } catch (err) {
@@ -54,6 +53,7 @@ export function parseSubmission(body: unknown): Submission {
   }
   const params = parseGeneratorParams(parsed.data);
   if (!params.ok) return { ok: false, code: 400, error: params.error };
+  if (printerHoldReason(openDb(), target.printerId) !== null) return held(target.printerId);
   return {
     ok: true,
     request: { ...parsed.data, generator: { ...parsed.data.generator, params: params.params } },

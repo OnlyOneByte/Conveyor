@@ -1,14 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fetchCatalogProfiles } from "./api.js";
-import {
-  failure,
-  fieldOf,
-  Held,
-  MESSAGE_MAX,
-  shown,
-  Unreachable,
-  unreachable,
-} from "./http-error.js";
+import { failure, fieldOf, MESSAGE_MAX, shown, Unreachable, unreachable } from "./http-error.js";
 
 const answering = (status: number, body: BodyInit | null, type = "application/json") =>
   Object.assign(async () => new Response(body, { status, headers: { "content-type": type } }), {
@@ -105,20 +97,4 @@ describe("a server message", () => {
       globalThis.fetch = real;
     }
   });
-});
-
-test("a hold refusal becomes a Held error that keeps the server's words", async () => {
-  const r = Response.json(
-    {
-      error:
-        "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.",
-      held: true,
-    },
-    { status: 409 },
-  );
-  const e = await failure(r, "POST /jobs");
-  expect([e instanceof Held, e.message]).toEqual([
-    true,
-    "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.",
-  ]);
 });

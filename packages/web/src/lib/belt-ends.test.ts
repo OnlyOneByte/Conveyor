@@ -160,13 +160,26 @@ describe("a held printer on the belt", () => {
     expect(said).toEqual([[`Couldn't retry Bin 2×3: ${HOLD}`, "assertive"]]);
   });
 
-  test("Print again, from the belt or the cancel toast, says the hold", async () => {
-    const { said, toasts, records, ends } = rig(["submit-held"]);
+  test("Print again, from the belt or the cancel toast, sends the real request and says the hold", async () => {
+    const posted: string[] = [];
+    const stub = spyOn(globalThis, "fetch").mockImplementation(
+      Object.assign(
+        async (url: string | URL | Request) => {
+          posted.push(String(url));
+          return Response.json({ error: HOLD, held: true }, { status: 409 });
+        },
+        { preconnect: fetch.preconnect },
+      ),
+    );
+    const { said, toasts, records, ends } = rig([], undefined, http.submit);
     records.set("c3", entry("c3", "canceled"));
     await ends.act({ ...job, id: "c3", state: "canceled", request }, "Print again");
     await ends.act({ ...job, id: "c4", state: "printing", request }, "Cancel");
     toasts[0]?.action?.run();
     await Bun.sleep(0);
+    await Bun.sleep(0);
+    stub.mockRestore();
+    expect(posted).toEqual(["/api/jobs", "/api/jobs"]);
     expect(said).toEqual([
       [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],
       [`Couldn't print Bin 2×3 again: ${HOLD}`, "assertive"],

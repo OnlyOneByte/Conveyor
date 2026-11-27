@@ -1,7 +1,7 @@
 import type { Politeness } from "../../src/lib/announce";
 import type { JobHistoryEntry } from "../../src/lib/api";
 import { createEnds, type EndsFeed } from "../../src/lib/belt-ends";
-import { Held, Unreachable } from "../../src/lib/http-error";
+import { Unreachable } from "../../src/lib/http-error";
 import type { Retried } from "../../src/lib/retry";
 import type { TrackJob } from "../../src/lib/track";
 
@@ -63,7 +63,11 @@ export const job: TrackJob = {
 export const HOLD =
   "Garage Klipper is on hold. Check it, then choose Release hold on the Printers page before you print to it.";
 
-export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId: "j2" }) {
+export function rig(
+  refuse: string[] = [],
+  retried: Retried = { ok: true, jobId: "j2" },
+  submit?: EndsFeed["submit"],
+) {
   const calls: string[] = [];
   const said: [string, Politeness][] = [];
   const shown: [number, TrackJob[]][] = [];
@@ -77,7 +81,6 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
   const records = new Map<string, JobHistoryEntry>();
   const call = (name: string) => async (arg?: unknown) => {
     calls.push(`${name} ${JSON.stringify(arg)}`);
-    if (refuse.includes(`${name}-held`)) throw new Held(HOLD);
     if (refuse.includes(name)) throw new Error("409");
   };
   const feed: EndsFeed = {
@@ -93,7 +96,7 @@ export function rig(refuse: string[] = [], retried: Retried = { ok: true, jobId:
       }),
     ],
     entry: async (id) => records.get(id) ?? null,
-    submit: call("submit"),
+    submit: submit ?? call("submit"),
     retry: async (failed) => {
       await call("retry")(failed.id);
       return retried;
