@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { type Browser, chromium, type Page } from "playwright";
 import { landsElsewhere, pageDirs } from "./affected.ts";
 import { stubAuth } from "./auth.ts";
-import { skipsOnBase } from "./base-scenes.ts";
+import { notOnBase, skipsOnBase } from "./base-scenes.ts";
 import { logsDir, shotContextOptions, watchShot, workerProblem } from "./css-net.ts";
 import { messageOf } from "./errors.ts";
 import { type Frame, framesToGif } from "./gif.ts";
@@ -74,10 +74,9 @@ if (unshot.length) throw new Error(`scenes shot at no width: ${unshot.join(", ")
 const dirs = pageDirs(resolve(values.root));
 const BASE_READY_MS = 5000;
 const readyMs = values.base ? BASE_READY_MS : 30000;
-const absent = await skipsOnBase(values.base ? resolve(values.root) : null, selected);
+const base = await skipsOnBase(values.base && resolve(values.root), selected, scenes);
+const absent = base.skips;
 let caddyLogs: ((sinceMs: number) => string) | undefined;
-const notOnBase = (scene: Scene) =>
-  `not on the base: "${scene.ready}" didn't appear within ${BASE_READY_MS / 1000} s, so ${scene.name} is new on this PR`;
 
 function startSampler(page: Page, warnings: string[]): Sampler {
   const frames: Frame[] = [];
@@ -159,9 +158,9 @@ async function shoot({ browser, base, scene, width }: ShotOptions): Promise<Shot
         },
       );
     if (!ready) {
-      absent.set(scene.name, notOnBase(scene));
+      absent.set(scene.name, notOnBase(scene, BASE_READY_MS));
       await context.close();
-      return { ...result, warnings: [notOnBase(scene)] };
+      return { ...result, warnings: [notOnBase(scene, BASE_READY_MS)] };
     }
     await assertStyles(page);
     if (scene.record) sampler = startSampler(page, result.warnings);
@@ -229,7 +228,7 @@ async function main(): Promise<number> {
   const results: ShotResult[] = [];
   let warnings: string[] = [];
   try {
-    warnings = await warmUp(browser, stack.url);
+    warnings = [...base.notes, ...(await warmUp(browser, stack.url))];
     for (const w of warnings) console.log(`warn ${w}`);
     for (const width of WIDTHS) {
       for (const scene of selected.filter((s) => !s.widths || s.widths.includes(width))) {
