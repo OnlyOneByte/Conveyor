@@ -119,8 +119,13 @@ describe("ackCode", () => {
     expect(ackCode(raw, "r1")).toEqual({ kind: "other", reason: "not an ack for this request" });
   });
 
-  test("an unreadable reply is malformed", () => {
-    expect(ackCode("pong", "r1").kind).toBe("malformed");
+  test("an unreadable frame that doesn't name this request is skipped, not read as the reply", () => {
+    for (const raw of [
+      "pong",
+      JSON.stringify({ Data: null }),
+      JSON.stringify({ Data: { RequestID: 7 } }),
+    ])
+      expect(ackCode(raw, "r1").kind).toBe("other");
   });
 
   test("a non-numeric Ack is malformed instead of read as a code", () => {

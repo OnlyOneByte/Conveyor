@@ -58,6 +58,7 @@ export const StatusData = z
         PrintInfo: z
           .object({
             Filename: z.string().optional().catch(undefined),
+            TaskId: z.string().optional().catch(undefined),
             Status: reading,
             Progress: reading,
             CurrentLayer: reading,

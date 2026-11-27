@@ -2,6 +2,7 @@ import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
   printerFileName,
@@ -17,12 +18,30 @@ import {
   uploadSignal,
 } from "@conveyor/shared/node";
 import { pruneLocalFiles } from "./prune.js";
-import { elegooReadiness } from "./ready.js";
+import { elegooStatusOnce, readinessOf } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
-import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
+import { printerEndpoint, SdcpRejectedError, sendCommand, streamStatus } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
+
+export async function startPrint(address: string, mainboardId: string, filename: string) {
+  let sent = false;
+  const start = {
+    mainboardId,
+    cmd: SDCP_CMD.START_PRINT,
+    data: { Filename: filename, StartLayer: 0 },
+  };
+  await sendCommand(address, start, true, () => {
+    sent = true;
+  }).catch((err: unknown) => {
+    if (err instanceof SdcpRejectedError)
+      throw new PrintNotStartedError(err.reason, { cause: err });
+    if (!sent) throw err;
+    const why = err instanceof Error ? err.message : String(err);
+    throw new PrintMayHaveStartedError(`elegoo START_PRINT was sent but not acknowledged: ${why}`);
+  });
+}
 
 export const elegoo: TransportPlugin = {
   id: "elegoo",
@@ -40,23 +59,23 @@ export const elegoo: TransportPlugin = {
 
     const mainboardId = mainboardIdOf(target);
     await requirePrinterAddress(target.address);
+    const signal = ctx.signal;
     refuseUnlessIdle(
       "elegoo",
-      await elegooReadiness(target.address, mainboardId, undefined, ctx.signal),
+      readinessOf(await elegooStatusOnce(target.address, mainboardId, undefined, signal)),
     );
     await uploadGcode(target.address, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
     await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
+    const justBefore = await elegooStatusOnce(target.address, mainboardId, undefined, signal);
+    refuseUnlessIdle("elegoo", readinessOf(justBefore));
+    const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
-    await sendCommand(target.address, {
-      mainboardId,
-      cmd: SDCP_CMD.START_PRINT,
-      data: { Filename: filename, StartLayer: 0 },
-    });
+    await startPrint(target.address, mainboardId, filename);
 
-    return elegooHandle(target, filename);
+    return elegooHandle(target, filename, priorTask);
   },
 
   handleFor: elegooHandle,
@@ -77,6 +96,8 @@ export const elegoo: TransportPlugin = {
       address: handle.address,
       mainboardId: handle.deviceId ?? handle.printerId,
       idleTimeoutMs: STATUS_IDLE_TIMEOUT_MS,
+      filename: handle.ref,
+      priorTask: handle.priorTask,
     };
     for await (const s of streamStatus(stream, signal)) {
       yield s;
@@ -104,13 +125,14 @@ function mainboardIdOf(target: PrinterTarget): string {
   return target.secrets?.mainboardId ?? target.id;
 }
 
-function elegooHandle(target: PrinterTarget, ref: string): PrintHandle {
+function elegooHandle(target: PrinterTarget, ref: string, priorTask?: string): PrintHandle {
   return {
     transportId: "elegoo",
     printerId: target.id,
     ref,
     address: target.address,
     deviceId: mainboardIdOf(target),
+    ...(priorTask === undefined ? {} : { priorTask }),
   };
 }
 

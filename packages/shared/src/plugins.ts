@@ -78,6 +78,7 @@ export interface PrintHandle {
   ref: string;
   address?: string;
   deviceId?: string;
+  priorTask?: string;
 }
 
 export interface PrintStatus {

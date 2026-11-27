@@ -230,7 +230,7 @@ SDCP (Smart Device Control Protocol), written from the
   topics. A request carries `From: 0` (local PC/app) and `TimeStamp` in wall-clock seconds. The
   clock is read through `nowMs()` when a command is sent, so nothing reads the clock at import time and the
   import graph stays pure. Each command waits
-  up to 15 s for its ack. JSON frames for other requests are skipped; an unreadable frame rejects the command.
+  up to 15 s for its ack. Frames for other requests are skipped, unreadable ones included; an unreadable reply naming this request rejects the command.
   The status stream tolerates up to `MAX_BAD_STATUS_FRAMES - 1` (2) unreadable frames since the last readable
   status frame, so one garbled push does not fail a running print; the third ends `status()` with a
   `StageError` that names the count and quotes the last frame. Only a readable status frame resets the
@@ -241,6 +241,32 @@ SDCP (Smart Device Control Protocol), written from the
   `StageError` "no print status for <ms> ms" and the job fails. Nothing else restarts it: notice, attributes
   and response frames, unreadable frames, `sdcp/error` frames (even repeated ones), and status frames that
   map to no state, such as idle (`CurrentStatus: [0]` without `PrintInfo.Status` 8 or 9).
+- This job's ending only (`print-status.ts`): `PrintInfo.Status` 9 (complete) or 8 (stopped) stays on the
+  printer after a print. So the first frame after `START_PRINT` can still describe the previous one. A 9 or 8
+  ends the job only in these cases:
+  - the stream has seen the job printing;
+  - `PrintInfo.Filename`, by base name, is this job's file (`handle.ref`), so `/local/<file>` matches too;
+  - its `PrintInfo.TaskId` is set and differs from the `TaskId` read right before `START_PRINT` (a second
+    status read after the upload). That read runs the idle check again: a printer that turned busy during the
+    upload is refused with `PrintNotStartedError`, so no `START_PRINT` and no stop are sent.
+    - **Why not the pre-upload read:** a print someone starts and ends on the printer during the upload leaves
+      a new `TaskId`, and its leftover 9 or 8 would then read as this job's ending.
+    - **Where it's kept:** on the handle as `priorTask` (`""` when the printer had no task), which survives a
+      resume.
+
+  A handle without `priorTask` (one written before this field) uses only the first two. Any other 9 or 8 maps
+  to no state, like idle, and doesn't restart the timer.
+- Start: `START_PRINT` waits for the printer's ack.
+  - Any non-zero ack is a `PrintNotStartedError`, so a cancel that races the start sends no `STOP_PRINT`. That
+    covers 1 busy, which may be someone else's print, 2 file not found, and 3-7 file errors. `STOP_PRINT` isn't
+    scoped to a file or task.
+  - A socket that fails before the command was sent is a plain `StageError`.
+  - A socket that closes, errors or times out after the command was sent throws `PrintMayHaveStartedError`
+    ("elegoo START_PRINT was sent but not acknowledged"), so the worker holds the printer as it does for
+    Moonraker.
+  - While a command waits for its ack, a frame that doesn't decode as an ack and doesn't contain the
+    command's `RequestID` (a pong, `{"Data":null}`, another request's reply) is skipped. Only a reply naming
+    this request can end the wait early.
 - Status refresh: SDCP V3.0.0 pushes status only when it changes, or in reply to a `Cmd 0` status request;
   it has no periodic push. A paused print changes nothing, so on its own it would go silent. While the stream
   is open it therefore sends `Cmd 0` to the handle's `deviceId` every `ELEGOO_STATUS_TIMEOUT_MS / 2`. A

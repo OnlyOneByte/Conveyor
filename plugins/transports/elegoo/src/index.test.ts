@@ -51,7 +51,7 @@ class FakeWebSocket {
       queueMicrotask(() =>
         this.onmessage?.({ data: JSON.stringify({ Topic: "sdcp/status/x", Data: {} }) }),
       );
-    if (FakeWebSocket.mode === "garbage" || FakeWebSocket.mode === "close") return;
+    if (FakeWebSocket.mode === "close") return;
     if (FakeWebSocket.mode === "silent") return;
     const code = FakeWebSocket.mode === "nack" ? 1 : 0;
     const ack = { Data: { RequestID: frame.Data.RequestID, Data: { Ack: code } } };
@@ -111,12 +111,10 @@ describe("elegoo cancel ack codes", () => {
     await expect(stop).rejects.toThrow("rejected (ack 1)");
   });
 
-  test("an unreadable reply rejects the stop with the reply in the message", async () => {
+  test("an unreadable frame before the ack is skipped, and the ack still confirms the stop", async () => {
     useFakeSocket("garbage");
     const stop = elegoo.cancel?.(handle) ?? Promise.resolve();
-    await expect(withinMs(stop, 1000, "elegoo cancel")).rejects.toThrow(
-      "elegoo cmd 130: unreadable reply: JSON Parse error: Unrecognized token '<' in \"<html>busy</html>\"",
-    );
+    await expect(withinMs(stop, 1000, "elegoo cancel")).resolves.toBeUndefined();
   });
 
   test("frames for other requests are skipped until the matching ack arrives", async () => {

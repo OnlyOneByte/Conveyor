@@ -10,7 +10,13 @@ import { markSubmitted, takePrinterSlot } from "./submit.ts";
 let h: QueueHarness;
 afterEach(() => h.close());
 
-const handle = { transportId: "fake", printerId: "p1", ref: "a.gcode", address: "10.0.0.2" };
+const handle = {
+  transportId: "fake",
+  printerId: "p1",
+  ref: "a.gcode",
+  address: "10.0.0.2",
+  priorTask: "task-before",
+};
 const holdOf = () =>
   h.db.query("SELECT hold_job_id, hold_reason FROM printers WHERE id = 'p1'").get();
 
