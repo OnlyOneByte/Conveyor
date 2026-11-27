@@ -112,3 +112,27 @@ test("a promote that fails while the job is still delayed is not ignored", async
   await expect(waitOutHold(claimed, "lock-c", "p1", deps([stuck]))).rejects.toBe(broken);
   expect(log).toEqual([]);
 });
+
+test("a hold set again with a new reason refreshes the waiting message once", async () => {
+  const log: string[] = [];
+  const shown: string[] = [];
+  const claimed = fakeJob("a", 100, "p1", log);
+  let reason = "may have started";
+  let current: { state: "queued"; message: string } | undefined;
+  const held = deps([], {
+    held: () => reason,
+    shownAs: async () => current,
+    showQueued: async (_id, message) => {
+      shown.push(message);
+      current = { state: "queued", message };
+    },
+  });
+  await expect(waitOutHold(claimed, "lock-1", "p1", held)).rejects.toBeInstanceOf(DelayedError);
+  reason = "the stop wasn't confirmed";
+  await expect(waitOutHold(claimed, "lock-2", "p1", held)).rejects.toBeInstanceOf(DelayedError);
+  await expect(waitOutHold(claimed, "lock-3", "p1", held)).rejects.toBeInstanceOf(DelayedError);
+  expect(shown).toEqual([
+    "waiting: the printer is on hold (may have started)",
+    "waiting: the printer is on hold (the stop wasn't confirmed)",
+  ]);
+});
