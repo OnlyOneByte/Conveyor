@@ -14,7 +14,7 @@ const url = process.env.REDIS_URL;
 if (!url && process.env.CI)
   throw new Error("REDIS_URL must be set in CI for the Redis held-job visibility test");
 
-const ISOLATED_DB = "13";
+const ISOLATED_DB = "14";
 const WORKER = resolve(import.meta.dir, "../../../worker/src/main.ts");
 const PROFILES = resolve(import.meta.dir, "../../../../profiles");
 const HOLD = "may have started";
