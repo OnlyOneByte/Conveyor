@@ -128,11 +128,18 @@ its two connections. `redisPrinterDeps(db, env)` builds the job's printer lookup
 - A queued job's payload is external input. `readJobPayload` (`job-payload.ts`) parses it with
   `jobRequestSchema` from `@conveyor/shared`, the same schema `POST /jobs` uses. A payload that does not
   parse publishes a `failed` status at the `generator` stage and fails the BullMQ job; the pipeline never runs.
-- **A held printer at claim time:** once the payload parses, and before the work dir or any modelling, the worker
-  reads the printer's SQLite hold. While one is set, the job goes back to BullMQ as `delayed` for
-  `HOLD_RECHECK_MS` (5 s), then is claimed and checked again, so it waits queued until Release hold, as on the
-  SQLite queue. This catches a hold placed after `POST /jobs` passed its `409` check. No attempt is used, no
-  status is published and nothing is recorded, and a cancel removes the delayed job like a waiting one.
+- **A held printer at claim time** (`hold-wait.ts`): once the payload parses, and before the control connection,
+  the work dir or any modelling, `waitOutHold` reads the printer's SQLite hold. This catches a hold placed after
+  `POST /jobs` passed its `409` check, so the job waits queued until Release hold, as on the SQLite queue.
+  - **While held:** the job goes back to BullMQ as `delayed` for `HOLD_RECHECK_MS` (5 s), then is claimed and
+    checked again. No attempt is used and nothing is recorded in history.
+  - **Shown waiting:** the first check publishes `queued` with "waiting: the printer is on hold (<reason>)", so
+    the job is on `/jobs/active` and `GET /jobs/:id`, with a Cancel button and no start estimate. Later checks
+    publish nothing while that status stands.
+  - **Cancel:** a cancel between checks removes the delayed job. One that lands during a check sets the cancel
+    key, and the check settles the job `canceled` straight away instead of waiting again.
+  - **After Release hold:** the first check that finds the printer free promotes that printer's older delayed
+    jobs, oldest first, and goes back behind them, so the held jobs run in the order they were queued.
 - Every step before the pipeline settles the same way when it throws: parsing the payload, creating the work
   dir and subscribing to the job's control channel. The job is recorded `failed` in SQLite at the `generator`
   stage, with the error as its reason, so it shows in history and Needs you; then `failed` is published. A

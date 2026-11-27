@@ -88,7 +88,7 @@ In both modes an active job can carry `estimate: { typicalMs?, startsAt? }`; wit
   A queued job's model and slicing run meanwhile, but only once the job ahead of it has taken the
   printer, so it starts at the later of the printer being free and its own preparation being done. Each job ahead then holds the printer for its typical
   `transport`. Once a step is unknown, the jobs behind it get no `startsAt`, and a held printer
-  (`printers.hold_job_id`, SQLite queue) gives none to its whole queue.
+  (`printers.hold_job_id`, read by `heldPrinterIds` in both queue modes) gives none to its whole queue.
 - On Redis the printer and generator come from the BullMQ job; if that read fails, estimates are left out.
 
 ## Job routes on the Redis queue (`routes/jobs.ts`)

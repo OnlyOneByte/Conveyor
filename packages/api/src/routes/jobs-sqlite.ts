@@ -11,6 +11,7 @@ import {
 import { dbLiveJobCounts, dbTypicalStageMs, openDb } from "@conveyor/shared/db";
 import {
   enqueueJob,
+  heldPrinterIds,
   readJobFields,
   readSnapshot,
   requestCancel,
@@ -126,12 +127,7 @@ export async function registerJobRoutes(
           return [];
         }
       });
-    const held = new Set(
-      db
-        .query<{ id: string }, []>("SELECT id FROM printers WHERE hold_job_id IS NOT NULL")
-        .all()
-        .map((p) => p.id),
-    );
+    const held = heldPrinterIds(db);
     const inputs = {
       typical: (job: ActiveJob) => dbTypicalStageMs(db, job),
       isHeld: held.has.bind(held),
