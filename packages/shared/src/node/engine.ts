@@ -104,7 +104,7 @@ export function killGroup(
 ): void {
   if (pid === undefined || pid <= 1) return;
   if (!signalGroup(pid, "SIGTERM", ctx, how)) return;
-  setTimeout(() => signalGroup(pid, "SIGKILL", ctx, how), how.graceMs).unref();
+  setTimeout(() => signalGroup(pid, "SIGKILL", ctx, how), how.graceMs);
 }
 
 function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): Promise<EngineRun> {
