@@ -1,6 +1,6 @@
 import { toasts } from "./ui/behaviour";
 
-export const DIALOG_DOWN = "The printer form didn't load. Reload the page to try again.";
+export const DIALOG_DOWN = "The printer form didn't load. Check your connection, then try again.";
 
 export const loadPrinterDialog = () =>
   import("./components/PrinterDialog.svelte").then(

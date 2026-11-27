@@ -9,10 +9,17 @@
   export let card: PrinterCard;
   export let how: string;
   export let limits: string;
-  export let edit: () => void;
+  export let edit: () => unknown;
   export let changed: () => Promise<void>;
 
   let asking = false;
+  let opening = false;
+  async function take(run: () => unknown) {
+    if (opening) return;
+    opening = true;
+    await run();
+    opening = false;
+  }
   let releasing = false;
   let refused = "";
 
@@ -79,7 +86,10 @@
   </div>
   <div class="foot">
     <span>{printer.hasSecrets ? `${limits} · ${secretFieldFor(printer.transportId).label} saved` : limits}</span>
-    <button class="btn" type="button" aria-label="Edit {printer.name}" on:click={edit}>Edit</button>
+    <button
+      class="btn" type="button" aria-label="Edit {printer.name}" aria-busy={opening}
+      on:click={() => take(edit)}
+    >{opening ? "Opening…" : "Edit"}</button>
   </div>
 </li>
 
