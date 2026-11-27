@@ -16,6 +16,7 @@
   export let view: JobView | null = null;
   export let settled: JobHistoryEntry | null = null;
   export let printer: string;
+  export let stopped = -1;
 
   const OUTCOME: Record<string, string> = {
     done: "Printed",
@@ -28,13 +29,14 @@
 
   let height = 0;
   let kept = 0;
-  let reached = 2;
+  let reached = -1;
   $: outcome = settled?.state ?? (view && SETTLED.includes(view.state) ? view.state : null);
   $: if (!outcome) kept = height;
   $: live = STEPS.findIndex(([step]) => step === view?.state);
-  $: if (!outcome && live >= 2) reached = live;
+  $: if (!outcome && live > reached) reached = live;
   $: endedAt = settled?.error?.stage ?? settled?.stage ?? "";
-  $: stopped = outcome && outcome !== "done" ? (STOP[endedAt] ?? reached) : -1;
+  $: ranTo = endedAt === "transport" ? Math.max(reached, 2) : reached;
+  $: stopped = outcome && outcome !== "done" ? (STOP[endedAt] ?? ranTo) : -1;
   $: took = settled?.timings?.reduce((sum, t) => sum + (t.durationMs ?? 0), 0) ?? 0;
   $: now = outcome ? (outcome === "done" ? STEPS.length : stopped) : live;
   $: pct = view ? percent(view) : 0;

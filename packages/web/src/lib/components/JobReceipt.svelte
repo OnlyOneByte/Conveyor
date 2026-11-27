@@ -100,6 +100,7 @@
     <span>Job ID</span>
     <button class="btn" type="button" on:click={copyId}>{copied ? "Copied" : "Copy job ID"}</button>
   </div>
+  <slot name="end" />
 </div>
 
 <style>

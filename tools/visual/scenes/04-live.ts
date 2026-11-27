@@ -49,6 +49,8 @@ const PRINTING = {
 };
 
 const NARROW = "^(?:\\d{1,2}|1\\d\\d)(?:\\.\\d+)?px$";
+const OUTCOME = { done: "Printed", failed: "Failed", canceled: "Canceled" };
+const READY = { queued: "main .live >> text=Waiting", printing: "main >> text=38 min left" };
 
 const ahead = (jobId: string, createdAt: number) => ({
   jobId,
@@ -86,18 +88,31 @@ export const scenes: Scene[] = [
   },
   finish("finish-phone", "done", [
     { waitFor: "main >> text=12.4 g" },
-    { waitFor: "main .live >> text=Printed" },
     { waitFor: "main .live >> text=Took 1 h 13 min" },
     { above: "main .receipt", of: "main .mat" },
   ]),
   finish("fail-phone", "failed", [
-    { waitFor: "main .live >> text=Failed" },
     { waitFor: "main .live li.stop >> text=Print" },
     { absent: "main .live li.stop >> text=Send" },
+    { waitFor: "main .receipt [role=note] >> text=The print didn't finish" },
+    { absent: "main >> text=Sending to the printer didn't finish" },
   ]),
+  finish(
+    "cancel-queued-phone",
+    "canceled",
+    [{ absent: "main .live li.stop" }, { absent: "main .live li.past" }],
+    { state: "queued", timings: [] },
+    { stage: null, timings: [], artifacts: {}, filament: {} },
+  ),
 ];
 
-function finish(name: string, state: "done" | "failed", checks: Step[]): Scene {
+function finish(
+  name: string,
+  state: "done" | "failed" | "canceled",
+  checks: Step[],
+  live: { state: "queued" | "printing"; timings?: object[] } = { state: "printing" },
+  entry: object = {},
+): Scene {
   const jobId = `scene-${name}`;
   const failure = { error: { stage: "transport", reason: "printer reported an error" } };
   const done = `**/api/jobs/${jobId}`;
@@ -136,20 +151,24 @@ function finish(name: string, state: "done" | "failed", checks: Step[]): Scene {
           filament: { grams: 12.4, metres: 4.1 },
           createdAt: ADDED,
           updatedAt: ADDED + 4_369_000,
+          ...entry,
         },
       },
       { fulfill: `**/api/jobs-history/${jobId}`, status: 404, json: {}, times: 1 },
       { stall: done, status: 200, json: { ...view, state, progress: state === "done" ? 1 : 0.64 } },
-      { fulfill: done, status: 200, json: { ...view, ...PRINTING }, times: 1 },
+      {
+        fulfill: done,
+        status: 200,
+        json: { ...view, ...(live.state === "printing" ? PRINTING : live) },
+        times: 1,
+      },
       { follow: `/jobs/${jobId}` },
-      { waitFor: "main >> text=38 min left" },
-      state === "done"
-        ? {
-            stays: ["main .receipt", "main h2:has-text('Settings')"],
-            until: "text=Print again",
-            releasing: done,
-          }
-        : { stays: ["main h1"], until: "main .live >> text=Failed", releasing: done },
+      { waitFor: READY[live.state] },
+      {
+        stays: ["main .receipt", "main h2:has-text('Settings')"],
+        until: `main .live >> text=${OUTCOME[state]}`,
+        releasing: done,
+      },
       ...checks,
     ],
   };

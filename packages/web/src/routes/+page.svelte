@@ -146,7 +146,7 @@
             {/key}
           {/if}
         </div>
-      {:else}
+      {:else if !down}
         <p class="note">
           Can't reach Conveyor right now. Check that it's running, then reload the page.
         </p>
