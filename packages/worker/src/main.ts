@@ -1,5 +1,6 @@
 import { queueMode, retentionDays } from "@conveyor/shared";
 import { openDb } from "@conveyor/shared/db";
+import { settleGroupKills } from "@conveyor/shared/node";
 import { uploadSettings } from "@conveyor/shared/uploads";
 import { startHeartbeat } from "./heartbeat.js";
 import { logger } from "./logger.js";
@@ -16,9 +17,10 @@ export interface StartedWorker {
   stop: () => Promise<void>;
 }
 
-function stopAfter(stopHeartbeat: () => void, worker: { stop: () => Promise<void> }) {
+async function stopAfter(stopHeartbeat: () => void, worker: { stop: () => Promise<void> }) {
   stopHeartbeat();
-  return worker.stop();
+  await worker.stop();
+  await settleGroupKills();
 }
 
 export async function startWorker(env: Record<string, string | undefined>): Promise<StartedWorker> {

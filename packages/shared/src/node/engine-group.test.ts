@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { testCtx } from "../../test/helpers/index.ts";
-import { type GroupKill, killGroup, runEngine } from "./engine";
+import { type GroupKill, killGroup, runEngine, settleGroupKills } from "./engine";
 
 const alive = (pid: number) => {
   try {
@@ -125,4 +125,33 @@ test("a process that stops right after an abort still sends the SIGKILL before i
   } finally {
     ctx.cleanup();
   }
+});
+
+describe("settleGroupKills", () => {
+  test("returns at once when no SIGKILL is pending", async () => {
+    await settleGroupKills(5000);
+    const start = performance.now();
+    await settleGroupKills(5000);
+    expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  test("waits for a pending SIGKILL to be sent", async () => {
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({});
+    killGroup(4242, ctx, { ...how, graceMs: 80 });
+    await settleGroupKills(5000);
+    expect(sent).toEqual(["SIGTERM -4242", "SIGKILL -4242"]);
+    ctx.cleanup();
+  });
+
+  test("stops waiting at its bound, and the SIGKILL still goes out later", async () => {
+    const ctx = testCtx();
+    const { how, sent } = fakeKill({});
+    killGroup(4242, ctx, { ...how, graceMs: 400 });
+    await settleGroupKills(30);
+    expect(sent).toEqual(["SIGTERM -4242"]);
+    await settleGroupKills(5000);
+    expect(sent).toEqual(["SIGTERM -4242", "SIGKILL -4242"]);
+    ctx.cleanup();
+  });
 });

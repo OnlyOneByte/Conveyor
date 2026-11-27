@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
+import { isHashedAsset } from "./css-net.ts";
 import type { Scene } from "./scene.ts";
-import { type AssetRoute, isHashedAsset, routeHashedAssets, serveAsset } from "./static-assets.ts";
+import { type AssetRoute, routeHashedAssets, serveAsset } from "./static-assets.ts";
 
 const ASSET = "http://127.0.0.1/_app/immutable/chunks/Track.2XyWgnUt.js";
 

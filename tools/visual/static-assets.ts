@@ -1,4 +1,4 @@
-import { needsServiceWorker } from "./css-net.ts";
+import { isHashedAsset, needsServiceWorker } from "./css-net.ts";
 import { messageOf } from "./errors.ts";
 import type { Scene } from "./scene.ts";
 
@@ -14,10 +14,6 @@ export interface RoutesAssets<R> {
 }
 
 export type AssetFailed = (url: string, error: string) => void;
-
-const HASHED = /^\/_app\/immutable\/.+\.(js|css|woff2?|ttf)$/;
-
-export const isHashedAsset = (url: URL) => HASHED.test(url.pathname);
 
 async function fetchTwice<R>(route: AssetRoute<R>): Promise<{ response: R } | { error: string }> {
   try {

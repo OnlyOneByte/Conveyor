@@ -34,6 +34,10 @@ export interface ShotNetwork {
 const isCss = (request: CssRequest) =>
   request.resourceType() === "stylesheet" || new URL(request.url()).pathname.endsWith(".css");
 
+const HASHED = /^\/_app\/immutable\/.+\.(js|css|woff2?|ttf)$/;
+
+export const isHashedAsset = (url: URL) => HASHED.test(url.pathname);
+
 const named = (url: string) => new URL(url).pathname.split("/").pop() ?? url;
 
 export function cssReport(problems: string[]): string {
@@ -98,7 +102,8 @@ export function shotNetwork(caddy?: CaddyLog, now: () => number = Date.now): Sho
       problems.push(`${named(url)} failed twice outside Chromium: ${error}`);
     },
     response: (response) => {
-      if (isCss(response.request()) && response.status() !== 200)
+      const asset = isCss(response.request()) || isHashedAsset(new URL(response.url()));
+      if (asset && response.status() !== 200)
         problems.push(`${named(response.url())} answered HTTP ${response.status()}`);
     },
     note: async (error) => {

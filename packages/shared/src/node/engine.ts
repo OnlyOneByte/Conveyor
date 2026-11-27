@@ -104,7 +104,26 @@ export function killGroup(
 ): void {
   if (pid === undefined || pid <= 1) return;
   if (!signalGroup(pid, "SIGTERM", ctx, how)) return;
-  setTimeout(() => signalGroup(pid, "SIGKILL", ctx, how), how.graceMs);
+  const sent = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      signalGroup(pid, "SIGKILL", ctx, how);
+      resolve();
+    }, how.graceMs);
+  });
+  pendingKills.add(sent);
+  void sent.then(() => pendingKills.delete(sent));
+}
+
+const pendingKills = new Set<Promise<void>>();
+
+export async function settleGroupKills(boundMs = KILL_GRACE_MS): Promise<void> {
+  if (pendingKills.size === 0) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, boundMs);
+  });
+  await Promise.race([Promise.all(pendingKills), bound]);
+  clearTimeout(timer);
 }
 
 function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): Promise<EngineRun> {
