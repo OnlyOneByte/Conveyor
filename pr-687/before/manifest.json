@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:45969",
+  "url": "http://127.0.0.1:45321",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 601110,
+      "gifBytes": 662098,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 386068,
+      "gifBytes": 330892,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 558900,
+      "gifBytes": 557850,
       "gif": "make-print-1440.gif"
     },
     {
@@ -167,11 +167,18 @@
       "png": "jobs-down-1440.png"
     },
     {
+      "scene": "jobs-active-down",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene jobs-active-down, so it is new on this PR"
+      ]
+    },
+    {
       "scene": "jobs-keys",
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 740193,
+      "gifBytes": 682308,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -443,7 +450,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 808863,
+      "gifBytes": 813515,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -559,7 +566,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 498139,
+      "gifBytes": 468031,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -567,7 +574,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1225583,
+      "gifBytes": 1350187,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -575,7 +582,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1344361,
+      "gifBytes": 1407524,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -607,7 +614,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 289747,
+      "gifBytes": 280084,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -645,15 +652,15 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 398913,
+      "gifBytes": 387288,
       "gif": "primitives-keys-1440.gif"
     },
     {
       "scene": "receipt-held",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (receipt-held-1440.caddy.log)",
-      "png": "receipt-held-1440.png"
+      "warnings": [
+        "not on the base: it has no scene receipt-held, so it is new on this PR"
+      ]
     },
     {
       "scene": "printers-hold",
@@ -684,7 +691,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 949075,
+      "gifBytes": 933004,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -698,7 +705,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 801025,
+      "gifBytes": 782481,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -742,7 +749,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 792729,
+      "gifBytes": 730542,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -834,9 +841,9 @@
     {
       "scene": "first-run-dock",
       "width": 1440,
-      "warnings": [],
-      "error": "click: Timeout 30000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (first-run-dock-1440.caddy.log)",
-      "png": "first-run-dock-1440.png"
+      "warnings": [
+        "not on the base: it has no scene first-run-dock, so it is new on this PR"
+      ]
     },
     {
       "scene": "first-run-printers",
@@ -844,6 +851,13 @@
       "warnings": [],
       "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (first-run-printers-1440.caddy.log)",
       "png": "first-run-printers-1440.png"
+    },
+    {
+      "scene": "first-run-printers-save",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene first-run-printers-save, so it is new on this PR"
+      ]
     },
     {
       "scene": "first-run-limited",
@@ -971,7 +985,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 365679,
+      "gifBytes": 355151,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1025,9 +1039,9 @@
     {
       "scene": "printers-down",
       "width": 1440,
-      "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-down-1440.caddy.log)",
-      "png": "printers-down-1440.png"
+      "warnings": [
+        "not on the base: it has no scene printers-down, so it is new on this PR"
+      ]
     },
     {
       "scene": "make-upload-too-big",
@@ -1118,7 +1132,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 647662,
+      "gifBytes": 660156,
       "gif": "new-job-390.gif"
     },
     {
@@ -1126,7 +1140,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376162,
+      "gifBytes": 410344,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1198,11 +1212,25 @@
       "png": "jobs-down-390.png"
     },
     {
+      "scene": "jobs-down-retry",
+      "width": 390,
+      "warnings": [
+        "not on the base: it has no scene jobs-down-retry, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "jobs-active-down",
+      "width": 390,
+      "warnings": [
+        "not on the base: it has no scene jobs-active-down, so it is new on this PR"
+      ]
+    },
+    {
       "scene": "jobs-keys",
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1060308,
+      "gifBytes": 1056263,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1462,7 +1490,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1026962,
+      "gifBytes": 1036905,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1584,7 +1612,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 526586,
+      "gifBytes": 531959,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1628,15 +1656,15 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 628733,
+      "gifBytes": 612027,
       "gif": "primitives-keys-390.gif"
     },
     {
       "scene": "receipt-held",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (receipt-held-390.caddy.log)",
-      "png": "receipt-held-390.png"
+      "warnings": [
+        "not on the base: it has no scene receipt-held, so it is new on this PR"
+      ]
     },
     {
       "scene": "printers-hold",
@@ -1667,7 +1695,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1367219,
+      "gifBytes": 1363399,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1681,7 +1709,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1152937,
+      "gifBytes": 1172162,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1713,7 +1741,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1133494,
+      "gifBytes": 1144209,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1841,9 +1869,9 @@
     {
       "scene": "first-run-dock",
       "width": 390,
-      "warnings": [],
-      "error": "click: Timeout 30000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (first-run-dock-390.caddy.log)",
-      "png": "first-run-dock-390.png"
+      "warnings": [
+        "not on the base: it has no scene first-run-dock, so it is new on this PR"
+      ]
     },
     {
       "scene": "first-run-printers",
@@ -1851,6 +1879,13 @@
       "warnings": [],
       "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (first-run-printers-390.caddy.log)",
       "png": "first-run-printers-390.png"
+    },
+    {
+      "scene": "first-run-printers-save",
+      "width": 390,
+      "warnings": [
+        "not on the base: it has no scene first-run-printers-save, so it is new on this PR"
+      ]
     },
     {
       "scene": "first-run-limited",
@@ -1966,7 +2001,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 421625,
+      "gifBytes": 450689,
       "gif": "motion-sheet-390.gif"
     },
     {
@@ -1990,16 +2025,16 @@
     {
       "scene": "printers-down",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-down-390.caddy.log)",
-      "png": "printers-down-390.png"
+      "warnings": [
+        "not on the base: it has no scene printers-down, so it is new on this PR"
+      ]
     },
     {
       "scene": "printers-down-retry",
       "width": 390,
-      "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (printers-down-retry-390.caddy.log)",
-      "png": "printers-down-retry-390.png"
+      "warnings": [
+        "not on the base: it has no scene printers-down-retry, so it is new on this PR"
+      ]
     }
   ]
 }
