@@ -87,6 +87,14 @@ describe("probePrinter", () => {
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
+  test("a probe given the checked IP connects to it, never resolving the name again", async () => {
+    const server = createServer((socket) => socket.end());
+    const port = await listenOnLoopback(server);
+    const result = await probePrinter(`printer.invalid:${port}`, "moonraker", 2000, "127.0.0.1");
+    await closeServer(server);
+    expect(result).toMatchObject({ reachable: true, host: "printer.invalid", port });
+  });
+
   test("a closed port is unreachable with the socket error code", async () => {
     const server = createServer();
     const port = await listenOnLoopback(server);

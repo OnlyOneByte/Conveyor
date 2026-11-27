@@ -58,22 +58,22 @@ export const elegoo: TransportPlugin = {
     }
 
     const mainboardId = mainboardIdOf(target);
-    await requirePrinterAddress(target.address);
+    const at = await pinned(target.address);
     const signal = ctx.signal;
     refuseUnlessIdle(
       "elegoo",
-      readinessOf(await elegooStatusOnce(target.address, mainboardId, undefined, signal)),
+      readinessOf(await elegooStatusOnce(at, mainboardId, undefined, signal)),
     );
-    await uploadGcode(target.address, gcode.path, filename, ctx);
+    await uploadGcode(at, gcode.path, filename, ctx);
 
     if (ctx.signal.aborted) throw new PrintNotStartedError("canceled before START_PRINT");
     await ctx.confirmStart?.();
-    await requirePrinterAddress(target.address);
-    const justBefore = await elegooStatusOnce(target.address, mainboardId, undefined, signal);
+    const startAt = await pinned(target.address);
+    const justBefore = await elegooStatusOnce(startAt, mainboardId, undefined, signal);
     refuseUnlessIdle("elegoo", readinessOf(justBefore));
     const priorTask = justBefore.kind === "status" ? (justBefore.status.taskId ?? "") : undefined;
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
-    await startPrint(target.address, mainboardId, filename);
+    await startPrint(startAt, mainboardId, filename);
 
     return elegooHandle(target, filename, priorTask);
   },
@@ -90,10 +90,10 @@ export const elegoo: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "elegoo status: missing printer address on handle");
 
-    await requirePrinterAddress(handle.address);
+    const at = await pinned(handle.address);
     yield { state: "transferring" };
     const stream = {
-      address: handle.address,
+      address: at,
       mainboardId: handle.deviceId ?? handle.printerId,
       idleTimeoutMs: STATUS_IDLE_TIMEOUT_MS,
       filename: handle.ref,
@@ -109,17 +109,22 @@ export const elegoo: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "elegoo cancel: missing printer address on handle");
-    await requirePrinterAddress(handle.address);
+    const at = await pinned(handle.address);
     const mainboardId = handle.deviceId ?? handle.printerId;
-    await sendCommand(handle.address, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
+    await sendCommand(at, { mainboardId, cmd: SDCP_CMD.STOP_PRINT, data: {} }, true);
   },
 
   async pruneFiles(target, keep, signal) {
     if (STUB) return [];
-    await requirePrinterAddress(target.address);
-    return pruneLocalFiles(target.address, mainboardIdOf(target), keep, signal);
+    return pruneLocalFiles(await pinned(target.address), mainboardIdOf(target), keep, signal);
   },
 };
+
+async function pinned(address: string): Promise<string> {
+  const ip = await requirePrinterAddress(address);
+  const at = ip === undefined ? undefined : printerEndpoint(address, ip);
+  return at === undefined || at === printerEndpoint(address) ? address : at;
+}
 
 function mainboardIdOf(target: PrinterTarget): string {
   return target.secrets?.mainboardId ?? target.id;

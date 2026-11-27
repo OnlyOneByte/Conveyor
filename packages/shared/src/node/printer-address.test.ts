@@ -19,20 +19,20 @@ const check = (address: string, lookup: Lookup = lan, allow?: string) =>
 
 describe("printer addresses a self-hosted printer uses", () => {
   test.each([
-    "192.168.1.50:7125",
-    "10.0.0.9",
-    "172.16.4.2:3030",
-    "[fd00::12]:3030",
-    "voron.local",
-    "http://voron.local:7125",
-    "https://printer.example.com/moonraker",
-    "//10.0.0.9/moonraker",
-    "user:pass@10.0.0.9/moonraker",
-    "localhost:7125",
-    "127.0.0.1",
-    "[::1]:7125",
-  ])("allows %s", async (address) => {
-    await expect(check(address)).resolves.toBeUndefined();
+    ["192.168.1.50:7125", "192.168.1.50"],
+    ["10.0.0.9", "10.0.0.9"],
+    ["172.16.4.2:3030", "172.16.4.2"],
+    ["[fd00::12]:3030", "fd00::12"],
+    ["voron.local", "192.168.1.40"],
+    ["http://voron.local:7125", "192.168.1.40"],
+    ["https://printer.example.com/moonraker", "192.168.1.40"],
+    ["//10.0.0.9/moonraker", "10.0.0.9"],
+    ["user:pass@10.0.0.9/moonraker", "10.0.0.9"],
+    ["localhost:7125", "192.168.1.40"],
+    ["127.0.0.1", "127.0.0.1"],
+    ["[::1]:7125", "::1"],
+  ])("allows %s, to be reached at %s", async (address, ip) => {
+    await expect(check(address)).resolves.toBe(ip);
   });
 });
 
@@ -73,7 +73,7 @@ describe("link-local and cloud metadata addresses", () => {
 
   test("a name that passed once is refused when it later resolves to metadata (DNS rebinding)", async () => {
     const rebinding = answers(["192.168.1.40"], ["169.254.169.254"]);
-    await expect(check("printer.example", rebinding)).resolves.toBeUndefined();
+    await expect(check("printer.example", rebinding)).resolves.toBe("192.168.1.40");
     await expect(check("printer.example", rebinding)).rejects.toThrow(PrinterAddressRefusedError);
   });
 
@@ -89,16 +89,16 @@ describe("link-local and cloud metadata addresses", () => {
   });
 
   test("NAT64 and IPv4-compatible forms of an allowed address stay allowed", async () => {
-    await expect(check("[64:ff9b::192.168.1.5]")).resolves.toBeUndefined();
-    await expect(check("[::10.0.0.9]")).resolves.toBeUndefined();
-    await expect(check("[64:ff9b:1::192.168.1.5]")).resolves.toBeUndefined();
+    await expect(check("[64:ff9b::192.168.1.5]")).resolves.toBe("64:ff9b::c0a8:105");
+    await expect(check("[::10.0.0.9]")).resolves.toBe("::a00:9");
+    await expect(check("[64:ff9b:1::192.168.1.5]")).resolves.toBe("64:ff9b:1::c0a8:105");
   });
 });
 
 describe("PRINTER_ADDRESS_ALLOW", () => {
   test("lets a CIDR, a single address or a host through a refused range", async () => {
-    await expect(check("169.254.10.5", lan, "169.254.10.0/24")).resolves.toBeUndefined();
-    await expect(check("[fe80::1]:3030", lan, "fe80::1")).resolves.toBeUndefined();
+    await expect(check("169.254.10.5", lan, "169.254.10.0/24")).resolves.toBe("169.254.10.5");
+    await expect(check("[fe80::1]:3030", lan, "fe80::1")).resolves.toBe("fe80::1");
     await expect(
       check("printer.example", answers(["169.254.3.3"]), "printer.example"),
     ).resolves.toBeUndefined();

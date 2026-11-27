@@ -70,7 +70,7 @@ describe("moonraker printer addresses", () => {
   ])("%p fails without quoting any part of the password", async (address, reason) => {
     const calls = fakeFetch();
     const stop = moonraker.cancel?.({ ...handle, address }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow(`moonraker printer address ${reason}`);
+    await expect(stop).rejects.toThrow(`printer address ${reason}`);
     await expect(stop).rejects.not.toThrow(/admin|pa\/ss|s3|cret/);
     expect(calls).toHaveLength(0);
   });
@@ -78,7 +78,7 @@ describe("moonraker printer addresses", () => {
   test("an ambiguous address fails with the parser's reason and sends nothing", async () => {
     const calls = fakeFetch();
     const stop = moonraker.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow('moonraker printer address "fe80::1::2": not a valid IPv6');
+    await expect(stop).rejects.toThrow('printer address "fe80::1::2": not a valid IPv6');
     expect(calls).toHaveLength(0);
   });
 });

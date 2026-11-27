@@ -36,12 +36,12 @@ interface SdcpCommand {
   data: Record<string, unknown>;
 }
 
-export function printerEndpoint(address: string): string {
+export function printerEndpoint(address: string, ip?: string): string {
   const hostPort = hostPortOf(address);
   const parsed = parseHostPort(hostPort, WS_PORT, hostPort === address ? undefined : address);
   if (parsed.kind === "invalid")
     throw new StageError("transport", `elegoo printer address ${parsed.reason}`);
-  return formatHostPort(parsed.host, parsed.port);
+  return formatHostPort(ip ?? parsed.host, parsed.port);
 }
 
 export function socketUrl(address: string): string {

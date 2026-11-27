@@ -1,14 +1,43 @@
 import { StageError } from "@conveyor/shared";
 import {
   PrinterNameUnresolvedError,
+  pinnedUrl,
   refuseRedirect,
   requirePrinterAddress,
 } from "@conveyor/shared/node";
 
-export async function unresolved(address: string): Promise<string | undefined> {
+export interface Reach {
+  base: string;
+  headers: Record<string, string>;
+}
+
+function requireHttp(address: string): void {
+  const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(address.trim())?.[1]?.toLowerCase();
+  if (scheme === undefined || scheme === "http" || scheme === "https") return;
+  throw new StageError(
+    "transport",
+    `Conveyor connects to Moonraker printers only over http or https, not ${scheme}://. Write the address as host:port, or as an http or https URL.`,
+  );
+}
+
+export async function reach(
+  address: string,
+  toBase: (address: string) => string,
+  headers: Record<string, string>,
+): Promise<Reach> {
+  const ip = await requirePrinterAddress(address);
+  requireHttp(address);
+  const pin = pinnedUrl(toBase(address), ip);
+  return { base: pin.url, headers: pin.host ? { ...headers, Host: pin.host } : headers };
+}
+
+export async function unresolved(
+  address: string,
+  toBase: (address: string) => string,
+  headers: Record<string, string>,
+): Promise<string | Reach> {
   try {
-    await requirePrinterAddress(address);
-    return undefined;
+    return await reach(address, toBase, headers);
   } catch (err) {
     if (err instanceof StageError && err.cause instanceof PrinterNameUnresolvedError)
       return err.reason;

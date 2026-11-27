@@ -17,7 +17,7 @@ const PORT_RANGE = "the port must be a number from 1 to 65535";
 const ZONE_ID =
   "IPv6 zone IDs such as %eth0 can't be used in a printer URL; give the address without the zone";
 
-function redactAddress(text: string): string {
+export function redactAddress(text: string): string {
   return text.replace(USERINFO, "$1***@");
 }
 

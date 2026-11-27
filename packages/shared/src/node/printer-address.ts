@@ -1,6 +1,6 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
-import { addressParts, hasScheme } from "../address.js";
+import { addressParts, hasScheme, hostPortOf, parseHostPort, redactAddress } from "../address.js";
 import { StageError } from "../context.js";
 
 export const ALLOW_SETTING = "PRINTER_ADDRESS_ALLOW";
@@ -45,6 +45,33 @@ export class PrinterAddressRefusedError extends Error {
   }
 }
 
+export const PRINTER_SCHEMES = ["http", "https", "ws", "wss"];
+
+export class PrinterSchemeRefusedError extends PrinterAddressRefusedError {
+  constructor(host: string, scheme: string) {
+    super(
+      host,
+      "unsupported scheme",
+      `Conveyor connects to printers only over ${PRINTER_SCHEMES.join(", ")}, not ${scheme}. Write the address as host:port, or with one of those schemes.`,
+    );
+    this.name = "PrinterSchemeRefusedError";
+  }
+}
+
+export class PrinterAddressUnreadableError extends PrinterAddressRefusedError {
+  constructor(address: string) {
+    const shown = redactAddress(address.trim());
+    const parsed = parseHostPort(hostPortOf(address), 80, address);
+    const why = parsed.kind === "invalid" ? parsed.reason : `${JSON.stringify(shown)}: unreadable`;
+    super(
+      shown,
+      "unreadable",
+      `Conveyor can't check this printer address: printer address ${why}. Write it as host:port, or as an http, https, ws or wss URL.`,
+    );
+    this.name = "PrinterAddressUnreadableError";
+  }
+}
+
 export class PrinterNameUnresolvedError extends PrinterAddressRefusedError {
   constructor(host: string) {
     super(
@@ -56,8 +83,12 @@ export class PrinterNameUnresolvedError extends PrinterAddressRefusedError {
   }
 }
 
-const defaultLookup: Lookup = async (host) =>
-  (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address);
+export const printerDns: { resolve: Lookup } = {
+  resolve: async (host) =>
+    (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address),
+};
+
+const defaultLookup: Lookup = (host) => printerDns.resolve(host);
 
 function family(ip: string): "ipv4" | "ipv6" {
   return isIP(ip) === 6 ? "ipv6" : "ipv4";
@@ -145,28 +176,54 @@ async function resolved(host: string, lookup: Lookup): Promise<string[]> {
   return ips;
 }
 
+function schemeOf(address: string): string | undefined {
+  const text = address.trim();
+  return hasScheme(text) ? text.slice(0, text.indexOf(":")).toLowerCase() : undefined;
+}
+
 export async function checkPrinterAddress(
   address: string,
   { env = process.env, lookup = defaultLookup }: AddressPolicyOptions = {},
-): Promise<void> {
+): Promise<string | undefined> {
+  const scheme = schemeOf(address);
   const host = printerHost(address);
-  if (host === undefined) return;
+  if (scheme !== undefined && !PRINTER_SCHEMES.includes(scheme))
+    throw new PrinterSchemeRefusedError(host ?? address.trim(), `${scheme}://`);
+  if (host === undefined) throw new PrinterAddressUnreadableError(address);
   const allowed = allowList(env);
-  if (allowed.host(host)) return;
+  if (allowed.host(host)) return undefined;
   const named = REFUSED_NAMES.get(host);
   if (named) throw new PrinterAddressRefusedError(host, named);
-  for (const ip of await resolved(host, lookup)) {
+  const ips = await resolved(host, lookup);
+  for (const ip of ips) {
+    if (ip.includes("%"))
+      throw new PrinterAddressRefusedError(host, `an IPv6 address with a zone id (${ip})`);
     const why = allowed.ip(ip) ? undefined : refusedRange(ip);
     if (why) throw new PrinterAddressRefusedError(host, ip === host ? why : `${why} (${ip})`);
   }
+  return ips[0];
+}
+
+export function pinnedUrl(url: string, ip: string | undefined): { url: string; host?: string } {
+  const parsed = new URL(url);
+  if (ip === undefined || (parsed.protocol !== "http:" && parsed.protocol !== "ws:"))
+    return { url };
+  if (normalHost(parsed.hostname) === normalHost(ip)) return { url };
+  const host = parsed.host;
+  parsed.hostname = isIP(ip) === 6 ? `[${ip}]` : ip;
+  if (normalHost(parsed.hostname) !== normalHost(ip))
+    throw new StageError("transport", `Conveyor couldn't connect to the checked address ${ip}`);
+  const pinned = parsed.toString();
+  const trimmed = !url.endsWith("/") && pinned.endsWith("/") ? pinned.slice(0, -1) : pinned;
+  return { url: trimmed, host };
 }
 
 export async function requirePrinterAddress(
   address: string,
   options?: AddressPolicyOptions,
-): Promise<void> {
+): Promise<string | undefined> {
   try {
-    await checkPrinterAddress(address, options);
+    return await checkPrinterAddress(address, options);
   } catch (err) {
     throw new StageError("transport", err instanceof Error ? err.message : String(err), {
       cause: err,
