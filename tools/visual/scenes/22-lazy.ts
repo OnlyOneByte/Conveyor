@@ -45,7 +45,6 @@ export const scenes: Scene[] = [
     route: "/",
     ready: "h1 >> text=Sign in",
     signedOut: true,
-    widths: [1440],
     steps: [{ lazy: "/", fail: true }, { waitFor: "h1 >> text=Sign in" }, { waitFor: "#password" }],
   },
   {

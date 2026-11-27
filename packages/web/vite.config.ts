@@ -28,7 +28,7 @@ const chunkModules = (): Plugin => ({
   },
 });
 
-const EDITOR_MODULE = /[\\/]@codemirror[\\/]/;
+const EDITOR_MODULE = /[\\/]@codemirror[\\/]|[\\/]lib[\\/]code-editor\.ts$/;
 const EDITOR_CHUNKS = "virtual:editor-chunks";
 
 const editorChunks = (): Plugin => {
@@ -39,18 +39,23 @@ const editorChunks = (): Plugin => {
     generateBundle(_, bundle) {
       if (this.environment.name !== "client") return;
       const chunks = Object.values(bundle).flatMap((c) => (c.type === "chunk" ? [c] : []));
-      const reached = new Set<string>();
-      const reach = (file: string) => {
-        if (reached.has(file)) return;
-        reached.add(file);
-        const chunk = bundle[file];
-        if (chunk?.type === "chunk") chunk.imports.forEach(reach);
+      const reach = (roots: string[]) => {
+        const reached = new Set<string>();
+        const visit = (file: string) => {
+          if (reached.has(file)) return;
+          reached.add(file);
+          const chunk = bundle[file];
+          if (chunk?.type === "chunk") chunk.imports.forEach(visit);
+        };
+        roots.forEach(visit);
+        return reached;
       };
-      for (const chunk of chunks) if (chunk.isEntry) reach(chunk.fileName);
-      files = chunks
-        .filter((c) => !reached.has(c.fileName))
-        .filter((c) => Object.keys(c.modules).some((id) => EDITOR_MODULE.test(id)))
-        .map((c) => c.fileName);
+      const editor = (c: (typeof chunks)[number]) =>
+        !c.isEntry && Object.keys(c.modules).some((id) => EDITOR_MODULE.test(id));
+      const roots = chunks.filter((c) => c.isEntry || c.isDynamicEntry);
+      const others = reach(roots.filter((c) => !editor(c)).map((c) => c.fileName));
+      const mine = reach(chunks.filter(editor).map((c) => c.fileName));
+      files = [...mine].filter((file) => !others.has(file));
     },
     writeBundle(options) {
       if (this.environment.name !== "client" || !options.dir) return;

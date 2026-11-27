@@ -1,11 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  closure,
-  parseChunkModules,
-  parseManifest,
-  routeNodes,
-} from "../../../scripts/checks/bundle/measure.ts";
+import { closure, parseManifest, routeNodes } from "../../../scripts/checks/bundle/measure.ts";
 import { type StepRunner, wrongKind } from "../step.ts";
 import { hold } from "./stall.ts";
 
@@ -15,12 +10,8 @@ declare module "../step.ts" {
   }
 }
 
-const BOOT = "shared/src/auth-status.ts";
-
 export function lazyChunks(root: string, route: string): string[] {
   const output = join(root, "packages/web/.svelte-kit/output");
-  const modules = parseChunkModules(readFileSync(join(output, "chunk-modules.json"), "utf8"));
-  const boot = (file: string) => (modules[file] ?? []).some((id) => id.endsWith(BOOT));
   const manifest = parseManifest(readFileSync(join(output, "client/.vite/manifest.json"), "utf8"));
   const nodes = routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).get(route);
   if (!nodes) throw new Error(`lazy: no route ${route} in the server manifest`);
@@ -31,9 +22,7 @@ export function lazyChunks(root: string, route: string): string[] {
   const own = [...closure(manifest, leaves)];
   const imported = keys.filter((key) => own.includes(manifest[key]?.file ?? ""));
   const later = imported.flatMap((key) => manifest[key]?.dynamicImports ?? []);
-  const lazy = [...closure(manifest, later)].filter(
-    (f) => f.endsWith(".js") && !first.has(f) && !boot(f),
-  );
+  const lazy = [...closure(manifest, later)].filter((f) => f.endsWith(".js") && !first.has(f));
   if (lazy.length === 0) throw new Error(`lazy: ${route} imports nothing on demand`);
   return lazy;
 }

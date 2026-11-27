@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { authStatusSchema } from "@conveyor/shared/auth-status";
 import { signedIn } from "./api.js";
-import { AUTH_TIMEOUT_MS, checkAuth } from "./auth-gate.js";
+import { AUTH_TIMEOUT_MS, authStatus, checkAuth } from "./auth-gate.js";
 
 const answering = (respond: () => Promise<Response>) =>
   Object.assign(respond, { preconnect: globalThis.fetch.preconnect });
@@ -42,6 +43,7 @@ describe("checkAuth", () => {
     ["a string flag", '{"authEnabled":"false","authenticated":false}'],
     ["an extra key", '{"authEnabled":false,"authenticated":false,"admin":true}'],
     ["a body that isn't JSON", "<html>"],
+    ["an array", "[false,false]"],
   ])("a 200 with %s is a down gate, never the shell", async (_, body) => {
     const gate = await checkAuth(answering(async () => new Response(body, { status: 200 })));
     expect(gate).toEqual({
@@ -101,5 +103,36 @@ describe("checkAuth", () => {
     expect(gate).toEqual({ auth, down: null });
     expect(signedIn(gate.auth)).toBe(false);
     expect(signedIn({ authEnabled: false, authenticated: false })).toBe(true);
+  });
+});
+
+describe("authStatus", () => {
+  const bodies = [
+    {},
+    true,
+    null,
+    [false, false],
+    "status",
+    { authEnabled: false },
+    { authEnabled: "false", authenticated: false },
+    { authEnabled: false, authenticated: 0 },
+    { authEnabled: false, authenticated: false, admin: true },
+    { authEnabled: true, authenticated: true },
+    { authEnabled: false, authenticated: false },
+    { authenticated: true, authEnabled: false },
+  ];
+
+  test("reads only the answer's own keys, never inherited ones", () => {
+    Object.defineProperty(Object.prototype, "authenticated", { value: true, configurable: true });
+    try {
+      expect(authStatus({ authEnabled: true, x: 1 })).toBeNull();
+    } finally {
+      Reflect.deleteProperty(Object.prototype, "authenticated");
+    }
+  });
+
+  test.each(bodies)("agrees with the API's schema on %j", (body) => {
+    const parsed = authStatusSchema.safeParse(body);
+    expect(authStatus(body)).toEqual(parsed.success ? parsed.data : null);
   });
 });
