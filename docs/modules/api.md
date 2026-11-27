@@ -396,7 +396,9 @@ the api's log into the worker's.
 job Conveyor lost track of: a submit that may have started, a stop the printer didn't confirm, a resume that
 failed, a job settled during upload, or a worker that stopped between the submit intent and the submit marker
 (see [shared.md](shared.md#queueholdts)). No job is
-prepared for a held printer until someone checks the printer and releases it.
+prepared for a held printer until someone checks the printer and releases it. `POST /jobs` refuses a new job for
+a held printer with a `409`; a job that passed that check before the hold was set waits queued in either queue
+mode until the release ([worker.md](worker.md#indexts)).
 
 - It sits under `/catalog`, beside the other printer routes. The browser calls it as `/api/catalog/…`, like
   every API route.

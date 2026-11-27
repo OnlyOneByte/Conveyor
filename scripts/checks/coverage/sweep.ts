@@ -30,6 +30,7 @@ const SIDE_EFFECT_MODULES = [
 for (const name of SIDE_EFFECT_MODULES) {
   mock.module(name, () => ({
     default: inert,
+    DelayedError: inert,
     Redis: inert,
     Queue: inert,
     QueueEvents: inert,

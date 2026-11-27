@@ -13,7 +13,7 @@ import {
 import { dbRecordJob, dbResolveJobTarget, openDb, type SettledJob } from "@conveyor/shared/db";
 import { readFilamentUse } from "@conveyor/shared/node";
 import { holdPrinter, printerHoldReason } from "@conveyor/shared/queue";
-import { type Job, Queue, Worker } from "bullmq";
+import { DelayedError, type Job, Queue, Worker } from "bullmq";
 import { Redis, type RedisOptions } from "ioredis";
 import { z } from "zod";
 import { readJobPayload } from "./job-payload.js";
@@ -41,6 +41,7 @@ export interface RedisWorker {
 }
 
 const LIVE_STATES = ["waiting", "active", "delayed", "prioritized", "waiting-children"] as const;
+export const HOLD_RECHECK_MS = 5_000;
 
 const defaultDeps: RedisWorkerDeps = {
   connect: (url, options = {}) => new Redis(url, options),
@@ -139,7 +140,13 @@ export function startRedisWorker(
     await publish(jobId, "failed", { stage, error: { stage, reason } });
   }
 
-  async function handle(job: Job<unknown>): Promise<unknown> {
+  async function waitWhileHeld(job: Job<unknown>, token: string | undefined, printerId: string) {
+    if (printerHoldReason(db(), printerId) === null) return;
+    await job.moveToDelayed(Date.now() + HOLD_RECHECK_MS, token);
+    throw new DelayedError();
+  }
+
+  async function handle(job: Job<unknown>, token?: string): Promise<unknown> {
     const jobId = job.id;
     if (!jobId) throw new Error("job has no id");
     const controller = new AbortController();
@@ -149,11 +156,13 @@ export function startRedisWorker(
       let workDir: string;
       try {
         req = await readJobPayload(jobId, job.data, publish);
+        await waitWhileHeld(job, token, req.printerId);
         workDir = join(dataDir, jobId);
         await deps.makeDir(workDir);
         control.on("message", () => controller.abort());
         await control.subscribe(jobControlChannel(jobId));
       } catch (err) {
+        if (err instanceof DelayedError) throw err;
         await failEarly(jobId, req, err);
         throw err;
       }
