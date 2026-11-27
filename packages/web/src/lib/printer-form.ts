@@ -80,6 +80,17 @@ export function clearSecretsPayload(printer: CatalogPrinter) {
   };
 }
 
+const ADDRESS_HINT =
+  "The IP address on the printer's screen, like 192.168.1.50. Add :port only if you changed it.";
+
+const inSentence = (label: string) =>
+  /^[A-Z][a-z]/.test(label) ? label[0]?.toLowerCase() + label.slice(1) : label;
+
+export const addressHint = (secretsSaved: boolean, secretLabel: string) =>
+  secretsSaved
+    ? `${ADDRESS_HINT}\nChanging the address asks for the ${inSentence(secretLabel)} again.`
+    : ADDRESS_HINT;
+
 export const dialogTitle = (printer: CatalogPrinter | null, confirming: boolean) => {
   if (confirming) return `Delete ${printer?.name}?`;
   return printer === null ? "Add printer" : `Edit ${printer.name}`;

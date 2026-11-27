@@ -92,4 +92,28 @@ export const scenes: Scene[] = [
     { waitFor: `${dialog} [role=alert] >> text=disk full` },
     { waitFor: `${dialog} button:has-text('Clear it'):focus`, timeout: 2000 },
   ]),
+  fleetPage("printers-edit-secrets", [
+    { click: "button[aria-label='Edit Garage Klipper']" },
+    { waitFor: `${dialog} >> text=An API key is saved for this printer.` },
+    { wait: 400 },
+  ]),
+  fleetPage("printers-address-reentry", [
+    { click: "button[aria-label='Edit Garage Klipper']" },
+    { waitFor: `${dialog} >> text=An API key is saved for this printer.` },
+    { click: `${dialog} >> role=textbox[name="Address"s]` },
+    { press: "End" },
+    { press: "1" },
+    {
+      fulfill: "**/api/catalog/printers",
+      method: "PUT",
+      status: 409,
+      json: {
+        error:
+          "The address or printer software changed, so the saved secrets won't be sent to it. Enter them again, or clear the saved secrets to save without them.",
+      },
+    },
+    { click: `${dialog} button:has-text('Save changes')` },
+    { waitFor: `${dialog} [role=alert] >> text=Enter them again` },
+    { wait: 400 },
+  ]),
 ];

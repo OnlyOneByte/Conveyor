@@ -223,6 +223,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   all. So the printer form can save an API key without erasing an Elegoo `mainboardId` (#412).
   - `secrets: null` clears every stored secret, including keys whose names you don't know (reads never
     return names). The printer form's **Clear saved secrets** sends it (#417).
+  - A write that changes the `address` or `transportId` of a printer with stored secrets answers `409`
+    unless it sends the secrets again or `secrets: null`, and nothing in it is saved. Secrets sent with
+    such a move replace the stored set instead of merging into it, so no stored key reaches the new host
+    (#663).
   - The 16-secret limit counts the merged result. A write that would pass it answers `400`, and nothing in it
     is stored.
   - A printer whose stored secrets don't decrypt can't be patched: the write answers `409` and changes
