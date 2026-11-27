@@ -2,6 +2,7 @@ import {
   type GcodeArtifact,
   type PrinterTarget,
   type PrintHandle,
+  PrintMayHaveStartedError,
   PrintNotStartedError,
   type PrintStatus,
   printerFileName,
@@ -19,10 +20,26 @@ import {
 import { pruneLocalFiles } from "./prune.js";
 import { elegooReadiness } from "./ready.js";
 import { SDCP_CMD } from "./sdcp.js";
-import { printerEndpoint, sendCommand, streamStatus } from "./socket.js";
+import { printerEndpoint, SdcpRejectedError, sendCommand, streamStatus } from "./socket.js";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const STATUS_IDLE_TIMEOUT_MS = Number(process.env.ELEGOO_STATUS_TIMEOUT_MS ?? 10 * 60 * 1000);
+
+export async function startPrint(address: string, mainboardId: string, filename: string) {
+  let sent = false;
+  const start = {
+    mainboardId,
+    cmd: SDCP_CMD.START_PRINT,
+    data: { Filename: filename, StartLayer: 0 },
+  };
+  await sendCommand(address, start, true, () => {
+    sent = true;
+  }).catch((err: unknown) => {
+    if (!sent || err instanceof SdcpRejectedError) throw err;
+    const why = err instanceof Error ? err.message : String(err);
+    throw new PrintMayHaveStartedError(`elegoo START_PRINT was sent but not acknowledged: ${why}`);
+  });
+}
 
 export const elegoo: TransportPlugin = {
   id: "elegoo",
@@ -50,11 +67,7 @@ export const elegoo: TransportPlugin = {
     await ctx.confirmStart?.();
     await requirePrinterAddress(target.address);
     ctx.log(`elegoo SDCP cmd ${SDCP_CMD.START_PRINT} → ${target.address}`);
-    await sendCommand(target.address, {
-      mainboardId,
-      cmd: SDCP_CMD.START_PRINT,
-      data: { Filename: filename, StartLayer: 0 },
-    });
+    await startPrint(target.address, mainboardId, filename);
 
     return elegooHandle(target, filename);
   },
@@ -77,6 +90,7 @@ export const elegoo: TransportPlugin = {
       address: handle.address,
       mainboardId: handle.deviceId ?? handle.printerId,
       idleTimeoutMs: STATUS_IDLE_TIMEOUT_MS,
+      filename: handle.ref,
     };
     for await (const s of streamStatus(stream, signal)) {
       yield s;

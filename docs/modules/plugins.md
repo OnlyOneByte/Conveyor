@@ -241,6 +241,16 @@ SDCP (Smart Device Control Protocol), written from the
   `StageError` "no print status for <ms> ms" and the job fails. Nothing else restarts it: notice, attributes
   and response frames, unreadable frames, `sdcp/error` frames (even repeated ones), and status frames that
   map to no state, such as idle (`CurrentStatus: [0]` without `PrintInfo.Status` 8 or 9).
+- This job's ending only (`print-status.ts`): `PrintInfo.Status` 9 (complete) or 8 (stopped) stays on the
+  printer after a print. So the first frame after `START_PRINT` can still describe the previous one. A 9 or 8
+  ends the job only once this stream has seen the job printing, or when `PrintInfo.Filename` is this job's
+  file (`handle.ref`). Any other 9 or 8 maps to no state, like idle, and doesn't restart the timer.
+- Start: `START_PRINT` waits for the printer's ack.
+  - A non-zero ack is a `SdcpRejectedError` (nothing started).
+  - A socket that fails before the command was sent is a plain `StageError`.
+  - A socket that closes, errors or times out after the command was sent throws `PrintMayHaveStartedError`
+    ("elegoo START_PRINT was sent but not acknowledged"), so the worker holds the printer as it does for
+    Moonraker.
 - Status refresh: SDCP V3.0.0 pushes status only when it changes, or in reply to a `Cmd 0` status request;
   it has no periodic push. A paused print changes nothing, so on its own it would go silent. While the stream
   is open it therefore sends `Cmd 0` to the handle's `deviceId` every `ELEGOO_STATUS_TIMEOUT_MS / 2`. A

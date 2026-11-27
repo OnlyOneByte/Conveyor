@@ -149,10 +149,31 @@ describe("elegoo status stream", () => {
       Topic: "sdcp/status/mb",
       MainboardID: "mb",
       TimeStamp: 1,
-      Status: { CurrentStatus: [0], PrintInfo: { Status: 9 } },
+      Status: { CurrentStatus: [0], PrintInfo: { Status: 9, Filename: "a.gcode" } },
     });
     usePushes([done]);
     const seen = await drainStatus();
     expect(seen.map((s) => s.state)).toEqual(["transferring", "done"]);
+  });
+
+  const idleAfter = (printStatus: number, Filename?: string) =>
+    JSON.stringify({
+      Topic: "sdcp/status/mb",
+      Data: { Status: { CurrentStatus: [0], PrintInfo: { Status: printStatus, Filename } } },
+    });
+
+  test("the last print's finished or stopped frame, pushed first, doesn't end this job", async () => {
+    for (const stale of [idleAfter(9, "conveyor-old.gcode"), idleAfter(8), idleAfter(9)]) {
+      usePushes([stale, statusFrame(13, 0.2), statusFrame(9, 1)]);
+      const seen = await drainStatus();
+      expect(seen.map((s) => s.state)).toEqual(["transferring", "printing", "done"]);
+    }
+  });
+
+  test("a finished frame naming this job's file ends it, even if no printing frame was seen", async () => {
+    usePushes([idleAfter(9, "a.gcode")]);
+    expect((await drainStatus()).map((s) => s.state)).toEqual(["transferring", "done"]);
+    usePushes([idleAfter(8, "a.gcode")]);
+    expect((await drainStatus()).map((s) => s.state)).toEqual(["transferring", "canceled"]);
   });
 });
