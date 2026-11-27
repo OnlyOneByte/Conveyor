@@ -12,13 +12,8 @@ import {
   type TransportPlugin,
 } from "@conveyor/shared";
 import { addressParts, formatHostPort, parseHostPort } from "@conveyor/shared/address";
-import {
-  multipartFileUpload,
-  refuseRedirect,
-  requirePrinterAddress,
-  uploadSignal,
-} from "@conveyor/shared/node";
-import { poll, positiveSetting, unresolved } from "./poll.ts";
+import { multipartFileUpload, refuseRedirect, uploadSignal } from "@conveyor/shared/node";
+import { poll, positiveSetting, reach, unresolved } from "./poll.ts";
 import { pruneGcodes } from "./prune.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
 import { moonrakerReadiness } from "./ready.ts";
@@ -50,9 +45,11 @@ export const moonraker: TransportPlugin = {
       };
     }
 
-    const base = baseUrl(target.address);
-    await requirePrinterAddress(target.address);
-    const headers = apiKeyHeaders(target);
+    const { base, headers } = await reach(
+      target.address,
+      baseUrl(target.address),
+      apiKeyHeaders(target),
+    );
     const readyMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
     refuseUnlessIdle("moonraker", await moonrakerReadiness(base, headers, readyMs, ctx.signal));
 
@@ -121,7 +118,7 @@ export const moonraker: TransportPlugin = {
     if (!handle.address)
       throw new StageError("transport", "moonraker status: missing printer address on handle");
     const base = baseUrl(handle.address);
-    const query = `${base}/printer/objects/query?print_stats&virtual_sdcard&display_status`;
+    const query = "/printer/objects/query?print_stats&virtual_sdcard&display_status";
     const headers = statusKeyHeaders(target);
     const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
     const failuresAllowed = positiveSetting("MOONRAKER_STATUS_FAILURES", STATUS_FAILURES);
@@ -131,8 +128,11 @@ export const moonraker: TransportPlugin = {
     const watch = printWatch();
     let failures = 0;
     while (true) {
+      const at = await unresolved(handle.address, base, headers);
       const res =
-        (await unresolved(handle.address)) ?? (await poll(query, headers, timeoutMs, signal));
+        typeof at === "string"
+          ? at
+          : await poll(`${at.base}${query}`, at.headers, timeoutMs, signal);
       if (typeof res === "string") {
         failures++;
         if (failures >= failuresAllowed || signal?.aborted)
@@ -167,11 +167,10 @@ export const moonraker: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "moonraker cancel: missing printer address on handle");
-    const base = baseUrl(handle.address);
-    await requirePrinterAddress(handle.address);
-    const res = await fetch(`${base}/printer/print/cancel`, {
+    const at = await reach(handle.address, baseUrl(handle.address), statusKeyHeaders(target));
+    const res = await fetch(`${at.base}/printer/print/cancel`, {
       method: "POST",
-      headers: statusKeyHeaders(target),
+      headers: at.headers,
       redirect: "manual",
       signal: AbortSignal.timeout(CANCEL_TIMEOUT_MS),
     });
@@ -181,9 +180,9 @@ export const moonraker: TransportPlugin = {
 
   async pruneFiles(target, keep, signal) {
     if (STUB) return [];
-    await requirePrinterAddress(target.address);
+    const at = await reach(target.address, baseUrl(target.address), apiKeyHeaders(target));
     const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
-    return pruneGcodes(baseUrl(target.address), apiKeyHeaders(target), keep, timeoutMs, signal);
+    return pruneGcodes(at.base, at.headers, keep, timeoutMs, signal);
   },
 };
 

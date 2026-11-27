@@ -180,6 +180,13 @@ Conveyor connects only where a self-hosted printer can be:
 
 The host is read with the same URL parser `fetch` and `WebSocket` use, so hex, decimal and octal forms such as `0xA9FEA9FE` are checked as the address they really are. It is checked when a printer is saved, before the reachability check, and before every request the worker sends to the printer: each Moonraker upload, status poll and cancel, and each Elegoo connection. A name is resolved and every address it resolves to is checked, so a name that points at a metadata address is refused too, including one that changes what it resolves to after it was saved. Conveyor doesn't follow redirects from a printer: a `3xx` reply fails the request, naming where it pointed.
 
+Two more rules keep the check and the connection about the same place:
+- **Schemes:** a printer address uses no scheme, or `http`, `https`, `ws` or `wss`. Any other scheme (`x://`, `ftp://`, `file://`) is refused when the printer is saved and before any connection, because with an unknown scheme the URL parser reads the host differently than the transports do.
+- **The checked address is the one used:** for plain `http` and `ws`, the connection goes to the IP the check resolved and approved, not to the name again. A name that changes what it resolves to between the check and the connection (DNS rebinding) can't send a request somewhere else.
+  - **Moonraker:** requests keep the name in the `Host` header, so a reverse proxy in front of Moonraker still routes them.
+  - **Elegoo and the reachability check:** they connect to that IP.
+  - **`https` and `wss`:** they connect by name, and the TLS certificate check binds the connection to that name.
+
 **Known limit:** the check resolves a name, and the request then resolves it again. A name whose DNS answer changes in the instant between the two can still reach a refused address. Connecting to the checked address instead would break HTTPS printer URLs (the certificate names the host) and isn't possible for Elegoo's WebSocket. Give printers an IP address, or a name only your own DNS answers, where this matters.
 
 A refused address gets a plain error, for example `Conveyor won't connect to 169.254.169.254: it is a link-local address, where cloud metadata services listen, not a printer on your network. If it really is your printer, add 169.254.169.254 to PRINTER_ADDRESS_ALLOW.` Saving answers `400` with it, and a job fails at the transport stage with it. To let a printer through, set `PRINTER_ADDRESS_ALLOW` on both the api and the worker (compose passes it to both).

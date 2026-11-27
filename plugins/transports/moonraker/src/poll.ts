@@ -1,14 +1,32 @@
 import { StageError } from "@conveyor/shared";
 import {
   PrinterNameUnresolvedError,
+  pinnedUrl,
   refuseRedirect,
   requirePrinterAddress,
 } from "@conveyor/shared/node";
 
-export async function unresolved(address: string): Promise<string | undefined> {
+export interface Reach {
+  base: string;
+  headers: Record<string, string>;
+}
+
+export async function reach(
+  address: string,
+  base: string,
+  headers: Record<string, string>,
+): Promise<Reach> {
+  const pin = pinnedUrl(base, await requirePrinterAddress(address));
+  return { base: pin.url, headers: pin.host ? { ...headers, Host: pin.host } : headers };
+}
+
+export async function unresolved(
+  address: string,
+  base: string,
+  headers: Record<string, string>,
+): Promise<string | Reach> {
   try {
-    await requirePrinterAddress(address);
-    return undefined;
+    return await reach(address, base, headers);
   } catch (err) {
     if (err instanceof StageError && err.cause instanceof PrinterNameUnresolvedError)
       return err.reason;

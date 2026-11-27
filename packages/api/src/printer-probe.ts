@@ -24,6 +24,7 @@ export function probePrinter(
   address: string,
   transportId: string,
   timeoutMs = 2000,
+  checkedIp?: string,
 ): Promise<ReachResult> {
   const parsed = parseAddress(address, transportId);
   if (parsed.kind === "invalid") {
@@ -46,7 +47,7 @@ export function probePrinter(
       resolve(r);
     };
 
-    const socket = createConnection({ host, port });
+    const socket = createConnection({ host: checkedIp ?? host, port });
     socket.setTimeout(timeoutMs);
     socket.once("connect", () =>
       done({ reachable: true, latencyMs: Date.now() - started, host, port }),

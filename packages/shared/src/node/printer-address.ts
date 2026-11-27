@@ -45,6 +45,19 @@ export class PrinterAddressRefusedError extends Error {
   }
 }
 
+export const PRINTER_SCHEMES = ["http", "https", "ws", "wss"];
+
+export class PrinterSchemeRefusedError extends PrinterAddressRefusedError {
+  constructor(host: string, scheme: string) {
+    super(
+      host,
+      "unsupported scheme",
+      `Conveyor connects to printers only over ${PRINTER_SCHEMES.join(", ")}, not ${scheme}. Write the address as host:port, or with one of those schemes.`,
+    );
+    this.name = "PrinterSchemeRefusedError";
+  }
+}
+
 export class PrinterNameUnresolvedError extends PrinterAddressRefusedError {
   constructor(host: string) {
     super(
@@ -56,8 +69,12 @@ export class PrinterNameUnresolvedError extends PrinterAddressRefusedError {
   }
 }
 
-const defaultLookup: Lookup = async (host) =>
-  (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address);
+export const printerDns: { resolve: Lookup } = {
+  resolve: async (host) =>
+    (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address),
+};
+
+const defaultLookup: Lookup = (host) => printerDns.resolve(host);
 
 function family(ip: string): "ipv4" | "ipv6" {
   return isIP(ip) === 6 ? "ipv6" : "ipv4";
@@ -145,28 +162,50 @@ async function resolved(host: string, lookup: Lookup): Promise<string[]> {
   return ips;
 }
 
+function schemeOf(address: string): string | undefined {
+  const text = address.trim();
+  return hasScheme(text) ? text.slice(0, text.indexOf(":")).toLowerCase() : undefined;
+}
+
 export async function checkPrinterAddress(
   address: string,
   { env = process.env, lookup = defaultLookup }: AddressPolicyOptions = {},
-): Promise<void> {
+): Promise<string | undefined> {
+  const scheme = schemeOf(address);
   const host = printerHost(address);
-  if (host === undefined) return;
+  if (scheme !== undefined && !PRINTER_SCHEMES.includes(scheme))
+    throw new PrinterSchemeRefusedError(host ?? address.trim(), `${scheme}://`);
+  if (host === undefined) return undefined;
   const allowed = allowList(env);
-  if (allowed.host(host)) return;
+  if (allowed.host(host)) return undefined;
   const named = REFUSED_NAMES.get(host);
   if (named) throw new PrinterAddressRefusedError(host, named);
-  for (const ip of await resolved(host, lookup)) {
+  const ips = await resolved(host, lookup);
+  for (const ip of ips) {
     const why = allowed.ip(ip) ? undefined : refusedRange(ip);
     if (why) throw new PrinterAddressRefusedError(host, ip === host ? why : `${why} (${ip})`);
   }
+  return ips[0];
+}
+
+export function pinnedUrl(url: string, ip: string | undefined): { url: string; host?: string } {
+  const parsed = new URL(url);
+  if (ip === undefined || (parsed.protocol !== "http:" && parsed.protocol !== "ws:"))
+    return { url };
+  if (normalHost(parsed.hostname) === normalHost(ip)) return { url };
+  const host = parsed.host;
+  parsed.hostname = isIP(ip) === 6 ? `[${ip}]` : ip;
+  const pinned = parsed.toString();
+  const trimmed = !url.endsWith("/") && pinned.endsWith("/") ? pinned.slice(0, -1) : pinned;
+  return { url: trimmed, host };
 }
 
 export async function requirePrinterAddress(
   address: string,
   options?: AddressPolicyOptions,
-): Promise<void> {
+): Promise<string | undefined> {
   try {
-    await checkPrinterAddress(address, options);
+    return await checkPrinterAddress(address, options);
   } catch (err) {
     throw new StageError("transport", err instanceof Error ? err.message : String(err), {
       cause: err,

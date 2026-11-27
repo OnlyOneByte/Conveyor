@@ -77,7 +77,7 @@ export async function registerCatalogRoutes(
       const field = printerIssueField(issues);
       return reply.code(400).send({ error: describeIssues(issues), ...(field ? { field } : {}) });
     }
-    const refused = await refusal(parsed.data.address);
+    const { refused } = await addressCheck(parsed.data.address);
     if (refused) return reply.code(400).send({ error: refused, field: "address" });
     try {
       dbUpsertPrinter(openDb(), parsed.data);
@@ -102,9 +102,9 @@ export async function registerCatalogRoutes(
   app.get<{ Params: { id: string } }>("/catalog/printers/:id/reachable", async (req, reply) => {
     const printer = dbGetPrinter(openDb(), req.params.id);
     if (!printer) return reply.code(404).send({ error: `unknown printer ${req.params.id}` });
-    const refused = await refusal(printer.address);
+    const { refused, ip } = await addressCheck(printer.address);
     if (refused) return reply.code(400).send({ error: refused });
-    const result = await probePrinter(printer.address, printer.transportId);
+    const result = await probePrinter(printer.address, printer.transportId, undefined, ip);
     dbRecordPrinterCheck(openDb(), printer.id, { at: Date.now(), reachable: result.reachable });
     return reply.send(result);
   });
@@ -162,12 +162,11 @@ export async function registerCatalogRoutes(
   });
 }
 
-async function refusal(address: string): Promise<string | undefined> {
+async function addressCheck(address: string): Promise<{ refused?: string; ip?: string }> {
   try {
-    await checkPrinterAddress(address);
-    return undefined;
+    return { ip: await checkPrinterAddress(address) };
   } catch (err) {
-    if (err instanceof PrinterAddressRefusedError) return err.message;
+    if (err instanceof PrinterAddressRefusedError) return { refused: err.message };
     throw err;
   }
 }
