@@ -1,8 +1,6 @@
 <script lang="ts">
   import Belt from "#lib/components/Belt.svelte";
-  import CantReach from "#lib/components/CantReach.svelte";
   import Keyboard from "#lib/components/Keyboard.svelte";
-  import Login from "#lib/components/Login.svelte";
   import NavTabs from "#lib/components/NavTabs.svelte";
   import ThemeToggle from "#lib/components/ThemeToggle.svelte";
   import { measured } from "#lib/ui/behaviour.js";
@@ -118,7 +116,11 @@
     {#if showApp}
       <slot />
     {:else}
-      {#if data.down}<CantReach down={data.down} />{:else}<Login on:authed={() => invalidateAll()} />{/if}
+      {#if data.down}
+        {#await import("#lib/components/rare.js") then m}<svelte:component this={m.CantReach} down={data.down} />{/await}
+      {:else}
+        {#await import("#lib/components/rare.js") then m}<svelte:component this={m.Login} on:authed={() => invalidateAll()} />{/await}
+      {/if}
     {/if}
   </main>
   <div class="sr" aria-live="polite">{$polite}</div>

@@ -4,6 +4,7 @@ import {
   closesOn,
   createToasts,
   focusedIndex,
+  keepLeaving,
   nextIndex,
   rememberFocus,
   syncTabStop,
@@ -12,6 +13,21 @@ import {
   tabIfScrolls,
   wrapTab,
 } from "./behaviour";
+
+describe("leaving toasts", () => {
+  const a = { id: 1, text: "a" };
+  const b = { id: 2, text: "b" };
+  const c = { id: 3, text: "c" };
+
+  test("a dismissed toast stays in place as gone, and new ones join at the end", () => {
+    expect(keepLeaving([a, b], [b, c])).toEqual([{ ...a, gone: true }, b, c]);
+  });
+
+  test("a toast that is still live keeps its latest copy and is not gone", () => {
+    const edited = { id: 2, text: "b2" };
+    expect(keepLeaving([{ ...b, gone: true }], [edited])).toEqual([edited]);
+  });
+});
 
 describe("focus return", () => {
   test("focuses the element that was active when the surface opened", () => {

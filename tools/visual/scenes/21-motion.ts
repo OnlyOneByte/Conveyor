@@ -4,6 +4,49 @@ const ADD = "main .acts button.primary";
 
 export const scenes: Scene[] = [
   {
+    name: "toast-leave",
+    route: "/primitives",
+    ready: "text=Primitives",
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      { click: "button:has-text('Show a toast')" },
+      { waitFor: ".toast >> text=Canceled Bin" },
+      { click: ".toast button >> text=Print again" },
+      { waitFor: ".toast.gone >> text=Canceled Bin" },
+      { wait: 500 },
+      { absent: ".toast >> text=Canceled Bin" },
+    ],
+  },
+  {
+    name: "motion-sheet-close",
+    route: "/",
+    ready: "text=How big?",
+    widths: [390],
+    fullPage: false,
+    steps: [
+      { click: "button.exp" },
+      { waitFor: ".sheet.open" },
+      { wait: 500 },
+      { click: "button.exp" },
+      { computed: ".sheet", property: "transition-duration", matches: "^0\\.15s" },
+      { wait: 400 },
+      { absent: ".sheet.open" },
+    ],
+  },
+  {
+    name: "menu-fits",
+    route: "/printers",
+    ready: "h1",
+    fullPage: false,
+    steps: [
+      { click: "main .acts >> text=More" },
+      { waitFor: "[popover]:popover-open" },
+      { wait: 300 },
+      { fits: "[popover]:popover-open" },
+    ],
+  },
+  {
     name: "motion-dialog",
     route: "/printers",
     ready: "h1",
