@@ -17,6 +17,7 @@
   export let settled: JobHistoryEntry | null = null;
   export let printer: string;
   export let stopped = -1;
+  export let note: { title: string; detail: string } | null = null;
 
   const OUTCOME: Record<string, string> = {
     done: "Printed",
@@ -69,7 +70,9 @@
   </ol>
   {#if outcome}
     <p class="big">
-      <b>{OUTCOME[outcome] ?? "Finished"}</b>{#if took}<span>Took {duration(took)}</span>{/if}
+      <b>{OUTCOME[outcome] ?? "Finished"}</b>
+      {#if note}<span>{note.title}</span>{:else if took}<span>Took {duration(took)}</span>{/if}
+      {#if note}<span class="why">{note.detail}</span>{/if}
     </p>
     {#if outcome === "done"}
       <div class="bar done" role="progressbar" aria-label="Job progress" aria-valuenow={100}
@@ -89,6 +92,11 @@
   .big { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin: 0; }
   .big b { font-size: var(--fs-title); line-height: 1; letter-spacing: -0.03em; }
   .big span { color: var(--muted); }
+  .big:has(.why) { row-gap: var(--s1); }
+  .big .why {
+    flex-basis: 100%; padding-left: var(--s3); border-left: 3px solid var(--err);
+    color: var(--ink); font-size: var(--fs-chip); line-height: 1.35;
+  }
   .steps {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2);
     list-style: none; padding: 0; margin: 0;

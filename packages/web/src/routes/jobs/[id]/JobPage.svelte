@@ -48,6 +48,7 @@
   let stopped = -1;
   $: stage = stopped === 3 ? "printing" : (job?.error?.stage ?? "");
   $: failure = job?.error ? failureText(stage, job.error.reason) : null;
+  $: said = failure && cardFirst ? `${failure.title}. ${failure.detail}` : "";
   $: retryOf =
     job?.state === "failed" &&
     job.request.generator.id !== "passthrough" &&
@@ -90,6 +91,7 @@
   </section>
 {:else}
   <JobHead {title} {tone} {pill} {meta} {when} stretch={!live || Boolean(rerun)}>
+    <p slot="status" class="sr" role="status">{said}</p>
     {#if rerun}
       <button class="btn primary" type="button" on:click={again}>
         {retryOf ? "Retry" : "Print again"}
@@ -110,8 +112,7 @@
     <JobReceipt job={job ?? { id: live?.jobId ?? "", state: live?.state ?? "queued" }} {rows}>
       {#if live || (cardFirst && job)}
         <JobProgress view={live} settled={cardFirst ? job : null} printer={data.printer}
-          bind:stopped />{/if}
-      <svelte:fragment slot="end">{#if failure && cardFirst}<FailureNote {failure} />{/if}</svelte:fragment>
+          bind:stopped note={cardFirst ? failure : null} />{/if}
     </JobReceipt>
     {#if cardFirst}{@render model()}{/if}
   </div>

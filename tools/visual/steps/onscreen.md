@@ -1,0 +1,1 @@
+`onscreen` fails unless its target's top edge, measured from the top of the page, falls inside the first viewport, so a reader sees it without scrolling. `receipt-fail-phone` and `receipt-fail-wide` use it to keep a failed job's advice on the first screen at 390 and 1440.

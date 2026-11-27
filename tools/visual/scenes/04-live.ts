@@ -51,6 +51,15 @@ const PRINTING = {
 const NARROW = "^(?:\\d{1,2}|1\\d\\d)(?:\\.\\d+)?px$";
 const OUTCOME = { done: "Printed", failed: "Failed", canceled: "Canceled" };
 const READY = { queued: "main .live >> text=Waiting", printing: "main >> text=38 min left" };
+const SAID = "main [role=status] >> text=The print didn't finish";
+const FAILED: Step[] = [
+  { waitFor: "main .live li.stop >> text=Print" },
+  { waitFor: "main .live .big >> text=The print didn't finish" },
+  { onscreen: "main .live .why" },
+  { waitFor: SAID },
+  { before: "main [role=status]", of: "main button:has-text('Retry')" },
+  { absent: "main >> text=Sending to the printer didn't finish" },
+];
 
 const ahead = (jobId: string, createdAt: number) => ({
   jobId,
@@ -91,12 +100,8 @@ export const scenes: Scene[] = [
     { waitFor: "main .live >> text=Took 1 h 13 min" },
     { above: "main .receipt", of: "main .mat" },
   ]),
-  finish("fail-phone", "failed", [
-    { waitFor: "main .live li.stop >> text=Print" },
-    { absent: "main .live li.stop >> text=Send" },
-    { waitFor: "main .receipt [role=note] >> text=The print didn't finish" },
-    { absent: "main >> text=Sending to the printer didn't finish" },
-  ]),
+  finish("fail-phone", "failed", [...FAILED, { absent: "main .live li.stop >> text=Send" }]),
+  finish("fail-wide", "failed", FAILED, { state: "printing" }, {}, [1440]),
   finish(
     "cancel-queued-phone",
     "canceled",
@@ -112,6 +117,7 @@ function finish(
   checks: Step[],
   live: { state: "queued" | "printing"; timings?: object[] } = { state: "printing" },
   entry: object = {},
+  widths: (390 | 1440)[] = [390],
 ): Scene {
   const jobId = `scene-${name}`;
   const failure = { error: { stage: "transport", reason: "printer reported an error" } };
@@ -126,7 +132,7 @@ function finish(
     name: `receipt-${name}`,
     route: "/",
     ready: "text=How big?",
-    widths: [390],
+    widths,
     fullPage: false,
     steps: [
       {

@@ -16,6 +16,7 @@
       <span>{meta}</span>
       {#if when}<span>{when}</span>{/if}
     </p>
+    <slot name="status" />
   </div>
   <div class="acts" class:stretch><slot /></div>
 </div>
