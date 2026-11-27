@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:39997",
+  "url": "http://127.0.0.1:37709",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 693357,
+      "gifBytes": 633512,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 393325,
+      "gifBytes": 361522,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -106,7 +106,7 @@
       "scene": "make-upload-fit-down",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (make-upload-fit-down-1440.caddy.log)",
+      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (make-upload-fit-down-1440.caddy.log)",
       "png": "make-upload-fit-down-1440.png"
     },
     {
@@ -120,7 +120,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 589328,
+      "gifBytes": 526906,
       "gif": "make-print-1440.gif"
     },
     {
@@ -170,7 +170,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 666146,
+      "gifBytes": 761141,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -436,7 +436,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 834271,
+      "gifBytes": 809955,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -552,7 +552,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 468031,
+      "gifBytes": 518851,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -560,7 +560,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1316769,
+      "gifBytes": 1129351,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -568,7 +568,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1469316,
+      "gifBytes": 1437194,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -600,7 +600,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 279792,
+      "gifBytes": 312163,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -638,7 +638,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 387222,
+      "gifBytes": 431964,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -670,7 +670,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 929973,
+      "gifBytes": 1014169,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -684,7 +684,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 753354,
+      "gifBytes": 864225,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -728,7 +728,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 724473,
+      "gifBytes": 793138,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -898,14 +898,14 @@
       "scene": "toast-leave",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (toast-leave-1440.caddy.log)",
+      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (toast-leave-1440.caddy.log)",
       "png": "toast-leave-1440.png"
     },
     {
       "scene": "menu-fits",
       "width": 1440,
       "warnings": [],
-      "error": "[popover]:popover-open overflows the 1440 px viewport: its right edge is at 1470 px and the page is 1440 px wide. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (menu-fits-1440.caddy.log)",
+      "error": "[popover]:popover-open overflows the 1440 px viewport: its right edge is at 1470 px and the page is 1440 px wide. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (menu-fits-1440.caddy.log)",
       "png": "menu-fits-1440.png"
     },
     {
@@ -925,7 +925,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 355666,
+      "gifBytes": 381797,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -938,14 +938,14 @@
       "scene": "palette-slow",
       "width": 1440,
       "warnings": [],
-      "error": "lazy: /printers imports nothing on demand. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-slow-1440.caddy.log)",
+      "error": "lazy: /printers imports nothing on demand. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-slow-1440.caddy.log)",
       "png": "palette-slow-1440.png"
     },
     {
       "scene": "palette-down",
       "width": 1440,
       "warnings": [],
-      "error": "lazy: /printers imports nothing on demand. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-down-1440.caddy.log)",
+      "error": "lazy: /printers imports nothing on demand. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (palette-down-1440.caddy.log)",
       "png": "palette-down-1440.png"
     },
     {
@@ -1049,7 +1049,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 660150,
+      "gifBytes": 650506,
       "gif": "new-job-390.gif"
     },
     {
@@ -1057,7 +1057,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 403870,
+      "gifBytes": 356440,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1131,7 +1131,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1049368,
+      "gifBytes": 1049384,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1367,7 +1367,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1034271,
+      "gifBytes": 1016614,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1489,7 +1489,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 531940,
+      "gifBytes": 512864,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1533,7 +1533,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 636085,
+      "gifBytes": 637662,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1565,7 +1565,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1390856,
+      "gifBytes": 1326353,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1579,7 +1579,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1172202,
+      "gifBytes": 1135782,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1611,7 +1611,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1131889,
+      "gifBytes": 1134390,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1816,14 +1816,14 @@
       "scene": "motion-sheet-close",
       "width": 390,
       "warnings": [],
-      "error": "waitFor: Timeout 15000ms exceeded.. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (motion-sheet-close-390.caddy.log)",
+      "error": "waitFor: Timeout 15000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (motion-sheet-close-390.caddy.log)",
       "png": "motion-sheet-close-390.png"
     },
     {
       "scene": "menu-fits",
       "width": 390,
       "warnings": [],
-      "error": "[popover]:popover-open overflows the 390 px viewport: its right edge is at 481 px and the page is 390 px wide. CSS requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (menu-fits-390.caddy.log)",
+      "error": "[popover]:popover-open overflows the 390 px viewport: its right edge is at 481 px and the page is 390 px wide. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (menu-fits-390.caddy.log)",
       "png": "menu-fits-390.png"
     },
     {
@@ -1831,7 +1831,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 449211,
+      "gifBytes": 446851,
       "gif": "motion-sheet-390.gif"
     },
     {
