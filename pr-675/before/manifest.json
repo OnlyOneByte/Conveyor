@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:33405",
+  "url": "http://127.0.0.1:36503",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 664387,
+      "gifBytes": 633737,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 391972,
+      "gifBytes": 380589,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 496704,
+      "gifBytes": 526906,
       "gif": "make-print-1440.gif"
     },
     {
@@ -169,7 +169,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 754569,
+      "gifBytes": 761160,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -435,7 +435,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 834568,
+      "gifBytes": 811009,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -551,7 +551,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 519141,
+      "gifBytes": 577486,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -559,7 +559,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1638729,
+      "gifBytes": 1161068,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -567,7 +567,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1498693,
+      "gifBytes": 1437194,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -599,7 +599,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 321180,
+      "gifBytes": 309807,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -637,7 +637,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 417059,
+      "gifBytes": 414067,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -669,7 +669,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1062327,
+      "gifBytes": 1017589,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -683,7 +683,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 861733,
+      "gifBytes": 842747,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -727,7 +727,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 809480,
+      "gifBytes": 806034,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -934,7 +934,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 400710,
+      "gifBytes": 378791,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1056,7 +1056,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 654961,
+      "gifBytes": 656071,
       "gif": "new-job-390.gif"
     },
     {
@@ -1064,7 +1064,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 348408,
+      "gifBytes": 375015,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1138,7 +1138,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1055661,
+      "gifBytes": 1076613,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1284,7 +1284,7 @@
       "scene": "receipt-finish-phone",
       "width": 390,
       "warnings": [],
-      "error": "main .receipt ends at 957 px, below the top of main .mat at 389 px. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (receipt-finish-phone-390.caddy.log)",
+      "error": "main .receipt ends at 1251 px, below the top of main .mat at 389 px. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (receipt-finish-phone-390.caddy.log)",
       "png": "receipt-finish-phone-390.png"
     },
     {
@@ -1388,7 +1388,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1027981,
+      "gifBytes": 1016637,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1510,7 +1510,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 512880,
+      "gifBytes": 531959,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1554,7 +1554,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 637663,
+      "gifBytes": 637662,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1586,7 +1586,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1342029,
+      "gifBytes": 1370427,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1600,7 +1600,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1139475,
+      "gifBytes": 1180348,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1632,7 +1632,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1121237,
+      "gifBytes": 1140739,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -1862,7 +1862,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 450625,
+      "gifBytes": 451136,
       "gif": "motion-sheet-390.gif"
     },
     {
