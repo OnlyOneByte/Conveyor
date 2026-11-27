@@ -120,7 +120,7 @@ describe.skipIf(!url)("a job waiting on a printer hold on the Redis queue", () =
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("is listed on /jobs/active and readable at /jobs/:id as queued, with no start estimate", async () => {
+  test("is shown queued with no start estimate until Release hold, then the jobs run oldest first", async () => {
     const listed = await until("all three jobs shown waiting", 20_000, async () => {
       const shown = (await active()).filter((evt) => ids.includes(evt.jobId));
       return shown.length === 3 && shown.every((evt) => evt.message === WAITING)
@@ -136,9 +136,7 @@ describe.skipIf(!url)("a job waiting on a printer hold on the Redis queue", () =
       expect(res.status).toBe(200);
       expect(view.parse(await res.json())).toMatchObject({ state: "queued", message: WAITING });
     }
-  }, 30_000);
 
-  test("after Release hold, the waiting jobs run oldest first", async () => {
     const release = await fetch(`${base()}/catalog/printers/${job.printerId}/release`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -154,5 +152,5 @@ describe.skipIf(!url)("a job waiting on a printer hold on the Redis queue", () =
     const at = finished.map((evt) => z.number().parse(evt.at));
     expect([...at].sort((a, b) => a - b)).toEqual(at);
     expect(new Set(at).size).toBe(3);
-  }, 60_000);
+  }, 90_000);
 });
