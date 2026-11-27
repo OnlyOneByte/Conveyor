@@ -3,6 +3,7 @@ export * from "./ctx.ts";
 export * from "./db.ts";
 export * from "./engine.ts";
 export * from "./legacy-db.ts";
+export * from "./printer-dns.ts";
 export * from "./queue.ts";
 export * from "./redis-keys.ts";
 export * from "./slicer.ts";

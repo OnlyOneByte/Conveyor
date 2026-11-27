@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { PrintHandle } from "@conveyor/shared";
-import { printerDns } from "@conveyor/shared/node";
+import { stubPrinterDns } from "../../../../packages/shared/test/helpers/index.ts";
 import { moonraker as plugin } from "./index.ts";
 
 const { preconnect } = globalThis.fetch;
@@ -10,13 +10,9 @@ afterEach(() => {
 });
 
 function dnsAnswers(...answers: string[][]) {
-  const asked: string[] = [];
-  const spy = spyOn(printerDns, "resolve").mockImplementation(async (host: string) => {
-    asked.push(host);
-    return answers.shift() ?? [];
-  });
-  restores.push(() => spy.mockRestore());
-  return asked;
+  const stub = stubPrinterDns(...answers);
+  restores.push(stub.restore);
+  return stub.asked;
 }
 
 function requests() {
@@ -59,4 +55,18 @@ test("each later request checks the name again and refuses it once it points at 
     "Conveyor won't connect to printer.example",
   );
   expect(seen).toHaveLength(1);
+});
+
+test.each([
+  "x://printer.example:7125",
+  "ftp://printer.example",
+  "ws://printer.example",
+  "wss://printer.example",
+])("a %s address is refused with the scheme message, before any request", async (address) => {
+  dnsAnswers(["192.168.1.40"]);
+  const seen = requests();
+  const err = await plugin.cancel?.({ ...handle, address }).catch((e: unknown) => e);
+  expect(String(err)).toMatch(/Conveyor connects to (Moonraker )?printers only over http/);
+  expect(String(err)).not.toContain("the port must be a number");
+  expect(seen).toEqual([]);
 });

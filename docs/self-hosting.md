@@ -183,11 +183,16 @@ The host is read with the same URL parser `fetch` and `WebSocket` use, so hex, d
 Two more rules keep the check and the connection about the same place:
 - **Schemes:** a printer address uses no scheme, or `http`, `https`, `ws` or `wss`. Any other scheme (`x://`, `ftp://`, `file://`) is refused when the printer is saved and before any connection, because with an unknown scheme the URL parser reads the host differently than the transports do.
 - **The checked address is the one used:** for plain `http` and `ws`, the connection goes to the IP the check resolved and approved, not to the name again. A name that changes what it resolves to between the check and the connection (DNS rebinding) can't send a request somewhere else.
-  - **Moonraker:** requests keep the name in the `Host` header, so a reverse proxy in front of Moonraker still routes them.
-  - **Elegoo and the reachability check:** they connect to that IP.
-  - **`https` and `wss`:** they connect by name, and the TLS certificate check binds the connection to that name.
+  - **Moonraker:** plain `http` requests go to the checked IP and keep the name in the `Host` header, so a reverse proxy in front of Moonraker still routes them. Moonraker takes only `http` and `https`; a `ws://` or `wss://` Moonraker address is refused with a message saying so.
+  - **Elegoo:** it always connects `ws://` (and uploads over `http://`) to the checked IP, whatever scheme the saved address has.
+  - **The reachability check:** it opens its TCP connection to the checked IP.
+  - **A DNS answer with an IPv6 zone id** (`fe80::1%eth0`) is refused, and a connection never falls back to the name if the IP can't be used.
+  - **An address the check can't read** is refused with the reason, rather than passed on unchecked.
 
-**Known limit:** the check resolves a name, and the request then resolves it again. A name whose DNS answer changes in the instant between the two can still reach a refused address. Connecting to the checked address instead would break HTTPS printer URLs (the certificate names the host) and isn't possible for Elegoo's WebSocket. Give printers an IP address, or a name only your own DNS answers, where this matters.
+**What still resolves the name again:** Moonraker `https` addresses, and names allowed by name in `PRINTER_ADDRESS_ALLOW` (those aren't checked, so there is no IP to keep). For `https`, the TLS certificate check binds the connection to the name, so a rebound name only reaches a host that holds a valid certificate for it.
+- **Self-signed `https` printers:** Conveyor verifies certificates, so a self-signed one fails with `self signed certificate`. Give the api and the worker the printer's certificate (or the CA that signed it) with `NODE_EXTRA_CA_CERTS=/path/to/printer-ca.pem`.
+- **Don't set `NODE_TLS_REJECT_UNAUTHORIZED=0`:** it turns off the certificate check for every connection, and with it the only thing that binds an `https` printer to its name.
+- **Plain `http` instead:** on a trusted LAN, a plain `http://` Moonraker address is pinned to the checked IP and needs no certificate.
 
 A refused address gets a plain error, for example `Conveyor won't connect to 169.254.169.254: it is a link-local address, where cloud metadata services listen, not a printer on your network. If it really is your printer, add 169.254.169.254 to PRINTER_ADDRESS_ALLOW.` Saving answers `400` with it, and a job fails at the transport stage with it. To let a printer through, set `PRINTER_ADDRESS_ALLOW` on both the api and the worker (compose passes it to both).
 

@@ -45,11 +45,7 @@ export const moonraker: TransportPlugin = {
       };
     }
 
-    const { base, headers } = await reach(
-      target.address,
-      baseUrl(target.address),
-      apiKeyHeaders(target),
-    );
+    const { base, headers } = await reach(target.address, baseUrl, apiKeyHeaders(target));
     const readyMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
     refuseUnlessIdle("moonraker", await moonrakerReadiness(base, headers, readyMs, ctx.signal));
 
@@ -117,7 +113,6 @@ export const moonraker: TransportPlugin = {
 
     if (!handle.address)
       throw new StageError("transport", "moonraker status: missing printer address on handle");
-    const base = baseUrl(handle.address);
     const query = "/printer/objects/query?print_stats&virtual_sdcard&display_status";
     const headers = statusKeyHeaders(target);
     const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
@@ -128,7 +123,7 @@ export const moonraker: TransportPlugin = {
     const watch = printWatch();
     let failures = 0;
     while (true) {
-      const at = await unresolved(handle.address, base, headers);
+      const at = await unresolved(handle.address, baseUrl, headers);
       const res =
         typeof at === "string"
           ? at
@@ -167,7 +162,7 @@ export const moonraker: TransportPlugin = {
     if (STUB) return;
     if (!handle.address)
       throw new StageError("transport", "moonraker cancel: missing printer address on handle");
-    const at = await reach(handle.address, baseUrl(handle.address), statusKeyHeaders(target));
+    const at = await reach(handle.address, baseUrl, statusKeyHeaders(target));
     const res = await fetch(`${at.base}/printer/print/cancel`, {
       method: "POST",
       headers: at.headers,
@@ -180,7 +175,7 @@ export const moonraker: TransportPlugin = {
 
   async pruneFiles(target, keep, signal) {
     if (STUB) return [];
-    const at = await reach(target.address, baseUrl(target.address), apiKeyHeaders(target));
+    const at = await reach(target.address, baseUrl, apiKeyHeaders(target));
     const timeoutMs = positiveSetting("MOONRAKER_STATUS_TIMEOUT_MS", STATUS_TIMEOUT_MS);
     return pruneGcodes(at.base, at.headers, keep, timeoutMs, signal);
   },

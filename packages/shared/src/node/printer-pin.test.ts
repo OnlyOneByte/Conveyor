@@ -3,6 +3,7 @@ import {
   checkPrinterAddress,
   type Lookup,
   PrinterAddressRefusedError,
+  PrinterAddressUnreadableError,
   PrinterSchemeRefusedError,
   pinnedUrl,
 } from "./printer-address.js";
@@ -66,5 +67,47 @@ describe("pinnedUrl", () => {
       url: "http://printer.lan:7125",
     });
     expect(pinnedUrl("http://[fd00::1]:80/x", "fd00::1")).toEqual({ url: "http://[fd00::1]:80/x" });
+  });
+});
+
+describe("addresses the guard can't vouch for", () => {
+  const zonedAnswers: string[][] = [
+    ["fe80::1%eth0"],
+    ["fe80:0:0:0:0:0:0:1%25eth0"],
+    ["192.168.1.40", "fe80::1%eth0"],
+  ];
+  test.each(zonedAnswers.map((answers) => ({ answers })))(
+    "refuses a DNS answer carrying a zone id: $answers",
+    async ({ answers }) => {
+      const zoned: Lookup = async () => answers;
+      const err = await check("printer.invalid:7125", zoned).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PrinterAddressRefusedError);
+      expect(String(err)).toContain("an IPv6 address with a zone id");
+    },
+  );
+
+  test.each([
+    ["[fe80::1%25eth0]:7125", "zone"],
+    ["fe80::1%eth0", "zone"],
+    ["x:printer.example", "port"],
+    ["javascript:alert(1)", "port"],
+    ["", "empty"],
+  ])("refuses %p, which it can't read, naming why (%s)", async (address, why) => {
+    const err = await check(address).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrinterAddressUnreadableError);
+    expect(String(err)).toContain("Conveyor can't check this printer address");
+    expect(String(err).toLowerCase()).toContain(why);
+  });
+
+  test("hides credentials in an unreadable address", async () => {
+    const err = await check("admin:secret@x:printer").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrinterAddressUnreadableError);
+    expect(String(err)).not.toContain("secret");
+  });
+
+  test("pinnedUrl throws rather than fall back to the name when the IP doesn't take", () => {
+    expect(() => pinnedUrl("http://printer.invalid:7125", "fe80::1%eth0")).toThrow(
+      "Conveyor couldn't connect to the checked address fe80::1%eth0",
+    );
   });
 });

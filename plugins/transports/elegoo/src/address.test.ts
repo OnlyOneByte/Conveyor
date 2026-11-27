@@ -93,7 +93,7 @@ describe("elegoo printer addresses", () => {
   test("an ambiguous address fails the command with the parser's reason", async () => {
     useAckingSocket();
     const stop = elegoo.cancel?.({ ...handle, address: "fe80::1::2" }) ?? Promise.resolve();
-    await expect(stop).rejects.toThrow('elegoo printer address "fe80::1::2": not a valid IPv6');
+    await expect(stop).rejects.toThrow('printer address "fe80::1::2": not a valid IPv6');
     expect(AckingSocket.urls).toHaveLength(0);
   });
 });

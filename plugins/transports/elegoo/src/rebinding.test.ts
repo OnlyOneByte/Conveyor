@@ -1,6 +1,6 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { PrintHandle } from "@conveyor/shared";
-import { printerDns } from "@conveyor/shared/node";
+import { stubPrinterDns } from "../../../../packages/shared/test/helpers/index.ts";
 import { elegoo } from "./index";
 
 const RealWebSocket = globalThis.WebSocket;
@@ -29,13 +29,9 @@ class AckSocket {
 }
 
 function dnsAnswers(...answers: string[][]) {
-  const asked: string[] = [];
-  const spy = spyOn(printerDns, "resolve").mockImplementation(async (host: string) => {
-    asked.push(host);
-    return answers.shift() ?? [];
-  });
-  restores.push(() => spy.mockRestore());
-  return asked;
+  const stub = stubPrinterDns(...answers);
+  restores.push(stub.restore);
+  return stub.asked;
 }
 
 const handle: PrintHandle = {
