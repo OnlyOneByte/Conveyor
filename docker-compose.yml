@@ -120,7 +120,6 @@ services:
   worker:
     build: { context: ., dockerfile: packages/worker/Dockerfile }
     restart: unless-stopped
-    init: true
     logging: *logging
     security_opt: ["no-new-privileges:true"]
     read_only: true
