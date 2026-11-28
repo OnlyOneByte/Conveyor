@@ -89,15 +89,33 @@ describe("registerOriginGuard", () => {
     expect(res.statusCode).toBe(200);
   });
 
-  test("checks a WebSocket upgrade's Origin, though it is a GET", async () => {
-    const api = await guarded();
-    const upgrade = (origin: string) =>
-      api.inject({
-        method: "GET",
-        url: "/read",
-        headers: { host: "conveyor.example", origin, connection: "Upgrade", upgrade: "websocket" },
-      });
-    expect((await upgrade("https://evil.example")).statusCode).toBe(403);
-    expect((await upgrade("https://conveyor.example")).statusCode).toBe(200);
+  test.each(["websocket", "WebSocket", "WEBSOCKET"])(
+    "checks a WebSocket upgrade's Origin, though it is a GET (Upgrade: %s)",
+    async (upgradeHeader) => {
+      const api = await guarded();
+      const upgrade = (origin: string) =>
+        api.inject({
+          method: "GET",
+          url: "/read",
+          headers: {
+            host: "conveyor.example",
+            origin,
+            connection: "Upgrade",
+            upgrade: upgradeHeader,
+          },
+        });
+      expect((await upgrade("https://evil.example")).statusCode).toBe(403);
+      expect((await upgrade("https://conveyor.example")).statusCode).toBe(200);
+    },
+  );
+
+  test("names CONVEYOR_ALLOWED_HOSTS in the 421 body", async () => {
+    const res = await (await guarded()).inject({
+      method: "GET",
+      url: "/read",
+      headers: { host: "printer.lan" },
+    });
+    expect(res.statusCode).toBe(421);
+    expect(JSON.parse(res.body).error).toContain("CONVEYOR_ALLOWED_HOSTS");
   });
 });

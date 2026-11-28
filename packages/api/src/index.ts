@@ -5,7 +5,7 @@ import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
-import { allowedHosts } from "./allowed-hosts.js";
+import { type AllowedHosts, allowedHosts } from "./allowed-hosts.js";
 import { registerErrorReplies } from "./error-replies.js";
 import { registerOriginGuard } from "./origin.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
@@ -25,7 +25,7 @@ const HOST = process.env.CONVEYOR_HOST ?? "127.0.0.1";
 let queue: string;
 let trustProxy: string[] | false;
 let uploads: UploadSettings;
-let hosts: ReadonlySet<string>;
+let hosts: AllowedHosts;
 try {
   uploads = uploadSettings(process.env);
   hosts = allowedHosts(process.env);

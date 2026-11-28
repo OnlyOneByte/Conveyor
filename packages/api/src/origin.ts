@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { hostAllowed, UNKNOWN_HOST_REFUSED } from "./allowed-hosts.js";
+import { type AllowedHosts, hostAllowed, UNKNOWN_HOST_REFUSED } from "./allowed-hosts.js";
 import { closeAfterReply, sendsUploadBody } from "./routes/close-after.js";
 
 export const CROSS_ORIGIN_REFUSED = "cross-origin request refused";
@@ -33,7 +33,7 @@ export function isCrossOriginWrite(req: WriteRequest): boolean {
 const isWebSocket = (req: FastifyRequest) =>
   String(req.headers.upgrade ?? "").toLowerCase() === "websocket";
 
-export function registerOriginGuard(app: FastifyInstance, allowed: ReadonlySet<string>): void {
+export function registerOriginGuard(app: FastifyInstance, allowed: AllowedHosts): void {
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     const refusal = hostAllowed(allowed, req.host)
       ? isCrossOriginWrite({

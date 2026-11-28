@@ -2,46 +2,68 @@ export class AllowedHostsError extends Error {
   override name = "AllowedHostsError";
 }
 
-export const UNKNOWN_HOST_REFUSED = "unknown host";
+export const UNKNOWN_HOST_REFUSED =
+  "unknown host: the API answers only to the names in CONVEYOR_ALLOWED_HOSTS, CONVEYOR_DOMAIN and localhost";
 
 const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
-const HOST_NAME = /^(\[[0-9a-f:.]+\]|[a-z0-9-]+(\.[a-z0-9-]+)*)$/;
+const HOST_NAME = /^(\[[0-9a-f:.]+\]|[a-z0-9_-]+(\.[a-z0-9_-]+)*)$/;
+const SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+export interface AllowedHosts {
+  names: ReadonlySet<string>;
+  suffixes: readonly string[];
+}
 
 type Env = Record<string, string | undefined>;
+type Entry = { name: string } | { suffix: string } | "any-host" | undefined;
 
 function hostnameOf(value: string): string | undefined {
-  const bare = value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
-  if (bare === "" || /[/?#@\\]/.test(bare)) return undefined;
+  if (value === "" || /[/?#@\\]/.test(value)) return undefined;
   try {
-    const name = new URL(`http://${bare}`).hostname.replace(/\.$/, "");
+    const name = new URL(`http://${value}`).hostname.replace(/\.$/, "");
     return HOST_NAME.test(name) ? name : undefined;
   } catch {
     return undefined;
   }
 }
 
-function parseList(variable: string, raw: string | undefined): string[] {
-  const entries = (raw ?? "").split(/[\s,]+/).filter((entry) => entry !== "");
-  const names = entries.map((entry) => ({ entry, name: hostnameOf(entry) }));
-  const bad = names.filter(({ name }) => name === undefined).map(({ entry }) => entry);
+function entryOf(raw: string): Entry {
+  const bare = raw.replace(SCHEME, "").replace(/\/$/, "");
+  if (bare === "" || /^:\d+$/.test(bare)) return "any-host";
+  if (!bare.startsWith("*.")) {
+    const name = hostnameOf(bare);
+    return name === undefined ? undefined : { name };
+  }
+  const suffix = hostnameOf(bare.slice(2));
+  return suffix === undefined || suffix.startsWith("[") ? undefined : { suffix };
+}
+
+function parseList(variable: string, raw: string | undefined): Exclude<Entry, undefined>[] {
+  const tokens = (raw ?? "").split(/[\s,]+/).filter((token) => token !== "");
+  const entries = tokens.map((token) => ({ token, entry: entryOf(token) }));
+  const bad = entries.filter(({ entry }) => entry === undefined).map(({ token }) => token);
   if (bad.length > 0) {
     throw new AllowedHostsError(
-      `${variable} must be a comma-separated list of host names or IP addresses (an optional scheme or port is ignored), got ${bad.map((b) => JSON.stringify(b)).join(", ")}`,
+      `${variable} has entries that aren't host names or IP addresses: ${bad.map((b) => JSON.stringify(b)).join(", ")}. List names like printer.lan, 192.168.1.40, [fd00::4] or *.example.com, separated by commas, then restart.`,
     );
   }
-  return names.flatMap(({ name }) => (name === undefined ? [] : [name]));
+  return entries.flatMap(({ entry }) => (entry === undefined ? [] : [entry]));
 }
 
-export function allowedHosts(env: Env): ReadonlySet<string> {
-  return new Set([
-    ...LOOPBACK_HOSTS,
+export function allowedHosts(env: Env): AllowedHosts {
+  const entries = [
+    ...LOOPBACK_HOSTS.map((name) => ({ name })),
     ...parseList("CONVEYOR_DOMAIN", env.CONVEYOR_DOMAIN),
     ...parseList("CONVEYOR_ALLOWED_HOSTS", env.CONVEYOR_ALLOWED_HOSTS),
-  ]);
+  ];
+  return {
+    names: new Set(entries.flatMap((e) => (typeof e === "object" && "name" in e ? [e.name] : []))),
+    suffixes: entries.flatMap((e) => (typeof e === "object" && "suffix" in e ? [e.suffix] : [])),
+  };
 }
 
-export function hostAllowed(allowed: ReadonlySet<string>, host: string): boolean {
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(host)) return false;
+export function hostAllowed(allowed: AllowedHosts, host: string): boolean {
   const name = hostnameOf(host);
-  return name !== undefined && allowed.has(name);
+  if (name === undefined) return false;
+  return allowed.names.has(name) || allowed.suffixes.some((suffix) => name.endsWith(`.${suffix}`));
 }

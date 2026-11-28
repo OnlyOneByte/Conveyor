@@ -72,7 +72,16 @@ There is also an overall limit: after 100 wrong passwords within a minute from a
 
 ### Requests from other sites
 
-The API answers only to the host names it knows. A request whose `Host` isn't one of them gets `421 unknown host`, whatever its path or method, `/health` included. That stops DNS rebinding: a web page whose own name is pointed at your API's address sends its own name as `Host`, and is refused. The names it knows are `localhost`, `127.0.0.1` and `[::1]`, plus `CONVEYOR_DOMAIN` (the name Caddy serves; Compose passes it to the API) and any names in `CONVEYOR_ALLOWED_HOSTS`, a comma-separated list of host names or IP addresses. A port, a scheme or the case doesn't matter. Add a name to `CONVEYOR_ALLOWED_HOSTS` when you reach the API by a name or LAN address that isn't one of those, for example a `CONVEYOR_DEV_ALLOWED_HOSTS` address you open the dev server on from a phone. An entry that isn't a host name or IP address (a wildcard, a path) stops the API at startup.
+The API answers only to the host names it knows. A request whose `Host` isn't one of them gets `421` with an error that names `CONVEYOR_ALLOWED_HOSTS`, whatever its path or method, `/health` included. That stops DNS rebinding: a web page whose own name is pointed at your API's address sends its own name as `Host`, and is refused. The names it knows are `localhost`, `127.0.0.1` and `[::1]`, plus `CONVEYOR_DOMAIN` (the name Caddy serves; Compose passes it to the API) and any names in `CONVEYOR_ALLOWED_HOSTS`, a comma-separated list of host names or IP addresses. A port, an `http://` or `https://` prefix, a trailing dot or the case doesn't matter, and names may contain `_`. `*.example.com` allows any name with at least one label in front, such as `printer.example.com`, but not `example.com` itself. A `CONVEYOR_DOMAIN` of `:80` or `:443` (Caddy's "any host") adds no name, so the API then answers only to the loopback names and what `CONVEYOR_ALLOWED_HOSTS` lists. An entry that is none of these (a path, userinfo) stops the API at startup with a message naming the variable.
+
+**Breaking change.** Before this, the API answered to any `Host`. Now any other name gets `421`, and that breaks these setups until you list their names in `CONVEYOR_ALLOWED_HOSTS`:
+
+- the API reached directly by a LAN IP address or a name, outside Compose (`CONVEYOR_HOST=0.0.0.0` with `http://192.168.1.40:3000`, say);
+- your own reverse proxy in front of the API, serving a name other than `CONVEYOR_DOMAIN`;
+- the API reached as `0.0.0.0:3000`, which is never allowed: use `127.0.0.1` or list the real name;
+- the dev server opened from a phone or another machine on a `CONVEYOR_DEV_ALLOWED_HOSTS` address.
+
+For example `CONVEYOR_ALLOWED_HOSTS=192.168.1.40,printer.lan`. Compose with Caddy, `bun run dev` on `localhost`, and the Compose healthcheck need nothing.
 
 The API also refuses a `POST`, `PUT`, `PATCH` or `DELETE` that a browser sends from another site, with `403 cross-origin request refused`, whether auth is on or off. With auth on, it is refused even when the browser has a session; that covers another app on the same host or on a sibling subdomain, which `SameSite=Strict` lets through. With `CONVEYOR_AUTH=disabled` it matters most: there is no login to stop a web page you visit from starting prints or changing printers on your network, and this check is what stops it. A request is from its own site when its `Origin` has the same host and port as the `Host` header the API receives. Caddy and the Vite dev server both pass the browser's `Host` through, so this works behind Caddy and with `bun run dev`. A proxy you put in front instead must do the same. A request with no `Origin`, such as `curl`, is let through (to the login check, with auth on), unless its `Sec-Fetch-Site` says it came from another site. The job status WebSockets are checked the same way, though they open with a `GET`, so another site can't read job status even with auth off. Only an `http` or `https` `Origin` can match.
 
@@ -160,7 +169,7 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_BIND` | `127.0.0.1` | Host address Caddy publishes ports 80 and 443 on. |
 | `CONVEYOR_DOMAIN` | `localhost` | Name Caddy serves and gets a certificate for ([The name Caddy serves](#the-name-caddy-serves)). Unset or empty means `localhost`. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
-| `CONVEYOR_ALLOWED_HOSTS` | none | More host names or IP addresses the API answers to, comma-separated, on top of `localhost`, `127.0.0.1`, `[::1]` and `CONVEYOR_DOMAIN`. Any other `Host` gets `421`. See [Requests from other sites](#requests-from-other-sites). |
+| `CONVEYOR_ALLOWED_HOSTS` | none | More host names or IP addresses the API answers to, comma-separated, `*.example.com` for names under a domain, on top of `localhost`, `127.0.0.1`, `[::1]` and `CONVEYOR_DOMAIN`. Any other `Host` gets `421`. See [Requests from other sites](#requests-from-other-sites). |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
 | `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts, in whole milliseconds, at least `1000`. Blank means the default. Any other value (`12h`, `1e6`, `0x10000`) stops the API at startup, naming the variable. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
 | `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
@@ -432,6 +441,10 @@ docker compose run --rm --no-deps --user 0 --cap-add CHOWN --cap-add DAC_READ_SE
 ```
 
 `CHOWN` changes the owner, and `DAC_READ_SEARCH` lets it walk the `0700` directories `redis` already owns. Both exist only for that one container.
+
+## Upgrading to a release with the Host allowlist
+
+Breaking change: the API now answers only to `localhost`, `127.0.0.1`, `[::1]`, `CONVEYOR_DOMAIN` and the names in `CONVEYOR_ALLOWED_HOSTS`; any other `Host` gets `421`. If you reach the API by a LAN IP or a name outside Compose, through your own proxy, as `0.0.0.0`, or from a phone in dev, set `CONVEYOR_ALLOWED_HOSTS` to those names before upgrading ([Requests from other sites](#requests-from-other-sites)). Compose with Caddy and `bun run dev` on `localhost` need nothing.
 
 ## Upgrading to a release with retention
 

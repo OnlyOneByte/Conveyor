@@ -15,8 +15,11 @@ and `GET /metrics`. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`
 registered in. The Origin guard (`registerOriginGuard`) runs first, with auth on or off. It answers a
 `req.host` (the `Host` header, or `X-Forwarded-Host` from a trusted proxy) that isn't on the allowlist
 (`allowed-hosts.ts`: `localhost`, `127.0.0.1`, `[::1]`, `CONVEYOR_DOMAIN` and `CONVEYOR_ALLOWED_HOSTS`,
-compared by host name, without the port) with `421 unknown host`, against DNS rebinding. `index.ts` parses
-the list at startup, and an entry that isn't a host name or IP address stops it. The guard then refuses a
+compared by host name, without the port) with `421` and an error that names `CONVEYOR_ALLOWED_HOSTS`,
+against DNS rebinding. `index.ts` parses the list at startup. Both variables take Caddy's forms: an
+`http://` or `https://` prefix and a port are dropped, `:80` or `:443` adds no name, and `*.example.com`
+allows any name that ends in `.example.com` (at least one label in front). An entry that is none of these
+stops startup with a message naming the variable and the fix. The guard then refuses a
 cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403 cross-origin request refused`, public
 routes included: a method other than `GET`, `HEAD` or `OPTIONS`, or a WebSocket upgrade, whose
 `Sec-Fetch-Site` is neither `same-origin` nor `none`, or whose `Origin` is opaque, unparseable, not
