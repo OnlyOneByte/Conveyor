@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Command } from "#lib/commands.js";
-  import { rememberFocus, uid } from "#lib/ui/behaviour.js";
+  import { fadeOut, rememberFocus, uid } from "#lib/ui/behaviour.js";
 
   export let open = false;
   export let commands: Command[] = [];
@@ -20,10 +20,14 @@
     query = "";
     dialog.showModal();
   }
-  $: if (dialog && !open && dialog.open) dialog.close();
+  $: if (dialog && !open && dialog.open) {
+    fadeOut(dialog);
+    dialog.close();
+  }
 </script>
 
-<dialog bind:this={dialog} aria-label="Command menu" on:close={() => ((open = false), restore())}>
+<dialog bind:this={dialog} aria-label="Command menu" on:cancel|preventDefault={() => (open = false)}
+  on:close={() => ((open = false), restore())}>
   <input role="combobox" aria-expanded={List !== null} aria-controls={List ? `${id}-list` : undefined} aria-autocomplete="list" aria-activedescendant={current}
     aria-label="Search jobs, printers and actions" placeholder="Search jobs, printers and actions" autocomplete="off" bind:value={query} on:keydown={(e) => list?.keydown(e)} />
   {#if List}

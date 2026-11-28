@@ -34,7 +34,7 @@ a { color: var(--ink); text-underline-offset: 0.2em; }
 }
 :where(button, .btn):active:not(:disabled) { filter: brightness(0.94); }
 
-dialog,
+dialog { transition: opacity var(--t-fast) ease-out, translate var(--t-fast) var(--ease-move); }
 [popover] {
   transition:
     opacity var(--t-fast) ease-out,
@@ -44,14 +44,18 @@ dialog,
 }
 dialog:not([open]),
 [popover]:not(:popover-open) { opacity: 0; translate: 0 var(--s2); pointer-events: none; }
-dialog::backdrop {
-  opacity: 0;
-  transition:
-    opacity var(--t-fast) ease-out,
-    overlay var(--t-fast) allow-discrete,
-    display var(--t-fast) allow-discrete;
-}
+dialog::backdrop { opacity: 0; transition: opacity var(--t-fast) ease-out; }
 dialog[open]::backdrop { opacity: 1; }
+.veil {
+  position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;
+  animation: fade var(--t-fast) ease-in forwards;
+}
+.veil > dialog {
+  display: block; position: absolute; inset: auto; margin: 0; opacity: 1; translate: 0 0;
+  animation: slide var(--t-fast) ease-in forwards;
+}
+@keyframes fade { to { opacity: 0; } }
+@keyframes slide { to { translate: 0 var(--s2); } }
 @starting-style {
   dialog[open],
   [popover]:popover-open { opacity: 0; translate: 0 var(--s2); }

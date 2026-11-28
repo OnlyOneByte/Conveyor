@@ -1,6 +1,8 @@
 import type { Scene } from "../scene.ts";
 
 const ADD = "main .acts button.primary";
+const SEARCH = "header button:has-text('Search')";
+const GHOST = ".veil[inert][aria-hidden=true] > dialog:not([open])";
 
 export const scenes: Scene[] = [
   {
@@ -77,6 +79,82 @@ export const scenes: Scene[] = [
         matches: "^(0s|1e-06s)(, (0s|1e-06s))*$",
       },
       { computed: "dialog[open]", property: "opacity", matches: "^1$" },
+    ],
+  },
+  {
+    name: "motion-dialog-close",
+    route: "/printers",
+    ready: "h1",
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      { click: ADD },
+      { waitFor: "dialog[open] :focus" },
+      { wait: 400 },
+      { press: "Escape" },
+      { absent: ":modal" },
+      { absent: "dialog[open]" },
+      { waitFor: GHOST },
+      { waitFor: `${ADD}:focus` },
+      { wait: 400 },
+      { absent: ".veil" },
+    ],
+  },
+  {
+    name: "motion-palette-close",
+    route: "/printers",
+    ready: "h1",
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      { click: SEARCH },
+      { waitFor: "dialog[open] input:focus" },
+      { wait: 400 },
+      { press: "Escape" },
+      { absent: ":modal" },
+      { absent: "dialog[open]" },
+      { waitFor: GHOST },
+      { waitFor: `${SEARCH}:focus` },
+      { wait: 400 },
+      { absent: ".veil" },
+    ],
+  },
+  {
+    name: "motion-dialog-toast",
+    route: "/settings",
+    ready: "h1",
+    visits: ["/printers"],
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      { fulfill: "**/api/catalog/printers", method: "GET", status: 200, json: [] },
+      { follow: "/printers" },
+      { click: "main .state button >> text=Add a printer" },
+      { waitFor: "dialog[open] >> text=Printer software" },
+      { type: 'dialog[open] >> role=textbox[name="Name"s]', text: "MK4" },
+      { type: 'dialog[open] >> role=textbox[name="Address"s]', text: "10.0.0.9" },
+      { fulfill: "**/api/catalog/printers", method: "PUT", status: 200, json: { ok: true } },
+      { click: "dialog[open] button[type=submit]" },
+      { waitFor: ".toast >> text=Added MK4" },
+      { absent: ":modal" },
+      { waitFor: "[aria-live=polite] >> text=Added MK4" },
+      { absent: "[inert] [aria-live], [aria-live][inert]" },
+    ],
+  },
+  {
+    name: "motion-dialog-close-reduced",
+    route: "/printers",
+    ready: "h1",
+    widths: [1440],
+    fullPage: false,
+    reducedMotion: true,
+    steps: [
+      { click: ADD },
+      { waitFor: "dialog[open] :focus" },
+      { press: "Escape" },
+      { absent: ":modal" },
+      { absent: ".veil" },
+      { waitFor: `${ADD}:focus` },
     ],
   },
   {
