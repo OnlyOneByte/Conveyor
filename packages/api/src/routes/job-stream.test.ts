@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { JobState } from "@conveyor/shared";
 import websocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -165,7 +165,7 @@ describe("the job status stream", () => {
         return stamp(1, same);
       },
     });
-    await Bun.sleep(30);
+    await until("the snapshot and the two newer events", () => socket.states.length === 3);
     publish(frame("done", 4));
     expect(await socket.closed).toBe(1000);
     expect(socket.states).toEqual(["printing", "printing", "printing", "done"]);
@@ -229,13 +229,13 @@ describe("the job status stream", () => {
       () => sub,
       () => {},
     );
-    const socket = await serve(hub, {});
+    const snapshot = mock(async () => null);
+    const socket = await serve(hub, { snapshot });
     socket.ws.close();
-    await socket.closed;
-    await Bun.sleep(20);
+    await until("the server dropping the viewer", () => app?.websocketServer.clients.size === 0);
     release();
-    await Bun.sleep(20);
-    expect(hub.connections()).toBe(0);
+    await until("the subscriber's quit", () => sub.calls.includes("quit"));
+    expect([hub.connections(), snapshot.mock.calls.length]).toEqual([0, 0]);
     expect(sub.calls).toEqual([`subscribe ${channel}`, "quit"]);
   });
 
