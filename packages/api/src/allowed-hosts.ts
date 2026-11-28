@@ -1,3 +1,5 @@
+import { isPublicSuffix } from "./public-suffix.js";
+
 export class AllowedHostsError extends Error {
   override name = "AllowedHostsError";
 }
@@ -41,6 +43,14 @@ function entryOf(raw: string): Entry {
 function parseList(variable: string, raw: string | undefined): Exclude<Entry, undefined>[] {
   const tokens = (raw ?? "").split(/[\s,]+/).filter((token) => token !== "");
   const entries = tokens.map((token) => ({ token, entry: entryOf(token) }));
+  const shared = entries.flatMap(({ token, entry }) =>
+    typeof entry === "object" && "suffix" in entry && isPublicSuffix(entry.suffix) ? [token] : [],
+  );
+  if (shared.length > 0) {
+    throw new AllowedHostsError(
+      `${variable} has wildcards over a public or shared zone: ${shared.map((s) => JSON.stringify(s)).join(", ")}. Anyone can get a name in such a zone and point it at this API, which would get past the Host check. Use a zone that belongs to you alone, such as *.home.example.com, or list the names, then restart.`,
+    );
+  }
   const bad = entries.filter(({ entry }) => entry === undefined).map(({ token }) => token);
   if (bad.length > 0) {
     throw new AllowedHostsError(

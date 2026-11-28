@@ -18,7 +18,7 @@ registered in. The Origin guard (`registerOriginGuard`) runs first, with auth on
 compared by host name, without the port) with `421` and an error that names `CONVEYOR_ALLOWED_HOSTS`,
 against DNS rebinding. `index.ts` parses the list at startup. Both variables take Caddy's forms: an
 `http://` or `https://` prefix and a port are dropped, `:80` or `:443` adds no name, and `*.example.com`
-allows any name that ends in `.example.com` (at least one label in front). An entry that is none of these
+allows any name that ends in `.example.com` (at least one label in front), unless `example.com` is a public or shared zone (`public-suffix.ts`: any single label, a `co`/`com`/`net`/`org`-style second level under a two-letter country code such as `co.uk`, and a built-in list of hosting and dynamic-DNS zones such as `duckdns.org` and `github.io`), which stops startup. An entry that is none of these
 stops startup with a message naming the variable and the fix. The guard then refuses a
 cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403 cross-origin request refused`, public
 routes included: a method other than `GET`, `HEAD` or `OPTIONS`, or a WebSocket upgrade, whose
