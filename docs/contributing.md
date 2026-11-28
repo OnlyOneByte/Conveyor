@@ -53,7 +53,8 @@ A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `pack
 removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. CI's `test` job points
 `TMPDIR` at a fresh empty directory for its test steps, and `bun run check:test-leaks` runs after both test runs:
 it fails on any entry left in `$TMPDIR`, whatever its name and however it was made (`mkdtemp`, `mkdirSync`,
-`Bun.write`), and on any key left in Redis. That check is what catches a leak. The prefix scan below is a second
+`Bun.write`), and on any key left in any Redis db: it reads `INFO keyspace`, lists the keys of every db that
+has some, and reports them per db. A line of `INFO keyspace` it can't read fails the check. That check is what catches a leak. The prefix scan below is a second
 line of defence that names the file and line before a leak happens, and a shadowed name or a computed
 `fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
 `TMPDIR`. Every temp name made
@@ -78,8 +79,9 @@ is created), is already in that first snapshot, so the file removes it itself. E
 `queue.js` at import calls `closeQueue(process.env.REDIS_URL)` (`packages/api/test/helpers/close-queue.ts`) in
 its `afterAll`: with a URL it reconnects the shared connection if an earlier file closed it, waits for it, and
 obliterates the job queue, and it always disconnects both clients. `check:test-leaks` sees only what is left at
-the end: two files (`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`,
-which also hides any key an earlier file left. To find those, run each file alone against an empty Redis. The
+the end: three files flush a db of their own with `FLUSHDB` (`cancel-running-redis.test.ts` db 13,
+`held-job-visible-redis.test.ts` db 14, and `redis-restart-boot.test.ts` db 12 on a Redis it starts itself), which
+also hides any key an earlier file left in that db. A test that needs a db of its own takes one no other file uses. To find those, run each file alone against an empty Redis. The
 check refuses to run without `TMPDIR`. To run it locally, `export TMPDIR="$(mktemp -d)"` before the tests and point
 `REDIS_URL` at a Redis of its own, since it reports every entry and every key it finds.
 
