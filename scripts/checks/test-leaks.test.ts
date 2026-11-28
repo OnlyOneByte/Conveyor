@@ -21,28 +21,42 @@ const runCheck = (tmp: string | undefined) => {
   return { code: run.exitCode, out: `${run.stdout}${run.stderr}` };
 };
 
+const one = (db: number, keys: string[]) => new Map([[db, keys]]);
+
 describe("leakErrors", () => {
   test("passes when the temp dir is empty and no Redis key is left", () => {
-    expect(leakErrors("/t", [], [])).toEqual([]);
+    expect(leakErrors("/t", [], new Map())).toEqual([]);
+    expect(leakErrors("/t", [], one(13, []))).toEqual([]);
     expect(leakErrors("/t", [], null)).toEqual([]);
   });
 
   test("reports every entry left, whatever its name, sorted", () => {
-    expect(leakErrors("/t", ["x", "bun-cache", "conveyor-a1"], [])).toEqual([
+    expect(leakErrors("/t", ["x", "bun-cache", "conveyor-a1"], new Map())).toEqual([
       "the tests left 3 temp entries in /t: bun-cache, conveyor-a1, x",
     ]);
   });
 
   test("names the Redis keys left, and caps a long list", () => {
     const keys = Array.from({ length: 12 }, (_, i) => `job:${String(i).padStart(2, "0")}:seq`);
-    expect(leakErrors("/t", [], ["jobs:active"])).toEqual([
-      "the tests left 1 Redis keys: jobs:active",
+    expect(leakErrors("/t", [], one(0, ["jobs:active"]))).toEqual([
+      "the tests left 1 Redis keys in db 0: jobs:active",
     ]);
-    expect(leakErrors("/t", [], keys)[0]).toEndWith("job:09:seq, and 2 more");
+    expect(leakErrors("/t", [], one(0, keys))[0]).toEndWith("job:09:seq, and 2 more");
   });
 
   test("reports temp entries and Redis keys together", () => {
-    expect(leakErrors("/t", ["x"], ["jobs:active"])).toHaveLength(2);
+    expect(leakErrors("/t", ["x"], one(0, ["jobs:active"]))).toHaveLength(2);
+  });
+
+  test("reports each db's keys on a line of its own, in db order", () => {
+    const keys = new Map([
+      [13, ["bull:conveyor-jobs:meta"]],
+      [0, ["jobs:active", "job:a:seq"]],
+    ]);
+    expect(leakErrors("/t", [], keys)).toEqual([
+      "the tests left 2 Redis keys in db 0: job:a:seq, jobs:active",
+      "the tests left 1 Redis keys in db 13: bull:conveyor-jobs:meta",
+    ]);
   });
 });
 
