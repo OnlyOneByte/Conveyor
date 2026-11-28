@@ -53,6 +53,7 @@ export interface Reservation {
 
 export interface FolderBudget {
   start(part: string): Promise<Reservation>;
+  inFlight(): number;
 }
 
 export async function folderBudget(
@@ -60,6 +61,7 @@ export async function folderBudget(
   cap: number,
   rescanMs = DEFAULT_RESCAN_MS,
   now: () => number = Date.now,
+  scan: (dir: string, skip: ReadonlySet<string>) => Promise<number> = folderBytes,
 ): Promise<FolderBudget> {
   let stored = 0;
   let inFlight = 0;
@@ -70,7 +72,7 @@ export async function folderBudget(
   const rescan = (): Promise<void> => {
     scanning ??= (async () => {
       committedDuringScan = 0;
-      const found = await folderBytes(dir, parts);
+      const found = await scan(dir, parts);
       stored = found + committedDuringScan;
       scannedAt = now();
     })().finally(() => {
@@ -80,8 +82,9 @@ export async function folderBudget(
   };
   await rescan();
   return {
+    inFlight: () => inFlight,
     async start(part) {
-      if (scanning || now() - scannedAt >= rescanMs) await rescan();
+      if (now() - scannedAt >= rescanMs) await rescan();
       const name = basename(part);
       parts.add(name);
       let held = 0;

@@ -98,6 +98,11 @@ function cutOff(req: FastifyRequest, reply: FastifyReply) {
   return closeAfterReply(req, reply).code(408).send({ error: TOO_SLOW });
 }
 
+export interface UploadRoutes {
+  pending(): number;
+  inFlight(): number;
+}
+
 interface Target {
   uploadId: string;
   path: string;
@@ -111,22 +116,28 @@ export async function registerUploadRoutes(
   write: Write = streamTo,
   timers: Timers = realTimers,
   rescanMs = DEFAULT_RESCAN_MS,
-): Promise<void> {
+): Promise<UploadRoutes> {
   const cap = settings.folderMaxBytes;
   const budget = cap === undefined ? undefined : await folderBudget(settings.dir, cap, rescanMs);
+  let pending = 0;
   app.post("/uploads", async (req, reply) => {
+    pending++;
     const timer = uploadTimer(settings, timers);
     const uploadId = randomUUID();
     const path = join(settings.dir, `${uploadId}.stl`);
     const target: Target = { uploadId, path, part: `${path}.part` };
     try {
-      return await receive(req, reply, target, timer);
+      await receive(req, reply, target, timer);
     } catch (error) {
       if (!timedOut(error)) throw error;
-      return cutOff(req, reply);
+      cutOff(req, reply);
     } finally {
       timer.clear();
       target.hold?.release();
+      pending--;
+      if (req.raw.socket?.destroyed && !reply.raw.writableFinished) {
+        req.log.info(`upload ${uploadId} aborted by the client`);
+      }
     }
   });
 
@@ -139,8 +150,7 @@ export async function registerUploadRoutes(
     const { uploadId, path, part } = target;
     const refuse = async (status: number, error: string) => {
       await removePart(part, new Error(error));
-      target.hold?.release();
-      return reply.code(status).send({ error });
+      reply.code(status).send({ error });
     };
     const failed = (status: 400 | 413) =>
       refuse(status, status === 413 ? `file exceeds ${settings.maxBytes} bytes` : INCOMPLETE);
@@ -156,12 +166,16 @@ export async function registerUploadRoutes(
       if (!status) throw error;
       return failed(status);
     }
-    if (!file) return reply.code(400).send({ error: "no file in multipart body" });
+    if (!file) {
+      reply.code(400).send({ error: "no file in multipart body" });
+      return;
+    }
     const stream = file.file;
     timer.onExpire((error) => stream.destroy(error));
     const name = file.filename ?? "model.stl";
     if (!name.toLowerCase().endsWith(".stl")) {
-      return reply.code(415).send({ error: "only .stl uploads are supported in v1" });
+      reply.code(415).send({ error: "only .stl uploads are supported in v1" });
+      return;
     }
     await mkdir(settings.dir, { recursive: true });
     const full = async () => {
@@ -191,6 +205,8 @@ export async function registerUploadRoutes(
     hold?.commit(seen.size);
 
     req.log.info(`upload ${uploadId} (${name}, ${seen.size} bytes)`);
-    return reply.code(201).send({ uploadId, filename: name, bytes: seen.size });
+    reply.code(201).send({ uploadId, filename: name, bytes: seen.size });
   }
+
+  return { pending: () => pending, inFlight: () => budget?.inFlight() ?? 0 };
 }
