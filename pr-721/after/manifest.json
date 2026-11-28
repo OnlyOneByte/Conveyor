@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:41619",
+  "url": "http://127.0.0.1:43633",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 624627,
+      "gifBytes": 693403,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 391130,
+      "gifBytes": 332375,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 526906,
+      "gifBytes": 589328,
       "gif": "make-print-1440.gif"
     },
     {
@@ -175,7 +175,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 760766,
+      "gifBytes": 688862,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -350,35 +350,30 @@
       "scene": "settings-delete-focus-next",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 5000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (settings-delete-focus-next-1440.caddy.log)",
       "png": "settings-delete-focus-next-1440.png"
     },
     {
       "scene": "settings-delete-focus-middle",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 5000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (settings-delete-focus-middle-1440.caddy.log)",
       "png": "settings-delete-focus-middle-1440.png"
     },
     {
       "scene": "settings-delete-focus-previous",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 5000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (settings-delete-focus-previous-1440.caddy.log)",
       "png": "settings-delete-focus-previous-1440.png"
     },
     {
       "scene": "settings-delete-focus-plain",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 5000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (settings-delete-focus-plain-1440.caddy.log)",
       "png": "settings-delete-focus-plain-1440.png"
     },
     {
       "scene": "settings-delete-focus-empty",
       "width": 1440,
       "warnings": [],
-      "error": "waitFor: Timeout 5000ms exceeded.. Asset requests: none failed and none answered other than 200. Caddy logged 0 error line(s) during the shot (settings-delete-focus-empty-1440.caddy.log)",
       "png": "settings-delete-focus-empty-1440.png"
     },
     {
@@ -452,7 +447,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 838199,
+      "gifBytes": 836963,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -568,7 +563,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 516956,
+      "gifBytes": 468031,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -576,7 +571,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1162131,
+      "gifBytes": 1349308,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -584,7 +579,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1438709,
+      "gifBytes": 1526856,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -616,7 +611,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 321322,
+      "gifBytes": 277708,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -654,7 +649,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 430415,
+      "gifBytes": 387600,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -698,7 +693,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1013710,
+      "gifBytes": 850892,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -712,7 +707,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 817916,
+      "gifBytes": 719764,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -756,7 +751,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 836456,
+      "gifBytes": 773891,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -860,6 +855,12 @@
       "width": 1440,
       "warnings": [],
       "png": "first-run-printers-save-1440.png"
+    },
+    {
+      "scene": "first-run-save-twice",
+      "width": 1440,
+      "warnings": [],
+      "png": "first-run-save-twice-1440.png"
     },
     {
       "scene": "first-run-limited",
@@ -994,6 +995,12 @@
       "png": "motion-palette-close-1440.png"
     },
     {
+      "scene": "motion-dialog-toast",
+      "width": 1440,
+      "warnings": [],
+      "png": "motion-dialog-toast-1440.png"
+    },
+    {
       "scene": "motion-dialog-close-reduced",
       "width": 1440,
       "warnings": [],
@@ -1004,7 +1011,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 403081,
+      "gifBytes": 364950,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1228,7 +1235,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 656210,
+      "gifBytes": 628812,
       "gif": "new-job-390.gif"
     },
     {
@@ -1236,7 +1243,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 375015,
+      "gifBytes": 404040,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1322,7 +1329,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1081967,
+      "gifBytes": 1056339,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1582,7 +1589,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1007827,
+      "gifBytes": 1001684,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1704,7 +1711,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 512862,
+      "gifBytes": 509913,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1748,7 +1755,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 635317,
+      "gifBytes": 612629,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1792,7 +1799,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1365349,
+      "gifBytes": 1362228,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1806,7 +1813,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1178912,
+      "gifBytes": 1179800,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1838,7 +1845,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1150415,
+      "gifBytes": 1056868,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -2092,7 +2099,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 450972,
+      "gifBytes": 422866,
       "gif": "motion-sheet-390.gif"
     },
     {
