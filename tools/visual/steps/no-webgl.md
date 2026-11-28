@@ -1,0 +1,1 @@
+`noWebgl` makes every canvas refuse a WebGL context, the way a browser with hardware acceleration turned off does, then reloads the page. Canvases still give a 2D context. `make-no-webgl` uses it to show that Make keeps its form and puts a still placeholder where the 3D preview goes.
