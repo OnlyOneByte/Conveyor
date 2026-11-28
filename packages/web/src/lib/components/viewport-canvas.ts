@@ -14,6 +14,18 @@ export function memoiseImport<T>(load: () => Promise<T>): () => Promise<T> {
   };
 }
 
+export const NO_WEBGL = "The 3D preview needs WebGL, which this browser has turned off.";
+
+type Probe = { getContext(kind: string): unknown };
+
+export function hasWebGL(make: () => Probe = () => document.createElement("canvas")): boolean {
+  try {
+    return Boolean(make().getContext("webgl2"));
+  } catch {
+    return false;
+  }
+}
+
 export const loadViewportCanvas = memoiseImport<{ default: typeof ViewportCanvas }>(
   () => import("./ViewportCanvas.svelte"),
 );
