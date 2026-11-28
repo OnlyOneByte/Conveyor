@@ -43,9 +43,11 @@ export async function readDbKeys(send: Send): Promise<DbKeys> {
   for (const [db, count] of keyspaceCounts(await send("INFO", ["keyspace"]))) {
     await send("SELECT", [String(db)]);
     const names = await send("KEYS", ["*"]);
-    if (!Array.isArray(names) || names.length < count)
+    if (!Array.isArray(names))
+      throw new Error(`KEYS in db ${db} gave ${JSON.stringify(names)}, not a list`);
+    if (names.length < count)
       throw new Error(
-        `INFO keyspace counts ${count} keys in db ${db}, but KEYS gave ${Array.isArray(names) ? names.length : JSON.stringify(names)}`,
+        `INFO counts ${count} keys in db ${db} but KEYS lists ${names.length}; keys may have expired or leaked`,
       );
     keys.set(db, names.map(String));
   }
@@ -55,11 +57,24 @@ export async function readDbKeys(send: Send): Promise<DbKeys> {
 export const NO_TMPDIR =
   "TMPDIR isn't set: point it at a fresh empty directory before the tests run, so every entry left in it is a leak";
 
+export const REDIS_TIMEOUT_MS = 5000;
+
 async function redisKeys(url: string): Promise<DbKeys> {
-  const client = new RedisClient(url);
+  const client = new RedisClient(url, {
+    connectionTimeout: REDIS_TIMEOUT_MS,
+    autoReconnect: false,
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Redis didn't answer within ${REDIS_TIMEOUT_MS} ms`)),
+      REDIS_TIMEOUT_MS,
+    );
+  });
   try {
-    return await readDbKeys((command, args) => client.send(command, args));
+    return await Promise.race([readDbKeys((command, args) => client.send(command, args)), late]);
   } finally {
+    clearTimeout(timer);
     client.close();
   }
 }

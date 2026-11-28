@@ -56,7 +56,8 @@ it fails on any entry left in `$TMPDIR`, whatever its name and however it was ma
 `Bun.write`), and on any key left in any Redis db. On one connection, it reads `INFO keyspace`, then `SELECT`s
 each db that has keys and lists them with `KEYS *`, reporting them per db. It fails closed: an `INFO keyspace`
 reply it can't read fails the check (no `# Keyspace` section, a reply that isn't text, or a db line it can't
-parse), and so does a `KEYS` reply that isn't a list or lists fewer keys than `INFO` counts for that db. It never
+parse), and so does a `KEYS` reply that isn't a list or lists fewer keys than `INFO` counts for that db (keys may have expired or leaked). It gives up after 5 s when Redis
+doesn't answer, and at once when nothing listens. It never
 rewrites `REDIS_URL`, so any URL form Bun's Redis client accepts works. That check is what catches a leak. The prefix scan below is a second
 line of defence that names the file and line before a leak happens, and a shadowed name or a computed
 `fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
@@ -85,7 +86,7 @@ obliterates the job queue, and it always disconnects both clients. `check:test-l
 the end: three files flush a db of their own with `FLUSHDB` (`cancel-running-redis.test.ts` db 13,
 `held-job-visible-redis.test.ts` db 14, and `redis-restart-boot.test.ts` db 12 on a Redis it starts itself), which
 also hides any key an earlier file left in that db. A test that needs a db of its own takes one no other file uses:
-12, 13 and 14 are taken by those three files, and 15 by `test-leaks.test.ts`'s own probe keys. To find those, run each file alone against an empty Redis. The
+12, 13 and 14 are taken by those three files, and 15 by `test-leaks-redis.test.ts`'s own probe keys. To find those, run each file alone against an empty Redis. The
 check refuses to run without `TMPDIR`. To run it locally, `export TMPDIR="$(mktemp -d)"` before the tests and point
 `REDIS_URL` at a Redis of its own, since it reports every entry and every key it finds.
 

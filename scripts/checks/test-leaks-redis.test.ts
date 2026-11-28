@@ -92,15 +92,13 @@ describe("readDbKeys", () => {
   test("fails, naming INFO's count, when KEYS lists fewer keys than INFO counts", async () => {
     const redis = fakeRedis({ 0: ["a", "b"], 13: [] });
     await expect(readDbKeys(redis.send)).rejects.toThrow(
-      "INFO keyspace counts 1 keys in db 13, but KEYS gave 0",
+      "INFO counts 1 keys in db 13 but KEYS lists 0; keys may have expired or leaked",
     );
   });
 
   test("fails when KEYS doesn't answer with a list", async () => {
     const redis = fakeRedis({ 0: "a b" });
-    await expect(readDbKeys(redis.send)).rejects.toThrow(
-      'INFO keyspace counts 2 keys in db 0, but KEYS gave "a b"',
-    );
+    await expect(readDbKeys(redis.send)).rejects.toThrow('KEYS in db 0 gave "a b", not a list');
   });
 
   test("fails on an INFO reply it can't read", async () => {
@@ -150,4 +148,78 @@ describe.skipIf(!url)("check:test-leaks on a real Redis", () => {
       out: `no test leaks: ${tmp} is empty and no Redis db has keys\n`,
     });
   });
+});
+
+type Reply = (command: string) => string | null;
+
+function fakeServer(reply: Reply) {
+  return Bun.listen({
+    hostname: "127.0.0.1",
+    port: 0,
+    socket: {
+      data(socket, data) {
+        const command = /\$\d+\r\n([A-Za-z]+)/.exec(data.toString())?.[1]?.toUpperCase() ?? "";
+        const answer =
+          command === "HELLO" ? "%1\r\n$6\r\nserver\r\n$5\r\nredis\r\n" : reply(command);
+        if (answer !== null) socket.write(answer);
+      },
+    },
+  });
+}
+
+const bulk = (text: string) => `$${text.length}\r\n${text}\r\n`;
+
+async function checkAgainst(redisUrl: string) {
+  const tmp = await dirs();
+  const started = Date.now();
+  const run = Bun.spawn([process.execPath, CHECK], {
+    cwd: ROOT,
+    env: { ...process.env, TMPDIR: tmp, REDIS_URL: redisUrl },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const out = (await new Response(run.stdout).text()) + (await new Response(run.stderr).text());
+  return { code: await run.exited, out, took: Date.now() - started };
+}
+
+describe("check:test-leaks when Redis can't be read", () => {
+  test("exits 1, never a clean pass, when INFO has no # Keyspace section", async () => {
+    const server = fakeServer((command) =>
+      command === "INFO" ? bulk("# Server\r\nredis_version:8.0.0\r\n") : "+OK\r\n",
+    );
+    try {
+      const { code, out } = await checkAgainst(`redis://127.0.0.1:${server.port}`);
+      expect(code).toBe(1);
+      expect(out).toContain(
+        "check:test-leaks couldn't read Redis: INFO keyspace gave a reply this check can't read",
+      );
+      expect(out).not.toContain("no test leaks");
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("exits 1 within about 5 s when Redis accepts the connection but never answers", async () => {
+    const server = fakeServer(() => null);
+    try {
+      const { code, out, took } = await checkAgainst(`redis://127.0.0.1:${server.port}`);
+      expect(code).toBe(1);
+      expect(out).toContain(
+        "check:test-leaks couldn't read Redis: Redis didn't answer within 5000 ms",
+      );
+      expect(took).toBeLessThan(9000);
+    } finally {
+      server.stop(true);
+    }
+  }, 20_000);
+
+  test("exits 1 at once when nothing listens on the Redis port", async () => {
+    const server = fakeServer(() => null);
+    const port = server.port;
+    server.stop(true);
+    const { code, out, took } = await checkAgainst(`redis://127.0.0.1:${port}`);
+    expect(code).toBe(1);
+    expect(out).toContain("check:test-leaks couldn't read Redis");
+    expect(took).toBeLessThan(5000);
+  }, 20_000);
 });
