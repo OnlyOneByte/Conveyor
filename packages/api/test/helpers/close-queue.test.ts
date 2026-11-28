@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
+import { dropsItsRedisKeys } from "../../../shared/test/helpers/index.ts";
 import { closeQueue } from "./close-queue.ts";
 
 const URL = "redis://127.0.0.1:6379";
@@ -65,3 +66,5 @@ test("with no REDIS_URL it only disconnects", async () => {
   await closeQueue(undefined, queue.parts, 50);
   expect([ready.disconnects, queue.redis.disconnects, queue.obliterated]).toEqual([1, 1, []]);
 });
+
+dropsItsRedisKeys();

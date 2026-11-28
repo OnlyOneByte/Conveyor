@@ -62,3 +62,14 @@ test("a stop aborted while its socket is still connecting never sends STOP_PRINT
   await expect(stop).rejects.toThrow("abandoned before it was sent");
   expect(HeldSocket.sent).toBe(0);
 });
+
+test("a stop aborted after STOP_PRINT went out says it was abandoned before its ack", async () => {
+  useHeldSockets();
+  const bound = new AbortController();
+  const stop = elegoo.cancel?.({ ...handle, address: "192.168.1.61" }, undefined, bound.signal);
+  while (HeldSocket.made.length === 0) await Bun.sleep(1);
+  HeldSocket.made[0]?.onopen?.();
+  expect(HeldSocket.sent).toBe(1);
+  bound.abort();
+  await expect(stop).rejects.toThrow("elegoo cmd 130 abandoned before its ack");
+});
