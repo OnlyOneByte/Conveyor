@@ -15,7 +15,6 @@
   let asking = false;
   let opening = false;
   async function take(run: () => unknown) {
-    if (opening) return;
     opening = true;
     await run();
     opening = false;
@@ -87,7 +86,8 @@
   <div class="foot">
     <span>{printer.hasSecrets ? `${limits} · ${secretFieldFor(printer.transportId).label} saved` : limits}</span>
     <button
-      class="btn" type="button" aria-label="Edit {printer.name}" aria-busy={opening}
+      class="btn" type="button" aria-label={opening ? `Opening ${printer.name}…` : `Edit ${printer.name}`}
+      aria-busy={opening}
       on:click={() => take(edit)}
     >{opening ? "Opening…" : "Edit"}</button>
   </div>

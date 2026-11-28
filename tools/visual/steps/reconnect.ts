@@ -4,7 +4,7 @@ import { lazyChunks } from "./lazy.ts";
 
 declare module "../step.ts" {
   interface StepKinds {
-    reconnect: { reconnect: string; delayMs?: number };
+    reconnect: { reconnect: "editor" | `/${string}`; delayMs?: number };
   }
 }
 

@@ -6,11 +6,11 @@ import { hold } from "./stall.ts";
 
 declare module "../step.ts" {
   interface StepKinds {
-    lazy: { lazy: string; fail?: boolean };
+    lazy: { lazy: string; fail?: boolean; from?: string };
   }
 }
 
-export function lazyChunks(root: string, route: string): string[] {
+export function lazyChunks(root: string, route: string, from?: string): string[] {
   const output = join(root, "packages/web/.svelte-kit/output");
   const manifest = parseManifest(readFileSync(join(output, "client/.vite/manifest.json"), "utf8"));
   const nodes = routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).get(route);
@@ -18,7 +18,12 @@ export function lazyChunks(root: string, route: string): string[] {
   const keys = Object.keys(manifest);
   const entries = keys.filter((key) => manifest[key]?.isEntry && !key.includes("/nodes/"));
   const leaves = keys.filter((key) => nodes.some((n) => key.endsWith(`/nodes/${n}.js`)));
-  const first = closure(manifest, [...entries, ...leaves]);
+  const leavesOf = (r: string) => {
+    const ids = routeNodes(readFileSync(join(output, "server/manifest.js"), "utf8")).get(r);
+    if (!ids) throw new Error(`lazy: no route ${r} in the server manifest`);
+    return keys.filter((key) => ids.some((n) => key.endsWith(`/nodes/${n}.js`)));
+  };
+  const first = closure(manifest, [...entries, ...leaves, ...(from ? leavesOf(from) : [])]);
   const own = [...closure(manifest, leaves)];
   const imported = keys.filter((key) => own.includes(manifest[key]?.file ?? ""));
   const later = imported.flatMap((key) => manifest[key]?.dynamicImports ?? []);
@@ -32,7 +37,7 @@ export const step: StepRunner = {
   run: async (page, step, _warnings, { root }) => {
     if (!("lazy" in step)) throw wrongKind("lazy", step);
     const held = hold(page, step.lazy);
-    for (const file of lazyChunks(root, step.lazy))
+    for (const file of lazyChunks(root, step.lazy, step.from))
       await page.route(`**/${file}`, async (route) => {
         if (step.fail) return route.abort("internetdisconnected");
         await held();
