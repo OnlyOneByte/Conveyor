@@ -154,9 +154,19 @@ dropped. Two guards apply to every upload:
   falls back to `virtual_sdcard.progress`. Klipper can briefly report `standby` after a print ends, so
   `standby` after `printing` with progress at ~1 counts as done. A macro that runs `SDCARD_RESET_FILE`, or a
   firmware restart, can also move the printer back to `standby` before a poll sees `complete` or `cancelled`.
-  So 3 `standby` polls in a row after `printing` (`STANDBY_POLLS` in `watch.ts`), with progress below ~1, end
-  the job `failed` with "the printer went back to standby before reporting how the print ended; check the
-  printer", so the job settles and the printer is free for the next one.
+  So after 3 `standby` polls in a row after `printing` (`STANDBY_POLLS` in `watch.ts`), with progress below ~1,
+  the plugin asks Moonraker's job history (`GET /server/history/list?limit=20&order=desc`, through the same
+  pinned address and `Host` header as the polls; `history.ts` parses it with zod) for the newest entry with the
+  job's file name:
+  - `completed` ends the job `done`, `cancelled` ends it `canceled`, and `error`, `klippy_shutdown`,
+    `klippy_disconnect`, `server_exit` or `interrupted` end it `failed` ("the job history says <status>").
+  - `in_progress` keeps watching, for up to 3 history checks in all.
+  - **Fail-safe:** no entry for the file, a history request that fails (a missing endpoint's `404`, a `500`, a
+    timeout), a reply the schema rejects, an unrecognised status, or 3 checks that all say `in_progress` end
+    the job `failed` as before: "the printer went back to standby before reporting how the print ended; check
+    the printer (job history: <why>)". The job settles and the printer is free for the next one, but it is
+    never marked done or canceled without the history saying so.
+  A reply with no `print_stats.state` counts as an unknown state, not `standby`, so it doesn't add to the 3.
 - Print progress (`PrintStatus.print`, on `printing` and `paused` polls): `layer` is
   `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper
   fills `info` only when the slicer emits `SET_PRINT_STATS_INFO`, so either can be absent. `secondsLeft` is
