@@ -13,6 +13,8 @@ const LISTED = [
   { name: "/local/conveyor-c3.gcode", type: 1 },
   { name: "/local/benchy.gcode", type: 1 },
   { name: "/local/conveyor-d4.gcode", type: 0 },
+  { name: "/usb/conveyor-x.gcode", type: 1 },
+  { name: "/local/sub/conveyor-y.gcode", type: 1 },
 ];
 
 interface Printer {
@@ -86,6 +88,25 @@ test("never deletes a file or folder Conveyor didn't make", async () => {
   const deletes = printerSays({ status: [0], print: 9 });
   await prune(["conveyor-a1.gcode", "conveyor-b2.gcode", "conveyor-c3.gcode"]);
   expect(deletes).toEqual([]);
+});
+
+test("never deletes outside the top of /local: not on USB, not in a subfolder", async () => {
+  const deletes = printerSays({ status: [0], print: 9 });
+  expect(await prune([])).toEqual([
+    "/local/conveyor-a1.gcode",
+    "/local/conveyor-b2.gcode",
+    "/local/conveyor-c3.gcode",
+  ]);
+  expect(deletes).toEqual([
+    {
+      FileList: [
+        "/local/conveyor-a1.gcode",
+        "/local/conveyor-b2.gcode",
+        "/local/conveyor-c3.gcode",
+      ],
+      FolderList: [],
+    },
+  ]);
 });
 
 test("deletes nothing when the printer is busy but names no file", async () => {
