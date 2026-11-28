@@ -59,6 +59,7 @@ export async function poll(
   headers: Record<string, string>,
   timeoutMs: number,
   signal?: AbortSignal,
+  what = "moonraker status query",
 ): Promise<Response | string> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const res = await fetch(query, {
@@ -67,6 +68,6 @@ export async function poll(
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   }).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
   if (typeof res === "string" || res.ok) return res;
-  refuseRedirect(res, "moonraker status query");
+  refuseRedirect(res, what);
   return String(res.status);
 }
