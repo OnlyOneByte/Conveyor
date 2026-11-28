@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -13,7 +13,13 @@ import {
   type UploadTimer,
   uploadTimer,
 } from "./upload-timer.js";
-import { FOLDER_FULL, FolderFull, folderBytes } from "./uploads-folder.js";
+import {
+  FOLDER_FULL,
+  FolderFull,
+  folderBudget,
+  folderBytes,
+  type Reservation,
+} from "./uploads-folder.js";
 
 export type Write = (path: string, source: AsyncIterable<Buffer>) => Promise<void>;
 
@@ -36,13 +42,13 @@ async function* tap(
   source: AsyncIterable<Buffer>,
   seen: Received,
   touch: () => void,
-  room: number,
+  take: (bytes: number) => void,
 ): AsyncIterable<Buffer> {
   try {
     for await (const chunk of source) {
       touch();
+      take(chunk.byteLength);
       seen.size += chunk.byteLength;
-      if (seen.size > room) throw new FolderFull();
       if (seen.head.byteLength < HEAD_BYTES)
         seen.head = Buffer.concat([
           seen.head,
@@ -67,11 +73,11 @@ export async function store(
   source: AsyncIterable<Buffer>,
   write: Write,
   touch: () => void = () => undefined,
-  room = Number.POSITIVE_INFINITY,
+  take: (bytes: number) => void = () => undefined,
 ): Promise<Received> {
   const seen: Received = { size: 0, head: Buffer.alloc(0) };
   try {
-    await write(part, tap(source, seen, touch, room));
+    await write(part, tap(source, seen, touch, take));
   } catch (error) {
     await removePart(part, error);
     throw error;
@@ -95,6 +101,7 @@ interface Target {
   uploadId: string;
   path: string;
   part: string;
+  hold?: Reservation;
 }
 
 export async function registerUploadRoutes(
@@ -103,6 +110,8 @@ export async function registerUploadRoutes(
   write: Write = streamTo,
   timers: Timers = realTimers,
 ): Promise<void> {
+  const cap = settings.folderMaxBytes;
+  const budget = cap === undefined ? undefined : folderBudget(settings.dir, cap);
   app.post("/uploads", async (req, reply) => {
     const timer = uploadTimer(settings, timers);
     const uploadId = randomUUID();
@@ -115,17 +124,20 @@ export async function registerUploadRoutes(
       return cutOff(req, reply);
     } finally {
       timer.clear();
+      target.hold?.release();
     }
   });
 
   async function receive(
     req: FastifyRequest,
     reply: FastifyReply,
-    { uploadId, path, part }: Target,
+    target: Target,
     timer: UploadTimer,
   ) {
+    const { uploadId, path, part } = target;
     const refuse = async (status: number, error: string) => {
       await removePart(part, new Error(error));
+      target.hold?.release();
       return reply.code(status).send({ error });
     };
     const failed = (status: 400 | 413) =>
@@ -150,17 +162,16 @@ export async function registerUploadRoutes(
       return reply.code(415).send({ error: "only .stl uploads are supported in v1" });
     }
     await mkdir(settings.dir, { recursive: true });
-    const cap = settings.folderMaxBytes;
     const full = async () => {
       closeAfterReply(req, reply);
       return refuse(507, FOLDER_FULL);
     };
-    const room =
-      cap === undefined ? undefined : cap - (await folderBytes(settings.dir, basename(part)));
-    if (room !== undefined && room <= 0) return full();
+    const hold = budget?.start(part);
+    target.hold = hold;
+    if (hold?.full()) return full();
     let seen: Received;
     try {
-      seen = await store(part, stream, write, timer.touch, room);
+      seen = await store(part, stream, write, timer.touch, hold?.take);
     } catch (error) {
       if (timedOut(error)) throw error;
       if (error instanceof FolderFull) return full();
@@ -175,6 +186,7 @@ export async function registerUploadRoutes(
       return refuse(507, FOLDER_FULL);
     }
     await rename(part, path);
+    hold?.commit(seen.size);
 
     req.log.info(`upload ${uploadId} (${name}, ${seen.size} bytes)`);
     return reply.code(201).send({ uploadId, filename: name, bytes: seen.size });
