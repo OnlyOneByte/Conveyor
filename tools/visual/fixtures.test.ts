@@ -68,12 +68,21 @@ test("rejection gives a rejected call's whole message, and fails a call that res
   );
 });
 
+const awaitsRejects = (text: string) =>
+  /=\s*browserPages\(\)/.test(text) && /\)\s*\.rejects\b/.test(text);
+
+test("the .rejects guard catches the call on one line and split by the formatter", () => {
+  const browser = ["const withPage = browserPages", "();\n"].join("");
+  const call = ['await expect(assertRing(page, "button"))', '.rejects.toThrow("x");'];
+  expect(awaitsRejects(browser + call.join(""))).toBe(true);
+  expect(awaitsRejects(browser + call.join("\n      "))).toBe(true);
+  expect(awaitsRejects(`${browser}expect(await rejection(call)).toContain("x");`)).toBe(false);
+  expect(awaitsRejects(call.join("\n      "))).toBe(false);
+});
+
 test("a browser test awaits rejection(), not expect().rejects, which Bun 1.4.5 stalls", () => {
   const offenders = readdirSync(import.meta.dir)
     .filter((name) => name.endsWith(".test.ts"))
-    .filter((name) => {
-      const text = readFileSync(join(import.meta.dir, name), "utf8");
-      return /=\s*browserPages\(\)/.test(text) && /\)\.rejects\./.test(text);
-    });
+    .filter((name) => awaitsRejects(readFileSync(join(import.meta.dir, name), "utf8")));
   expect(offenders).toEqual([]);
 });
