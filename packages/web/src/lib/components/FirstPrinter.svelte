@@ -7,6 +7,7 @@
   let opening = false;
 
   async function take(run: () => unknown) {
+    if (opening) return;
     opening = true;
     await run();
     opening = false;

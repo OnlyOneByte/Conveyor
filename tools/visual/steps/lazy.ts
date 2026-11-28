@@ -39,8 +39,7 @@ export const step: StepRunner = {
     const held = hold(page, step.lazy);
     for (const file of lazyChunks(root, step.lazy, step.from))
       await page.route(`**/${file}`, async (route) => {
-        if (step.fail) return route.abort("internetdisconnected");
-        await held();
+        if (step.fail || (await held())) return route.abort("internetdisconnected");
         return route.continue().catch((err: unknown) => {
           if (!page.isClosed()) throw err;
         });
