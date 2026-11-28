@@ -361,7 +361,12 @@ pinned by digest, so the `docker` entry bumps each base image's digest when its 
 `debian:trixie-slim`, `node:26-bookworm-slim`) is rebuilt, and only `node` also moves by version.
 Action majors are ignored because a new major usually changes inputs, so it gets its own PR by hand.
 `@types/bun` gets patch updates only: it stays on the minor of the Bun that CI runs (`BUN_VERSION` in
-`ci.yml`), so it moves in the PR that bumps CI's Bun. The root and `tools/visual` both pin it to `~1.3.14` for
+`ci.yml`), so it moves in the PR that bumps CI's Bun. The `lint` job's "CI, dev tooling and every image run the same Bun" step
+(`bun scripts/checks/bun-version.ts`) runs `bun --version` in each `oven/bun` digest the Dockerfiles pin and fails
+when it, `mise.toml`, the root `engines.bun` (`>=` that version), either `@types/bun`, or any `bun-version` in a
+file under `.github/workflows` differs from `BUN_VERSION`. A workflow may also use `${{ env.BUN_VERSION }}` when
+it sets `BUN_VERSION` itself, and every `oven-sh/setup-bun` step must pin a `bun-version`. So a Dependabot digest bump that brings a new Bun fails until that PR also moves CI's Bun, and the
+tests run on the Bun the images ship. The root and `tools/visual` both pin it to `~1.4.5` for
 that reason. TypeScript majors are ignored as well: TypeScript 7, the native compiler, drops the JS compiler API
 that SvelteKit 3, `svelte-check` and the coverage checker's `type-lines.ts` need (#281 has the details). The
 ignore lives here rather than as a `@dependabot ignore` comment, so it covers all three directories and shows in

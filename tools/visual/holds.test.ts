@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { browserPages } from "./fixtures.ts";
+import { browserPages, rejection } from "./fixtures.ts";
 import { assertHolds, holdProblem, MAX_SHIFT_PX, SETTLE_MS, settleProblem } from "./holds.ts";
 
 const withPage = browserPages();
@@ -37,7 +37,7 @@ test("a bar that appears 100 ms after the scroll holds, and one 1.5 s late fails
   });
   await withPage(async (page) => {
     await page.setContent(lateBar(1500));
-    await expect(assertHolds(page, hold)).rejects.toThrow(
+    expect(await rejection(assertHolds(page, hold))).toContain(
       "holds #bar after scrolling to 100: never appeared within 500 ms",
     );
   });

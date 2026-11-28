@@ -78,6 +78,7 @@ beforeEach(() => {
 
 afterAll(async () => {
   try {
+    app.server.closeAllConnections();
     await app.close();
     mock.restore();
     openDb().close();
@@ -110,7 +111,6 @@ describe("POST /jobs", () => {
       { jobId },
     );
   });
-
   test("a body that is not a job request is a 400 and enqueues nothing", async () => {
     const res = await post("/jobs", { generator: "gridfinity" });
     expect(res.status).toBe(400);

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_ORCA_DOCUMENT_BYTES, MAX_PRUSA_DOCUMENT_BYTES } from "@conveyor/shared";
@@ -107,10 +107,18 @@ describe("a profiles root with hostile entries", () => {
       orca({ "machine.json": "x".repeat(MAX_ORCA_DOCUMENT_BYTES + 1) }),
     );
     bundle(join(root, "prusa-big"), { "config.ini": "x".repeat(MAX_PRUSA_DOCUMENT_BYTES + 1) });
+    bundle(join(root, "prusa-dangling"), {});
+    symlinkSync(
+      join(root, "prusa-dangling", "gone.ini"),
+      join(root, "prusa-dangling", "config.ini"),
+    );
+    bundle(join(root, "prusa-locked"), { "config.ini": "locked = 1\n" });
+    chmodSync(join(root, "prusa-locked"), 0o000);
     process.env.CONVEYOR_PROFILES_ROOT = root;
   });
 
   afterAll(() => {
+    chmodSync(join(root, "prusa-locked"), 0o700);
     if (previous === undefined) delete process.env.CONVEYOR_PROFILES_ROOT;
     else process.env.CONVEYOR_PROFILES_ROOT = previous;
     rmSync(base, { recursive: true, force: true });
@@ -156,4 +164,21 @@ describe("a profiles root with hostile entries", () => {
       message: "bundled config.ini exceeds the 512 KiB limit",
     });
   });
+
+  test("a Prusa config that points nowhere is unavailable, a 404", async () => {
+    expect(await refusal(readBundledPrusaConfig("/profiles/prusa-dangling"))).toEqual({
+      status: 404,
+      message: "bundled Prusa config is unavailable",
+    });
+  });
+
+  test.skipIf(process.getuid?.() === 0)(
+    "a Prusa bundle whose folder can't be read is unavailable, a 404",
+    async () => {
+      expect(await refusal(readBundledPrusaConfig("/profiles/prusa-locked"))).toEqual({
+        status: 404,
+        message: "bundled Prusa profile directory is unavailable",
+      });
+    },
+  );
 });

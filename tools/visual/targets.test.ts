@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { browserPages } from "./fixtures.ts";
+import { browserPages, rejection } from "./fixtures.ts";
 import { assertTargets, smallTargets, targetProblem } from "./targets.ts";
 
 const withPage = browserPages();
@@ -53,6 +53,6 @@ test("the problem names each small target and its size, and none is no problem",
   );
   await withPage(async (p) => {
     await p.setContent(page("", '<a href="#" style="width:48px;height:18px">Jobs</a>'));
-    await expect(assertTargets(p, "nav")).rejects.toThrow(/a "Jobs" 4[89]×1[89]$/);
+    expect(await rejection(assertTargets(p, "nav"))).toMatch(/a "Jobs" 4[89]×1[89]$/);
   });
 });

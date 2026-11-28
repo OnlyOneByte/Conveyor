@@ -77,6 +77,7 @@ describe.skipIf(!url)("GET /jobs/active on Redis", () => {
   });
 
   afterAll(async () => {
+    app.server.closeAllConnections();
     await app.close();
     await closeQueue();
     await jobs.close();

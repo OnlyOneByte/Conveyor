@@ -72,4 +72,23 @@ describe("the booted api on SIGTERM", () => {
     expect(code).toBe(0);
     expect(tookMs).toBeLessThan(STOPS_WITHIN_MS);
   });
+
+  test("exits 0 within 2 s with an idle keep-alive connection open", async () => {
+    const base = new URL(api.base);
+    const idle = connect(Number(base.port), base.hostname);
+    idle.on("error", () => undefined);
+    const answered = new Promise<void>((resolve) =>
+      idle.on("data", (chunk) => {
+        if (String(chunk).startsWith("HTTP/1.1 200")) resolve();
+      }),
+    );
+    idle.write(`GET /health HTTP/1.1\r\nHost: ${base.host}\r\nConnection: keep-alive\r\n\r\n`);
+    await answered;
+    const started = performance.now();
+    const code = await api.signal("SIGTERM");
+    const tookMs = performance.now() - started;
+    idle.destroy();
+    expect(code).toBe(0);
+    expect(tookMs).toBeLessThan(STOPS_WITHIN_MS);
+  });
 });

@@ -16,14 +16,15 @@ const LISTED = [
   "old/conveyor-d4.gcode",
 ];
 
-function printer(stats: unknown, deleteStatus = 200) {
+const LISTING = { result: LISTED.map((path) => ({ path, modified: 1, size: 9 })) };
+
+function printer(stats: unknown, deleteStatus = 200, listing: unknown = LISTING) {
   const deleted: string[] = [];
   const answer = async (url: string | URL | Request, init?: RequestInit) => {
     const at = String(url);
     if (at === `${BASE}/printer/objects/query?print_stats`)
       return Response.json({ result: { status: { print_stats: stats } } });
-    if (at === `${BASE}/server/files/list?root=gcodes`)
-      return Response.json({ result: LISTED.map((path) => ({ path, modified: 1, size: 9 })) });
+    if (at === `${BASE}/server/files/list?root=gcodes`) return Response.json(listing);
     if (init?.method === "DELETE" && at.startsWith(`${BASE}/server/files/gcodes/`)) {
       deleted.push(decodeURIComponent(at.slice(`${BASE}/server/files/gcodes/`.length)));
       return new Response("{}", { status: deleteStatus });
@@ -72,4 +73,10 @@ test("a refused delete is reported", async () => {
   await expect(prune(["conveyor-b2.gcode", "conveyor-c3.gcode"])).rejects.toThrow(
     "moonraker could not delete conveyor-a1.gcode: 403; removed none",
   );
+});
+
+test("a file list the printer answers in another shape deletes nothing, and says so", async () => {
+  const deleted = printer({ state: "standby" }, 200, { result: "not a list" });
+  await expect(prune([])).rejects.toThrow("moonraker file list: unexpected reply");
+  expect(deleted).toEqual([]);
 });

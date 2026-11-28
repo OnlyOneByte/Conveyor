@@ -5,6 +5,7 @@ import {
   couldnt,
   detailOf,
   FAILED,
+  failed,
   NOT_LOADED,
   STOPPED,
   said,
@@ -113,5 +114,14 @@ describe("a plain status throw", () => {
     } finally {
       globalThis.fetch = real;
     }
+  });
+});
+
+describe("failed", () => {
+  test("pairs the sentence with the detail: none when the server said why", () => {
+    expect(failed("save Voron", new Error("database is locked"))).toEqual([
+      "Couldn't save Voron: database is locked",
+      null,
+    ]);
   });
 });

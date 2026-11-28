@@ -40,6 +40,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
+    app.server.closeAllConnections();
     await app.close();
     mock.restore();
     openDb().close();

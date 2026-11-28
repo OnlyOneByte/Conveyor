@@ -13,6 +13,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  app.server.closeAllConnections();
   await app.close();
 });
 

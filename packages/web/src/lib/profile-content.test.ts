@@ -1,7 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { CatalogProfile } from "./api.js";
 import { orcaProblem, prusaProblem } from "./profile-check.js";
-import { gate, loadContent } from "./profile-content.js";
+import { changed, gate, loadContent, resetContent, saveContent } from "./profile-content.js";
 
 const added = (slicerId: string): CatalogProfile => ({
   id: `${slicerId}/voron-petg-0-25mm`,
@@ -78,5 +78,36 @@ describe("the editor's actions", () => {
     expect(gate({ ...ready, dirty: false }).save).toBe(false);
     expect(gate({ ...ready, busy: true })).toEqual({ save: false, tidy: true, reset: false });
     expect(gate({ ...ready, tidied: false }).tidy).toBe(false);
+  });
+});
+
+describe("saving and resetting content", () => {
+  test("saves Prusa content as its config and resets by deleting the content", async () => {
+    const sent: { url: string; method?: string; body?: string }[] = [];
+    const spy = spyOn(globalThis, "fetch").mockImplementation(
+      Object.assign(
+        async (url: string | URL | Request, init?: RequestInit) => {
+          sent.push({ url: String(url), method: init?.method, body: String(init?.body ?? "") });
+          return Response.json({ ok: true });
+        },
+        { preconnect: fetch.preconnect },
+      ),
+    );
+    try {
+      await saveContent(added("prusa"), "ini", { config: "layer_height = 0.2\n" });
+      await resetContent(added("prusa"));
+    } finally {
+      spy.mockRestore();
+    }
+    expect(sent.map(({ method }) => method)).toEqual(["PUT", "DELETE"]);
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      format: "prusa-ini",
+      document: { config: "layer_height = 0.2\n" },
+    });
+  });
+
+  test("text counts as changed only when a saved file differs", () => {
+    expect(changed({ config: "a" }, { config: "a" })).toBe(false);
+    expect(changed({ config: "b" }, { config: "a" })).toBe(true);
   });
 });

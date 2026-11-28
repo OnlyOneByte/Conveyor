@@ -91,4 +91,16 @@ describe("an upload whose client drops the connection", () => {
     expect(routes.pending()).toBe(0);
     expect(logs.filter((line) => line.includes("aborted by the client"))).toHaveLength(50);
   });
+
+  test("a refused or rejected upload is not logged as aborted", async () => {
+    const { base, routes } = await serve(2000);
+    expect((await upload(base, stl(30))).status).toBe(201);
+    expect((await upload(base, stl(30))).status).toBe(507);
+    const form = new FormData();
+    form.append("file", new Blob(["not a model"]), "notes.txt");
+    const wrong = await fetch(`${base}/uploads`, { method: "POST", body: form, keepalive: false });
+    expect(wrong.status).toBe(415);
+    await until("every handler to settle", () => routes.pending() === 0);
+    expect(logs.filter((line) => line.includes("aborted by the client"))).toEqual([]);
+  });
 });

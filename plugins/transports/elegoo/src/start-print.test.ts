@@ -8,7 +8,14 @@ afterEach(() => {
   Reflect.set(globalThis, "WebSocket", RealWebSocket);
 });
 
-type Mode = "ack" | "nack" | "closeAfterSend" | "errorBeforeOpen" | "errorAfterSend" | "strayFirst";
+type Mode =
+  | "ack"
+  | "nack"
+  | "malformed"
+  | "closeAfterSend"
+  | "errorBeforeOpen"
+  | "errorAfterSend"
+  | "strayFirst";
 
 class StartSocket {
   static mode: Mode = "ack";
@@ -28,6 +35,10 @@ class StartSocket {
     const mode = StartSocket.mode;
     if (mode === "closeAfterSend") return queueMicrotask(() => this.onclose?.());
     if (mode === "errorAfterSend") return queueMicrotask(() => this.onerror?.());
+    if (mode === "malformed") {
+      const garbled = { Data: { RequestID, Data: { Ack: "zero" } } };
+      return queueMicrotask(() => this.onmessage?.({ data: JSON.stringify(garbled) }));
+    }
     if (mode === "strayFirst")
       for (const stray of ["pong", '{"Data":null}', '{"Data":{"RequestID":7}}'])
         queueMicrotask(() => this.onmessage?.({ data: stray }));
@@ -61,6 +72,13 @@ describe("elegoo START_PRINT", () => {
       expect(err).not.toBeInstanceOf(PrintMayHaveStartedError);
       expect(String(err)).toContain(`rejected (ack ${code})`);
     }
+  });
+
+  test("an ack for this start that can't be read fails, naming the unreadable reply", async () => {
+    use("malformed");
+    const err = await start().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StageError);
+    expect(String(err)).toContain("unreadable reply");
   });
 
   test("frames that aren't this start's ack are skipped until the ack arrives", async () => {

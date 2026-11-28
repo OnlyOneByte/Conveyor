@@ -99,6 +99,14 @@ export function browserPages() {
   };
 }
 
+export const rejection = (pending: Promise<unknown>): Promise<string> =>
+  pending.then(
+    () => {
+      throw new Error("expected it to reject, but it resolved");
+    },
+    (err: unknown) => (err instanceof Error ? err.message : String(err)),
+  );
+
 export function serveCaddy(cmd: string[]): ReturnType<typeof Bun.serve> {
   const file = cmd[cmd.indexOf("-v") + 1]?.split(":")[0] ?? "";
   const port = Number(readFileSync(file, "utf8").match(/http:\/\/127\.0\.0\.1:(\d+)/)?.[1]);

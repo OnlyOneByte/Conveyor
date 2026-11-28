@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  BUN_VERSION: "1.3.14"
+  BUN_VERSION: "1.4.5"
 
 defaults:
   run:
@@ -44,6 +44,8 @@ jobs:
         run: bun run lint --reporter=github
       - name: One Redis image in every pin
         run: bun scripts/checks/redis-pins.ts
+      - name: CI, dev tooling and every image run the same Bun
+        run: bun scripts/checks/bun-version.ts
       - name: No new `as` casts against the base
         env:
           PREVIOUS: ${{ github.event.before || 'origin/main' }}

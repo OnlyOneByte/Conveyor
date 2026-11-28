@@ -52,6 +52,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  app.server.closeAllConnections();
   await app.close();
   db.close();
   rmSync(dir, { recursive: true, force: true });

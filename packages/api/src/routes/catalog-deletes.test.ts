@@ -48,8 +48,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try {
+    app.server.closeAllConnections();
     await app.close();
-    process.env.DB_PATH = previousDbPath;
+    if (previousDbPath === undefined) delete process.env.DB_PATH;
+    else process.env.DB_PATH = previousDbPath;
     rmSync(dir, { recursive: true, force: true });
   } finally {
     await closeQueue(process.env.REDIS_URL);

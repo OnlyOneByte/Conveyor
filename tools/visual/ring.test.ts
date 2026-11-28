@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { PNG } from "pngjs";
-import { browserPages } from "./fixtures.ts";
+import { browserPages, rejection } from "./fixtures.ts";
 import { assertKeyScrolls, assertRing, ringBand, ringShown } from "./ring.ts";
 
 const withPage = browserPages();
@@ -25,7 +25,7 @@ test("a 2 px ink ring on hover passes, and a hover that drops it fails", async (
   });
   await withPage(async (page) => {
     await page.setContent(button("box-shadow: none;"));
-    await expect(assertRing(page, "button")).rejects.toThrow(
+    expect(await rejection(assertRing(page, "button"))).toContain(
       "ring button: 0% of the pixels just outside it change by 3:1 on hover (lowest 1.00:1); 90% must",
     );
   });
@@ -73,7 +73,7 @@ test.each([
 ])(
   "a focused block with %s fails",
   async (_name, style, share) => {
-    await expect(keyScrolls(style, 80)).rejects.toThrow(
+    expect(await rejection(keyScrolls(style, 80))).toContain(
       `keyScrolls pre: focus shows a 3:1 ring at least 2 px thick within 6 px along ${share} of its edge; 90% must`,
     );
   },
@@ -81,7 +81,7 @@ test.each([
 );
 
 test("a focused block with nothing to scroll fails", async () => {
-  await expect(keyScrolls(ring(3), 2)).rejects.toThrow(
+  expect(await rejection(keyScrolls(ring(3), 2))).toContain(
     "keyScrolls pre: PageDown left it at scrollTop 0 (was 0)",
   );
 }, 30000);
