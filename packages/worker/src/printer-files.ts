@@ -1,18 +1,25 @@
 import type { Database } from "bun:sqlite";
 import { printerFileName } from "@conveyor/shared";
 import { dbListJobs } from "@conveyor/shared/db";
+import { z } from "zod";
 import { messageOf, type Run } from "./run.js";
 
-export const DEFAULT_KEEP_FILES = 1;
+export const DEFAULT_KEEP_FILES = 5;
 const PRUNE_TIMEOUT_MS = 60000;
+
+const KeepFiles = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().max(Number.MAX_SAFE_INTEGER));
 
 export function printerKeepFiles(env: Record<string, string | undefined>): number {
   const raw = env.CONVEYOR_PRINTER_KEEP_FILES;
   if (raw === undefined || raw.trim() === "") return DEFAULT_KEEP_FILES;
-  const keep = Number(raw);
-  if (!Number.isInteger(keep) || keep < 0)
-    throw new Error(`CONVEYOR_PRINTER_KEEP_FILES must be a whole number, 0 or more, got ${raw}`);
-  return keep;
+  const parsed = KeepFiles.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  throw new Error(`CONVEYOR_PRINTER_KEEP_FILES must be a whole number, 0 or more, got ${raw}`);
 }
 
 export function filesToKeep(

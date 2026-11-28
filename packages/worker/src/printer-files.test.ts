@@ -111,20 +111,24 @@ describe("old files on the printer", () => {
 });
 
 describe("CONVEYOR_PRINTER_KEEP_FILES", () => {
-  test("defaults to keeping the last print", () => {
+  test("defaults to keeping the last 5 prints", () => {
     expect(printerKeepFiles({})).toBe(DEFAULT_KEEP_FILES);
-    expect(DEFAULT_KEEP_FILES).toBe(1);
-    expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: " " })).toBe(1);
+    expect(DEFAULT_KEEP_FILES).toBe(5);
+    expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: " " })).toBe(5);
   });
 
   test("takes a whole number, 0 or more", () => {
     expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: "0" })).toBe(0);
-    expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: "5" })).toBe(5);
+    expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: "1" })).toBe(1);
+    expect(printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: " 12 " })).toBe(12);
   });
 
-  test.each(["-1", "1.5", "lots"])("refuses %p", (raw) => {
-    expect(() => printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: raw })).toThrow(
-      `CONVEYOR_PRINTER_KEEP_FILES must be a whole number, 0 or more, got ${raw}`,
-    );
-  });
+  test.each(["-1", "1.5", "lots", "0x10", "1e3", "+5", "Infinity", "99999999999999999999"])(
+    "refuses %p",
+    (raw) => {
+      expect(() => printerKeepFiles({ CONVEYOR_PRINTER_KEEP_FILES: raw })).toThrow(
+        `CONVEYOR_PRINTER_KEEP_FILES must be a whole number, 0 or more, got ${raw}`,
+      );
+    },
+  );
 });

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type PrintStatus, type Stage, StageError } from "@conveyor/shared";
+import { filesToPrune, type PrintStatus, type Stage, StageError } from "@conveyor/shared";
 import { dbGetJob, dbRecordJob, openDb, queuedCancelRecord } from "@conveyor/shared/db";
 import { enqueueJob, requestCancel } from "@conveyor/shared/queue";
 import { type HarnessOptions, harness } from "../test/helpers/pipeline-harness";
@@ -151,6 +151,39 @@ describe("filesToKeep", () => {
       "conveyor-now.gcode",
       "conveyor-printed.gcode",
     ]);
+  });
+
+  test("a canceled or failed job's file is deleted by a later job's prune once it falls out of the last N", () => {
+    const db = dbWith([]);
+    const rows: { id: string; state: "canceled" | "failed" | "done"; at: number }[] = [
+      { id: "canceled-printing", state: "canceled", at: 1 },
+      { id: "failed-printing", state: "failed", at: 2 },
+      { id: "printed", state: "done", at: 3 },
+    ];
+    for (const { id, state } of rows)
+      dbRecordJob(db, {
+        id,
+        generatorId: "g",
+        printerId: "p1",
+        profileId: "x",
+        state,
+        stage: "transport",
+      });
+    for (const { id, at } of rows) db.run("UPDATE jobs SET updated_at = ? WHERE id = ?", [at, id]);
+    const onPrinter = [
+      "conveyor-canceled-printing.gcode",
+      "conveyor-failed-printing.gcode",
+      "conveyor-printed.gcode",
+      "conveyor-now.gcode",
+      "my-own-part.gcode",
+    ];
+    const keep = new Set(filesToKeep(db, 2, "p1", "now"));
+    expect(filesToPrune(onPrinter, keep, "conveyor-now.gcode")).toEqual([
+      "conveyor-canceled-printing.gcode",
+      "conveyor-failed-printing.gcode",
+    ]);
+    const roomy = new Set(filesToKeep(db, 5, "p1", "now"));
+    expect(filesToPrune(onPrinter, roomy, "conveyor-now.gcode")).toEqual([]);
   });
 
   test("keeps no earlier job's file at 0, nor names this job's own", () => {
