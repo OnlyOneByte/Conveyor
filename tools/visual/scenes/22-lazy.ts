@@ -181,8 +181,8 @@ export const scenes: Scene[] = [
       { waitFor: "dialog[open]" },
       { absent: "dialog[open] ~ dialog[open]" },
       { press: "Escape" },
-      { absent: "dialog[open]" },
       { waitFor: "main button[aria-label^='Edit ']:focus >> text=Edit" },
+      { absent: "dialog[open]" },
     ],
   },
   {

@@ -12,18 +12,29 @@
   let query = "";
   let current: string | undefined;
   let restore = () => {};
+  let closing = false;
 
-  $: if (dialog && open && !dialog.open) {
-    restore = rememberFocus(() =>
-      document.activeElement instanceof HTMLElement ? document.activeElement : null,
-    );
-    query = "";
-    dialog.showModal();
+  $: if (dialog && open) {
+    if (!dialog.open) {
+      restore = rememberFocus(() =>
+        document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      );
+      query = "";
+      dialog.showModal();
+    }
+    closing = false;
   }
-  $: if (dialog && !open && dialog.open) dialog.close();
+  $: if (dialog && !open && dialog.open) closing = true;
+
+  function shut(event: AnimationEvent) {
+    if (!closing || event.target !== dialog) return;
+    closing = false;
+    dialog.close();
+  }
 </script>
 
-<dialog bind:this={dialog} aria-label="Command menu" on:close={() => ((open = false), restore())}>
+<dialog bind:this={dialog} class:closing aria-label="Command menu" on:animationend={shut}
+  on:cancel|preventDefault={() => (open = false)} on:close={() => ((open = closing = false), restore())}>
   <input role="combobox" aria-expanded={List !== null} aria-controls={List ? `${id}-list` : undefined} aria-autocomplete="list" aria-activedescendant={current}
     aria-label="Search jobs, printers and actions" placeholder="Search jobs, printers and actions" autocomplete="off" bind:value={query} on:keydown={(e) => list?.keydown(e)} />
   {#if List}
