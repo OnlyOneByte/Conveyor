@@ -39,6 +39,7 @@ describe.skipIf(!url)("retrying a failed job on the Redis queue", () => {
 
   afterAll(async () => {
     for (const id of queued) await (await queue.jobQueue.getJob(id))?.remove();
+    app.server.closeAllConnections();
     await app.close();
     await queue.jobQueue.close();
     queue.redis.disconnect();

@@ -135,7 +135,7 @@ export async function registerUploadRoutes(
       timer.clear();
       target.hold?.release();
       pending--;
-      if (req.raw.socket?.destroyed && !reply.raw.writableFinished) {
+      if (req.raw.aborted) {
         req.log.info(`upload ${uploadId} aborted by the client`);
       }
     }

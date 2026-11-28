@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FolderFull, folderBudget } from "./uploads-folder.js";
+import { FolderFull, folderBudget, folderBytes } from "./uploads-folder.js";
 
 const A = "0b3f6c1e-6a4d-4c3e-9f1a-2d5e7b8c9a01";
 const B = "1b3f6c1e-6a4d-4c3e-9f1a-2d5e7b8c9a02";
@@ -113,5 +113,18 @@ describe("folderBudget", () => {
     clock = 119_999;
     await budget.start(part(B));
     expect(scans).toBe(2);
+  });
+});
+
+describe("folderBytes", () => {
+  test("is 0 for a folder that doesn't exist yet", async () => {
+    expect(await folderBytes(join(folder(), "not-yet"))).toBe(0);
+  });
+
+  test("fails on a folder it can't list, and on an own file it can't read", async () => {
+    writeFileSync(join(folder(), "a-file"), "x");
+    await expect(folderBytes(join(dir, "a-file"))).rejects.toThrow("ENOTDIR");
+    symlinkSync(join(dir, `${A}.stl`), join(dir, `${A}.stl`));
+    await expect(folderBytes(dir)).rejects.toThrow("ELOOP");
   });
 });

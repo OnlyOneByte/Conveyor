@@ -15,7 +15,8 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  process.env.CONVEYOR_PROFILES_ROOT = previousRoot;
+  if (previousRoot === undefined) delete process.env.CONVEYOR_PROFILES_ROOT;
+  else process.env.CONVEYOR_PROFILES_ROOT = previousRoot;
 });
 
 const target = (overrides: Partial<JobTarget>): JobTarget => ({

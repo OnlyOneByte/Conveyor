@@ -10,7 +10,7 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 const modeOf = (path: string) => (statSync(path).mode & 0o777).toString(8);
 const DB_FILES = ["conveyor.db", "conveyor.db-wal", "conveyor.db-shm"];
 
-async function firstStart(data: string): Promise<void> {
+async function firstStart(data: string, whileRunning: () => void = () => {}): Promise<void> {
   const api = await bootApi(root, {
     CONVEYOR_AUTH: "disabled",
     CONVEYOR_QUEUE: "sqlite",
@@ -18,16 +18,21 @@ async function firstStart(data: string): Promise<void> {
     DB_PATH: join(data, "conveyor.db"),
     DATA_DIR: data,
   });
-  await api.stop();
+  try {
+    whileRunning();
+  } finally {
+    await api.stop();
+  }
 }
 
 test("a first start in an empty data dir creates the database, WAL and SHM owner-only", async () => {
   const data = join(root, "empty");
   mkdirSync(data, { mode: 0o755 });
-  await firstStart(data);
-  expect(DB_FILES.map((file) => [file, modeOf(join(data, file))])).toEqual(
-    DB_FILES.map((file) => [file, "600"]),
-  );
+  let modes: string[][] = [];
+  await firstStart(data, () => {
+    modes = DB_FILES.map((file) => [file, modeOf(join(data, file))]);
+  });
+  expect(modes).toEqual(DB_FILES.map((file) => [file, "600"]));
 });
 
 test("a first start with no data dir creates it owner-only", async () => {

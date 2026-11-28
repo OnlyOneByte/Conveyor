@@ -29,6 +29,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  app.server.closeAllConnections();
   await app.close();
   for (const [key, value] of Object.entries(previous)) {
     if (value === undefined) delete process.env[key];

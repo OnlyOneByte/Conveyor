@@ -42,3 +42,71 @@ describe("a profile that fails to load", () => {
     expect(await run(offline)).toMatchObject({ failed: true, problem: "", detail: null });
   });
 });
+
+const routed = (routes: Record<string, unknown>): typeof fetch =>
+  Object.assign(
+    async (input: RequestInfo | URL) => {
+      const path = new URL(String(input), "http://conveyor.test").pathname;
+      return path in routes ? Response.json(routes[path]) : new Response(null, { status: 404 });
+    },
+    { preconnect: () => {} },
+  );
+
+const prusa = {
+  id: "prusa/klipper-pla-0.2",
+  slicerId: "prusa",
+  name: "Prusa PLA",
+  path: "/profiles/prusa-klipper-pla-0.2",
+  gcodeFlavor: "klipper",
+};
+
+const runAs = (
+  id: string,
+  auth: { authEnabled: boolean; authenticated: boolean },
+  f: typeof fetch,
+) => Reflect.apply(load, undefined, [{ params: { id }, fetch: f, parent: async () => ({ auth }) }]);
+
+describe("a profile that loads", () => {
+  const open = { authEnabled: false, authenticated: false };
+  const api = routed({
+    "/api/catalog/profiles": [prusa],
+    "/api/catalog/slicers": [{ id: "prusa", name: "PrusaSlicer" }],
+    "/api/catalog/profiles/prusa%2Fklipper-pla-0.2/content": {
+      source: "edited",
+      document: { config: "layer_height = 0.2\n" },
+    },
+  });
+
+  test("returns the profile, the slicers and its saved content", async () => {
+    expect(await runAs(prusa.id, open, api)).toEqual({
+      profile: prusa,
+      slicers: [{ id: "prusa", name: "PrusaSlicer" }],
+      content: {
+        files: ["config"],
+        lang: "ini",
+        docs: { config: "layer_height = 0.2\n" },
+        edited: true,
+        missing: false,
+      },
+      failed: false,
+      problem: "",
+      detail: null,
+    });
+  });
+
+  test("an id the catalog doesn't have loads no profile and no content", async () => {
+    expect(await runAs("nope", open, api)).toMatchObject({ profile: null, content: null });
+  });
+
+  test("loads nothing for a signed-out visitor when auth is on", async () => {
+    const out = { authEnabled: true, authenticated: false };
+    expect(await runAs(prusa.id, out, api)).toEqual({
+      profile: null,
+      content: null,
+      slicers: [],
+      failed: false,
+      problem: "",
+      detail: null,
+    });
+  });
+});

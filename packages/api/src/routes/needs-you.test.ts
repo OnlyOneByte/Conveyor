@@ -46,6 +46,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  app.server.closeAllConnections();
   await app.close();
   openDb().close();
   if (previousDbPath === undefined) delete process.env.DB_PATH;

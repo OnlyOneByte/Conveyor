@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { get } from "svelte/store";
 
-const os = { dark: false, changed: [] as (() => void)[] };
+const os = { dark: false, reducedMotion: false, changed: [] as (() => void)[] };
 const saved = new Map<string, string>();
 const painted: string[] = [];
 const root = { dataset: {} as Record<string, string> };
@@ -16,14 +16,19 @@ const canvas = () => ({
     getImageData: () => ({ data: [243, 104, 15, 255] }),
   }),
 });
+const storageListeners: ((event: { key: string | null; newValue: string | null }) => void)[] = [];
 const fakes = {
+  window: {
+    addEventListener: (_type: string, run: (typeof storageListeners)[number]) =>
+      void storageListeners.push(run),
+  },
   document: { documentElement: root, createElement: canvas },
   localStorage: {
     getItem: (key: string) => saved.get(key) ?? null,
     setItem: (key: string, value: string) => void saved.set(key, value),
   },
-  matchMedia: () => ({
-    matches: os.dark,
+  matchMedia: (query: string) => ({
+    matches: query.includes("reduced-motion") ? os.reducedMotion : os.dark,
     addEventListener: (_event: string, run: () => void) => void os.changed.push(run),
   }),
   getComputedStyle: () => ({ getPropertyValue: (name: string) => `value of ${name}` }),
@@ -90,5 +95,30 @@ describe("tokenColor", () => {
   test("paints the token's computed value and packs the pixel as RGB", () => {
     expect(tokenColor("--accent", "light")).toBe((243 << 16) | (104 << 8) | 15);
     expect(painted.at(-1)).toBe("value of --accent");
+  });
+});
+
+describe("the other preferences", () => {
+  test("follow a change another tab saves, and ignore other keys", () => {
+    prefs.spinPreview.set(false);
+    for (const run of storageListeners) run({ key: "conveyor.prefs.spinPreview", newValue: "1" });
+    expect(get(prefs.spinPreview)).toBe(true);
+    for (const run of storageListeners) run({ key: "something.else", newValue: "0" });
+    expect(get(prefs.spinPreview)).toBe(true);
+  });
+
+  test("single-key shortcuts are on unless turned off, and the choice is saved", () => {
+    expect(get(prefs.singleKeyShortcuts)).toBe(true);
+    prefs.singleKeyShortcuts.set(false);
+    expect(saved.get("conveyor.prefs.singleKeysOff")).toBe("1");
+    prefs.singleKeyShortcuts.set(true);
+    expect(saved.get("conveyor.prefs.singleKeysOff")).toBe("0");
+  });
+
+  test("reduced motion follows the OS setting", () => {
+    os.reducedMotion = true;
+    expect(prefs.prefersReducedMotion()).toBe(true);
+    os.reducedMotion = false;
+    expect(prefs.prefersReducedMotion()).toBe(false);
   });
 });

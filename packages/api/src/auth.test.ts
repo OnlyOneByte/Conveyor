@@ -65,6 +65,14 @@ describe("session tokens", () => {
     );
     expect(auth.verifyToken(`${edited}.${sig}`)).toBe(false);
   });
+
+  test("refuses a correctly signed token whose payload isn't JSON", () => {
+    const data = Buffer.from("not json").toString("base64url");
+    const sig = createHmac("sha256", "auth-unit-test-secret-auth-unit-test-secret")
+      .update(data)
+      .digest("base64url");
+    expect(auth.verifyToken(`${data}.${sig}`)).toBe(false);
+  });
 });
 
 describe("passwords and cookies", () => {
@@ -148,6 +156,7 @@ describe("the auth guard", () => {
       expect(await codes({})).toEqual([200, 401, 401, 401]);
       expect(await codes({ cookie })).toEqual([200, 200, 200, 404]);
     } finally {
+      app.server.closeAllConnections();
       await app.close();
     }
   });

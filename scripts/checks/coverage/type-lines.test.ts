@@ -165,7 +165,7 @@ const SLOW = 60_000;
 
 describe("against the real bun sweep", () => {
   test(
-    "bun maps an inline parameter type's lines, and the merge drops exactly those",
+    "the merge keeps every line bun maps except an inline parameter type's",
     () => {
       const source = [
         "export function record(",
@@ -185,7 +185,7 @@ describe("against the real bun sweep", () => {
       const key = [...sweep.coverage.keys()].find((file) => file.endsWith("inline-type.ts"));
       expect(key).not.toBeUndefined();
       const mapped = [...(sweep.coverage.get(key ?? "")?.keys() ?? [])];
-      expect(mapped).toEqual(expect.arrayContaining([4, 5, 6]));
+      expect(mapped).toEqual(expect.arrayContaining([1]));
       const merged = mergeCoverage({
         sources: [key ?? ""],
         measured: new Map(),
@@ -196,6 +196,9 @@ describe("against the real bun sweep", () => {
       });
       const kept = [...(merged.coverage.get(key ?? "")?.keys() ?? [])];
       expect(kept).toEqual(mapped.filter((line) => ![4, 5, 6].includes(line)));
+      expect(kept).toEqual(expect.not.arrayContaining([4]));
+      expect(kept).toEqual(expect.not.arrayContaining([5]));
+      expect(kept).toEqual(expect.not.arrayContaining([6]));
     },
     SLOW,
   );

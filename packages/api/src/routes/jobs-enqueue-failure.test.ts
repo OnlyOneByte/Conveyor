@@ -20,9 +20,6 @@ import { registerErrorReplies } from "../error-replies.js";
 import { connection, jobQueue, redis } from "../queue.js";
 import { registerJobRoutes } from "./jobs.js";
 
-connection.disconnect();
-redis.disconnect();
-
 const dir = mkdtempSync(join(tmpdir(), "conveyor-enqueue-failure-"));
 const previous = process.env.DB_PATH;
 const app = Fastify();
@@ -32,13 +29,26 @@ const request = {
   profileId: "orca/klipper-pla-0.2",
 };
 
-const fakes = {
+const spies = () => ({
   add: spyOn(jobQueue, "add").mockRejectedValue(new Error("Connection is closed.")),
   remove: spyOn(jobQueue, "remove").mockResolvedValue(1),
   set: spyOn(connection, "set").mockResolvedValue("OK"),
-};
+});
+let fakes: ReturnType<typeof spies>;
+
+async function settledEnd(): Promise<void> {
+  connection.disconnect();
+  redis.disconnect();
+  const deadline = Date.now() + 5000;
+  while (connection.status !== "end") {
+    if (Date.now() > deadline) throw new Error(`queue connection still ${connection.status}`);
+    await Bun.sleep(5);
+  }
+}
 
 beforeAll(async () => {
+  await settledEnd();
+  fakes = spies();
   process.env.DB_PATH = join(dir, "conveyor.db");
   openDb();
   registerErrorReplies(app);

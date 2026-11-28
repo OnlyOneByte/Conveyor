@@ -47,6 +47,7 @@ describe.skipIf(!url)("a held printer on the Redis queue", () => {
 
   afterAll(async () => {
     releasePrinterHold(openDb(), request.printerId);
+    app.server.closeAllConnections();
     await app.close();
     await queue.jobQueue.close();
     queue.redis.disconnect();

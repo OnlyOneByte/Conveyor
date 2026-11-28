@@ -42,9 +42,18 @@ export function closeOnSignals(app: FastifyInstance, shutdown: Shutdown): void {
   for (const signal of SHUTDOWN_SIGNALS) source.on(signal, () => stop(signal));
 }
 
+export const CLOSE_HANDSHAKE_MS = 500;
+
 export function closeSocketsRestarting(this: FastifyInstance, done: () => void): void {
   const server = this.websocketServer;
   for (const client of server.clients)
     client.close(JOB_STREAM_CLOSE.restarting, "server restarting");
-  server.close(() => done());
+  const silent = setTimeout(() => {
+    for (const client of server.clients) client.terminate();
+  }, CLOSE_HANDSHAKE_MS);
+  silent.unref();
+  server.close(() => {
+    clearTimeout(silent);
+    done();
+  });
 }
