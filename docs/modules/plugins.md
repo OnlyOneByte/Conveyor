@@ -165,7 +165,8 @@ dropped. Two guards apply to every upload:
     timeout), a reply the schema rejects, an unrecognised status, or 3 checks that all say `in_progress` end
     the job `failed` as before: "the printer went back to standby before reporting how the print ended; check
     the printer (job history: <why>)". The job settles and the printer is free for the next one, but it is
-    never marked done or canceled without the history saying so.
+    never marked done or canceled without the history saying so. A redirect from the history endpoint is refused
+    like any other from the printer, and fails the job naming the "moonraker history query".
   A reply with no `print_stats.state` counts as an unknown state, not `standby`, so it doesn't add to the 3.
 - Print progress (`PrintStatus.print`, on `printing` and `paused` polls): `layer` is
   `print_stats.info.current_layer` and `layers` is `print_stats.info.total_layer` when it is above 0. Klipper

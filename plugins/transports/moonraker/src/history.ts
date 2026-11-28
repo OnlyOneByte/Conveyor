@@ -49,7 +49,7 @@ export async function historyEnd(
   signal?: AbortSignal,
 ): Promise<HistoryEnd> {
   const query = `${base}/server/history/list?limit=${HISTORY_LIMIT}&order=desc`;
-  const res = await poll(query, headers, timeoutMs, signal);
+  const res = await poll(query, headers, timeoutMs, signal, "moonraker history query");
   if (typeof res === "string")
     return { kind: "unknown", why: `the history request failed: ${res}` };
   const parsed = HistoryReply.safeParse(await res.json().catch(() => null));

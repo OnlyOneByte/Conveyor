@@ -35,7 +35,11 @@ function printer(polls: Record<string, unknown>[], history: History) {
       const url = new URL(req.url);
       if (url.pathname === "/server/history/list") {
         asked.push(url.search);
-        if (typeof history === "number") return new Response("no", { status: history });
+        if (typeof history === "number")
+          return new Response("no", {
+            status: history,
+            headers: { location: "http://elsewhere/" },
+          });
         if (history === "garbage") return Response.json({ result: { jobs: "none" } });
         const jobs = typeof history === "function" ? history() : history;
         return Response.json({ result: { count: jobs.length, jobs } });
@@ -78,6 +82,16 @@ describe("a print that ends in standby before reporting how it ended", () => {
     expect(last).toEqual({ state: "canceled", message: "print cancelled on printer" });
   });
 
+  test("takes the newest of two entries for the same file", async () => {
+    const { last } = await ending(ENDS_IN_STANDBY, [job("cancelled"), job("completed")]);
+    expect(last).toEqual({ state: "canceled", message: "print cancelled on printer" });
+  });
+
+  test("fails with its own message when the job history says error", async () => {
+    const { last } = await ending(ENDS_IN_STANDBY, [job("error")]);
+    expect(last).toEqual({ state: "failed", message: "the job history says error" });
+  });
+
   test("fails naming the status when the job history records an error", async () => {
     const { last } = await ending(ENDS_IN_STANDBY, [job("klippy_shutdown")]);
     expect(last).toEqual({ state: "failed", message: "the job history says klippy_shutdown" });
@@ -110,6 +124,7 @@ describe("a print that ends in standby before reporting how it ended", () => {
     ["answers 404", 404, "the history request failed: 404"],
     ["answers 500", 500, "the history request failed: 500"],
     ["answers something unreadable", "garbage", "the history reply couldn't be read"],
+    ["records a status it doesn't know", [job("paused")], "unrecognised job status paused"],
   ])("fails as before, saying why, when the history %s", async (_case, history, why) => {
     const { last } = await ending(ENDS_IN_STANDBY, history);
     expect(last).toEqual({ state: "failed", message: `${STANDBY_ENDED} (job history: ${why})` });
@@ -166,4 +181,13 @@ test("the history request goes to the IP the guard checked, with the name in Hos
       host: "printer.example:7125",
     },
   ]);
+});
+
+test("a redirect from the history is refused, naming the history query", async () => {
+  const { handle } = printer([...ENDS_IN_STANDBY], 302);
+  const run = (async () => {
+    for await (const _ of plugin.status(handle)) {
+    }
+  })();
+  await expect(run).rejects.toThrow("moonraker history query");
 });
