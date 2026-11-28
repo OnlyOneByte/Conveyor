@@ -1,4 +1,3 @@
-import { readdirSync, statSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -27,39 +26,23 @@ async function sizeOf(path: string): Promise<number> {
   );
 }
 
-function sizeOfSync(path: string): number {
-  try {
-    const s = statSync(path);
-    return s.isFile() ? s.size : 0;
-  } catch (error) {
-    if (missing(error)) return 0;
-    throw error;
-  }
-}
-
 function ownNames(names: string[], skip: ReadonlySet<string>): string[] {
   return names.filter((name) => !skip.has(name) && OWN_FILE.test(name));
 }
 
-export async function folderBytes(dir: string): Promise<number> {
+export async function folderBytes(
+  dir: string,
+  skip: ReadonlySet<string> = new Set(),
+): Promise<number> {
   const names = await readdir(dir).catch((error: unknown) => {
     if (missing(error)) return [];
     throw error;
   });
-  const sizes = await Promise.all(ownNames(names, new Set()).map((n) => sizeOf(join(dir, n))));
+  const sizes = await Promise.all(ownNames(names, skip).map((n) => sizeOf(join(dir, n))));
   return sizes.reduce((total, size) => total + size, 0);
 }
 
-function folderBytesSync(dir: string, skip: ReadonlySet<string>): number {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch (error) {
-    if (missing(error)) return 0;
-    throw error;
-  }
-  return ownNames(names, skip).reduce((total, name) => total + sizeOfSync(join(dir, name)), 0);
-}
+export const DEFAULT_RESCAN_MS = 60_000;
 
 export interface Reservation {
   full(): boolean;
@@ -68,20 +51,41 @@ export interface Reservation {
   release(): void;
 }
 
-export function folderBudget(dir: string, cap: number) {
+export interface FolderBudget {
+  start(part: string): Promise<Reservation>;
+}
+
+export async function folderBudget(
+  dir: string,
+  cap: number,
+  rescanMs = DEFAULT_RESCAN_MS,
+  now: () => number = Date.now,
+): Promise<FolderBudget> {
   let stored = 0;
   let inFlight = 0;
+  let scannedAt = Number.NEGATIVE_INFINITY;
+  let committedDuringScan = 0;
+  let scanning: Promise<void> | undefined;
   const parts = new Set<string>();
+  const rescan = (): Promise<void> => {
+    scanning ??= (async () => {
+      committedDuringScan = 0;
+      const found = await folderBytes(dir, parts);
+      stored = found + committedDuringScan;
+      scannedAt = now();
+    })().finally(() => {
+      scanning = undefined;
+    });
+    return scanning;
+  };
+  await rescan();
   return {
-    start(part: string): Reservation {
-      stored = folderBytesSync(dir, parts);
+    async start(part) {
+      if (scanning || now() - scannedAt >= rescanMs) await rescan();
       const name = basename(part);
       parts.add(name);
       let held = 0;
-      let open = true;
       const release = () => {
-        if (!open) return;
-        open = false;
         inFlight -= held;
         held = 0;
         parts.delete(name);
@@ -96,6 +100,7 @@ export function folderBudget(dir: string, cap: number) {
         commit(bytes) {
           release();
           stored += bytes;
+          if (scanning) committedDuringScan += bytes;
         },
         release,
       };

@@ -168,4 +168,23 @@ describe("the uploads folder cap under concurrent uploads", () => {
     writeFileSync(join(dir, `${UUID}.stl.part`), Buffer.alloc(CAP - 100));
     expect((await upload(base, stl(20))).status).toBe(507);
   });
+
+  test("an upload that fails mid-write for another reason gives its reservation back", async () => {
+    let failures = 1;
+    const breaking: Write = async (path, source) => {
+      const file = await open(path, "w");
+      try {
+        for await (const chunk of source) {
+          await file.write(chunk);
+          if (failures-- > 0) throw new Error("disk went away");
+        }
+      } finally {
+        await file.close();
+      }
+    };
+    const base = await serve(breaking);
+    expect((await upload(base, stl(60))).status).toBe(500);
+    expect(partBytes()).toBe(0);
+    expect((await upload(base, stl(60))).status).toBe(201);
+  });
 });

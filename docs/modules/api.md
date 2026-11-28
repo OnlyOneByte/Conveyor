@@ -353,9 +353,12 @@ the api's log into the worker's.
   checks below. Anything that fails a check is removed before the reply:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
   - **Folder cap:** with `CONVEYOR_UPLOADS_MAX_BYTES` set, the stored files the API created plus the bytes
-    of uploads still arriving may total at most that many bytes on disk (`routes/uploads-folder.ts`). Each
-    upload, at its start, sums the stored `<uuid>.stl` files (and any `.part` no running upload owns) with a
-    synchronous scan, then reserves every chunk against `stored + in flight` before writing it. An upload
+    of uploads still arriving may total at most that many bytes on disk (`routes/uploads-folder.ts`). The API
+    keeps the stored total in memory: an async scan of the stored `<uuid>.stl` files (and any `.part` no
+    running upload owns) sets it at startup, each kept upload adds to it, and an upload that starts more than
+    60 s after the last scan first waits for a fresh one, which picks up files the worker's retention deleted.
+    A file kept while a scan runs is added on top of what the scan found. No scan runs synchronously on the
+    request path. Every chunk is reserved against `stored + in flight` before it is written. An upload
     that would pass the cap gets `507` and `the uploads folder is full (CONVEYOR_UPLOADS_MAX_BYTES)…`, at
     once when the folder is already full and otherwise at the chunk that doesn't fit, with `Connection:
     close`. Its reservation is given back when it is refused, fails or the client drops it, and turns into

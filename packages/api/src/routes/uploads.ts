@@ -14,6 +14,7 @@ import {
   uploadTimer,
 } from "./upload-timer.js";
 import {
+  DEFAULT_RESCAN_MS,
   FOLDER_FULL,
   FolderFull,
   folderBudget,
@@ -109,9 +110,10 @@ export async function registerUploadRoutes(
   settings: UploadSettings = uploadSettings(process.env),
   write: Write = streamTo,
   timers: Timers = realTimers,
+  rescanMs = DEFAULT_RESCAN_MS,
 ): Promise<void> {
   const cap = settings.folderMaxBytes;
-  const budget = cap === undefined ? undefined : folderBudget(settings.dir, cap);
+  const budget = cap === undefined ? undefined : await folderBudget(settings.dir, cap, rescanMs);
   app.post("/uploads", async (req, reply) => {
     const timer = uploadTimer(settings, timers);
     const uploadId = randomUUID();
@@ -166,7 +168,7 @@ export async function registerUploadRoutes(
       closeAfterReply(req, reply);
       return refuse(507, FOLDER_FULL);
     };
-    const hold = budget?.start(part);
+    const hold = await budget?.start(part);
     target.hold = hold;
     if (hold?.full()) return full();
     let seen: Received;
