@@ -55,7 +55,10 @@ jobs:
 
       - name: Pick the OS package refresh key from the release commit's date
         id: refresh
-        run: echo "key=$(TZ=UTC git show -s --format=%cd --date=format-local:%F HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          key=$(TZ=UTC git show -s --format=%cd --date=format-local:%F HEAD)
+          test -n "$key"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
 
       - name: Build and push by digest
         id: build
