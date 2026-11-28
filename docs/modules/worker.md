@@ -91,7 +91,7 @@ mode, with that error as the reason, until someone releases it.
 
 After every print `printStage` starts settles (done, failed, or canceled on the printer), and while the printer lock or the SQLite slot is
 still held, `prunePrinter` calls the transport's `pruneFiles` with the names to keep. `filesToKeep` builds them
-from `CONVEYOR_PRINTER_KEEP_FILES` (default 1): this job's `printerFileName` plus the printer's most recent
+from `CONVEYOR_PRINTER_KEEP_FILES` (default 5, decimal digits only, parsed with zod in `printerKeepFiles`): this job's `printerFileName` plus the printer's most recent
 earlier jobs that got past slicing (`dbListJobs` with `reachedPrinter`: a `done` row, which on Redis is recorded with no stage, or any row whose stage is `transport`; a job canceled while queued or reaped before any stage, recorded with no stage, does not count), up to that many. Jobs
 that failed while generating or slicing never put a file on the printer, so they don't use up a place. At 0 it
 names none, but the transport still spares whatever file the printer has loaded, and Klipper keeps a finished

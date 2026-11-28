@@ -81,7 +81,7 @@ message reads `[stage] reason`.
 `printerFileName(jobId)` is the name a job's G-code gets on the printer, `conveyor-<jobId>.gcode`, and
 `filesToPrune(paths, keep, printing)` picks which of a printer's files a transport removes: only files with that
 shape, never one named in `keep`, never the one printing. The worker passes `keep` from
-`CONVEYOR_PRINTER_KEEP_FILES` (`printerKeepFiles`, default `DEFAULT_KEEP_FILES` = 1; a whole number, 0 or more,
+`CONVEYOR_PRINTER_KEEP_FILES` (`printerKeepFiles`, default `DEFAULT_KEEP_FILES` = 5; decimal digits, 0 or more,
 or the worker exits at boot): the current job's file plus the newest earlier jobs on that printer that reached
 it, that many in all, and `0` keeps none. It prunes after the print stage, on transports that implement
 `pruneFiles` (Moonraker and Elegoo), and skips it when the submit may have started, didn't start, or Conveyor

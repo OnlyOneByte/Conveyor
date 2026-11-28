@@ -29,7 +29,11 @@ const keepFor = (env: Record<string, string | undefined>) =>
   redisPrinterDeps(() => db, env).printerFilesToKeep?.("p1", "now");
 
 test("the Redis worker keeps the printer files CONVEYOR_PRINTER_KEEP_FILES names", () => {
-  expect(keepFor({})).toEqual(["conveyor-now.gcode"]);
+  expect(keepFor({})).toEqual([
+    "conveyor-now.gcode",
+    "conveyor-newer.gcode",
+    "conveyor-older.gcode",
+  ]);
   expect(keepFor({ CONVEYOR_PRINTER_KEEP_FILES: "2" })).toEqual([
     "conveyor-now.gcode",
     "conveyor-newer.gcode",
