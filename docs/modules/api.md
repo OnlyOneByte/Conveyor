@@ -18,7 +18,7 @@ registered in. The Origin guard (`registerOriginGuard`) runs first, with auth on
 compared by host name, without the port) with `421` and an error that names `CONVEYOR_ALLOWED_HOSTS`,
 against DNS rebinding. `index.ts` parses the list at startup. Both variables take Caddy's forms: an
 `http://` or `https://` prefix and a port are dropped, `:80` or `:443` adds no name, and `*.example.com`
-allows any name that ends in `.example.com` (at least one label in front). An entry that is none of these
+allows any name that ends in `.example.com` (at least one label in front), unless `example.com` is a public or shared zone (`public-suffix.ts`: any single label, a `co`/`com`/`net`/`org`-style second level under a two-letter country code such as `co.uk`, and a built-in, incomplete list of hosting, tunnel and dynamic-DNS zones such as `duckdns.org`, `github.io` and `ngrok.app`), which stops startup. The private single labels `lan`, `local` and `internal` are allowed. An entry that is none of these
 stops startup with a message naming the variable and the fix. The guard then refuses a
 cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403 cross-origin request refused`, public
 routes included: a method other than `GET`, `HEAD` or `OPTIONS`, or a WebSocket upgrade, whose
@@ -352,6 +352,19 @@ the api's log into the worker's.
   `<uploadId>.stl.part`, never held in memory whole; only its first 4 KiB and its length are kept for the
   checks below. Anything that fails a check is removed before the reply:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
+  - **Folder cap:** with `CONVEYOR_UPLOADS_MAX_BYTES` set, the stored files the API created plus the bytes
+    of uploads still arriving may total at most that many bytes on disk (`routes/uploads-folder.ts`). The API
+    keeps the stored total in memory: an async scan of the stored `<uuid>.stl` files (and any `.part` no
+    running upload owns) sets it at startup, each kept upload adds to it, and an upload that starts more than
+    60 s after the last scan first waits for a fresh one, which picks up files the worker's retention deleted.
+    A file kept while a scan runs is added on top of what the scan found. No scan runs synchronously on the
+    request path. Every chunk is reserved against `stored + in flight` before it is written. An upload
+    that would pass the cap gets `507` and `the uploads folder is full (CONVEYOR_UPLOADS_MAX_BYTES)…`, at
+    once when the folder is already full and otherwise at the chunk that doesn't fit, with `Connection:
+    close`. Its reservation is given back when it is refused, fails or the client drops it, and turns into
+    stored bytes when it is kept. A re-count of the whole folder just before the rename stays as a backstop.
+    Every race between uploads only overcounts, so a full folder can refuse slightly early, never late.
+    Other files in the folder don't count. Unset, there is no folder cap.
   - **Extension:** the file must end in `.stl`, otherwise 415.
   - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
   - **Time limits:** an upload that sends no bytes for `UPLOAD_IDLE_TIMEOUT_MS` (default 30 s), or isn't

@@ -3,7 +3,9 @@ import {
   DEFAULT_MAX_UPLOAD_BYTES,
   DEFAULT_UPLOAD_IDLE_TIMEOUT_MS,
   defaultUploadDeadlineMs,
+  MAX_UPLOADS_FOLDER_BYTES,
   uploadSettings,
+  uploadsFolderMaxBytes,
 } from "./upload-settings.ts";
 
 describe("uploadSettings", () => {
@@ -55,4 +57,32 @@ describe("uploadSettings", () => {
       }
     },
   );
+
+  test.each([
+    [undefined, undefined],
+    ["", undefined],
+    ["  ", undefined],
+    ["1", 1],
+    [" 5000000000 ", 5_000_000_000],
+    [String(2 ** 50), 2 ** 50],
+  ])("reads CONVEYOR_UPLOADS_MAX_BYTES=%p as %p", (raw, cap) => {
+    expect(uploadsFolderMaxBytes(raw)).toBe(cap);
+    expect(uploadSettings({ CONVEYOR_UPLOADS_MAX_BYTES: raw }).folderMaxBytes).toBe(cap);
+  });
+
+  test.each([
+    "0",
+    "-1",
+    "1.5",
+    "1e9",
+    "0x100",
+    "+5",
+    "10GB",
+    String(2 ** 50 + 1),
+    "99999999999999999999",
+  ])("refuses CONVEYOR_UPLOADS_MAX_BYTES=%p, naming the variable and the range", (raw) => {
+    expect(() => uploadSettings({ CONVEYOR_UPLOADS_MAX_BYTES: raw })).toThrow(
+      `CONVEYOR_UPLOADS_MAX_BYTES must be a whole number of bytes from 1 to ${MAX_UPLOADS_FOLDER_BYTES} (1 PiB), digits only, got "${raw}"`,
+    );
+  });
 });
