@@ -20,8 +20,7 @@ type Probe = { getContext(kind: string): unknown };
 
 export function hasWebGL(make: () => Probe = () => document.createElement("canvas")): boolean {
   try {
-    const probe = make();
-    return Boolean(probe.getContext("webgl2") ?? probe.getContext("webgl"));
+    return Boolean(make().getContext("webgl2"));
   } catch {
     return false;
   }

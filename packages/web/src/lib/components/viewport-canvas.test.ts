@@ -13,16 +13,16 @@ const canvasWith = (contexts: Record<string, unknown>) => {
 };
 
 describe("hasWebGL", () => {
-  test("WebGL 2 is enough, and WebGL 1 isn't asked for then", () => {
+  test("WebGL 2 is what the preview needs, and it's the only thing asked for", () => {
     const { make, asked } = canvasWith({ webgl2: {} });
     expect(hasWebGL(make)).toBe(true);
     expect(asked).toEqual(["webgl2"]);
   });
 
-  test("falls back to WebGL 1 when WebGL 2 is off", () => {
+  test("WebGL 1 alone isn't enough, because three.js only draws with WebGL 2", () => {
     const { make, asked } = canvasWith({ webgl: {} });
-    expect(hasWebGL(make)).toBe(true);
-    expect(asked).toEqual(["webgl2", "webgl"]);
+    expect(hasWebGL(make)).toBe(false);
+    expect(asked).toEqual(["webgl2"]);
   });
 
   test("a browser with WebGL turned off has none", () => {

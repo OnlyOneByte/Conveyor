@@ -24,8 +24,10 @@
   });
 </script>
 
-{#if canvas}
-  <svelte:component this={canvas} {params} {file} />
+{#if canvas && !blocked}
+  <svelte:boundary onerror={() => (blocked = true)}>
+    <svelte:component this={canvas} {params} {file} />
+  </svelte:boundary>
 {:else}
   <div class="placeholder">
     <span class="cube" class:still={blocked} aria-hidden="true"></span>
