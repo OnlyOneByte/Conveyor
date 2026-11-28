@@ -25,7 +25,10 @@ interface Printer {
   silentDelete?: boolean;
 }
 
-function printerSays({ status, print, filename, errData, silentDelete }: Printer) {
+function printerSays(
+  { status, print, filename, errData, silentDelete }: Printer,
+  listed: { name: string; type: number }[] = LISTED,
+) {
   const deletes: unknown[] = [];
   class Socket {
     onopen: (() => void) | null = null;
@@ -57,7 +60,7 @@ function printerSays({ status, print, filename, errData, silentDelete }: Printer
             }),
           }),
         );
-      if (Cmd === SDCP_CMD.FILE_LIST) return reply({ FileList: LISTED });
+      if (Cmd === SDCP_CMD.FILE_LIST) return reply({ FileList: listed });
       if (Cmd === SDCP_CMD.DELETE_FILES) {
         deletes.push(Data);
         if (silentDelete)
@@ -107,6 +110,15 @@ test("never deletes outside the top of /local: not on USB, not in a subfolder", 
       FolderList: [],
     },
   ]);
+});
+
+test("a bare name in the listing counts as a file in /local, and is deleted by its /local path", async () => {
+  const deletes = printerSays({ status: [0], print: 9 }, [
+    { name: "conveyor-e5.gcode", type: 1 },
+    { name: "benchy.gcode", type: 1 },
+  ]);
+  expect(await prune([])).toEqual(["/local/conveyor-e5.gcode"]);
+  expect(deletes).toEqual([{ FileList: ["/local/conveyor-e5.gcode"], FolderList: [] }]);
 });
 
 test("deletes nothing when the printer is busy but names no file", async () => {
