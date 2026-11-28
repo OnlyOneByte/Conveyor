@@ -26,7 +26,6 @@
   export let taken: string[] = [];
   export let jobs = 0;
   export let changed: () => void = () => {};
-  export let settled: () => unknown = () => {};
 
   let draft = drafts.blankDraft();
   let errors: drafts.DraftErrors = {};
@@ -107,7 +106,7 @@
     );
 </script>
 
-<Dialog {title} bind:open {settled}>
+<Dialog {title} bind:open>
   {#if confirming}
     <p>{drafts.deleteNote(jobs)}</p>
     {#if problem}<p class="problem" role="alert">{problem}</p><ErrorDetails detail={why} />{/if}

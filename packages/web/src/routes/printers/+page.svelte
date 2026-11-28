@@ -34,6 +34,7 @@
   let loading: Promise<void> = Promise.resolve();
   let [head, first]: (HTMLButtonElement | null)[] = [null, null];
   let Dialog: Awaited<ReturnType<typeof loadPrinterDialog>> = null;
+  let shown = false;
 
   $: catalog = { printers, generators };
   $: cards = printers.map((printer) => ({
@@ -90,6 +91,11 @@
     if (document.activeElement === document.body) (head ?? first)?.focus();
   }
 
+  $: if (open !== shown) {
+    shown = open;
+    if (!open) void refocus();
+  }
+
   async function edit(printer: CatalogPrinter | null = null) {
     editing = printer;
     Dialog ??= await loadPrinterDialog();
@@ -134,7 +140,7 @@
   </ul>
 {/if}
 
-{#if Dialog}<svelte:component this={Dialog} bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} settled={refocus} />{/if}
+{#if Dialog}<svelte:component this={Dialog} bind:open printer={editing} {transports} {generators} taken={printers.map((p) => p.id)} jobs={editingJobs} changed={refresh} />{/if}
 
 <style>
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s4); margin: 0; padding: 0; list-style: none; }

@@ -9,6 +9,32 @@ export function rememberFocus(active: () => { focus(): void } | null) {
   return () => opener?.focus();
 }
 
+const fields = (root: Element) =>
+  root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+    "input:not([type=file]), select, textarea",
+  );
+
+export function fadeOut(dialog: HTMLDialogElement) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const ghost = dialog.cloneNode(true);
+  if (!(ghost instanceof HTMLDialogElement)) return;
+  const { top, left, width, height } = dialog.getBoundingClientRect();
+  const from = fields(dialog);
+  for (const [i, el] of fields(ghost).entries()) el.value = from[i]?.value ?? "";
+  const boxes = dialog.querySelectorAll("input");
+  for (const [i, el] of ghost.querySelectorAll("input").entries()) el.checked = !!boxes[i]?.checked;
+  ghost.removeAttribute("open");
+  ghost.style.cssText = `top:${top}px;left:${left}px;width:${width}px;height:${height}px`;
+  const veil = document.createElement("div");
+  veil.className = "veil";
+  veil.inert = true;
+  veil.ariaHidden = "true";
+  veil.style.background = getComputedStyle(dialog, "::backdrop").backgroundColor;
+  veil.append(ghost);
+  document.body.append(veil);
+  void Promise.all(veil.getAnimations().map((a) => a.finished)).finally(() => veil.remove());
+}
+
 export function nextIndex(key: string, current: number, count: number): number | null {
   if (count === 0) return null;
   if (key === "ArrowDown") return (current + 1) % count;

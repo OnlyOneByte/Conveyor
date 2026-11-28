@@ -1,6 +1,8 @@
 import type { Scene } from "../scene.ts";
 
 const ADD = "main .acts button.primary";
+const SEARCH = "header button:has-text('Search')";
+const GHOST = ".veil[inert][aria-hidden=true] > dialog:not([open])";
 
 export const scenes: Scene[] = [
   {
@@ -90,11 +92,12 @@ export const scenes: Scene[] = [
       { waitFor: "dialog[open] :focus" },
       { wait: 400 },
       { press: "Escape" },
-      { waitFor: "dialog[open].closing" },
-      { computed: "dialog.closing", property: "animation-duration", matches: "^0\\.15s$" },
-      { waitFor: `${ADD}:focus` },
+      { absent: ":modal" },
       { absent: "dialog[open]" },
-      { absent: "dialog.closing" },
+      { waitFor: GHOST },
+      { waitFor: `${ADD}:focus` },
+      { wait: 400 },
+      { absent: ".veil" },
     ],
   },
   {
@@ -104,14 +107,38 @@ export const scenes: Scene[] = [
     widths: [1440],
     fullPage: false,
     steps: [
-      { click: "header button:has-text('Search')" },
+      { click: SEARCH },
       { waitFor: "dialog[open] input:focus" },
       { wait: 400 },
       { press: "Escape" },
-      { waitFor: "dialog[open].closing" },
-      { waitFor: "header button:has-text('Search'):focus" },
+      { absent: ":modal" },
       { absent: "dialog[open]" },
-      { absent: "dialog.closing" },
+      { waitFor: GHOST },
+      { waitFor: `${SEARCH}:focus` },
+      { wait: 400 },
+      { absent: ".veil" },
+    ],
+  },
+  {
+    name: "motion-dialog-toast",
+    route: "/settings",
+    ready: "h1",
+    visits: ["/printers"],
+    widths: [1440],
+    fullPage: false,
+    steps: [
+      { fulfill: "**/api/catalog/printers", method: "GET", status: 200, json: [] },
+      { follow: "/printers" },
+      { click: "main .state button >> text=Add a printer" },
+      { waitFor: "dialog[open] >> text=Printer software" },
+      { type: 'dialog[open] >> role=textbox[name="Name"s]', text: "MK4" },
+      { type: 'dialog[open] >> role=textbox[name="Address"s]', text: "10.0.0.9" },
+      { fulfill: "**/api/catalog/printers", method: "PUT", status: 200, json: { ok: true } },
+      { click: "dialog[open] button[type=submit]" },
+      { waitFor: ".toast >> text=Added MK4" },
+      { absent: ":modal" },
+      { waitFor: "[aria-live=polite] >> text=Added MK4" },
+      { absent: "[inert] [aria-live], [aria-live][inert]" },
     ],
   },
   {
@@ -125,9 +152,9 @@ export const scenes: Scene[] = [
       { click: ADD },
       { waitFor: "dialog[open] :focus" },
       { press: "Escape" },
+      { absent: ":modal" },
+      { absent: ".veil" },
       { waitFor: `${ADD}:focus` },
-      { absent: "dialog[open]" },
-      { absent: "dialog.closing" },
     ],
   },
   {

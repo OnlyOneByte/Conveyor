@@ -1,36 +1,27 @@
 <script lang="ts">
-  import { focusedIndex, rememberFocus, TABBABLE, uid, wrapTab } from "./behaviour";
+  import { fadeOut, focusedIndex, rememberFocus, TABBABLE, uid, wrapTab } from "./behaviour";
 
   export let title: string;
   export let open = false;
-  export let settled: () => unknown = () => {};
   const id = uid("dialog");
   let dialog: HTMLDialogElement;
   let restore = () => {};
-  let closing = false;
 
   const active = () =>
     document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
-  $: if (dialog && open) {
-    if (!dialog.open) {
-      restore = rememberFocus(active);
-      dialog.showModal();
-    }
-    closing = false;
+  $: if (dialog && open && !dialog.open) {
+    restore = rememberFocus(active);
+    dialog.showModal();
   }
-  $: if (dialog && !open && dialog.open) closing = true;
-
-  function shut(event: AnimationEvent) {
-    if (!closing || event.target !== dialog) return;
-    closing = false;
+  $: if (dialog && !open && dialog.open) {
+    fadeOut(dialog);
     dialog.close();
   }
 
   function closed() {
-    open = closing = false;
+    open = false;
     restore();
-    settled();
   }
 
   function trap(event: KeyboardEvent) {
@@ -45,8 +36,8 @@
   }
 </script>
 
-<dialog bind:this={dialog} class:closing aria-labelledby={id} on:close={closed} on:keydown={trap}
-  on:cancel|preventDefault={() => (open = false)} on:animationend={shut}>
+<dialog bind:this={dialog} aria-labelledby={id} on:close={closed} on:keydown={trap}
+  on:cancel|preventDefault={() => (open = false)}>
   <h2 {id}>{title}</h2>
   <slot />
   <div class="actions"><slot name="actions" /></div>
