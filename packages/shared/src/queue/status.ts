@@ -78,7 +78,8 @@ export function writeStatus(
     const { changes } = db
       .query(
         `UPDATE jobs SET state = $state, stage = $stage, progress = $progress, message = $message,
-           error_json = $error, timings_json = $timings, updated_at = $now${isTerminal(written.state) ? SETTLE : ""}
+           error_json = $error, timings_json = COALESCE($timings, timings_json),
+           updated_at = $now${isTerminal(written.state) ? SETTLE : ""}
           WHERE ${FENCE} AND state NOT IN (${TERMINAL_SQL}) AND ${submitWindowRule(written.state)}`,
       )
       .run({

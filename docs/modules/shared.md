@@ -298,18 +298,19 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   remove its display lock. A worker killed hard (`SIGKILL`, a crash) outside Compose can leave its engine
   running, because the engine's group isn't the worker's. Under Compose, stopping the worker container stops
   every process in it. A spawn error or a non-zero
-  exit rejects with a `StageError` for `stage`, carrying the last 500 characters of stderr. The gridfinity
-  generator and both slicers use it. The engine's whole stderr is held in memory until it exits; only the
-  error message is capped. That is fine for OpenSCAD and the slicers, which write little to stderr; an engine
-  that streams logs there would need a rolling buffer. A zero exit resolves `{ stderr }` with all of it, so
-  a caller can explain an exit that produced nothing. Each run also appends to `<workDir>/engine.log`
-  (`ENGINE_LOG`): the command line, stdout and stderr as they arrive, and `[exited <code>]` or the spawn
-  error. The cap is for the job's whole file: each run starts with the room `ENGINE_LOG_MAX_BYTES` (4 MiB)
+  exit rejects with a `StageError` for `stage`: `<cmd> exited <code>: <tail>`, or `<cmd> killed by <signal>:
+  <tail>` when a signal ended it (an OOM kill, say). The tail is the last 500 code points of stderr, or
+  `nothing on stderr, see engine.log` when stderr was empty. The gridfinity generator and both slicers use
+  it. Only the last 2048 code points of stderr are kept in memory, so a chatty engine doesn't grow the
+  worker. Each pipe is decoded through its own `StringDecoder`, so a UTF-8 character split across two chunks
+  stays whole. A zero exit resolves `{ stderr }` with those characters, so a caller can explain an exit that
+  produced nothing. Each run also appends to `<workDir>/engine.log` (`ENGINE_LOG`): the command line, stdout
+  and stderr as they arrive, and `[exited <code>]`, `[killed by <signal>]` or the spawn error. The cap is for the job's whole file: each run starts with the room `ENGINE_LOG_MAX_BYTES` (4 MiB)
   leaves after what is already there, and the file stops with a `[engine log cut off …]` line. A log that
   can't be written never fails the run; its stream error is reported once through `ctx.log`.
 - `requireOutput(stage, path, missing, stderr)` throws a `StageError` for `stage` when `path` is not a file or
   is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the last 500
-  characters of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any
+  code points of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any
   stderr passed in is bounded. Both slicers call it after a zero exit (#384), because PrusaSlicer 2.9.2 exits 0
   with no G-code when every object is outside the print volume.
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
@@ -615,8 +616,8 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
   script's terminal guard. An event is appended only when the write is accepted, so a refused write
   leaves no trace. An identical repeated write is accepted and appends a second event; coalescing repeats
   is the worker's job. Writing a terminal state also settles the lease: owner and expiry cleared, token bumped.
-- `writeStatus` cannot move a job into or out of the upload window, because only `takePrinterSlot` and
-  `markSubmitted` may. By target state:
+- `writeStatus` cannot move a job into or out of the upload window, because only `takePrinterSlot`,
+  `markSubmitted` and `markNotSubmitted` may. By target state:
   - `transferring` needs a submit intent and no marker, so only the slot starts an upload, and a job on
     the printer cannot go back to uploading;
   - `printing` needs the submit marker, so a job leaves the window only through `markSubmitted`;
@@ -629,6 +630,13 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
     `UPLOAD_SETTLE_REASON`, which is also the hold's reason. The next job for that printer is not
     claimed until someone releases the hold. So a worker that catches a transport error can settle at
     once, without waiting for the reaper, and still never frees a printer in an unknown state.
+  - The one way out of the window without the marker is `markNotSubmitted`. The worker calls it when
+    `submit()` throws `PrintNotStartedError`: the printer never started the print, because it refused
+    before or after the upload, the upload was canceled, or it rejected `START_PRINT`. It clears
+    `submit_started_at` only for its own live lease and only while the job is `transferring` without the
+    marker, so the job then fails with its own error and the printer is not held.
+- A write without timings keeps the row's `timings_json` (`COALESCE`), so upload progress and the
+  slot-wait message don't erase the stage timings.
 
   A refused write appends nothing. Without these rules one worker bug could start a second upload to a busy
   printer, or hide an unknown submit from the reaper (#134).

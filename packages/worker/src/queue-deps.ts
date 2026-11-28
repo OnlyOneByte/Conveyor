@@ -9,6 +9,7 @@ import {
   isCancelRequested,
   type Lease,
   leaseHeld,
+  markNotSubmitted,
   markSubmitted,
   type QueueTiming,
   readResumeState,
@@ -135,6 +136,10 @@ export function queueDeps(o: QueueDepsOptions): QueueDeps {
         markSubmitted: async (handle) => {
           dispose();
           if (!markSubmitted(db, lease, handle, timing)) throw lose();
+        },
+        markNotSubmitted: async () => {
+          dispose();
+          if (!markNotSubmitted(db, lease, timing)) throw lose();
         },
         resumeState: () => readResumeState(db, lease, timing),
         checkLease: () => {

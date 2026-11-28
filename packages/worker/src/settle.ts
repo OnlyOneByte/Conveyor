@@ -105,8 +105,6 @@ async function settleQueuedCancel(
   const failure = await writeHistory(run, {
     state: stopError === undefined ? "canceled" : "failed",
     stage: stopError === undefined ? run.stage : "transport",
-    modelPath: run.modelPath,
-    gcodePath: run.gcodePath,
     notes: noted(run, stopError ?? message),
     timings: computeStageTimings(run.enters, Date.now()),
   });
