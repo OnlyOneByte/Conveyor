@@ -2,10 +2,12 @@ import { spawn } from "node:child_process";
 import { createWriteStream, statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { StageError } from "../context.js";
 import type { Stage, StageCtx } from "../index.js";
 
 const STDERR_TAIL_CHARS = 500;
+const STDERR_KEEP_CHARS = 2048;
 
 export const ENGINE_LOG = "engine.log";
 export const ENGINE_LOG_MAX_BYTES = 4 * 1024 * 1024;
@@ -149,32 +151,38 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
   return new Promise((resolve, reject) => {
     const log = openEngineLog(ctx, cmd, args);
     const child = spawn(cmd, args, { signal: ctx.signal, detached: true });
+    const outText = new StringDecoder("utf8");
+    const errText = new StringDecoder("utf8");
     let stderr = "";
     let failed = false;
     let dropKillIfGone = () => {};
-    child.stdout.on("data", (b) => log.write(b.toString()));
-    child.stderr.on("data", (b) => {
-      stderr += b.toString();
-      log.write(b.toString());
-    });
+    const keepStderr = (text: string) => {
+      stderr = (stderr + text).slice(-STDERR_KEEP_CHARS);
+      log.write(text);
+    };
+    child.stdout.on("data", (b: Buffer) => log.write(outText.write(b)));
+    child.stderr.on("data", (b: Buffer) => keepStderr(errText.write(b)));
     child.on("error", (e) => {
       if (ctx.signal.aborted) dropKillIfGone = killGroup(child.pid, ctx);
       failed = true;
       log.write(`[${e.message}]\n`);
       void log.close().then(() => reject(new StageError(stage, e.message, { cause: e })));
     });
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       dropKillIfGone();
       if (failed) return;
-      log.write(`[exited ${code}]\n`);
+      log.write(outText.end());
+      keepStderr(errText.end());
+      const how = code === null ? `killed by ${signal}` : `exited ${code}`;
+      log.write(`[${how}]\n`);
+      const tail = stderr.slice(-STDERR_TAIL_CHARS);
+      const said = tail.trim() ? tail : `nothing on stderr, see ${ENGINE_LOG}`;
       void log
         .close()
         .then(() =>
           code === 0
             ? resolve({ stderr })
-            : reject(
-                new StageError(stage, `${cmd} exited ${code}: ${stderr.slice(-STDERR_TAIL_CHARS)}`),
-              ),
+            : reject(new StageError(stage, `${cmd} ${how}: ${said}`)),
         );
     });
   });

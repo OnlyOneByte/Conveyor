@@ -57,6 +57,23 @@ export function takePrinterSlot(
   );
 }
 
+export function markNotSubmitted(
+  db: Database,
+  lease: Lease,
+  timing: QueueTiming = DEFAULT_TIMING,
+): boolean {
+  return inImmediate(db, timing.now, (at) => {
+    const { changes } = db
+      .query(
+        `UPDATE jobs SET submit_started_at = NULL, updated_at = $now
+          WHERE ${FENCE} AND state = 'transferring'
+            AND submit_started_at IS NOT NULL AND submitted_at IS NULL`,
+      )
+      .run(fenceOf(lease, at));
+    return changes === 1;
+  });
+}
+
 export function markSubmitted(
   db: Database,
   lease: Lease,

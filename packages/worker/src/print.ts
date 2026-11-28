@@ -91,8 +91,11 @@ async function sendAndWatch(
   const printer = await run.deps.resolvePrinter(target.printerId);
   const attempt: PrintAttempt = { transport, printer, ref: basename(gcode.path) };
   run.print = attempt;
-  attempt.handle = await transport.submit(gcode, printer, run.ctx).catch((err) => {
-    if (err instanceof PrintNotStartedError) attempt.notStarted = true;
+  attempt.handle = await transport.submit(gcode, printer, run.ctx).catch(async (err) => {
+    if (err instanceof PrintNotStartedError) {
+      attempt.notStarted = true;
+      await queue?.markNotSubmitted();
+    }
     if (err instanceof PrintMayHaveStartedError) {
       attempt.mayHaveStarted = true;
       run.deps.holdPrinter?.(run.opts.jobId, target.printerId, err.reason);

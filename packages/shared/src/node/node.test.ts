@@ -49,7 +49,10 @@ describe("runEngine", () => {
     const ctx = testCtx();
     try {
       const error = await stageErrorOf(runEngine("slicer", "sh", ["-c", "exit 1"], ctx));
-      expect(error).toEqual({ stage: "slicer", reason: "sh exited 1: " });
+      expect(error).toEqual({
+        stage: "slicer",
+        reason: "sh exited 1: nothing on stderr, see engine.log",
+      });
     } finally {
       ctx.cleanup();
     }

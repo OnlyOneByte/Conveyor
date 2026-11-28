@@ -50,6 +50,7 @@ export type SlotResult = "taken" | "canceled";
 export interface QueueHooks {
   takeSlot(signal: AbortSignal): Promise<SlotResult>;
   markSubmitted(handle: PrintHandle): Promise<void>;
+  markNotSubmitted(): Promise<void>;
   settleCancel(stopConfirmed: boolean): Promise<TerminalState>;
   resumeState(): ResumeState | null;
   failResume(): Promise<TerminalState>;
