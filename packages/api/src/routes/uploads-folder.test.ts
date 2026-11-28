@@ -93,4 +93,25 @@ describe("folderBudget", () => {
     const second = await budget.start(part(B));
     expect(fits(second.take, 1000)).toBe(true);
   });
+
+  test("uploads starting together at the rescan boundary share one scan", async () => {
+    let scans = 0;
+    const waiting: (() => void)[] = [];
+    const gated = async () => {
+      scans++;
+      if (scans > 1) await new Promise<void>((resolve) => waiting.push(resolve));
+      return 0;
+    };
+    const budget = await folderBudget(folder(), 1000, 60_000, now, gated);
+    expect(scans).toBe(1);
+    clock = 60_000;
+    const starts = Array.from({ length: 5 }, (_, i) => budget.start(part(`${i}${A.slice(1)}`)));
+    expect(scans).toBe(2);
+    for (const resume of waiting) resume();
+    await Promise.all(starts);
+    expect(scans).toBe(2);
+    clock = 119_999;
+    await budget.start(part(B));
+    expect(scans).toBe(2);
+  });
 });
