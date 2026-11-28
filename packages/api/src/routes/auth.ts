@@ -12,7 +12,6 @@ import {
   verifyToken,
 } from "../auth.js";
 import { type LoginLimiter, loginLimiter } from "../login-limit.js";
-import { CROSS_ORIGIN_REFUSED, isCrossOriginWrite } from "../origin.js";
 import { clientKey } from "../trusted-proxies.js";
 import { closeAfterReply, sendsUploadBody } from "./close-after.js";
 
@@ -31,16 +30,6 @@ export function registerAuthGuard(app: FastifyInstance): void {
   if (!authEnabled) return;
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
-    const write = {
-      method: req.method,
-      host: req.host,
-      origin: req.headers.origin,
-      fetchSite: req.headers["sec-fetch-site"],
-    };
-    if (isCrossOriginWrite(write)) {
-      if (sendsUploadBody(req)) closeAfterReply(req, reply);
-      return reply.code(403).send({ error: CROSS_ORIGIN_REFUSED });
-    }
     if (isPublic(req)) return;
     if (hasSession(req)) return;
     if (sendsUploadBody(req)) closeAfterReply(req, reply);

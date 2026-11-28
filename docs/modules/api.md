@@ -9,14 +9,16 @@ Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from o
 
 ## Boot order (`index.ts`)
 
-`index.ts` registers `GET /health`, the auth guard, the login routes, `GET /health/deep` (`routes/health.ts`,
+`index.ts` registers `GET /health`, the Origin guard, the auth guard, the login routes, `GET /health/deep` (`routes/health.ts`,
 which needs a session), then the generator, upload and catalog routes, the printer-hold route, the job routes
-and `GET /metrics`. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
-registered in. It first refuses a cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403
-cross-origin request refused`, public routes included: a method other than `GET`, `HEAD` or `OPTIONS`
-whose `Sec-Fetch-Site` is neither `same-origin` nor `none`, or whose `Origin` is opaque, unparseable, or has
-another host and port than `req.host` (the `Host` header, or `X-Forwarded-Host` from a trusted proxy). A
-write with no `Origin` and no `Sec-Fetch-Site` is not a browser's and goes on to the session check. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
+and `GET /metrics`. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. Both guards are global `onRequest` hooks: they apply to every route, whatever order routes are
+registered in. The Origin guard (`registerOriginGuard`) runs first, with auth on or off, and refuses a
+cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403 cross-origin request refused`, public
+routes included: a method other than `GET`, `HEAD` or `OPTIONS` whose `Sec-Fetch-Site` is neither
+`same-origin` nor `none`, or whose `Origin` is opaque, unparseable, or has another host and port than
+`req.host` (the `Host` header, or `X-Forwarded-Host` from a trusted proxy). A write with no `Origin` and no
+`Sec-Fetch-Site` is not a browser's and goes on. The auth guard (`registerAuthGuard`) is registered only
+with auth on. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
 that does not opt in. A 401 for an upload body (multipart, chunked, or over 1 MiB) carries
