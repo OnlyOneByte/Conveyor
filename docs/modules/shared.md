@@ -299,9 +299,9 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   running, because the engine's group isn't the worker's. Under Compose, stopping the worker container stops
   every process in it. A spawn error or a non-zero
   exit rejects with a `StageError` for `stage`: `<cmd> exited <code>: <tail>`, or `<cmd> killed by <signal>:
-  <tail>` when a signal ended it (an OOM kill, say). The tail is the last 500 characters of stderr, or
+  <tail>` when a signal ended it (an OOM kill, say). The tail is the last 500 code points of stderr, or
   `nothing on stderr, see engine.log` when stderr was empty. The gridfinity generator and both slicers use
-  it. Only the last 2048 characters of stderr are kept in memory, so a chatty engine doesn't grow the
+  it. Only the last 2048 code points of stderr are kept in memory, so a chatty engine doesn't grow the
   worker. Each pipe is decoded through its own `StringDecoder`, so a UTF-8 character split across two chunks
   stays whole. A zero exit resolves `{ stderr }` with those characters, so a caller can explain an exit that
   produced nothing. Each run also appends to `<workDir>/engine.log` (`ENGINE_LOG`): the command line, stdout
@@ -310,7 +310,7 @@ Server-only helpers, kept off the main entry so the web bundle never pulls in `n
   can't be written never fails the run; its stream error is reported once through `ctx.log`.
 - `requireOutput(stage, path, missing, stderr)` throws a `StageError` for `stage` when `path` is not a file or
   is empty. The reason is `missing`, then ` (the file is empty)` for an empty file, then `: ` and the last 500
-  characters of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any
+  code points of the trimmed stderr when there is any. The cap lives here rather than in each caller, so any
   stderr passed in is bounded. Both slicers call it after a zero exit (#384), because PrusaSlicer 2.9.2 exits 0
   with no G-code when every object is outside the print volume.
 - `isWithin(root, candidate)` is the path-containment check the api's artifact download and bundled-profile
@@ -631,11 +631,12 @@ A job's live status is its `jobs` row plus an append-only log in `job_events`. E
     claimed until someone releases the hold. So a worker that catches a transport error can settle at
     once, without waiting for the reaper, and still never frees a printer in an unknown state.
   - The one way out of the window without the marker is `markNotSubmitted`. The worker calls it when
-    `submit()` throws `PrintNotStartedError` (the printer was off, busy or in error, and nothing was
-    uploaded). It clears `submit_started_at`, fenced, so the job then fails with its own error and the
-    printer is not held.
-- A non-terminal write without timings keeps the row's `timings_json` (`COALESCE`), so upload progress and
-  the slot-wait message don't erase the stage timings. A terminal write sets them as given.
+    `submit()` throws `PrintNotStartedError`: the printer never started the print, because it refused
+    before or after the upload, the upload was canceled, or it rejected `START_PRINT`. It clears
+    `submit_started_at` only for its own live lease and only while the job is `transferring` without the
+    marker, so the job then fails with its own error and the printer is not held.
+- A write without timings keeps the row's `timings_json` (`COALESCE`), so upload progress and the
+  slot-wait message don't erase the stage timings.
 
   A refused write appends nothing. Without these rules one worker bug could start a second upload to a busy
   printer, or hide an unknown submit from the reaper (#134).

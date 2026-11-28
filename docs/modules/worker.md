@@ -278,8 +278,11 @@ not pass `queue`, so it is unchanged.
 | Lost lease | a fenced write that changes nothing aborts the run with `LeaseLostError`, and so does `checkLease` (`leaseHeld` in `@conveyor/shared/queue`), which runs when each engine exits (`ctx.checkLease`, called by `runEngine`) and before any settle deletes files. A run that stalled past its lease therefore never reads, copies or deletes the new owner's files after an engine step. The run leaves its work directory to the job's new owner, or to retention, and writes nothing more; it does not stop the printer, because whoever holds the job next decides |
 
 A `submit()` that fails settles `failed` inside the upload window, which holds the printer. The exception is
-`PrintNotStartedError` (the printer was off, busy or in error, so nothing was uploaded): the worker first
-clears the intent with `markNotSubmitted`, so the job fails with that error and the printer is not held.
+`PrintNotStartedError`, which means the printer never started the print: it refused before or after the
+upload, the upload was canceled, or it rejected `START_PRINT`. A partial or whole file may be on the
+printer, but nothing is printing. The worker first clears the intent with `markNotSubmitted`, so the job
+fails with that error and the printer is not held. If that fenced write changes nothing, the run stops with
+`LeaseLostError` and settles nothing.
 
 A canceled job's history records no `model_path` or `gcode_path`, because its work directory has already
 been removed, as on Redis. So its receipt shows no download buttons that would answer 410.

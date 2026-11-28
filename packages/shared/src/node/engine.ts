@@ -9,6 +9,12 @@ import type { Stage, StageCtx } from "../index.js";
 const STDERR_TAIL_CHARS = 500;
 const STDERR_KEEP_CHARS = 2048;
 
+function lastCodePoints(text: string, count: number): string {
+  return Array.from(text.slice(-2 * count))
+    .slice(-count)
+    .join("");
+}
+
 export const ENGINE_LOG = "engine.log";
 export const ENGINE_LOG_MAX_BYTES = 4 * 1024 * 1024;
 
@@ -157,7 +163,7 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
     let failed = false;
     let dropKillIfGone = () => {};
     const keepStderr = (text: string) => {
-      stderr = (stderr + text).slice(-STDERR_KEEP_CHARS);
+      stderr = lastCodePoints(stderr + text, STDERR_KEEP_CHARS);
       log.write(text);
     };
     child.stdout.on("data", (b: Buffer) => log.write(outText.write(b)));
@@ -175,7 +181,7 @@ function spawnEngine(stage: Stage, cmd: string, args: string[], ctx: StageCtx): 
       keepStderr(errText.end());
       const how = code === null ? `killed by ${signal}` : `exited ${code}`;
       log.write(`[${how}]\n`);
-      const tail = stderr.slice(-STDERR_TAIL_CHARS);
+      const tail = lastCodePoints(stderr, STDERR_TAIL_CHARS);
       const said = tail.trim() ? tail : `nothing on stderr, see ${ENGINE_LOG}`;
       void log
         .close()
@@ -199,7 +205,7 @@ export async function requireOutput(
     () => -1,
   );
   if (size > 0) return;
-  const said = stderr.trim().slice(-STDERR_TAIL_CHARS);
+  const said = lastCodePoints(stderr.trim(), STDERR_TAIL_CHARS);
   const empty = size === 0 ? " (the file is empty)" : "";
   throw new StageError(stage, `${missing}${empty}${said ? `: ${said}` : ""}`);
 }

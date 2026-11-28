@@ -2,7 +2,16 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { PrintNotStartedError } from "@conveyor/shared";
 import { requestCancel } from "@conveyor/shared/queue";
 import { waitForAbort } from "../test/helpers/pipeline-harness";
-import { cleanup, db, events, hold, queued, row } from "../test/helpers/queue-deps-harness";
+import {
+  bumpToken,
+  cleanup,
+  db,
+  events,
+  hold,
+  queued,
+  row,
+} from "../test/helpers/queue-deps-harness";
+import { LeaseLostError } from "./run";
 
 afterEach(cleanup);
 
@@ -24,6 +33,30 @@ describe("a job settled on the sqlite queue", () => {
     });
     expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
     expect(h.submits).toBe(1);
+  });
+
+  test("a refusal whose intent can't be cleared stops the run as a lost lease, leaving the intent", async () => {
+    const h = queued({
+      submit: async () => {
+        bumpToken();
+        throw new PrintNotStartedError("printer is busy: tr reports it printing");
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(row().state).toBe("transferring");
+    expect(row().submit_started_at).not.toBeNull();
+    expect(hold()).toEqual({ hold_job_id: null, hold_reason: null });
+  });
+
+  test("a refusal markNotSubmitted turns down stops the run before it settles", async () => {
+    const h = queued({
+      submit: async () => {
+        db.query("UPDATE jobs SET submitted_at = 1 WHERE id = 'job-1'").run();
+        throw new PrintNotStartedError("printer is busy: tr reports it printing");
+      },
+    });
+    await expect(h.run()).rejects.toBeInstanceOf(LeaseLostError);
+    expect(row()).toMatchObject({ state: "transferring", submitted_at: 1 });
   });
 
   test("a canceled print records no model or g-code path, since its files are removed", async () => {

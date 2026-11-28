@@ -4,7 +4,7 @@ import { dbUpsertPrinter } from "../db/index.ts";
 import { claimJob, DEFAULT_TIMING, type Lease } from "./lease.ts";
 import { reapExpired } from "./reaper.ts";
 import { tailEvents } from "./status.ts";
-import { markSubmitted, takePrinterSlot, withFullSync } from "./submit.ts";
+import { markNotSubmitted, markSubmitted, takePrinterSlot, withFullSync } from "./submit.ts";
 
 let h: QueueHarness;
 afterEach(() => h.close());
@@ -158,6 +158,39 @@ describe("markSubmitted", () => {
     h.set("a", "state = 'printing', submit_started_at = 1");
     expect(markSubmitted(h.db, lease, handle, h.timing)).toBe(false);
     expect(h.row("a").submitted_at).toBeNull();
+  });
+});
+
+describe("markNotSubmitted", () => {
+  test("clears the intent of its own job inside the upload window, once", () => {
+    h = queueHarness();
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    expect(markNotSubmitted(h.db, lease, h.timing)).toBe(true);
+    expect(h.row("a")).toMatchObject({ state: "transferring", submit_started_at: null });
+    expect(markNotSubmitted(h.db, lease, h.timing)).toBe(false);
+  });
+
+  test("refuses without its own live lease, and keeps the intent", () => {
+    h = queueHarness();
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    expect(markNotSubmitted(h.db, { ...lease, token: lease.token - 1 }, h.timing)).toBe(false);
+    expect(markNotSubmitted(h.db, { ...lease, owner: "w2" }, h.timing)).toBe(false);
+    h.advance(30_001);
+    expect(markNotSubmitted(h.db, lease, h.timing)).toBe(false);
+    expect(h.row("a").submit_started_at).toBe(h.timing.now() - 30_001);
+  });
+
+  test("refuses an already submitted job and one outside transferring, and keeps the intent", () => {
+    h = queueHarness();
+    const lease = slicing();
+    takePrinterSlot(h.db, lease, h.timing);
+    markSubmitted(h.db, lease, handle, h.timing);
+    expect(markNotSubmitted(h.db, lease, h.timing)).toBe(false);
+    h.set("a", "state = 'printing', submitted_at = NULL");
+    expect(markNotSubmitted(h.db, lease, h.timing)).toBe(false);
+    expect(h.row("a").submit_started_at).toBe(h.timing.now());
   });
 });
 

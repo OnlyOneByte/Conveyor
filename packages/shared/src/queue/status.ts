@@ -75,12 +75,11 @@ export function writeStatus(
           error: update.error ?? { stage: "transport", reason: UPLOAD_SETTLE_REASON },
         }
       : update;
-    const terminal = isTerminal(written.state);
-    const timings = terminal ? "$timings" : "COALESCE($timings, timings_json)";
     const { changes } = db
       .query(
         `UPDATE jobs SET state = $state, stage = $stage, progress = $progress, message = $message,
-           error_json = $error, timings_json = ${timings}, updated_at = $now${terminal ? SETTLE : ""}
+           error_json = $error, timings_json = COALESCE($timings, timings_json),
+           updated_at = $now${isTerminal(written.state) ? SETTLE : ""}
           WHERE ${FENCE} AND state NOT IN (${TERMINAL_SQL}) AND ${submitWindowRule(written.state)}`,
       )
       .run({
