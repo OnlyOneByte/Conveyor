@@ -3,12 +3,9 @@
   import { announce } from "#lib/announce.js";
   import { uploadStl } from "#lib/api.js";
   import { titled } from "#lib/belt.js";
+  import MakeDown from "#lib/components/MakeDown.svelte";
   import MakeMat from "#lib/components/MakeMat.svelte";
-  import MakeWhere from "#lib/components/MakeWhere.svelte";
-  import PrintDock from "#lib/components/PrintDock.svelte";
-  import SchemaForm from "#lib/components/SchemaForm.svelte";
   import SourceTabs from "#lib/components/SourceTabs.svelte";
-  import UploadDrop from "#lib/components/UploadDrop.svelte";
   import { jobName } from "#lib/job-settings.js";
   import { dockLine, EMPTY_CATALOG, knownParams, latestOnly, measurements } from "#lib/make.js";
   import { showMake } from "#lib/make-shown.js";
@@ -120,7 +117,10 @@
 
 <svelte:head><title>What are we making? · Conveyor</title></svelte:head>
 
-{#if !cat}<Skeleton kind="make" count={5} label="Loading Make" />{:else}
+{#if !cat}<Skeleton kind="make" count={5} label="Loading Make" />
+{:else if !cat.parts}<MakeDown bind:parts={cat.parts} />
+{:else}
+{@const { MakeWhere, PrintDock, SchemaForm, UploadDrop } = cat.parts}
 <section class="make" aria-labelledby="make-title">
   <MakeMat preview={gen?.preview?.module === "gridfinity"} {params} {file} {upload} />
   <form class="order" on:submit|preventDefault={print}>
