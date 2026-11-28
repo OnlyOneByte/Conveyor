@@ -27,6 +27,8 @@ describe("isPublicSuffix", () => {
     "lan.example",
     "co.example",
     "com.example",
+    "example.de",
+    "home.io",
   ])("%p belongs to someone", (suffix) => {
     expect(isPublicSuffix(suffix)).toBe(false);
   });

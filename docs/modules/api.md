@@ -352,6 +352,13 @@ the api's log into the worker's.
   `<uploadId>.stl.part`, never held in memory whole; only its first 4 KiB and its length are kept for the
   checks below. Anything that fails a check is removed before the reply:
   - **Size cap:** `MAX_UPLOAD_BYTES`, default 100 MiB. Only the multipart size-limit error is a 413.
+  - **Folder cap:** with `CONVEYOR_UPLOADS_MAX_BYTES` set, the stored and in-progress files the API created
+    (`<uuid>.stl` and `<uuid>.stl.part`, `routes/uploads-folder.ts`) may total at most that many bytes. An upload
+    whose bytes would pass it gets `507` and `the uploads folder is full (CONVEYOR_UPLOADS_MAX_BYTES)…`: at once
+    when the folder is already full, while streaming once its own bytes pass the room left (with
+    `Connection: close`), and in a last check of the whole folder, other uploads' parts included, just before the
+    rename. So concurrent uploads can't store more than the cap; when two finish together over it, both may be
+    refused. Other files in the folder don't count. Unset, there is no folder cap.
   - **Extension:** the file must end in `.stl`, otherwise 415.
   - **Complete body:** a multipart body that breaks off is a 400: "the upload didn't finish. Try again."
   - **Time limits:** an upload that sends no bytes for `UPLOAD_IDLE_TIMEOUT_MS` (default 30 s), or isn't

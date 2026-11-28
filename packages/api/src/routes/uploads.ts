@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -13,6 +13,7 @@ import {
   type UploadTimer,
   uploadTimer,
 } from "./upload-timer.js";
+import { FOLDER_FULL, FolderFull, folderBytes } from "./uploads-folder.js";
 
 export type Write = (path: string, source: AsyncIterable<Buffer>) => Promise<void>;
 
@@ -35,11 +36,13 @@ async function* tap(
   source: AsyncIterable<Buffer>,
   seen: Received,
   touch: () => void,
+  room: number,
 ): AsyncIterable<Buffer> {
   try {
     for await (const chunk of source) {
       touch();
       seen.size += chunk.byteLength;
+      if (seen.size > room) throw new FolderFull();
       if (seen.head.byteLength < HEAD_BYTES)
         seen.head = Buffer.concat([
           seen.head,
@@ -48,6 +51,7 @@ async function* tap(
       yield chunk;
     }
   } catch (error) {
+    if (error instanceof FolderFull) throw error;
     throw new ClientRead("the upload stream failed", { cause: error });
   }
 }
@@ -63,10 +67,11 @@ export async function store(
   source: AsyncIterable<Buffer>,
   write: Write,
   touch: () => void = () => undefined,
+  room = Number.POSITIVE_INFINITY,
 ): Promise<Received> {
   const seen: Received = { size: 0, head: Buffer.alloc(0) };
   try {
-    await write(part, tap(source, seen, touch));
+    await write(part, tap(source, seen, touch, room));
   } catch (error) {
     await removePart(part, error);
     throw error;
@@ -145,11 +150,20 @@ export async function registerUploadRoutes(
       return reply.code(415).send({ error: "only .stl uploads are supported in v1" });
     }
     await mkdir(settings.dir, { recursive: true });
+    const cap = settings.folderMaxBytes;
+    const full = async () => {
+      closeAfterReply(req, reply);
+      return refuse(507, FOLDER_FULL);
+    };
+    const room =
+      cap === undefined ? undefined : cap - (await folderBytes(settings.dir, basename(part)));
+    if (room !== undefined && room <= 0) return full();
     let seen: Received;
     try {
-      seen = await store(part, stream, write, timer.touch);
+      seen = await store(part, stream, write, timer.touch, room);
     } catch (error) {
       if (timedOut(error)) throw error;
+      if (error instanceof FolderFull) return full();
       const status = error instanceof ClientRead ? readFailure(error.cause) : null;
       if (!status) throw error;
       return failed(status);
@@ -157,6 +171,9 @@ export async function registerUploadRoutes(
     if (file.file.truncated) return failed(413);
     if (!seen.size) return refuse(400, "the file is empty.");
     if (!looksLikeStl(seen.head, seen.size)) return refuse(400, "the file isn't an STL model.");
+    if (cap !== undefined && (await folderBytes(settings.dir)) > cap) {
+      return refuse(507, FOLDER_FULL);
+    }
     await rename(part, path);
 
     req.log.info(`upload ${uploadId} (${name}, ${seen.size} bytes)`);
