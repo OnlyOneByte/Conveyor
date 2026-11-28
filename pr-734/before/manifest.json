@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:32901",
+  "url": "http://127.0.0.1:43793",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 633512,
+      "gifBytes": 693357,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 380573,
+      "gifBytes": 350575,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 528016,
+      "gifBytes": 558609,
       "gif": "make-print-1440.gif"
     },
     {
@@ -175,7 +175,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 754162,
+      "gifBytes": 666142,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -447,7 +447,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 819119,
+      "gifBytes": 771593,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -563,7 +563,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 519141,
+      "gifBytes": 468137,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -571,7 +571,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1638729,
+      "gifBytes": 1318095,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -579,7 +579,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1478554,
+      "gifBytes": 1437979,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -611,7 +611,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 312511,
+      "gifBytes": 279976,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -649,7 +649,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 416349,
+      "gifBytes": 387600,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -693,7 +693,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 1037869,
+      "gifBytes": 906432,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -707,7 +707,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 863932,
+      "gifBytes": 781003,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -751,7 +751,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 814726,
+      "gifBytes": 730565,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -1012,7 +1012,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 403219,
+      "gifBytes": 372962,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1134,6 +1134,20 @@
       "width": 1440,
       "warnings": [
         "not on the base: it has no scene make-no-webgl, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "make-renderer-fails",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene make-renderer-fails, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "job-renderer-fails",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene job-renderer-fails, so it is new on this PR"
       ]
     },
     {
@@ -1261,7 +1275,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 650506,
+      "gifBytes": 650169,
       "gif": "new-job-390.gif"
     },
     {
@@ -1269,7 +1283,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376621,
+      "gifBytes": 382871,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1355,7 +1369,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1043546,
+      "gifBytes": 1056263,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1615,7 +1629,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 1011173,
+      "gifBytes": 1006657,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1737,7 +1751,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 531750,
+      "gifBytes": 531937,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1781,7 +1795,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 639093,
+      "gifBytes": 613222,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1825,7 +1839,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1338568,
+      "gifBytes": 1394339,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1839,7 +1853,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1190934,
+      "gifBytes": 1148518,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1871,7 +1885,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1125604,
+      "gifBytes": 1144461,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -2125,7 +2139,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 450625,
+      "gifBytes": 450986,
       "gif": "motion-sheet-390.gif"
     },
     {
