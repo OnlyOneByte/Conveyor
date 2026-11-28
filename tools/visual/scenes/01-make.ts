@@ -173,7 +173,7 @@ export const scenes: Scene[] = [
     ready: "text=How big?",
     widths: [1440],
     steps: [
-      { lazy: "/", fail: true },
+      { lazy: "/", fail: true, spare: "make-parts" },
       uploadTab,
       { upload: "input[type=file]", name: "bin.stl", text: STL },
       { waitFor: "text=Ready to print" },

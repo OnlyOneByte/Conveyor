@@ -150,7 +150,7 @@ export const scenes: Scene[] = [
     fullPage: false,
     steps: [
       { fulfill: "**/api/catalog/printers", method: "GET", status: 200, json: [] },
-      { lazy: "/printers", from: "/" },
+      { lazy: "/printers", from: "/", spare: "make-parts" },
       { waitFor: "#make-where .state >> text=Add your first printer" },
       { click: "#make-where .state a >> text=Add a printer" },
       { waitFor: "main .state button[aria-busy='true'] >> text=Opening…" },
