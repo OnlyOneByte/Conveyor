@@ -61,7 +61,7 @@ describe("the booted api on SIGTERM", () => {
       }),
     );
     silent.write(
-      `GET /jobs/${jobId}/ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n` +
+      `GET /jobs/${jobId}/ws HTTP/1.1\r\nHost: ${base.host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n` +
         "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
     );
     await upgraded;

@@ -16,6 +16,7 @@ beforeAll(async () => {
     CONVEYOR_AUTH: "enabled",
     CONVEYOR_PASSWORD: PASSWORD,
     CONVEYOR_AUTH_SECRET: "origin-test-secret-origin-test-secret",
+    CONVEYOR_DOMAIN: "conveyor.example",
   });
   cookie = await login(api.base, PASSWORD);
 }, 15_000);
