@@ -51,7 +51,8 @@ export async function pruneLocalFiles(
     );
   const files = listed.data.FileList.filter(({ type }) => type !== FOLDER)
     .map(({ name }) => name)
-    .filter(inLocal);
+    .filter(inLocal)
+    .map((name) => (name.startsWith(LOCAL) ? name : `${LOCAL}${name}`));
   const doomed = filesToPrune(files, keep, printing);
   if (doomed.length === 0) return [];
   const deleted = await sendCommand(
