@@ -32,6 +32,17 @@ function fakeHub() {
   return { hub, subscribers, publish };
 }
 
+async function until(what: string, ready: () => boolean, ms = 2000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!ready()) {
+    if (Date.now() > deadline) throw new Error(`${what} not reached within ${ms} ms`);
+    await Bun.sleep(2);
+  }
+}
+
+const subscribed = (subscribers: FakeSubscriber[]) => () =>
+  subscribers.some((sub) => sub.calls.includes(`subscribe ${channel}`));
+
 async function listen(hub: StatusHub, deps: Partial<JobStreamDeps>) {
   app = Fastify();
   await app.register(websocket);
@@ -61,7 +72,7 @@ describe("the job status stream", () => {
         return frame("generating", 1);
       },
     });
-    await Bun.sleep(30);
+    await until("the snapshot and the buffered event", () => socket.states.length === 2);
     publish(frame("done", 3));
     expect(await socket.closed).toBe(1000);
     expect(socket.states).toEqual(["generating", "slicing", "done"]);
@@ -89,9 +100,9 @@ describe("the job status stream", () => {
   });
 
   test("waits for a queued job that has no snapshot yet", async () => {
-    const { hub, publish } = fakeHub();
+    const { hub, subscribers, publish } = fakeHub();
     const socket = await serve(hub, {});
-    await Bun.sleep(30);
+    await until("the subscribe", subscribed(subscribers));
     publish(frame("generating", 1));
     publish(frame("canceled", 2));
     expect(await socket.closed).toBe(1000);
@@ -121,12 +132,10 @@ describe("the job status stream", () => {
   test("releases the shared subscriber when the viewer disconnects", async () => {
     const { hub } = fakeHub();
     const socket = await serve(hub, {});
-    await Bun.sleep(30);
-    expect(hub.connections()).toBe(1);
+    await until("the shared subscriber", () => hub.connections() === 1);
     socket.ws.close();
     await socket.closed;
-    await Bun.sleep(30);
-    expect(hub.connections()).toBe(0);
+    await until("the subscriber's release", () => hub.connections() === 0);
   });
 
   test.each(["meta", `${jobId}:cancel`, "j1"])(

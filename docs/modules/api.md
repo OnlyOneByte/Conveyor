@@ -12,7 +12,11 @@ Caddy strips: `GET /jobs/active` here is `https://<host>/api/jobs/active` from o
 `index.ts` registers `GET /health`, the auth guard, the login routes, `GET /health/deep` (`routes/health.ts`,
 which needs a session), then the generator, upload and catalog routes, the printer-hold route, the job routes
 and `GET /metrics`. It listens on `CONVEYOR_HOST`, which defaults to `127.0.0.1`. The auth guard is a global `onRequest` hook: it applies to every route, whatever order routes are
-registered in. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
+registered in. It first refuses a cross-origin write (`origin.ts`, `isCrossOriginWrite`) with `403
+cross-origin request refused`, public routes included: a method other than `GET`, `HEAD` or `OPTIONS`
+whose `Sec-Fetch-Site` is neither `same-origin` nor `none`, or whose `Origin` is opaque, unparseable, or has
+another host and port than `req.host` (the `Host` header, or `X-Forwarded-Host` from a trusted proxy). A
+write with no `Origin` and no `Sec-Fetch-Site` is not a browser's and goes on to the session check. A route is public only when it opts in with `PUBLIC_ROUTE` (`{ config: { public: true } }`),
 read from the matched route's config: today `/health`, `/auth/status`, `/auth/login` and `/auth/logout`.
 Everything else needs a valid session, including a path no route matches and any new route under `/auth/`
 that does not opt in. A 401 for an upload body (multipart, chunked, or over 1 MiB) carries
@@ -204,8 +208,10 @@ row cannot turn the whole list into a 500. The limits are `DEFAULT_TAIL`; tests 
   `@conveyor/shared/profile`, which has no Zod in it.
 - Failed logins are limited per client (`login-limit.ts`): after 5 wrong passwords within a minute, every
   login, the right password included, answers `429` with `Retry-After` until that minute has passed. A
-  successful login clears the client's count. The limiter is in memory, keeps at most 10,000 clients (the
-  oldest is dropped first), and resets when the api restarts.
+  successful login clears the client's count. On top of that, 100 failures within a minute from all clients
+  together make every login answer `429` until that minute has passed; a successful login does not clear
+  that count. The limiter is in memory, keeps at most 10,000 clients (the oldest is dropped first), and
+  resets when the api restarts.
 - The client is `clientKey(req.ip)` (`trusted-proxies.ts`): an IPv4 address as is, an IPv4-mapped IPv6
   address as its IPv4, and any other IPv6 address as its /64. `req.ip` is the socket peer, unless the peer is
   in `CONVEYOR_TRUSTED_PROXIES`, which `index.ts` passes to Fastify's `trustProxy`; then it is the client

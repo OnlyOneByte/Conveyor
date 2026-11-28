@@ -12,14 +12,12 @@ export let db: Database;
 export let dir: string;
 let workers: QueueWorker[] = [];
 export const logs: string[] = [];
-export const loggedAt: number[] = [];
 
 export async function cleanup() {
   await Promise.all(workers.map((w) => w.stop()));
   workers = [];
   logs.length = 0;
   ids.clear();
-  loggedAt.length = 0;
   db.close();
   rmSync(dir, { recursive: true, force: true });
 }
@@ -48,7 +46,6 @@ export function start(opts: HarnessOptions = {}, w: Partial<QueueWorkerOptions> 
       },
       log: (msg) => {
         logs.push(msg);
-        loggedAt.push(Date.now());
       },
     },
     claimIdleMs: 10,
