@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:33441",
+  "url": "http://127.0.0.1:44111",
   "warnings": [],
   "results": [
     {
@@ -73,7 +73,7 @@
       "width": 1440,
       "warnings": [],
       "png": "new-job-1440.png",
-      "gifBytes": 624824,
+      "gifBytes": 631555,
       "gif": "new-job-1440.gif"
     },
     {
@@ -81,7 +81,7 @@
       "width": 1440,
       "warnings": [],
       "png": "job-progress-1440.png",
-      "gifBytes": 356240,
+      "gifBytes": 367862,
       "gif": "job-progress-1440.gif"
     },
     {
@@ -119,7 +119,7 @@
       "width": 1440,
       "warnings": [],
       "png": "make-print-1440.png",
-      "gifBytes": 458757,
+      "gifBytes": 497006,
       "gif": "make-print-1440.gif"
     },
     {
@@ -175,7 +175,7 @@
       "width": 1440,
       "warnings": [],
       "png": "jobs-keys-1440.png",
-      "gifBytes": 733631,
+      "gifBytes": 737148,
       "gif": "jobs-keys-1440.gif"
     },
     {
@@ -447,7 +447,7 @@
       "width": 1440,
       "warnings": [],
       "png": "keyboard-1440.png",
-      "gifBytes": 807855,
+      "gifBytes": 808116,
       "gif": "keyboard-1440.gif"
     },
     {
@@ -563,7 +563,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-expand-1440.png",
-      "gifBytes": 517061,
+      "gifBytes": 498159,
       "gif": "belt-expand-1440.gif"
     },
     {
@@ -571,7 +571,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-1440.png",
-      "gifBytes": 1160592,
+      "gifBytes": 1192109,
       "gif": "belt-motion-1440.gif"
     },
     {
@@ -579,7 +579,7 @@
       "width": 1440,
       "warnings": [],
       "png": "belt-motion-reduced-1440.png",
-      "gifBytes": 1313036,
+      "gifBytes": 1447948,
       "gif": "belt-motion-reduced-1440.gif"
     },
     {
@@ -611,7 +611,7 @@
       "width": 1440,
       "warnings": [],
       "png": "track-keys-1440.png",
-      "gifBytes": 301230,
+      "gifBytes": 312313,
       "gif": "track-keys-1440.gif"
     },
     {
@@ -649,7 +649,7 @@
       "width": 1440,
       "warnings": [],
       "png": "primitives-keys-1440.png",
-      "gifBytes": 414755,
+      "gifBytes": 416648,
       "gif": "primitives-keys-1440.gif"
     },
     {
@@ -693,7 +693,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-keys-1440.png",
-      "gifBytes": 905977,
+      "gifBytes": 971114,
       "gif": "printers-keys-1440.gif"
     },
     {
@@ -707,7 +707,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-add-1440.png",
-      "gifBytes": 836881,
+      "gifBytes": 811783,
       "gif": "printers-add-1440.gif"
     },
     {
@@ -751,7 +751,7 @@
       "width": 1440,
       "warnings": [],
       "png": "printers-clear-secrets-1440.png",
-      "gifBytes": 730479,
+      "gifBytes": 811930,
       "gif": "printers-clear-secrets-1440.gif"
     },
     {
@@ -982,7 +982,7 @@
       "width": 1440,
       "warnings": [],
       "png": "motion-demo-1440.png",
-      "gifBytes": 384240,
+      "gifBytes": 382642,
       "gif": "motion-demo-1440.gif"
     },
     {
@@ -1040,6 +1040,20 @@
       "width": 1440,
       "warnings": [
         "not on the base: it has no scene first-run-add-lazy, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "first-run-add-link-lazy",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene first-run-add-link-lazy, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "printers-edit-spam",
+      "width": 1440,
+      "warnings": [
+        "not on the base: it has no scene printers-edit-spam, so it is new on this PR"
       ]
     },
     {
@@ -1185,7 +1199,7 @@
       "width": 390,
       "warnings": [],
       "png": "new-job-390.png",
-      "gifBytes": 656014,
+      "gifBytes": 655367,
       "gif": "new-job-390.gif"
     },
     {
@@ -1193,7 +1207,7 @@
       "width": 390,
       "warnings": [],
       "png": "job-progress-390.png",
-      "gifBytes": 376447,
+      "gifBytes": 350988,
       "gif": "job-progress-390.gif"
     },
     {
@@ -1279,7 +1293,7 @@
       "width": 390,
       "warnings": [],
       "png": "jobs-keys-390.png",
-      "gifBytes": 1059443,
+      "gifBytes": 1056503,
       "gif": "jobs-keys-390.gif"
     },
     {
@@ -1539,7 +1553,7 @@
       "width": 390,
       "warnings": [],
       "png": "keyboard-390.png",
-      "gifBytes": 996384,
+      "gifBytes": 1025092,
       "gif": "keyboard-390.gif"
     },
     {
@@ -1661,7 +1675,7 @@
       "width": 390,
       "warnings": [],
       "png": "track-keys-390.png",
-      "gifBytes": 531940,
+      "gifBytes": 531943,
       "gif": "track-keys-390.gif"
     },
     {
@@ -1705,7 +1719,7 @@
       "width": 390,
       "warnings": [],
       "png": "primitives-keys-390.png",
-      "gifBytes": 638619,
+      "gifBytes": 637662,
       "gif": "primitives-keys-390.gif"
     },
     {
@@ -1749,7 +1763,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-keys-390.png",
-      "gifBytes": 1370630,
+      "gifBytes": 1339020,
       "gif": "printers-keys-390.gif"
     },
     {
@@ -1763,7 +1777,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-add-390.png",
-      "gifBytes": 1176381,
+      "gifBytes": 1180696,
       "gif": "printers-add-390.gif"
     },
     {
@@ -1795,7 +1809,7 @@
       "width": 390,
       "warnings": [],
       "png": "printers-clear-secrets-390.png",
-      "gifBytes": 1150441,
+      "gifBytes": 1144937,
       "gif": "printers-clear-secrets-390.gif"
     },
     {
@@ -2049,7 +2063,7 @@
       "width": 390,
       "warnings": [],
       "png": "motion-sheet-390.png",
-      "gifBytes": 450981,
+      "gifBytes": 446687,
       "gif": "motion-sheet-390.gif"
     },
     {
@@ -2076,6 +2090,13 @@
       "width": 390,
       "warnings": [
         "not on the base: it has no scene first-run-add-lazy, so it is new on this PR"
+      ]
+    },
+    {
+      "scene": "first-run-add-link-lazy",
+      "width": 390,
+      "warnings": [
+        "not on the base: it has no scene first-run-add-link-lazy, so it is new on this PR"
       ]
     },
     {
