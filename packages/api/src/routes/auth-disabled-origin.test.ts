@@ -10,7 +10,7 @@ const dir = mkdtempSync(join(tmpdir(), "conveyor-api-open-origin-"));
 let api: BootedApi;
 
 beforeAll(async () => {
-  api = await bootApi(dir, { CONVEYOR_AUTH: "disabled" });
+  api = await bootApi(dir, { CONVEYOR_AUTH: "disabled", CONVEYOR_DOMAIN: "conveyor.example" });
 }, 15_000);
 
 afterAll(async () => {

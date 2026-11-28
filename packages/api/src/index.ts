@@ -5,6 +5,7 @@ import { type UploadSettings, uploadSettings } from "@conveyor/shared/uploads";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
+import { type AllowedHosts, allowedHosts } from "./allowed-hosts.js";
 import { registerErrorReplies } from "./error-replies.js";
 import { registerOriginGuard } from "./origin.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
@@ -24,8 +25,10 @@ const HOST = process.env.CONVEYOR_HOST ?? "127.0.0.1";
 let queue: string;
 let trustProxy: string[] | false;
 let uploads: UploadSettings;
+let hosts: AllowedHosts;
 try {
   uploads = uploadSettings(process.env);
+  hosts = allowedHosts(process.env);
   queue = queueMode(process.env);
   trustProxy = parseTrustedProxies(process.env.CONVEYOR_TRUSTED_PROXIES);
   allowList(process.env);
@@ -45,7 +48,7 @@ registerErrorReplies(app);
 
 app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 
-registerOriginGuard(app);
+registerOriginGuard(app, hosts);
 registerAuthGuard(app);
 await registerAuthRoutes(app);
 

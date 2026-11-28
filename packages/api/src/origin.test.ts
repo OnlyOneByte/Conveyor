@@ -6,6 +6,7 @@ const post = (over: Partial<WriteRequest>): WriteRequest => ({
   host: "conveyor.example",
   origin: undefined,
   fetchSite: undefined,
+  websocket: false,
   ...over,
 });
 
@@ -60,6 +61,23 @@ describe("isCrossOriginWrite", () => {
   test("a cross-site Sec-Fetch-Site refuses even a matching Origin", () => {
     const own = { origin: "https://conveyor.example", fetchSite: "cross-site" };
     expect(isCrossOriginWrite(post(own))).toBe(true);
+  });
+
+  test.each([
+    ["from another site", "https://evil.example", true],
+    ["from its own origin", "https://conveyor.example", false],
+    ["with no Origin", undefined, false],
+  ])("checks a WebSocket upgrade, a GET, like a write: %s", (_label, origin, refused) => {
+    expect(isCrossOriginWrite(post({ method: "GET", websocket: true, origin }))).toBe(refused);
+  });
+
+  test.each([
+    ["file:///etc/x", "localhost"],
+    ["file://localhost", "localhost"],
+    ["ws://conveyor.example", "conveyor.example"],
+    ["ftp://conveyor.example", "conveyor.example"],
+  ])("refuses a non-web Origin %p even where its host would match %p", (origin, host) => {
+    expect(isCrossOriginWrite(post({ origin, host }))).toBe(true);
   });
 
   test("a same-origin Sec-Fetch-Site doesn't excuse a foreign Origin", () => {
