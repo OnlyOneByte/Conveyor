@@ -68,6 +68,12 @@ The API then starts with no login and prints a warning at every boot. Anyone who
 
 After 5 wrong passwords from one client within a minute, the login answers `429 Too Many Requests` until that minute has passed, even for the right password. A successful login clears the count. An IPv6 client counts as its whole /64, since one host usually controls one.
 
+There is also an overall limit: after 100 wrong passwords within a minute from all clients together, every login answers `429` until that minute has passed. That stops a guesser spread over many addresses, such as the many /64s of one IPv6 /48. The trade-off: anyone who can reach the login can spend those 100 failures on purpose, and while the limit lasts nobody can sign in, you included, for up to a minute at a time. Anyone already signed in keeps working, so keep a signed-in browser if the API is reachable from places you don't trust.
+
+### Requests from other sites
+
+The API refuses a `POST`, `PUT`, `PATCH` or `DELETE` that a browser sends from another site, with `403 cross-origin request refused`, whether auth is on or off. With auth on, it is refused even when the browser has a session; that covers another app on the same host or on a sibling subdomain, which `SameSite=Strict` lets through. With `CONVEYOR_AUTH=disabled` it matters most: there is no login to stop a web page you visit from starting prints or changing printers on your network, and this check is what stops it. A request is from its own site when its `Origin` has the same host and port as the `Host` header the API receives. Caddy and the Vite dev server both pass the browser's `Host` through, so this works behind Caddy and with `bun run dev`. A proxy you put in front instead must do the same. A request with no `Origin`, such as `curl`, is let through (to the login check, with auth on), unless its `Sec-Fetch-Site` says it came from another site.
+
 The API tells clients apart by the address that connected to it, and trusts an `X-Forwarded-For` header only from the proxies in `CONVEYOR_TRUSTED_PROXIES`: a comma-separated list of IP addresses or CIDRs. An entry that is not one stops the API at startup. Unset, nothing is trusted, so a forged header gets no budget of its own.
 
 Compose gives Caddy the fixed address `172.31.250.2` on a fixed network, `172.31.250.0/24`, and sets `CONVEYOR_TRUSTED_PROXIES=172.31.250.2` for the API, so each client behind Caddy gets its own count. The network's `ip_range`, `172.31.250.128/25`, keeps the addresses Docker hands the other containers above `.128`, so none of them can take Caddy's. If that network collides with one of yours, change the subnet, the `ip_range`, Caddy's `ipv4_address` and `CONVEYOR_TRUSTED_PROXIES` together in `docker-compose.yml`, keeping Caddy's address inside the subnet but outside the range.
@@ -153,7 +159,7 @@ The root certificate is valid for 10 years and stays the same as long as the `ca
 | `CONVEYOR_DOMAIN` | `localhost` | Name Caddy serves and gets a certificate for ([The name Caddy serves](#the-name-caddy-serves)). Unset or empty means `localhost`. |
 | `CONVEYOR_TRUSTED_PROXIES` | none (compose: `172.31.250.2`) | Proxies whose `X-Forwarded-For` the API trusts, as IPs or CIDRs. |
 | `CONVEYOR_HOST` | `127.0.0.1` (the api image sets `0.0.0.0`) | Address the api listens on. Outside Docker it stays on loopback unless you set it. |
-| `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
+| `CONVEYOR_SESSION_TTL_MS` | `43200000` (12 hours) | How long a login session lasts, in whole milliseconds, at least `1000`. Blank means the default. Any other value (`12h`, `1e6`, `0x10000`) stops the API at startup, naming the variable. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
 | `CONVEYOR_COOKIE_INSECURE` | unset | `1` drops the cookie's `Secure` flag, for local development over plain HTTP only. Read only outside Compose: `docker-compose.yml` doesn't pass it to the api. |
 | `CONVEYOR_QUEUE` | `redis` | Job queue: `redis`, or `sqlite` for the experimental SQLite queue ([design](design/sqlite-queue.md)). Compose passes one value to both the api and the worker. |
 | `CONVEYOR_QUEUE_UNSTABLE` | unset | Must be `1` for `CONVEYOR_QUEUE=sqlite` to start, while that queue is experimental. |

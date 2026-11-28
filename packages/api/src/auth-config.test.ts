@@ -88,7 +88,12 @@ describe("resolveAuthConfig", () => {
   });
 
   test("enables auth when both are set", () => {
-    expect(withAuth({})).toEqual({ enabled: true, password: PASSWORD, secret: SECRET });
+    expect(withAuth({})).toEqual({
+      enabled: true,
+      password: PASSWORD,
+      secret: SECRET,
+      sessionTtlMs: 12 * 60 * 60 * 1000,
+    });
   });
 
   test("CONVEYOR_AUTH=disabled turns auth off even when a password is set", () => {
@@ -96,6 +101,7 @@ describe("resolveAuthConfig", () => {
       enabled: false,
       password: "",
       secret: "random-secret",
+      sessionTtlMs: 12 * 60 * 60 * 1000,
     });
   });
 });

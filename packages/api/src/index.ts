@@ -6,6 +6,7 @@ import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { registerErrorReplies } from "./error-replies.js";
+import { registerOriginGuard } from "./origin.js";
 import { PUBLIC_ROUTE, registerAuthGuard, registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerGeneratorRoutes } from "./routes/generators.js";
@@ -44,6 +45,7 @@ registerErrorReplies(app);
 
 app.get("/health", PUBLIC_ROUTE, async () => ({ ok: true }));
 
+registerOriginGuard(app);
 registerAuthGuard(app);
 await registerAuthRoutes(app);
 

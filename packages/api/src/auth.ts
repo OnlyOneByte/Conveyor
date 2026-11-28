@@ -7,7 +7,6 @@ import {
 } from "@conveyor/shared/db";
 import { AuthConfigError, DISABLED_WARNING, resolveAuthConfig } from "./auth-config.js";
 
-const SESSION_TTL_MS = Number(process.env.CONVEYOR_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000);
 const COOKIE_NAME = "conveyor_session";
 const COOKIE_INSECURE = process.env.CONVEYOR_COOKIE_INSECURE === "1";
 
@@ -24,6 +23,7 @@ function loadAuthConfig() {
 const config = loadAuthConfig();
 const PASSWORD = config.password;
 const signingKey = config.secret;
+const SESSION_TTL_MS = config.sessionTtlMs;
 export const SESSION_ID_BYTES = 16;
 
 export const passwordVersion = (secret: string, password: string): string =>

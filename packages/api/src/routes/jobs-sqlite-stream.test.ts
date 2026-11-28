@@ -82,6 +82,16 @@ async function connect(url: string) {
   return { ws, frames, closed, code: () => code };
 }
 
+async function admitted(url: string) {
+  for (let i = 0; i < 50; i++) {
+    const next = await connect(url);
+    await until(() => next.frames.length > 0 || next.code() !== 0);
+    if (next.code() === 0) return next;
+    await Bun.sleep(10);
+  }
+  throw new Error("no socket slot freed");
+}
+
 describe("the sqlite job stream's limits", () => {
   test("polls fast while events arrive, then slows once idle", async () => {
     let now = 0;
@@ -118,14 +128,7 @@ describe("the sqlite job stream's limits", () => {
     const lease = claimed();
     const silent = await silentClient(base, `/jobs/${lease.jobId}/ws`);
     await silent.closed;
-    let admitted = false;
-    for (let i = 0; i < 50 && !admitted; i++) {
-      const next = await connect(`${base}/jobs/${lease.jobId}/ws`);
-      await until(() => next.frames.length > 0 || next.code() !== 0);
-      admitted = next.code() === 0;
-      if (!admitted) await Bun.sleep(10);
-    }
-    expect(admitted).toBe(true);
+    expect((await admitted(`${base}/jobs/${lease.jobId}/ws`)).code()).toBe(0);
   });
 
   test("keeps a viewer that answers pings", async () => {
@@ -158,9 +161,7 @@ describe("the sqlite job stream's limits", () => {
     expect([second.code(), second.frames]).toEqual([1013, []]);
     first.ws.close();
     await first.closed;
-    await Bun.sleep(20);
-    const third = await connect(`${base}/jobs/${lease.jobId}/ws`);
-    await Bun.sleep(50);
+    const third = await admitted(`${base}/jobs/${lease.jobId}/ws`);
     expect(third.frames).toHaveLength(1);
   });
 
@@ -168,9 +169,8 @@ describe("the sqlite job stream's limits", () => {
     const base = await serve({ maxSockets: 1 });
     const gone = await connect(`${base}/jobs/nope/ws`);
     await gone.closed;
-    await Bun.sleep(20);
     const lease = claimed();
-    const first = await connect(`${base}/jobs/${lease.jobId}/ws`);
+    const first = await admitted(`${base}/jobs/${lease.jobId}/ws`);
     const second = await connect(`${base}/jobs/${lease.jobId}/ws`);
     await second.closed;
     expect(second.code()).toBe(1013);

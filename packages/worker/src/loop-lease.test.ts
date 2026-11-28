@@ -7,7 +7,6 @@ import {
   db,
   dir,
   enqueue,
-  loggedAt,
   logs,
   row,
   setup,
@@ -56,24 +55,39 @@ describe("the sqlite queue worker", () => {
     expect(row("a").attempts).toBe(1);
   }, 15_000);
 
-  test("gives up a renewal still busy close to the lease's end", async () => {
+  test("gives up a renewal still busy once its next retry would land inside the margin", async () => {
     setup();
     db.exec("PRAGMA busy_timeout = 0");
     enqueue("a");
     const holder = new Database(join(dir, "conveyor.db"));
+    let clock = Date.now();
+    let reads = 0;
+    const now = () => {
+      reads++;
+      return clock;
+    };
+    let locked = false;
     const { h } = start(
       {
         generate: async (ctx) => {
           holder.exec("BEGIN IMMEDIATE");
+          locked = true;
           await expect(waitForAbort(ctx.signal)).rejects.toBeDefined();
           holder.exec("COMMIT");
         },
       },
-      { timing: { ...DEFAULT_TIMING, leaseMs: 400 }, busyMarginMs: 150 },
+      { timing: { ...DEFAULT_TIMING, leaseMs: 400, now }, busyMarginMs: 150, busyRetryMs: 10 },
     );
-    await until(() => logs.some((l) => l.includes("lease renewal failed")));
-    const gaveUpAt = loggedAt[logs.findIndex((l) => l.includes("lease renewal failed"))] ?? 0;
-    expect(gaveUpAt).toBeLessThan(Number(row("a").lease_until) - 75);
+    const gaveUp = () => logs.some((l) => l.includes("lease renewal failed"));
+    await until(() => locked);
+    const leaseUntil = Number(row("a").lease_until);
+    clock = leaseUntil - 160;
+    const atEdge = reads;
+    await until(() => reads > atEdge + 10);
+    expect(gaveUp()).toBe(false);
+    clock = leaseUntil - 159;
+    await until(gaveUp);
+    expect(Number(row("a").lease_until)).toBe(leaseUntil);
     holder.close();
     expect(h.submits).toBe(0);
   });

@@ -2,9 +2,13 @@ const MIN_SECRET_LENGTH = 32;
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 512;
 
-type AuthConfig =
-  | { enabled: true; password: string; secret: string }
-  | { enabled: false; password: ""; secret: string };
+const DEFAULT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const MIN_SESSION_TTL_MS = 1000;
+
+type AuthConfig = { sessionTtlMs: number; secret: string } & (
+  | { enabled: true; password: string }
+  | { enabled: false; password: "" }
+);
 
 export class AuthConfigError extends Error {
   override name = "AuthConfigError";
@@ -17,9 +21,24 @@ const SETUP_HINT = "See docs/self-hosting.md for first-run setup.";
 export const DISABLED_WARNING =
   "[auth] CONVEYOR_AUTH=disabled: authentication is OFF. Anyone who can reach this API can start prints and change printer settings. Use this only on a network you fully trust.";
 
+export function sessionTtlMs(raw: string | undefined): number {
+  const value = raw?.trim() ?? "";
+  if (value === "") return DEFAULT_SESSION_TTL_MS;
+  const ms = /^\d+$/.test(value) ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(ms) || ms < MIN_SESSION_TTL_MS) {
+    throw new AuthConfigError(
+      `[auth] refusing to start: CONVEYOR_SESSION_TTL_MS must be a whole number of milliseconds, at least ${MIN_SESSION_TTL_MS}, got "${raw}". ${SETUP_HINT}`,
+    );
+  }
+  return ms;
+}
+
 export function resolveAuthConfig(env: Env, randomSecret: () => string): AuthConfig {
+  const ttl = sessionTtlMs(env.CONVEYOR_SESSION_TTL_MS);
   const mode = env.CONVEYOR_AUTH ?? "";
-  if (mode === "disabled") return { enabled: false, password: "", secret: randomSecret() };
+  if (mode === "disabled") {
+    return { enabled: false, password: "", secret: randomSecret(), sessionTtlMs: ttl };
+  }
   if (mode !== "" && mode !== "enabled") {
     throw new AuthConfigError(
       `[auth] CONVEYOR_AUTH must be "enabled" or "disabled", got "${mode}". ${SETUP_HINT}`,
@@ -46,5 +65,5 @@ export function resolveAuthConfig(env: Env, randomSecret: () => string): AuthCon
       `[auth] refusing to start: CONVEYOR_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters, not counting leading or trailing whitespace (try \`openssl rand -hex 32\`). ${SETUP_HINT}`,
     );
   }
-  return { enabled: true, password, secret };
+  return { enabled: true, password, secret, sessionTtlMs: ttl };
 }
