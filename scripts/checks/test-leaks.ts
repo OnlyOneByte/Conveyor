@@ -6,25 +6,75 @@ const SHOWN = 10;
 const listed = (names: string[]) =>
   `${names.slice(0, SHOWN).join(", ")}${names.length > SHOWN ? `, and ${names.length - SHOWN} more` : ""}`;
 
-export function leakErrors(dir: string, entries: string[], keys: string[] | null): string[] {
+export type DbKeys = Map<number, string[]>;
+
+export function leakErrors(dir: string, entries: string[], keys: DbKeys | null): string[] {
   const errors: string[] = [];
   const left = [...entries].sort();
   if (left.length > 0)
     errors.push(`the tests left ${left.length} temp entries in ${dir}: ${listed(left)}`);
-  const kept = [...(keys ?? [])].sort();
-  if (kept.length > 0) errors.push(`the tests left ${kept.length} Redis keys: ${listed(kept)}`);
+  for (const [db, names] of [...(keys ?? [])].sort(([a], [b]) => a - b)) {
+    const kept = [...names].sort();
+    if (kept.length > 0)
+      errors.push(`the tests left ${kept.length} Redis keys in db ${db}: ${listed(kept)}`);
+  }
   return errors;
+}
+
+const KEYSPACE_LINE = /^db(\d+):keys=(\d+),/;
+
+export function keyspaceCounts(info: unknown): Map<number, number> {
+  if (typeof info !== "string" || !info.includes("# Keyspace"))
+    throw new Error(`INFO keyspace gave a reply this check can't read: ${JSON.stringify(info)}`);
+  const counts = new Map<number, number>();
+  for (const line of info.split(/\r?\n/)) {
+    if (!line.startsWith("db")) continue;
+    const match = KEYSPACE_LINE.exec(line);
+    if (!match) throw new Error(`can't read this INFO keyspace line: ${line}`);
+    if (Number(match[2]) > 0) counts.set(Number(match[1]), Number(match[2]));
+  }
+  return counts;
+}
+
+export type Send = (command: string, args: string[]) => Promise<unknown>;
+
+export async function readDbKeys(send: Send): Promise<DbKeys> {
+  const keys: DbKeys = new Map();
+  for (const [db, count] of keyspaceCounts(await send("INFO", ["keyspace"]))) {
+    await send("SELECT", [String(db)]);
+    const names = await send("KEYS", ["*"]);
+    if (!Array.isArray(names))
+      throw new Error(`KEYS in db ${db} gave ${JSON.stringify(names)}, not a list`);
+    if (names.length < count)
+      throw new Error(
+        `INFO counts ${count} keys in db ${db} but KEYS lists ${names.length}; keys may have expired or leaked`,
+      );
+    keys.set(db, names.map(String));
+  }
+  return keys;
 }
 
 export const NO_TMPDIR =
   "TMPDIR isn't set: point it at a fresh empty directory before the tests run, so every entry left in it is a leak";
 
-async function redisKeys(url: string): Promise<string[]> {
-  const client = new RedisClient(url);
+export const REDIS_TIMEOUT_MS = 5000;
+
+async function redisKeys(url: string): Promise<DbKeys> {
+  const client = new RedisClient(url, {
+    connectionTimeout: REDIS_TIMEOUT_MS,
+    autoReconnect: false,
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Redis didn't answer within ${REDIS_TIMEOUT_MS} ms`)),
+      REDIS_TIMEOUT_MS,
+    );
+  });
   try {
-    const keys = await client.send("KEYS", ["*"]);
-    return Array.isArray(keys) ? keys.map(String) : [];
+    return await Promise.race([readDbKeys((command, args) => client.send(command, args)), late]);
   } finally {
+    clearTimeout(timer);
     client.close();
   }
 }
@@ -36,9 +86,17 @@ if (import.meta.main) {
     process.exit(1);
   }
   const url = process.env.REDIS_URL;
-  const errors = leakErrors(dir, readdirSync(dir), url ? await redisKeys(url) : null);
+  const keys = url
+    ? await redisKeys(url).catch((err: unknown) => {
+        console.error(
+          `check:test-leaks couldn't read Redis: ${err instanceof Error ? err.message : err}`,
+        );
+        process.exit(1);
+      })
+    : null;
+  const errors = leakErrors(dir, readdirSync(dir), keys);
   for (const error of errors) console.error(error);
   if (errors.length === 0)
-    console.log(`no test leaks: ${dir} is empty${url ? " and Redis has no keys" : ""}`);
+    console.log(`no test leaks: ${dir} is empty${url ? " and no Redis db has keys" : ""}`);
   process.exit(errors.length === 0 ? 0 : 1);
 }

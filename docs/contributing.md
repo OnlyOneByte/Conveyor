@@ -53,7 +53,12 @@ A test leaves nothing behind. Make a temp dir with `tempDirs(prefix)` from `pack
 removes every dir it made in the file's `afterAll`, or remove it yourself in a `finally`. CI's `test` job points
 `TMPDIR` at a fresh empty directory for its test steps, and `bun run check:test-leaks` runs after both test runs:
 it fails on any entry left in `$TMPDIR`, whatever its name and however it was made (`mkdtemp`, `mkdirSync`,
-`Bun.write`), and on any key left in Redis. That check is what catches a leak. The prefix scan below is a second
+`Bun.write`), and on any key left in any Redis db. On one connection, it reads `INFO keyspace`, then `SELECT`s
+each db that has keys and lists them with `KEYS *`, reporting them per db. It fails closed: an `INFO keyspace`
+reply it can't read fails the check (no `# Keyspace` section, a reply that isn't text, or a db line it can't
+parse), and so does a `KEYS` reply that isn't a list or lists fewer keys than `INFO` counts for that db (keys may have expired or leaked). It gives up after 5 s when Redis
+doesn't answer, and at once when nothing listens. It never
+rewrites `REDIS_URL`, so any URL form Bun's Redis client accepts works. That check is what catches a leak. The prefix scan below is a second
 line of defence that names the file and line before a leak happens, and a shadowed name or a computed
 `fs[name]` can slip past it. It also guards what the empty-`TMPDIR` check can't see: a dir that escapes
 `TMPDIR`. Every temp name made
@@ -78,8 +83,10 @@ is created), is already in that first snapshot, so the file removes it itself. E
 `queue.js` at import calls `closeQueue(process.env.REDIS_URL)` (`packages/api/test/helpers/close-queue.ts`) in
 its `afterAll`: with a URL it reconnects the shared connection if an earlier file closed it, waits for it, and
 obliterates the job queue, and it always disconnects both clients. `check:test-leaks` sees only what is left at
-the end: two files (`cancel-running-redis.test.ts`, `redis-restart-boot.test.ts`) empty Redis with `FLUSHDB`,
-which also hides any key an earlier file left. To find those, run each file alone against an empty Redis. The
+the end: three files flush a db of their own with `FLUSHDB` (`cancel-running-redis.test.ts` db 13,
+`held-job-visible-redis.test.ts` db 14, and `redis-restart-boot.test.ts` db 12 on a Redis it starts itself), which
+also hides any key an earlier file left in that db. A test that needs a db of its own takes one no other file uses:
+12, 13 and 14 are taken by those three files, and 15 by `test-leaks-redis.test.ts`'s own probe keys. To find those, run each file alone against an empty Redis. The
 check refuses to run without `TMPDIR`. To run it locally, `export TMPDIR="$(mktemp -d)"` before the tests and point
 `REDIS_URL` at a Redis of its own, since it reports every entry and every key it finds.
 
@@ -285,7 +292,7 @@ The allowlist is for a finding that can't be fixed yet, reviewed like code. Each
 A build cache can hand an image an OS-package layer built weeks ago, with packages missing later security fixes. Two things keep those layers current:
 
 - **Base images are pinned by digest** in every `FROM` (`oven/bun:debian@sha256:…`). Dependabot's weekly `docker` update bumps the digest, and a new digest rebuilds every layer above it. Check that the first digest-only bump of `node:26-bookworm-slim` (same tag, new digest) actually arrives: a Dependabot experiment flag can suppress digest-only updates. If none has come after two weekly runs while the tag moved upstream, bump that digest by hand.
-- **The api, worker and web images' apt layers take an `OS_REFRESH` build argument.** Each runs `apt-get upgrade`, so it picks up Debian's security fixes newer than the base image. CI, the compose job and `release.yml` pass the ISO week (`date -u +%G-W%V`), so that layer is rebuilt once a week, and the layers above it with it. The `deps` stage (`bun install`) and the OpenSCAD source build don't use it and stay cached. The web image installs no OS packages beyond its pinned base image's own, which the same `apt-get upgrade` refreshes, and it drops the npm bundled with Node, which it never runs.
+- **The api, worker and web images' apt layers take an `OS_REFRESH` build argument.** Each runs `apt-get upgrade`, so it picks up Debian's security fixes newer than the base image. CI, the compose job and `release.yml` pass the UTC date (`date -u +%F`), so that layer is rebuilt once a day, and the layers above it with it. A Debian fix published mid-week reaches the images, and their scan, by the next day. The `deps` stage (`bun install`) and the OpenSCAD source build don't use it and stay cached. The web image installs no OS packages beyond its pinned base image's own, which the same `apt-get upgrade` refreshes, and it drops the npm bundled with Node, which it never runs.
 
 CI also runs on a weekly schedule (Mondays, 05:23 UTC), so `main`'s images are rebuilt and scanned even in a week with no merges.
 

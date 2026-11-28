@@ -55,7 +55,7 @@ jobs:
 
       - name: Pick this week's OS package refresh
         id: refresh
-        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+        run: echo "week=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push by digest
         id: build

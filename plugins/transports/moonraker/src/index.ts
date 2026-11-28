@@ -13,11 +13,12 @@ import {
 } from "@conveyor/shared";
 import { addressParts, formatHostPort, parseHostPort } from "@conveyor/shared/address";
 import { multipartFileUpload, refuseRedirect, uploadSignal } from "@conveyor/shared/node";
+import { historyEnd } from "./history.ts";
 import { poll, positiveSetting, reach, unresolved } from "./poll.ts";
 import { pruneGcodes } from "./prune.ts";
 import { parseQuery, printProgressOf } from "./query.ts";
 import { moonrakerReadiness } from "./ready.ts";
-import { printWatch } from "./watch.ts";
+import { printWatch, STANDBY_ENDED, STANDBY_POLLS } from "./watch.ts";
 
 const STUB = process.env.CONVEYOR_ENGINE_STUB === "1";
 const POLL_MS = 2000;
@@ -122,6 +123,7 @@ export const moonraker: TransportPlugin = {
     yield { state: "transferring" };
     const watch = printWatch();
     let failures = 0;
+    let runningChecks = 0;
     while (true) {
       const at = await unresolved(handle.address, baseUrl, headers);
       const res =
@@ -142,7 +144,7 @@ export const moonraker: TransportPlugin = {
 
       const objects = parseQuery(await res.json());
       const ps = objects.print_stats;
-      const state = ps?.state ?? "standby";
+      const state = ps?.state ?? "unknown";
       const progress = clamp01(
         objects.display_status?.progress ?? objects.virtual_sdcard?.progress ?? 0,
       );
@@ -152,6 +154,18 @@ export const moonraker: TransportPlugin = {
         message: ps?.message,
         print: printProgressOf(objects),
       });
+      if (step.status?.message === STANDBY_ENDED && typeof at !== "string") {
+        const ended = await historyEnd(at.base, at.headers, handle.ref, timeoutMs, signal);
+        if (ended.kind === "running" && ++runningChecks < STANDBY_POLLS) {
+          await sleep(pollMs, signal);
+          continue;
+        }
+        const why = ended.kind === "unknown" ? ended.why : "the job is still in progress";
+        yield ended.kind === "ended"
+          ? ended.status
+          : { state: "failed", message: `${STANDBY_ENDED} (job history: ${why})` };
+        return;
+      }
       if (step.status) yield step.status;
       if (step.final) return;
       await sleep(pollMs, signal);
