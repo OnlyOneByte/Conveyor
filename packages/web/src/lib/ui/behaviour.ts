@@ -20,9 +20,11 @@ export function fadeOut(dialog: HTMLDialogElement) {
   if (!(ghost instanceof HTMLDialogElement)) return;
   const { top, left, width, height } = dialog.getBoundingClientRect();
   const from = fields(dialog);
-  for (const [i, el] of fields(ghost).entries()) el.value = from[i]?.value ?? "";
-  const boxes = dialog.querySelectorAll("input");
-  for (const [i, el] of ghost.querySelectorAll("input").entries()) el.checked = !!boxes[i]?.checked;
+  for (const [i, el] of fields(ghost).entries()) {
+    el.value = from[i]?.value ?? "";
+    if ("checked" in el) el.checked = from[i]?.matches(":checked") ?? false;
+  }
+  for (const el of ghost.querySelectorAll("[id]")) el.removeAttribute("id");
   ghost.removeAttribute("open");
   ghost.style.cssText = `top:${top}px;left:${left}px;width:${width}px;height:${height}px`;
   const veil = document.createElement("div");
@@ -32,7 +34,7 @@ export function fadeOut(dialog: HTMLDialogElement) {
   veil.style.background = getComputedStyle(dialog, "::backdrop").backgroundColor;
   veil.append(ghost);
   document.body.append(veil);
-  void Promise.all(veil.getAnimations().map((a) => a.finished)).finally(() => veil.remove());
+  void Promise.allSettled(veil.getAnimations().map((a) => a.finished)).then(() => veil.remove());
 }
 
 export function nextIndex(key: string, current: number, count: number): number | null {
