@@ -120,7 +120,7 @@
 <PrintersHead
   summary={loaded && !failed && printers.length ? printersSummary(printers, active) : ""}
   ready={loaded} {failed} {add} check={() => void probe()} bind:button={head}
-  empty={loaded && !failed && !printers.length}
+  empty={loaded && !failed && !printers.length} fallback={first}
 />
 
 {#if !loaded}

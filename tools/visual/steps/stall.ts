@@ -8,22 +8,22 @@ declare module "../step.ts" {
 }
 
 interface Gate {
-  open: () => void;
+  open: (fail: boolean) => void;
   held: number;
 }
 
 const gates = new WeakMap<Page, Map<string, Gate>>();
 
-export function release(page: Page, glob: string): number | null {
+export function release(page: Page, glob: string, fail = false): number | null {
   const gate = gates.get(page)?.get(glob);
   if (!gate) return null;
   gates.get(page)?.delete(glob);
-  gate.open();
+  gate.open(fail);
   return gate.held;
 }
 
-export function hold(page: Page, name: string): () => Promise<void> {
-  const wait = Promise.withResolvers<void>();
+export function hold(page: Page, name: string): () => Promise<boolean> {
+  const wait = Promise.withResolvers<boolean>();
   const gate: Gate = { open: wait.resolve, held: 0 };
   const table = gates.get(page) ?? new Map<string, Gate>();
   table.set(name, gate);
@@ -42,7 +42,7 @@ export const step: StepRunner = {
     const held = hold(page, stall);
     await page.route(stall, async (route) => {
       if (route.request().method() !== "GET") return route.fallback();
-      await held();
+      if (await held()) return route.abort("internetdisconnected");
       return route.fulfill({ status, json }).catch((err: unknown) => {
         if (!page.isClosed()) throw err;
       });

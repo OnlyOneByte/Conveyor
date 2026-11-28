@@ -11,6 +11,7 @@
   export let check: () => void;
 
   export let button: HTMLButtonElement | null = null;
+  export let fallback: HTMLButtonElement | null = null;
   let linked = false;
   let opening = false;
 
@@ -26,8 +27,9 @@
   async function fromLink() {
     linked = true;
     await goto("/printers", { replace: true, reset: false });
-    button?.focus();
-    void add();
+    const target = button ?? fallback;
+    target?.focus();
+    target?.click();
   }
 </script>
 
