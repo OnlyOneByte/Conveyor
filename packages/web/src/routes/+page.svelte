@@ -125,7 +125,7 @@
   <MakeMat preview={gen?.preview?.module === "gridfinity"} {params} {file} {upload} />
   <form class="order" on:submit|preventDefault={print}>
     <div class="fields">
-      <h1 id="make-title">What are we making?</h1>
+      <h1 id="make-title" tabindex="-1">What are we making?</h1>
       {#if generators.length}
         <SourceTabs {tabs} bind:value={tab} panel="make-source" />
         <div id="make-source" role="tabpanel" aria-labelledby="tab-{tab}" class="questions">

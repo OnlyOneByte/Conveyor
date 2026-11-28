@@ -1,15 +1,18 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { loadMakeParts, MAKE_DOWN, type MakeParts } from "#lib/make-parts.js";
 
   export let parts: MakeParts | null;
   let busy = false;
 
   async function again() {
-    if (busy) return;
     busy = true;
     const loaded = await loadMakeParts();
     busy = false;
     parts = loaded;
+    if (!loaded) return;
+    await tick();
+    document.getElementById("make-title")?.focus();
   }
 </script>
 
