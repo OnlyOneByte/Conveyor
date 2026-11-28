@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const DOCKERFILES = [
@@ -7,10 +7,12 @@ export const DOCKERFILES = [
   "packages/worker/Dockerfile",
 ];
 
+export const WORKFLOWS = ".github/workflows";
+
 export const PINNED = {
-  ci: ".github/workflows/ci.yml",
-  workflows: [".github/workflows/make-perf.yml", ".github/workflows/visual.yml"],
+  ci: `${WORKFLOWS}/ci.yml`,
   mise: "mise.toml",
+  engines: "package.json",
   types: ["package.json", "tools/visual/package.json"],
 };
 
@@ -35,21 +37,40 @@ export function imagesIn(files: Files): Map<string, string[]> {
 
 type Pin = [where: string, found: string | undefined];
 
-function toolPins(files: Files): Pin[] {
-  const workflows = PINNED.workflows.flatMap((path) =>
-    [...(files[path] ?? "").matchAll(/bun-version:\s*"?([^"\s]+)"?/g)].map(
-      (m): Pin => [path, m[1]],
-    ),
+const ENV_PIN = /^\$\{\{\s*env\.BUN_VERSION\s*\}\}$/;
+
+export const isWorkflow = (path: string) =>
+  path.startsWith(`${WORKFLOWS}/`) && /\.ya?ml$/.test(path);
+
+function workflowPins(path: string, text: string): Pin[] {
+  const own = first(text, /^\s*BUN_VERSION:\s*"([^"]+)"/m);
+  const values = [...text.matchAll(/^\s*bun-version:\s*(.*?)\s*$/gm)].map((m) =>
+    (m[1] ?? "").replace(/^"(.*)"$/, "$1"),
   );
+  const setups = text.match(/uses:\s*oven-sh\/setup-bun@/g)?.length ?? 0;
+  const unpinned = Array.from(
+    { length: Math.max(0, setups - values.length) },
+    (): Pin => [`${path} (a setup-bun step without bun-version)`, undefined],
+  );
+  return [...values.map((v): Pin => [path, ENV_PIN.test(v) ? own : v]), ...unpinned];
+}
+
+function toolPins(files: Files): Pin[] {
+  const workflows = Object.keys(files)
+    .filter(isWorkflow)
+    .sort()
+    .flatMap((path) => workflowPins(path, files[path] ?? ""));
   const types = PINNED.types.map(
     (path): Pin => [
       `${path} (@types/bun)`,
       first(files[path] ?? "", /"@types\/bun":\s*"~([^"]+)"/),
     ],
   );
+  const engines = first(files[PINNED.engines] ?? "", /"engines":\s*\{[^}]*"bun":\s*">=([^"]+)"/);
   return [
     ...workflows,
     [PINNED.mise, first(files[PINNED.mise] ?? "", /^bun\s*=\s*"([^"]+)"/m)],
+    [`${PINNED.engines} (engines.bun)`, engines],
     ...types,
   ];
 }
@@ -94,7 +115,8 @@ export const dockerBunVersion: ImageVersion = (image) => {
 
 if (import.meta.main) {
   const root = join(import.meta.dir, "..", "..");
-  const paths = [...DOCKERFILES, PINNED.ci, ...PINNED.workflows, PINNED.mise, ...PINNED.types];
+  const workflows = readdirSync(join(root, WORKFLOWS)).map((name) => `${WORKFLOWS}/${name}`);
+  const paths = [...DOCKERFILES, ...workflows.filter(isWorkflow), PINNED.mise, ...PINNED.types];
   const files = Object.fromEntries(paths.map((p) => [p, readFileSync(join(root, p), "utf8")]));
   const errors = bunVersionErrors(files, dockerBunVersion);
   for (const error of errors) console.error(error);

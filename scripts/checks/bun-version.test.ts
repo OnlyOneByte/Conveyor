@@ -1,16 +1,30 @@
 import { describe, expect, test } from "bun:test";
-import { bunVersionErrors, DOCKERFILES, type Files, imagesIn, PINNED } from "./bun-version.ts";
+import {
+  bunVersionErrors,
+  DOCKERFILES,
+  type Files,
+  imagesIn,
+  PINNED,
+  WORKFLOWS,
+} from "./bun-version.ts";
 
 const DIGEST = `oven/bun:debian@sha256:${"a".repeat(64)}`;
 const OTHER = `oven/bun:debian@sha256:${"b".repeat(64)}`;
+const ENV_REF = `\${{ env.BUN_VERSION }}`;
+const PERF = `${WORKFLOWS}/make-perf.yml`;
+const VISUAL = `${WORKFLOWS}/visual.yml`;
+const setup = (pin: string) =>
+  `      - uses: oven-sh/setup-bun@abc\n        with:\n          bun-version: ${pin}\n`;
 
 function repo(over: Files = {}, version = "1.4.5"): Files {
   return {
-    [PINNED.ci]: `env:\n  BUN_VERSION: "${version}"\njobs:\n  x:\n    steps:\n      - with:\n          bun-version: \${{ env.BUN_VERSION }}\n`,
-    [PINNED.workflows[0] ?? ""]: `      - with:\n          bun-version: "${version}"\n`,
-    [PINNED.workflows[1] ?? ""]: `      - with:\n          bun-version: "${version}"\n`,
+    [PINNED.ci]: `env:\n  BUN_VERSION: "${version}"\njobs:\n  x:\n    steps:\n${setup(ENV_REF)}`,
+    [PERF]: setup(`"${version}"`),
+    [VISUAL]: setup(`"${version}"`),
+    [`${WORKFLOWS}/pr-meta.yml`]: "jobs: {}\n",
     [PINNED.mise]: `[tools]\nbun = "${version}"\n`,
-    [PINNED.types[0] ?? ""]: `{ "devDependencies": { "@types/bun": "~${version}" } }`,
+    [PINNED.types[0] ?? ""]:
+      `{ "engines": { "bun": ">=${version}" }, "devDependencies": { "@types/bun": "~${version}" } }`,
     [PINNED.types[1] ?? ""]: `{ "devDependencies": { "@types/bun": "~${version}" } }`,
     [DOCKERFILES[0] ?? ""]: `FROM ${DIGEST} AS deps\nRUN x\nFROM ${DIGEST}\n`,
     [DOCKERFILES[1] ?? ""]: `FROM ${DIGEST} AS build\nFROM node:26\n`,
@@ -45,12 +59,12 @@ describe("bunVersionErrors", () => {
   test("names each pin that differs from CI", () => {
     const { imageVersion } = runs({ [DIGEST]: "1.4.5" });
     const files = repo({
-      [PINNED.workflows[1] ?? ""]: `          bun-version: "1.3.14"\n`,
+      [VISUAL]: setup(`"1.3.14"`),
       [PINNED.mise]: `bun = "1.4.4"\n`,
       [PINNED.types[1] ?? ""]: `{ "@types/bun": "~1.3.14" }`,
     });
     expect(bunVersionErrors(files, imageVersion)).toEqual([
-      `${PINNED.workflows[1]} has Bun 1.3.14, but CI runs 1.4.5`,
+      `${VISUAL} has Bun 1.3.14, but CI runs 1.4.5`,
       `${PINNED.mise} has Bun 1.4.4, but CI runs 1.4.5`,
       `${PINNED.types[1]} (@types/bun) has Bun 1.3.14, but CI runs 1.4.5`,
     ]);
@@ -83,6 +97,31 @@ describe("bunVersionErrors", () => {
     const none = Object.fromEntries(DOCKERFILES.map((path) => [path, "FROM node:26\n"]));
     expect(bunVersionErrors(repo(none), imageVersion)).toEqual([
       `no oven/bun image in ${DOCKERFILES.join(", ")}`,
+    ]);
+  });
+
+  test("scans every workflow file, and a setup-bun step must pin a version CI runs", () => {
+    const { imageVersion } = runs({ [DIGEST]: "1.4.5" });
+    const files = repo({
+      [`${WORKFLOWS}/release.yaml`]: setup("latest"),
+      [`${WORKFLOWS}/nightly.yml`]: `${setup('"1.4.5"')}      - uses: oven-sh/setup-bun@abc\n`,
+      [`${WORKFLOWS}/docs.yml`]: setup(ENV_REF),
+      [`${WORKFLOWS}/notes.md`]: setup("0.1.0"),
+    });
+    expect(bunVersionErrors(files, imageVersion)).toEqual([
+      `${WORKFLOWS}/docs.yml has Bun (none), but CI runs 1.4.5`,
+      `${WORKFLOWS}/nightly.yml (a setup-bun step without bun-version) has Bun (none), but CI runs 1.4.5`,
+      `${WORKFLOWS}/release.yaml has Bun latest, but CI runs 1.4.5`,
+    ]);
+  });
+
+  test("engines.bun must ask for the Bun CI runs", () => {
+    const { imageVersion } = runs({ [DIGEST]: "1.4.5" });
+    const files = repo({
+      [PINNED.engines]: `{ "engines": { "bun": ">=1.1" }, "@types/bun": "~1.4.5" }`,
+    });
+    expect(bunVersionErrors(files, imageVersion)).toEqual([
+      `${PINNED.engines} (engines.bun) has Bun 1.1, but CI runs 1.4.5`,
     ]);
   });
 

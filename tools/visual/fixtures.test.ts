@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { childPids, claimBrowser, closeOrKill, SECOND_BROWSER } from "./fixtures.ts";
+import { childPids, claimBrowser, closeOrKill, rejection, SECOND_BROWSER } from "./fixtures.ts";
 
 const hang = () => new Promise<void>(() => {});
 
@@ -58,3 +59,21 @@ test.skipIf(process.platform !== "linux")(
     }
   },
 );
+
+test("rejection gives a rejected call's whole message, and fails a call that resolves", async () => {
+  expect(await rejection(Promise.reject(new Error("first\nsecond")))).toBe("first\nsecond");
+  expect(await rejection(Promise.reject("plain"))).toBe("plain");
+  expect(await rejection(rejection(Promise.resolve(1)))).toBe(
+    "expected it to reject, but it resolved",
+  );
+});
+
+test("a browser test awaits rejection(), not expect().rejects, which Bun 1.4.5 stalls", () => {
+  const offenders = readdirSync(import.meta.dir)
+    .filter((name) => name.endsWith(".test.ts"))
+    .filter((name) => {
+      const text = readFileSync(join(import.meta.dir, name), "utf8");
+      return /=\s*browserPages\(\)/.test(text) && /\)\.rejects\./.test(text);
+    });
+  expect(offenders).toEqual([]);
+});

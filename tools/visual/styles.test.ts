@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Page } from "playwright";
-import { browserPages } from "./fixtures.ts";
+import { browserPages, rejection } from "./fixtures.ts";
 import { assertStyles, describeStyles, failureMessage, stylesProblem } from "./styles.ts";
 
 const withPage = browserPages();
@@ -82,7 +82,7 @@ test("served sheets pass; blocked, emptied and token-only sheets fail", async ()
   for (const [sheets, why] of cases) {
     await withPage(async (page) => {
       await serve(page, sheets);
-      await expect(assertStyles(page, 500)).rejects.toThrow(`styles not applied: ${why}`);
+      expect(await rejection(assertStyles(page, 500))).toContain(`styles not applied: ${why}`);
     });
   }
 }, 30000);
@@ -123,7 +123,7 @@ test("a forced failure carries the diagnostics, and a setContent rewrite is name
   await withPage(async (page) => {
     await serve(page, { "app.css": null, "make.css": MAKE });
     const failure = assertStyles(page, 200);
-    await expect(failure).rejects.toThrow(
+    expect(await rejection(failure)).toContain(
       "styles not applied: http://visual.test/app.css failed to load: its rules can't be read. " +
         "Stylesheets: http://visual.test/app.css (loaded, unreadable (SecurityError)); " +
         "http://visual.test/make.css (loaded, 1 rule). " +
@@ -134,7 +134,7 @@ test("a forced failure carries the diagnostics, and a setContent rewrite is name
     await serve(page, { "app.css": LAYOUT, "make.css": MAKE });
     await assertStyles(page, 200);
     await page.setContent('<html data-theme="dark"><a class="skip" href="#">Skip</a></html>');
-    await expect(assertStyles(page, 200)).rejects.toThrow(
+    expect(await rejection(assertStyles(page, 200))).toContain(
       "styles not applied: the page has no stylesheet. Stylesheets: none. " +
         "Root data-theme: dark. Root --bg: empty. URL: http://visual.test/. " +
         "The document was replaced in place after it was first checked",
@@ -142,7 +142,7 @@ test("a forced failure carries the diagnostics, and a setContent rewrite is name
   });
   await withPage(async (page) => {
     await page.setContent("<p>bare</p>");
-    await expect(assertStyles(page, 200)).rejects.toThrow(
+    expect(await rejection(assertStyles(page, 200))).toContain(
       "The page is about:blank, as page.setContent leaves a fresh page.",
     );
   });
