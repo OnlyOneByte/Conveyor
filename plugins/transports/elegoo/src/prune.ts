@@ -5,6 +5,10 @@ import { SDCP_CMD } from "./sdcp.js";
 import { sendCommand } from "./socket.js";
 
 const FOLDER = 0;
+const LOCAL = "/local/";
+
+const inLocal = (name: string) =>
+  name.startsWith(LOCAL) ? !name.slice(LOCAL.length).includes("/") : !name.includes("/");
 
 const FileListReply = z.object({
   FileList: z.array(z.object({ name: z.string(), type: z.number().optional() })),
@@ -45,7 +49,9 @@ export async function pruneLocalFiles(
       "transport",
       `elegoo file list: unexpected reply: ${listed.error.message}`,
     );
-  const files = listed.data.FileList.filter(({ type }) => type !== FOLDER).map(({ name }) => name);
+  const files = listed.data.FileList.filter(({ type }) => type !== FOLDER)
+    .map(({ name }) => name)
+    .filter(inLocal);
   const doomed = filesToPrune(files, keep, printing);
   if (doomed.length === 0) return [];
   const deleted = await sendCommand(
